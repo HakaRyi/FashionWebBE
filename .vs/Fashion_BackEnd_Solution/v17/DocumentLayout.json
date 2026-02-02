@@ -1,0 +1,85 @@
+{
+  "Version": 1,
+  "WorkspaceRootPath": "D:\\FPT_Environment\\Ky_09\\Do_An_Tot_Nghiep_PROJECT\\Fashion_BE\\Fashion_BackEnd_Solution\\",
+  "Documents": [
+    {
+      "AbsoluteMoniker": "D:0:0:{E7198160-A46B-4957-9FCF-31E96033B9B1}|WebAPIs\\WebAPIs.csproj|d:\\fpt_environment\\ky_09\\do_an_tot_nghiep_project\\fashion_be\\fashion_backend_solution\\webapis\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}",
+      "RelativeMoniker": "D:0:0:{E7198160-A46B-4957-9FCF-31E96033B9B1}|WebAPIs\\WebAPIs.csproj|solutionrelative:webapis\\appsettings.json||{90A6B3A7-C1A3-4009-A288-E2FF89E96FA0}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{2C1B7A78-3705-45DF-8C20-0AC3BA8CB24F}|Repositories\\Repositories.csproj|d:\\fpt_environment\\ky_09\\do_an_tot_nghiep_project\\fashion_be\\fashion_backend_solution\\repositories\\repos\\accountrepos\\accountrepository.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{2C1B7A78-3705-45DF-8C20-0AC3BA8CB24F}|Repositories\\Repositories.csproj|solutionrelative:repositories\\repos\\accountrepos\\accountrepository.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    },
+    {
+      "AbsoluteMoniker": "D:0:0:{2C1B7A78-3705-45DF-8C20-0AC3BA8CB24F}|Repositories\\Repositories.csproj|d:\\fpt_environment\\ky_09\\do_an_tot_nghiep_project\\fashion_be\\fashion_backend_solution\\repositories\\repos\\accountrepos\\iaccountrepository.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{2C1B7A78-3705-45DF-8C20-0AC3BA8CB24F}|Repositories\\Repositories.csproj|solutionrelative:repositories\\repos\\accountrepos\\iaccountrepository.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+    }
+  ],
+  "DocumentGroupContainers": [
+    {
+      "Orientation": 0,
+      "VerticalTabListWidth": 251,
+      "DocumentGroups": [
+        {
+          "DockedWidth": 200,
+          "SelectedChildIndex": 1,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{aa2115a1-9712-457b-9047-dbb71ca2cdd2}"
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 0,
+              "Title": "appsettings.json",
+              "DocumentMoniker": "D:\\FPT_Environment\\Ky_09\\Do_An_Tot_Nghiep_PROJECT\\Fashion_BE\\Fashion_BackEnd_Solution\\WebAPIs\\appsettings.json",
+              "RelativeDocumentMoniker": "WebAPIs\\appsettings.json",
+              "ToolTip": "D:\\FPT_Environment\\Ky_09\\Do_An_Tot_Nghiep_PROJECT\\Fashion_BE\\Fashion_BackEnd_Solution\\WebAPIs\\appsettings.json",
+              "RelativeToolTip": "WebAPIs\\appsettings.json",
+              "ViewState": "AgIAAAAAAAAAAAAAAAAAAAwAAAAAAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.001642|",
+              "WhenOpened": "2026-02-01T07:03:28.076Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 1,
+              "Title": "AccountRepository.cs",
+              "DocumentMoniker": "D:\\FPT_Environment\\Ky_09\\Do_An_Tot_Nghiep_PROJECT\\Fashion_BE\\Fashion_BackEnd_Solution\\Repositories\\Repos\\AccountRepos\\AccountRepository.cs",
+              "RelativeDocumentMoniker": "Repositories\\Repos\\AccountRepos\\AccountRepository.cs",
+              "ToolTip": "D:\\FPT_Environment\\Ky_09\\Do_An_Tot_Nghiep_PROJECT\\Fashion_BE\\Fashion_BackEnd_Solution\\Repositories\\Repos\\AccountRepos\\AccountRepository.cs",
+              "RelativeToolTip": "Repositories\\Repos\\AccountRepos\\AccountRepository.cs",
+              "ViewState": "AgIAAAYAAAAAAAAAAAAAAA0AAAAJAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-02-01T07:01:40.596Z",
+              "EditorCaption": ""
+            },
+            {
+              "$type": "Document",
+              "DocumentIndex": 2,
+              "Title": "IAccountRepository.cs",
+              "DocumentMoniker": "D:\\FPT_Environment\\Ky_09\\Do_An_Tot_Nghiep_PROJECT\\Fashion_BE\\Fashion_BackEnd_Solution\\Repositories\\Repos\\AccountRepos\\IAccountRepository.cs",
+              "RelativeDocumentMoniker": "Repositories\\Repos\\AccountRepos\\IAccountRepository.cs",
+              "ToolTip": "D:\\FPT_Environment\\Ky_09\\Do_An_Tot_Nghiep_PROJECT\\Fashion_BE\\Fashion_BackEnd_Solution\\Repositories\\Repos\\AccountRepos\\IAccountRepository.cs",
+              "RelativeToolTip": "Repositories\\Repos\\AccountRepos\\IAccountRepository.cs",
+              "ViewState": "AgIAAAYAAAAAAAAAAAAAABAAAAAyAAAAAAAAAA==",
+              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
+              "WhenOpened": "2026-02-01T06:57:40.679Z",
+              "EditorCaption": ""
+            }
+          ]
+        },
+        {
+          "DockedWidth": 202,
+          "SelectedChildIndex": -1,
+          "Children": [
+            {
+              "$type": "Bookmark",
+              "Name": "ST:0:0:{1c4feeaa-4718-4aa9-859d-94ce25d182ba}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

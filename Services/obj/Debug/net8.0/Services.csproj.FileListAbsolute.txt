@@ -1,0 +1,15 @@
+D:\FPT_Environment\Ky_09\Do_An_Tot_Nghiep_PROJECT\Fashion_BE\Fashion_BackEnd_Solution\Services\bin\Debug\net8.0\Services.deps.json
+D:\FPT_Environment\Ky_09\Do_An_Tot_Nghiep_PROJECT\Fashion_BE\Fashion_BackEnd_Solution\Services\bin\Debug\net8.0\Services.dll
+D:\FPT_Environment\Ky_09\Do_An_Tot_Nghiep_PROJECT\Fashion_BE\Fashion_BackEnd_Solution\Services\bin\Debug\net8.0\Services.pdb
+D:\FPT_Environment\Ky_09\Do_An_Tot_Nghiep_PROJECT\Fashion_BE\Fashion_BackEnd_Solution\Services\bin\Debug\net8.0\Repositories.dll
+D:\FPT_Environment\Ky_09\Do_An_Tot_Nghiep_PROJECT\Fashion_BE\Fashion_BackEnd_Solution\Services\bin\Debug\net8.0\Repositories.pdb
+D:\FPT_Environment\Ky_09\Do_An_Tot_Nghiep_PROJECT\Fashion_BE\Fashion_BackEnd_Solution\Services\obj\Debug\net8.0\Services.csproj.AssemblyReference.cache
+D:\FPT_Environment\Ky_09\Do_An_Tot_Nghiep_PROJECT\Fashion_BE\Fashion_BackEnd_Solution\Services\obj\Debug\net8.0\Services.GeneratedMSBuildEditorConfig.editorconfig
+D:\FPT_Environment\Ky_09\Do_An_Tot_Nghiep_PROJECT\Fashion_BE\Fashion_BackEnd_Solution\Services\obj\Debug\net8.0\Services.AssemblyInfoInputs.cache
+D:\FPT_Environment\Ky_09\Do_An_Tot_Nghiep_PROJECT\Fashion_BE\Fashion_BackEnd_Solution\Services\obj\Debug\net8.0\Services.AssemblyInfo.cs
+D:\FPT_Environment\Ky_09\Do_An_Tot_Nghiep_PROJECT\Fashion_BE\Fashion_BackEnd_Solution\Services\obj\Debug\net8.0\Services.csproj.CoreCompileInputs.cache
+D:\FPT_Environment\Ky_09\Do_An_Tot_Nghiep_PROJECT\Fashion_BE\Fashion_BackEnd_Solution\Services\obj\Debug\net8.0\Services.csproj.Up2Date
+D:\FPT_Environment\Ky_09\Do_An_Tot_Nghiep_PROJECT\Fashion_BE\Fashion_BackEnd_Solution\Services\obj\Debug\net8.0\Services.dll
+D:\FPT_Environment\Ky_09\Do_An_Tot_Nghiep_PROJECT\Fashion_BE\Fashion_BackEnd_Solution\Services\obj\Debug\net8.0\refint\Services.dll
+D:\FPT_Environment\Ky_09\Do_An_Tot_Nghiep_PROJECT\Fashion_BE\Fashion_BackEnd_Solution\Services\obj\Debug\net8.0\Services.pdb
+D:\FPT_Environment\Ky_09\Do_An_Tot_Nghiep_PROJECT\Fashion_BE\Fashion_BackEnd_Solution\Services\obj\Debug\net8.0\ref\Services.dll
