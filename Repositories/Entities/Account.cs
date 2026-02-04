@@ -56,4 +56,8 @@ public partial class Account
     public virtual ICollection<UserReport> UserReports { get; set; } = new List<UserReport>();
 
     public virtual Wardrobe? Wardrobe { get; set; }
+
+    public virtual ICollection<Follow> FollowUserNavigations { get; set; } = new List<Follow>();
+
+    public virtual ICollection<Follow> FollowFollowerNavigations { get; set; } = new List<Follow>();
 }

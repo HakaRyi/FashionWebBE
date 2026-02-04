@@ -2,6 +2,7 @@
 using Microsoft.IdentityModel.Tokens;
 using Repositories.Entities;
 using Repositories.Repos.AccountRepos;
+using Repositories.Repos.WardrobeRepos;
 using Services.Request.AccountReq;
 using Services.Response.AccountRep;
 using System;
@@ -18,11 +19,13 @@ namespace Services.Implements.Auth
     public class AuthService : IAuthService
     {
         private readonly IAccountRepository _accountRepository;
+        private readonly IWardrobeRepository wardrobeRepository;
         private readonly IConfiguration _configuration;
 
-        public AuthService(IAccountRepository accountRepository, IConfiguration configuration)
+        public AuthService(IAccountRepository accountRepository, IWardrobeRepository wardrobeRepository, IConfiguration configuration)
         {
             _accountRepository = accountRepository;
+            this.wardrobeRepository = wardrobeRepository;
             _configuration = configuration;
         }
         //-------------------------------------------------------------------------------------------------------------------------------//
@@ -46,7 +49,14 @@ namespace Services.Implements.Auth
                 Status = "Active"
             };
 
-            await _accountRepository.SignUp(newAccount);
+            var createdAccount = await _accountRepository.SignUp(newAccount);
+            var createWardrobe = new Repositories.Entities.Wardrobe
+            {
+                AccountId = createdAccount.AccountId,
+                Name = $"Tủ đồ của {createdAccount.Username}",
+                CreatedAt = DateTime.UtcNow
+            };
+            await wardrobeRepository.CreateWardrobe(createWardrobe);
 
             return new AuthResponse { Success = true, Message = "Đăng ký thành công." };
         }

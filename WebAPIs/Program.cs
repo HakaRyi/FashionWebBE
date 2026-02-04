@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Repositories.Data;
 using Repositories.Repos.AccountRepos;
+using Repositories.Repos.WardrobeRepos;
 using Services.Implements.Auth;
 using System.Text;
 
@@ -25,6 +26,7 @@ builder.Services.AddDbContext<FashionDbContext>(options =>
 
 // Repository Layer
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
+builder.Services.AddScoped<IWardrobeRepository, WardrobeRepository>();
 
 // Service Layer
 builder.Services.AddScoped<IAuthService, AuthService>();
