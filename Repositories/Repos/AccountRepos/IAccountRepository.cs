@@ -15,5 +15,7 @@ namespace Repositories.Repos.AccountRepos
         Task<Account?> GetAccountByEmail(string email);
         Task<List<Account>> GetAllAccounts();
         Task<bool> UpdateAccount(Account account);
+
+        Task AddRefreshTokenAsync(RefreshToken refreshToken);
     }
 }

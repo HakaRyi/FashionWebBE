@@ -1,0 +1,10 @@
+# Visual Studio & .NET trash
+.vs/
+bin/
+obj/
+.idea/
+*.user
+*.suo
+
+# Ignore file cấu hình môi trường Dev (Nơi chứa Secret Key thật)
+appsettings.Development.json

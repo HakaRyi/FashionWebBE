@@ -1,4 +1,6 @@
-﻿using Repositories.Entities;
+﻿using Microsoft.EntityFrameworkCore;
+using Repositories.Data;
+using Repositories.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,10 +11,17 @@ namespace Repositories.Repos.AccountRepos
 {
     public class AccountRepository : IAccountRepository
     {
+        private readonly FashionDbContext _db;
 
-        public Task<Account?> GetAccountByEmail(string email)
+        public AccountRepository(FashionDbContext db)
         {
-            throw new NotImplementedException();
+            _db = db;
+        }
+
+        public async Task<Account?> GetAccountByEmail(string email)
+        {
+            return await _db.Accounts.Include(x => x.Role)
+                                     .FirstOrDefaultAsync(x => x.Email == email);
         }
 
         public Task<Account?> GetAccountById(int accountId)
@@ -38,6 +47,12 @@ namespace Repositories.Repos.AccountRepos
         public Task<bool> UpdateAccount(Account account)
         {
             throw new NotImplementedException();
+        }
+
+        public async Task AddRefreshTokenAsync(RefreshToken refreshToken)
+        {
+            await _db.RefreshTokens.AddAsync(refreshToken);
+            await _db.SaveChangesAsync();
         }
     }
 }
