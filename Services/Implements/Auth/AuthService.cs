@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 
 namespace Services.Implements.Auth
 {
-    internal class AuthService : IAuthService
+    public class AuthService : IAuthService
     {
         private readonly IAccountRepository _accountRepository;
         private readonly IConfiguration _configuration;
@@ -38,6 +38,7 @@ namespace Services.Implements.Auth
 
             var newAccount = new Account
             {
+                Username = request.Username,
                 Email = request.Email,
                 PasswordHash = passwordHash,
                 RoleId = request.RoleId,

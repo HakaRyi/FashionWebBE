@@ -7,6 +7,8 @@ using Repositories.Repos.AccountRepos;
 using Services.Implements.Auth;
 using System.Text;
 
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -25,7 +27,7 @@ builder.Services.AddDbContext<FashionDbContext>(options =>
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 
 // Service Layer
-builder.Services.AddScoped<IAuthService, IAuthService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 
 //-------------------------------------------------------------------------------//
 var jwtSettings = builder.Configuration.GetSection("Jwt");
