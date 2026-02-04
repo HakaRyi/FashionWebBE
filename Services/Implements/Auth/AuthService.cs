@@ -66,15 +66,39 @@ namespace Services.Implements.Auth
                     return new AuthResponse { Success = false, Message = "Email hoặc Mật Khẩu không chính xác !" };
                 }
                 var accessToken = GenerateAccessToken(user);
-                var refreshTokenEntity = GenerateRefreshToken(user.AccountId);
+                var refreshTokenString = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
 
-                await _accountRepository.AddRefreshTokenAsync(refreshTokenEntity);
+                var existingToken = await _accountRepository.GetRefreshTokenByAccountIdAsync(user.AccountId);
+
+                if (existingToken != null)
+                {
+                    existingToken.Token = refreshTokenString;
+                    existingToken.ExpiryDate = DateTime.UtcNow.AddDays(7);
+                    existingToken.CreatedAt = DateTime.UtcNow;
+
+                    await _accountRepository.UpdateRefreshTokenAsync(existingToken);
+                }
+                else
+                {
+                    var newToken = new RefreshToken
+                    {
+                        Token = refreshTokenString,
+                        AccountId = user.AccountId,
+                        ExpiryDate = DateTime.UtcNow.AddDays(7),
+                        CreatedAt = DateTime.UtcNow,
+                        DeviceInfo = "Unknown",
+                        IpAddress = "Unknown",
+                        IsAvailable = true
+                    };
+
+                    await _accountRepository.AddRefreshTokenAsync(newToken);
+                }
 
                 return new AuthResponse
                 {
                     Success = true,
                     AccessToken = accessToken,
-                    RefreshToken = refreshTokenEntity.Token
+                    RefreshToken = refreshTokenString
                 };
             }
             catch (Exception ex)

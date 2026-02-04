@@ -82,7 +82,7 @@ namespace WebAPIs.Controllers
 
                 // Bắt buộc dùng HTTPS (Nếu chạy localhost không có https thì set false tạm)
                 Secure = false,
-                SameSite = SameSiteMode.None
+                SameSite = SameSiteMode.Lax
             };
 
             Response.Cookies.Append(key, value, cookieOptions);

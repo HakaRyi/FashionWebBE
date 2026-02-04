@@ -50,9 +50,21 @@ namespace Repositories.Repos.AccountRepos
             throw new NotImplementedException();
         }
 
+        // ====================================Refresh Token methods===================================
         public async Task AddRefreshTokenAsync(RefreshToken refreshToken)
         {
             await _db.RefreshTokens.AddAsync(refreshToken);
+            await _db.SaveChangesAsync();
+        }
+
+        public async Task<RefreshToken?> GetRefreshTokenByAccountIdAsync(int accountId)
+        {
+            return await _db.RefreshTokens.FirstOrDefaultAsync(x => x.AccountId == accountId);
+        }
+
+        public async Task UpdateRefreshTokenAsync(RefreshToken token)
+        {
+            _db.RefreshTokens.Update(token);
             await _db.SaveChangesAsync();
         }
     }
