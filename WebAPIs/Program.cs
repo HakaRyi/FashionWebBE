@@ -4,6 +4,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Repositories.Data;
 using Repositories.Repos.AccountRepos;
+using Services.Helpers;
 using Services.Implements.Auth;
 using System.Text;
 
@@ -28,6 +29,7 @@ builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 
 // Service Layer
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<EmailService>();
 
 //-------------------------------------------------------------------------------//
 var jwtSettings = builder.Configuration.GetSection("Jwt");

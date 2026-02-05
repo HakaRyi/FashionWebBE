@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Repositories.Entities;
 
@@ -18,6 +19,12 @@ public partial class Account
     public DateTime? CreatedAt { get; set; }
 
     public string? Status { get; set; }
+
+    [Column("verification_code")]
+    public string? VerificationCode { get; set; }
+
+    [Column("code_expires_at")]
+    public DateTime? CodeExpiredAt { get; set; }
 
     public virtual ICollection<Comment> Comments { get; set; } = new List<Comment>();
 

@@ -2,6 +2,7 @@
 using Microsoft.IdentityModel.Tokens;
 using Repositories.Entities;
 using Repositories.Repos.AccountRepos;
+using Services.Helpers;
 using Services.Request.AccountReq;
 using Services.Response.AccountRep;
 using System;
@@ -19,11 +20,13 @@ namespace Services.Implements.Auth
     {
         private readonly IAccountRepository _accountRepository;
         private readonly IConfiguration _configuration;
+        private readonly EmailService _emailService;
 
-        public AuthService(IAccountRepository accountRepository, IConfiguration configuration)
+        public AuthService(IAccountRepository accountRepository, IConfiguration configuration, EmailService emailService)
         {
             _accountRepository = accountRepository;
             _configuration = configuration;
+            _emailService = emailService;
         }
         //-------------------------------------------------------------------------------------------------------------------------------//
         public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
@@ -36,6 +39,8 @@ namespace Services.Implements.Auth
 
             string passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
+            String verificationCode = new Random().Next(1000, 9999).ToString();
+
             var newAccount = new Account
             {
                 Username = request.Username,
@@ -43,12 +48,41 @@ namespace Services.Implements.Auth
                 PasswordHash = passwordHash,
                 RoleId = request.RoleId,
                 CreatedAt = DateTime.UtcNow,
-                Status = "Active"
+                Status = "Unverified",
+
+                VerificationCode = verificationCode,
+                CodeExpiredAt = DateTime.UtcNow.AddMinutes(5)
             };
 
             await _accountRepository.SignUp(newAccount);
+            _ = _emailService.SendVerificationEmail(request.Email, verificationCode);
 
-            return new AuthResponse { Success = true, Message = "Đăng ký thành công." };
+            return new AuthResponse { Success = true, Message = "Đăng ký thành công. Vui lòng kiểm tra Email để lấy mã xác thực." };
+        }
+
+        public async Task<AuthResponse> VerifyAccountAsync(string email, string code)
+        {
+            var user = await _accountRepository.GetAccountByEmail(email);
+
+            if (user == null)
+                return new AuthResponse { Success = false, Message = "Email không tồn tại." };
+
+            if (user.Status == "Active")
+                return new AuthResponse { Success = false, Message = "Tài khoản này đã được kích hoạt trước đó." };
+
+            if (user.VerificationCode != code)
+                return new AuthResponse { Success = false, Message = "Mã xác thực không đúng." };
+
+            if (user.CodeExpiredAt < DateTime.UtcNow)
+                return new AuthResponse { Success = false, Message = "Mã xác thực đã hết hạn. Vui lòng đăng ký lại." };
+
+            user.Status = "Active";
+            user.VerificationCode = null;
+            user.CodeExpiredAt = null;
+
+            await _accountRepository.UpdateAccount(user);
+
+            return new AuthResponse { Success = true, Message = "Xác thực thành công. Bạn có thể đăng nhập ngay bây giờ." };
         }
 
         public async Task<AuthResponse> LoginAsync(LoginRequest request)
@@ -65,6 +99,11 @@ namespace Services.Implements.Auth
                 {
                     return new AuthResponse { Success = false, Message = "Email hoặc Mật Khẩu không chính xác !" };
                 }
+                if (user.Status != "Active")
+                {
+                    return new AuthResponse { Success = false, Message = "Tài khoản chưa được xác thực. Vui lòng kiểm tra email." };
+                }
+
                 var accessToken = GenerateAccessToken(user);
                 var refreshTokenString = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
 

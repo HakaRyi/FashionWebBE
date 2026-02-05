@@ -87,5 +87,15 @@ namespace WebAPIs.Controllers
 
             Response.Cookies.Append(key, value, cookieOptions);
         }
+
+        [HttpPost("verify")]
+        public async Task<IActionResult> VerifyAccount([FromBody] VerifyRequest request)
+        {
+            var result = await _authService.VerifyAccountAsync(request.Email, request.Code);
+
+            if (!result.Success) return BadRequest(new { message = result.Message });
+
+            return Ok(new { message = result.Message });
+        }
     }
 }

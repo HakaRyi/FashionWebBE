@@ -45,9 +45,10 @@ namespace Repositories.Repos.AccountRepos
             await _db.SaveChangesAsync();
         }
 
-        public Task<bool> UpdateAccount(Account account)
+        public async Task UpdateAccount(Account account)
         {
-            throw new NotImplementedException();
+            _db.Accounts.Update(account);
+            await _db.SaveChangesAsync();
         }
 
         // ====================================Refresh Token methods===================================
