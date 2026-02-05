@@ -39,10 +39,11 @@ namespace Repositories.Repos.AccountRepos
             throw new NotImplementedException();
         }
 
-        public async Task SignUp(Account account)
+        public async Task<Account> SignUp(Account account)
         {
             await _db.Accounts.AddAsync(account);
             await _db.SaveChangesAsync();
+            return account;
         }
 
         public async Task UpdateAccount(Account account)

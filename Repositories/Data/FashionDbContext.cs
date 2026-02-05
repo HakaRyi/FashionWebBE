@@ -73,6 +73,8 @@ public partial class FashionDbContext : DbContext
 
     public virtual DbSet<Wardrobe> Wardrobes { get; set; }
 
+    public virtual DbSet<Follow> Follows { get; set; }
+
     //    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     //#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
     //        => optionsBuilder.UseNpgsql("Host=localhost;Database=fashionDB;Username=postgres;Password=12345");
@@ -890,6 +892,30 @@ public partial class FashionDbContext : DbContext
                 .HasForeignKey<Wardrobe>(d => d.AccountId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("Wardrobe_account_id_fkey");
+        });
+        modelBuilder.Entity<Follow>(entity =>
+        {
+            entity.HasKey(e => new { e.UserId, e.FollowerId }).HasName("Follow_pkey");
+
+            entity.ToTable("Follow", "fashion_db");
+
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.FollowerId).HasColumnName("follower_id");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.User).WithMany(p => p.FollowUserNavigations)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("Follow_user_id_fkey");
+
+            // Thiết lập mối quan hệ với bảng Account (Người nhấn follow)
+            entity.HasOne(d => d.Follower).WithMany(p => p.FollowFollowerNavigations)
+                .HasForeignKey(d => d.FollowerId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("Follow_follower_id_fkey");
         });
 
         OnModelCreatingPartial(modelBuilder);

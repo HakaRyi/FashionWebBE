@@ -2,6 +2,7 @@
 using Microsoft.IdentityModel.Tokens;
 using Repositories.Entities;
 using Repositories.Repos.AccountRepos;
+using Repositories.Repos.WardrobeRepos;
 using Services.Helpers;
 using Services.Request.AccountReq;
 using Services.Response.AccountRep;
@@ -19,12 +20,14 @@ namespace Services.Implements.Auth
     public class AuthService : IAuthService
     {
         private readonly IAccountRepository _accountRepository;
+        private readonly IWardrobeRepository wardrobeRepository;
         private readonly IConfiguration _configuration;
         private readonly EmailService _emailService;
 
-        public AuthService(IAccountRepository accountRepository, IConfiguration configuration, EmailService emailService)
+        public AuthService(IAccountRepository accountRepository, IWardrobeRepository wardrobeRepository, IConfiguration configuration, EmailService emailService)
         {
             _accountRepository = accountRepository;
+            this.wardrobeRepository = wardrobeRepository;
             _configuration = configuration;
             _emailService = emailService;
         }
@@ -81,6 +84,13 @@ namespace Services.Implements.Auth
             user.CodeExpiredAt = null;
 
             await _accountRepository.UpdateAccount(user);
+            var createWardrobe = new Repositories.Entities.Wardrobe
+            {
+                AccountId = user.AccountId,
+                Name = $"Tủ đồ của {user.Username}",
+                CreatedAt = DateTime.UtcNow
+            };
+            await wardrobeRepository.CreateWardrobe(createWardrobe);
 
             return new AuthResponse { Success = true, Message = "Xác thực thành công. Bạn có thể đăng nhập ngay bây giờ." };
         }
