@@ -130,7 +130,15 @@ public partial class FashionDbContext : DbContext
             entity.Property(e => e.Username)
                 .HasMaxLength(100)
                 .HasColumnName("username");
-
+            entity.Property(e => e.Avatar)
+                .HasMaxLength(500)
+                .HasColumnName("avatar");
+            entity.Property(e => e.VerificationCode)
+                .HasMaxLength(100)
+                .HasColumnName("verification_code");
+            entity.Property(e => e.CodeExpiredAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("code_expires_at");
             entity.HasOne(d => d.Role).WithMany(p => p.Accounts)
                 .HasForeignKey(d => d.RoleId)
                 .OnDelete(DeleteBehavior.ClientSetNull)

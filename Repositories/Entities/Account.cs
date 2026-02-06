@@ -25,6 +25,8 @@ public partial class Account
 
     [Column("code_expires_at")]
     public DateTime? CodeExpiredAt { get; set; }
+    [Column("avatar")]
+    public string? Avatar { get; set; }
 
     public virtual ICollection<Comment> Comments { get; set; } = new List<Comment>();
 

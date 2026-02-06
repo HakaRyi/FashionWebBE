@@ -50,6 +50,7 @@ namespace Services.Implements.Auth
                 Email = request.Email,
                 PasswordHash = passwordHash,
                 RoleId = request.RoleId,
+                Avatar = "https://media.istockphoto.com/id/1337144146/vector/default-avatar-profile-icon-vector.jpg?s=612x612&w=0&k=20&c=BIbFwuv7FxTWvh5S3vB6bkT0Qv8Vn8N5Ffseq84ClGI=",
                 CreatedAt = DateTime.UtcNow,
                 Status = "Unverified",
 
@@ -124,6 +125,7 @@ namespace Services.Implements.Auth
                     existingToken.Token = refreshTokenString;
                     existingToken.ExpiryDate = DateTime.UtcNow.AddDays(7);
                     existingToken.CreatedAt = DateTime.UtcNow;
+                    existingToken.IsAvailable = true;
 
                     await _accountRepository.UpdateRefreshTokenAsync(existingToken);
                 }
@@ -135,8 +137,8 @@ namespace Services.Implements.Auth
                         AccountId = user.AccountId,
                         ExpiryDate = DateTime.UtcNow.AddDays(7),
                         CreatedAt = DateTime.UtcNow,
-                        DeviceInfo = "Unknown",
-                        IpAddress = "Unknown",
+                        DeviceInfo = $"Unknown-{Guid.NewGuid()}",
+                        IpAddress = $"Unknown-{Guid.NewGuid()}",
                         IsAvailable = true
                     };
 
@@ -161,6 +163,7 @@ namespace Services.Implements.Auth
             var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, user.AccountId.ToString()),
+            new Claim("AccountID", user.AccountId.ToString()),
             new Claim(ClaimTypes.Email, user.Email),
             new Claim(ClaimTypes.Role, user.Role?.RoleName ?? "User")
         };

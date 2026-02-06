@@ -8,7 +8,10 @@ using Services.Helpers;
 using Repositories.Repos.WardrobeRepos;
 using Services.Implements.Auth;
 using System.Text;
-
+using Repositories.Repos.FollowRepos;
+using Services.Implements.Follow;
+using Services.Implements.Wardrobe;
+System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,9 +31,12 @@ builder.Services.AddDbContext<FashionDbContext>(options =>
 // Repository Layer
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IWardrobeRepository, WardrobeRepository>();
+builder.Services.AddScoped<IFollowRepository,FollowRepository>();
 
 // Service Layer
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IFollowService, FollowService>();
+builder.Services.AddScoped<IWardrobeService, WardrobeService>();
 builder.Services.AddScoped<EmailService>();
 
 //-------------------------------------------------------------------------------//
@@ -44,6 +50,7 @@ builder.Services.AddAuthentication(options =>
 })
 .AddJwtBearer(options =>
 {
+    options.MapInboundClaims = false;
     options.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuer = true,
