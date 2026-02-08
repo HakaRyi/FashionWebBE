@@ -4,13 +4,18 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Repositories.Data;
 using Repositories.Repos.AccountRepos;
-using Services.Helpers;
-using Repositories.Repos.WardrobeRepos;
-using Services.Implements.Auth;
-using System.Text;
 using Repositories.Repos.FollowRepos;
+using Repositories.Repos.PostRepos;
+using Repositories.Repos.WardrobeRepos;
+using Services.Helpers;
+using Services.Implements.Auth;
 using Services.Implements.Follow;
+using Services.Implements.PostImp;
 using Services.Implements.Wardrobe;
+using Services.Utils;
+using Services.Utils.AIDectection;
+using Services.Utils.CloundStorage;
+using System.Text;
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
@@ -24,14 +29,27 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 //-------------------------------------------------------------------------------//
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var schemaName = builder.Configuration["DatabaseSettings:SchemaName"] ?? "fashion_db";
 builder.Services.AddDbContext<FashionDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"),
-        o => o.UseVector()));
+{
+    options.UseNpgsql(connectionString, npgsqlOptions =>
+    {
+        npgsqlOptions.UseVector();
+        npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", schemaName);
+    });
+
+    options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
+});
 
 // Repository Layer
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IWardrobeRepository, WardrobeRepository>();
 builder.Services.AddScoped<IFollowRepository,FollowRepository>();
+builder.Services.AddScoped<IPostRepository, PostRepository>();
+builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddScoped<ICloudStorageService, CloundStorageService>();
+builder.Services.AddScoped<IAIDetectionService, AIDetectionService>();
 
 // Service Layer
 builder.Services.AddScoped<IAuthService, AuthService>();
