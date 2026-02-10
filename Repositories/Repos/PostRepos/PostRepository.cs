@@ -28,6 +28,8 @@ namespace Repositories.Repos.PostRepos
 
         public async Task UpdatePostAsync(Post post)
         {
+            post.UpdatedAt = DateTime.UtcNow;
+
             _context.Posts.Update(post);
             await _context.SaveChangesAsync();
         }

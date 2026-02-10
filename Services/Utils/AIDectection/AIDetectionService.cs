@@ -1,8 +1,11 @@
 ﻿using Microsoft.Extensions.Configuration;
+using Repositories.Repos.AI;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Json;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -12,48 +15,38 @@ namespace Services.Utils.AIDectection
     {
         private readonly string _pythonPath;
         private readonly string _scriptPath;
+        private readonly string _apiUrl;
+        private readonly HttpClient _httpClient;
 
-        public AIDetectionService(IConfiguration config)
+        public AIDetectionService(HttpClient httpClient, IConfiguration config)
         {
-            _pythonPath = config["AISettings:PythonPath"]!;
-            _scriptPath = config["AISettings:ScriptPath"]!;
+            _httpClient = httpClient;
+            _apiUrl = config["AISettings:ApiUrl"]!;
         }
 
         public async Task<bool> DetectFashionItemsAsync(string imageUrl)
         {
-            // Cấu hình tiến trình chạy Python
-            var start = new ProcessStartInfo
+            try
             {
-                FileName = _pythonPath,
-                // Truyền đường dẫn script và URL ảnh làm tham số
-                Arguments = $"\"{_scriptPath}\" \"{imageUrl}\"",
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                CreateNoWindow = true
-            };
+                var payload = new { image_url = imageUrl };
 
-            return await Task.Run(() =>
-            {
-                using var process = Process.Start(start);
-                if (process == null) return false;
+                var response = await _httpClient.PostAsJsonAsync(_apiUrl, payload);
 
-                // Đọc kết quả từ lệnh print("True") hoặc print("False") trong Python
-                using var reader = process.StandardOutput;
-                string result = reader.ReadToEnd().Trim(); // Xóa khoảng trắng/xuống dòng thừa
-
-                // Đọc lỗi nếu có (để debug)
-                string error = process.StandardError.ReadToEnd();
-                if (!string.IsNullOrEmpty(error))
+                if (!response.IsSuccessStatusCode)
                 {
-                    Console.WriteLine("Python Error: " + error);
+                    Console.WriteLine($"AI API Error: {response.StatusCode}");
+                    return false;
                 }
 
-                process.WaitForExit();
+                var result = await response.Content.ReadFromJsonAsync<AIFashionDetectReponse>();
 
-                // So sánh chuỗi kết quả
-                return result.Equals("True", StringComparison.OrdinalIgnoreCase);
-            });
+                return result?.IsFashion ?? false;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Exception calling AI: {ex.Message}");
+                return false;
+            }
         }
     }
 }

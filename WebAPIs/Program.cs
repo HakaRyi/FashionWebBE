@@ -9,9 +9,11 @@ using Repositories.Repos.PostRepos;
 using Repositories.Repos.WardrobeRepos;
 using Services.Helpers;
 using Services.Implements.Auth;
+using Services.Implements.BackgroundServices;
 using Services.Implements.Follow;
 using Services.Implements.PostImp;
 using Services.Implements.Wardrobe;
+using Services.RabbitMQ;
 using Services.Utils;
 using Services.Utils.AIDectection;
 using Services.Utils.CloundStorage;
@@ -57,6 +59,13 @@ builder.Services.AddScoped<IFollowService, FollowService>();
 builder.Services.AddScoped<IWardrobeService, WardrobeService>();
 builder.Services.AddScoped<EmailService>();
 
+builder.Services.AddHttpClient<IAIDetectionService, AIDetectionService>(client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+builder.Services.AddScoped<IRabbitMQProducer, RabbitMQProducer>();
+builder.Services.AddHostedService<PostProcessingWorker>();
+
 //-------------------------------------------------------------------------------//
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var secretKey = Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!);
@@ -89,10 +98,11 @@ builder.Services.AddSwaggerGen(c =>
 
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "Enter Token: Bearer {token}",
-        Name = "Authorization",
         In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
+        Description = "Please enter a valid token",
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        BearerFormat = "JWT",
         Scheme = "Bearer"
     });
 

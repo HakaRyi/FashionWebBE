@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Repositories.Entities;
 using Repositories.Repos.PostRepos;
+using Services.RabbitMQ;
 using Services.Request.PostReq;
 using Services.Utils;
 using System;
@@ -16,18 +17,18 @@ namespace Services.Implements.PostImp
         private readonly IPostRepository _postRepo;
         private readonly ICloudStorageService _storageService;
         private readonly IAIDetectionService _aiService;
-        private readonly IServiceScopeFactory _scopeFactory;
+        private readonly IRabbitMQProducer _producer;
 
         public PostService(
             IPostRepository postRepo,
             ICloudStorageService storageService,
             IAIDetectionService aiService,
-            IServiceScopeFactory scopeFactory)
+            IRabbitMQProducer producer)
         {
             _postRepo = postRepo;
             _storageService = storageService;
             _aiService = aiService;
-            _scopeFactory = scopeFactory;
+            _producer = producer;
         }
 
         public async Task<Post> CreatePostAsync(CreatePostRequest request)
@@ -48,7 +49,7 @@ namespace Services.Implements.PostImp
             };
             await _postRepo.AddPostAsync(newPost);
 
-            if (request.Images != null && request.Images.Count > 0)
+            if (request.Images != null && request.Images.Any())
             {
                 var imageUrls = new List<string>();
                 foreach (var file in request.Images)
@@ -56,42 +57,49 @@ namespace Services.Implements.PostImp
                     var url = await _storageService.UploadImageAsync(file);
                     imageUrls.Add(url);
                 }
-                _ = Task.Run(() => ProcessPostAIInBackground(newPost.PostId, imageUrls));
+
+                var message = new PostImageMessage
+                {
+                    PostId = newPost.PostId,
+                    ImageUrls = imageUrls
+                };
+
+                _producer.SendMessage(message);
             }
 
             return newPost;
         }
-        private async Task ProcessPostAIInBackground(int postId, List<string> imageUrls)
-        {
-            using (var scope = _scopeFactory.CreateScope())
-            {
-                var scopedRepo = scope.ServiceProvider.GetRequiredService<IPostRepository>();
-                var aiService = scope.ServiceProvider.GetRequiredService<IAIDetectionService>();
+        //private async Task ProcessPostAIInBackground(int postId, List<string> imageUrls)
+        //{
+        //    using (var scope = _scopeFactory.CreateScope())
+        //    {
+        //        var scopedRepo = scope.ServiceProvider.GetRequiredService<IPostRepository>();
+        //        var aiService = scope.ServiceProvider.GetRequiredService<IAIDetectionService>();
 
-                var post = await scopedRepo.GetPostByIdAsync(postId);
-                if (post == null) return;
+        //        var post = await scopedRepo.GetPostByIdAsync(postId);
+        //        if (post == null) return;
 
-                bool hasFashionItem = false;
+        //        bool hasFashionItem = false;
 
-                foreach (var url in imageUrls)
-                {
-                    if (!hasFashionItem)
-                    {
-                        bool isFashion = await aiService.DetectFashionItemsAsync(url);
-                        if (isFashion) hasFashionItem = true;
-                    }
-                }
+        //        foreach (var url in imageUrls)
+        //        {
+        //            if (!hasFashionItem)
+        //            {
+        //                bool isFashion = await aiService.DetectFashionItemsAsync(url);
+        //                if (isFashion) hasFashionItem = true;
+        //            }
+        //        }
 
-                if (hasFashionItem)
-                {
-                    post.Status = "Active";
-                }
-                else
-                {
-                    post.Status = "PendingAdmin";
-                }
-                await scopedRepo.UpdatePostAsync(post);
-            }
-        }
+        //        if (hasFashionItem)
+        //        {
+        //            post.Status = "Active";
+        //        }
+        //        else
+        //        {
+        //            post.Status = "PendingAdmin";
+        //        }
+        //        await scopedRepo.UpdatePostAsync(post);
+        //    }
+        //}
     }
 }
