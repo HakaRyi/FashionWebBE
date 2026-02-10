@@ -4,12 +4,16 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Repositories.Data;
 using Repositories.Repos.AccountRepos;
+using Repositories.Repos.ExpertFileRepos;
+using Repositories.Repos.ExpertProfileRepos;
 using Repositories.Repos.FollowRepos;
 using Repositories.Repos.PostRepos;
 using Repositories.Repos.WardrobeRepos;
 using Services.Helpers;
+using Services.Implements.AccountService;
 using Services.Implements.Auth;
 using Services.Implements.BackgroundServices;
+using Services.Implements.ExpertFileImp;
 using Services.Implements.Follow;
 using Services.Implements.PostImp;
 using Services.Implements.Wardrobe;
@@ -45,6 +49,8 @@ builder.Services.AddDbContext<FashionDbContext>(options =>
 });
 
 // Repository Layer
+builder.Services.AddScoped<IExpertFileRepository, ExpertFileRepository>();
+builder.Services.AddScoped<IExpertProfileRepository, ExpertProfileRepository>();
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IWardrobeRepository, WardrobeRepository>();
 builder.Services.AddScoped<IFollowRepository,FollowRepository>();
@@ -52,6 +58,8 @@ builder.Services.AddScoped<IPostRepository, PostRepository>();
 builder.Services.AddScoped<IPostService, PostService>();
 builder.Services.AddScoped<ICloudStorageService, CloundStorageService>();
 builder.Services.AddScoped<IAIDetectionService, AIDetectionService>();
+builder.Services.AddScoped<IAccountService,AccountService>();
+builder.Services.AddScoped<IExpertFileService, ExpertFileService>();
 
 // Service Layer
 builder.Services.AddScoped<IAuthService, AuthService>();

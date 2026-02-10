@@ -24,14 +24,20 @@ namespace Repositories.Repos.AccountRepos
                                      .FirstOrDefaultAsync(x => x.Email == email);
         }
 
-        public Task<Account?> GetAccountById(int accountId)
+        public async Task<Account?> GetAccountById(int accountId)
         {
-            throw new NotImplementedException();
+            return await _db.Accounts.Include(x => x.Role)
+                                     .FirstOrDefaultAsync(x => x.AccountId == accountId);
+
         }
 
-        public Task<List<Account>> GetAllAccounts()
+        public async Task<List<Account>> GetAllAccounts()
         {
-            throw new NotImplementedException();
+            return await _db.Accounts
+                .Where(a => a.RoleId != 1)
+                .Include(a => a.Role)
+                .OrderByDescending(a => a.CreatedAt)
+                .ToListAsync();
         }
 
         public Task<Account?> SignIn(string email, string password)
@@ -68,6 +74,15 @@ namespace Repositories.Repos.AccountRepos
         {
             _db.RefreshTokens.Update(token);
             await _db.SaveChangesAsync();
+        }
+
+
+        public async Task<List<Account>> GetFashionExperts()
+        {
+            return await _db.Accounts
+                .Where(a => a.RoleId == 3)
+                .Include(a => a.ExpertProfile).ThenInclude(ep => ep.ExpertFile)
+                .ToListAsync();
         }
     }
 }
