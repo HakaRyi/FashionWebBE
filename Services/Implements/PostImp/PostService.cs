@@ -3,6 +3,7 @@ using Repositories.Entities;
 using Repositories.Repos.PostRepos;
 using Services.RabbitMQ;
 using Services.Request.PostReq;
+using Services.Response.PostResp;
 using Services.Utils;
 using System;
 using System.Collections.Generic;
@@ -29,6 +30,19 @@ namespace Services.Implements.PostImp
             _storageService = storageService;
             _aiService = aiService;
             _producer = producer;
+        }
+
+        public async Task<string> AdminCheckTheStatusPost(CheckPostRequest request, int id)
+        {
+            var post = await _postRepo.GetPostByIdAsync(id);
+            if (post == null)
+            {
+                return "Post not found.";
+            }
+            post.Status = request.Status;
+            await _postRepo.UpdatePostAsync(post);
+            return "successfully";
+
         }
 
         public async Task<Post> CreatePostAsync(CreatePostRequest request)
@@ -68,6 +82,57 @@ namespace Services.Implements.PostImp
             }
 
             return newPost;
+        }
+
+        public async Task<List<PostResponse>> GetAllPostAsync()
+        {
+            var posts = await _postRepo.GetAllPostAsync();
+            var postResponses = posts.Select(post => new PostResponse
+            {
+                PostId = post.PostId,
+                UserName = post.Account.Username,
+                AvatarUrl = post.Account.Avatar,
+                EventId = post.EventId,
+                EventName = post.Event != null ? post.Event.Title : null,
+                Title = post.Tittle,
+                Content = post.Content,
+                ImageUrls = post.Images?.Select(img => img.ImageUrl).ToList(),
+                IsExpertPost = post.IsExpertPost,
+                Status = post.Status,
+                Score = post.Score,
+                LikeCount = post.LikeCount,
+                ShareCount = post.ShareCount,
+                CreatedAt = post.CreatedAt,
+                UpdatedAt = post.UpdatedAt
+            }).ToList();
+            return postResponses;
+        }
+
+        public async Task<PostResponse> GetPostByIdAsync(int postId)
+        {
+            var post = await _postRepo.GetPostByIdAsync(postId);
+            if (post == null) return null;
+            var postResponse = new PostResponse
+            {
+                PostId = post.PostId,
+                UserName = post.Account.Username,
+                AvatarUrl = post.Account.Avatar,
+                EventId = post.EventId,
+                EventName = post.Event != null ? post.Event.Title : null,
+                Title = post.Tittle,
+                Content = post.Content,
+                ImageUrls = post.Images?.Select(img => img.ImageUrl).ToList(),
+                IsExpertPost = post.IsExpertPost,
+                Status = post.Status,
+                Score = post.Score,
+                LikeCount = post.LikeCount,
+                ShareCount = post.ShareCount,
+                CreatedAt = post.CreatedAt,
+                UpdatedAt = post.UpdatedAt
+            };
+            return postResponse;
+
+
         }
         //private async Task ProcessPostAIInBackground(int postId, List<string> imageUrls)
         //{

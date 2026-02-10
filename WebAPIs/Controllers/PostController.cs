@@ -36,5 +36,63 @@ namespace WebAPIs.Controllers
                 return StatusCode(500, ex.Message);
             }
         }
+        [HttpGet] //cho admin
+        public async Task<IActionResult> GetAllPosts()
+        {
+            try
+            {
+                var result = await _postService.GetAllPostAsync();
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new { message = "Không có bài viết nào." });
+                }
+                else
+                {
+                    return Ok(result);
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+        [HttpGet("detail/{id}")] //cho admin
+        public async Task<IActionResult> GetPostsById(int id)
+        {
+            try
+            {
+                var result = await _postService.GetPostByIdAsync(id);
+                if (result == null)
+                {
+                    return NotFound(new { message = "Không có bài viết nào cho tài khoản này." });
+                }
+                else
+                {
+                    return Ok(result);
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
+        [HttpPut("adminCheck/{id}")] //cho admin
+        public async Task<IActionResult> AdminCheckTheStatusPost([FromBody] CheckPostRequest request, int id)
+        {
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+            try
+            {
+                var result = await _postService.AdminCheckTheStatusPost(request, id);
+                if (result == "Post not found.")
+                {
+                    return NotFound(new { message = result });
+                }
+                return Ok(new { message = result });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
     }
 }

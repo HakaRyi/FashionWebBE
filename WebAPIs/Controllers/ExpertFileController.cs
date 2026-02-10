@@ -36,22 +36,22 @@ namespace WebAPIs.Controllers
             }
         }
 
-        // POST api/<ExpertFileController>
-        [HttpPost]
-        public void Post([FromBody] string value)
-        {
-        }
+        //    // POST api/<ExpertFileController>
+        //    [HttpPost]
+        //    public void Post([FromBody] string value)
+        //    {
+        //    }
 
-        // PUT api/<ExpertFileController>/5
-        [HttpPut("{id}")]
-        public void Put(int id, [FromBody] string value)
-        {
-        }
+        //    // PUT api/<ExpertFileController>/5
+        //    [HttpPut("{id}")]
+        //    public void Put(int id, [FromBody] string value)
+        //    {
+        //    }
 
-        // DELETE api/<ExpertFileController>/5
-        [HttpDelete("{id}")]
-        public void Delete(int id)
-        {
-        }
+        //    // DELETE api/<ExpertFileController>/5
+        //    [HttpDelete("{id}")]
+        //    public void Delete(int id)
+        //    {
+        //    }
     }
 }

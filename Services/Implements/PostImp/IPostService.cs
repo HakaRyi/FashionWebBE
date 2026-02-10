@@ -1,5 +1,6 @@
 ﻿using Repositories.Entities;
 using Services.Request.PostReq;
+using Services.Response.PostResp;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,5 +12,8 @@ namespace Services.Implements.PostImp
     public interface IPostService
     {
         public Task<Post> CreatePostAsync(CreatePostRequest request);
+        public Task<List<PostResponse>> GetAllPostAsync();
+        public Task<PostResponse> GetPostByIdAsync(int postId);
+        public Task<string> AdminCheckTheStatusPost(CheckPostRequest request, int id);
     }
 }

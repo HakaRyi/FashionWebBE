@@ -8,6 +8,7 @@ using Repositories.Repos.ExpertFileRepos;
 using Repositories.Repos.ExpertProfileRepos;
 using Repositories.Repos.FollowRepos;
 using Repositories.Repos.PostRepos;
+using Repositories.Repos.UserReportRepos;
 using Repositories.Repos.WardrobeRepos;
 using Services.Helpers;
 using Services.Implements.AccountService;
@@ -16,6 +17,7 @@ using Services.Implements.BackgroundServices;
 using Services.Implements.ExpertFileImp;
 using Services.Implements.Follow;
 using Services.Implements.PostImp;
+using Services.Implements.UserReportImp;
 using Services.Implements.Wardrobe;
 using Services.RabbitMQ;
 using Services.Utils;
@@ -49,6 +51,7 @@ builder.Services.AddDbContext<FashionDbContext>(options =>
 });
 
 // Repository Layer
+builder.Services.AddScoped<IUserReportRepository, UserReportRepository>();
 builder.Services.AddScoped<IExpertFileRepository, ExpertFileRepository>();
 builder.Services.AddScoped<IExpertProfileRepository, ExpertProfileRepository>();
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
@@ -60,6 +63,7 @@ builder.Services.AddScoped<ICloudStorageService, CloundStorageService>();
 builder.Services.AddScoped<IAIDetectionService, AIDetectionService>();
 builder.Services.AddScoped<IAccountService,AccountService>();
 builder.Services.AddScoped<IExpertFileService, ExpertFileService>();
+builder.Services.AddScoped<IUserReportService, UserReportService>();
 
 // Service Layer
 builder.Services.AddScoped<IAuthService, AuthService>();

@@ -1,4 +1,5 @@
-﻿using Repositories.Data;
+﻿using Microsoft.EntityFrameworkCore;
+using Repositories.Data;
 using Repositories.Entities;
 using System;
 using System.Collections.Generic;
@@ -14,6 +15,18 @@ namespace Repositories.Repos.PostRepos
         public PostRepository(FashionDbContext context)
         {
             _context = context;
+        }
+        public async Task<List<Post>> GetAllPostAsync(){
+            return await _context.Posts
+                .Include(p => p.Images)
+                .Include(p => p.Account)
+                .Include(p => p.Event)
+                .Include(p=>p.Images)
+                .OrderBy(p => p.Status == "Pending" ? 1 :
+                      p.Status == "Published" ? 2 :
+                      p.Status == "Draft" ? 3 : 4)
+                .ThenByDescending(p => p.CreatedAt)
+                .ToListAsync();
         }
         public async Task AddPostAsync(Post post)
         {
