@@ -7,7 +7,9 @@ using Repositories.Repos.AccountRepos;
 using Repositories.Repos.ExpertFileRepos;
 using Repositories.Repos.ExpertProfileRepos;
 using Repositories.Repos.FollowRepos;
+using Repositories.Repos.PackageCoinRepos;
 using Repositories.Repos.PostRepos;
+using Repositories.Repos.TransactionRepos;
 using Repositories.Repos.UserReportRepos;
 using Repositories.Repos.WardrobeRepos;
 using Services.Helpers;
@@ -16,7 +18,9 @@ using Services.Implements.Auth;
 using Services.Implements.BackgroundServices;
 using Services.Implements.ExpertFileImp;
 using Services.Implements.Follow;
+using Services.Implements.PackageCoinImp;
 using Services.Implements.PostImp;
+using Services.Implements.TransactionImp;
 using Services.Implements.UserReportImp;
 using Services.Implements.Wardrobe;
 using Services.RabbitMQ;
@@ -51,6 +55,8 @@ builder.Services.AddDbContext<FashionDbContext>(options =>
 });
 
 // Repository Layer
+builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
+builder.Services.AddScoped<IPackageCoinRepository, PackageCoinRepository>();
 builder.Services.AddScoped<IUserReportRepository, UserReportRepository>();
 builder.Services.AddScoped<IExpertFileRepository, ExpertFileRepository>();
 builder.Services.AddScoped<IExpertProfileRepository, ExpertProfileRepository>();
@@ -64,6 +70,9 @@ builder.Services.AddScoped<IAIDetectionService, AIDetectionService>();
 builder.Services.AddScoped<IAccountService,AccountService>();
 builder.Services.AddScoped<IExpertFileService, ExpertFileService>();
 builder.Services.AddScoped<IUserReportService, UserReportService>();
+builder.Services.AddScoped<IPackageCoinService, PackageCoinService>();
+builder.Services.AddScoped<ITransactionService, TransactionService>();
+
 
 // Service Layer
 builder.Services.AddScoped<IAuthService, AuthService>();
