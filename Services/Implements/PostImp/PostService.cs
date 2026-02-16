@@ -134,6 +134,43 @@ namespace Services.Implements.PostImp
 
 
         }
+
+        public async Task UpdatePostAsync(int postId, UpdatePostRequest request)
+        {
+            var post = await _postRepo.GetPostByIdAsync(postId);
+            if (post == null) return;
+            post.Tittle = request.Tittle ?? post.Tittle;
+            post.Content = request.Content ?? post.Content;
+            post.UpdatedAt = DateTime.UtcNow;
+            post.Status = (request.Images != null && request.Images.Any()) ? "Verifying" : post.Status;
+
+            await _postRepo.UpdatePostAsync(post);
+
+            if (request.Images != null && request.Images.Any())
+            {
+                var imageUrls = new List<string>();
+                foreach (var file in request.Images)
+                {
+                    var url = await _storageService.UploadImageAsync(file);
+                    imageUrls.Add(url);
+                }
+
+                var message = new PostImageMessage
+                {
+                    PostId = post.PostId,
+                    ImageUrls = imageUrls
+                };
+
+                _producer.SendMessage(message);
+            }
+        }
+
+        public async Task DeletePostAsync(int postId)
+        {
+            var post = await _postRepo.GetPostByIdAsync(postId);
+            if (post == null) return;
+            await _postRepo.DeletePostAsync(postId);
+        }
         //private async Task ProcessPostAIInBackground(int postId, List<string> imageUrls)
         //{
         //    using (var scope = _scopeFactory.CreateScope())

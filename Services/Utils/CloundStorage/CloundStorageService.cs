@@ -43,5 +43,21 @@ namespace Services.Utils.CloundStorage
 
             return uploadResult.SecureUrl.ToString();
         }
+
+        public async Task<string> UploadImageFromStreamAsync(Stream stream, string fileName)
+        {
+            var uploadParams = new ImageUploadParams
+            {
+                File = new FileDescription(fileName, stream),
+                Transformation = new Transformation().Quality("auto").FetchFormat("auto")
+            };
+
+            var uploadResult = await _cloudinary.UploadAsync(uploadParams);
+
+            if (uploadResult.Error != null)
+                throw new Exception(uploadResult.Error.Message);
+
+            return uploadResult.SecureUrl.ToString();
+        }
     }
 }

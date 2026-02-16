@@ -46,5 +46,15 @@ namespace Repositories.Repos.PostRepos
             _context.Posts.Update(post);
             await _context.SaveChangesAsync();
         }
+
+        public async Task DeletePostAsync(int postId)
+        {
+            var post = await _context.Posts.FindAsync(postId);
+            if (post != null)
+            {
+                _context.Posts.Remove(post);
+                await _context.SaveChangesAsync();
+            }
+        }
     }
 }

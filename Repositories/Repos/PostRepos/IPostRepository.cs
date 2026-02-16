@@ -13,5 +13,7 @@ namespace Repositories.Repos.PostRepos
         Task<Post?> GetPostByIdAsync(int postId);
         Task UpdatePostAsync(Post post);
         Task<List<Post>> GetAllPostAsync(); 
+
+        Task DeletePostAsync(int postId);
     }
 }

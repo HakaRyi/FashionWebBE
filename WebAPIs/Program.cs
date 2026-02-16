@@ -23,6 +23,7 @@ using Services.Implements.PackageCoinImp;
 using Services.Implements.PostImp;
 using Services.Implements.SocialImp;
 using Services.Implements.TransactionImp;
+using Services.Implements.TryOn;
 using Services.Implements.UserReportImp;
 using Services.Implements.Wardrobe;
 using Services.RabbitMQ;
@@ -83,6 +84,7 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IFollowService, FollowService>();
 builder.Services.AddScoped<IWardrobeService, WardrobeService>();
 builder.Services.AddScoped<EmailService>();
+builder.Services.AddHttpClient<ITryOnService, TryOnService>();
 
 builder.Services.AddHttpClient<IAIDetectionService, AIDetectionService>(client =>
 {

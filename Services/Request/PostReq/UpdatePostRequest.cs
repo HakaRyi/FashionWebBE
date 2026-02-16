@@ -7,12 +7,11 @@ using System.Threading.Tasks;
 
 namespace Services.Request.PostReq
 {
-    public class CreatePostRequest
+    public class UpdatePostRequest
     {
-        public int AccountId { get; set; }
-        public string? Title { get; set; }
-        public string? Content { get; set; }
-        public int? EventId { get; set; }
+        public string Tittle { get; set; }
+        public string Content { get; set; }
         public List<IFormFile>? Images { get; set; }
+        public bool IsExpertPost { get; set; }
     }
 }
