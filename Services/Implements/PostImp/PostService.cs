@@ -45,12 +45,11 @@ namespace Services.Implements.PostImp
 
         }
 
-        public async Task<Post> CreatePostAsync(CreatePostRequest request)
+        public async Task<Post> CreatePostAsync(int accountId, CreatePostRequest request)
         {
             var newPost = new Post
             {
-                AccountId = request.AccountId,
-                Tittle = request.Title,
+                AccountId = accountId,
                 Content = request.Content,
                 EventId = request.EventId,
                 CreatedAt = DateTime.UtcNow,
@@ -61,11 +60,13 @@ namespace Services.Implements.PostImp
                 IsExpertPost = false,
                 Status = (request.Images != null && request.Images.Any()) ? "Verifying" : "Active"
             };
+
             await _postRepo.AddPostAsync(newPost);
 
             if (request.Images != null && request.Images.Any())
             {
                 var imageUrls = new List<string>();
+
                 foreach (var file in request.Images)
                 {
                     var url = await _storageService.UploadImageAsync(file);

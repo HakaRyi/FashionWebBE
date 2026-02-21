@@ -1,7 +1,9 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Services.Implements.PostImp;
 using Services.Request.PostReq;
+using System.Security.Claims;
 
 namespace WebAPIs.Controllers
 {
@@ -16,15 +18,22 @@ namespace WebAPIs.Controllers
         }
 
         [HttpPost]
+        [Authorize]
         public async Task<IActionResult> CreatePost([FromForm] CreatePostRequest request)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
             try
             {
-                var result = await _postService.CreatePostAsync(request);
+                var accountIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
 
-                // Trả về 202 Accepted (Đã nhận yêu cầu, đang xử lý) hoặc 201 Created
+                if (accountIdClaim == null || !int.TryParse(accountIdClaim.Value, out int accountId))
+                {
+                    return Unauthorized();
+                }
+
+                var result = await _postService.CreatePostAsync(accountId, request);
+
                 return StatusCode(201, new
                 {
                     message = "Bài viết đang được xử lý.",

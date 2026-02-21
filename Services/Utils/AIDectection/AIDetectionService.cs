@@ -1,20 +1,14 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Repositories.Repos.AI;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Json;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace Services.Utils.AIDectection
 {
     public class AIDetectionService : IAIDetectionService
     {
-        private readonly string _pythonPath;
-        private readonly string _scriptPath;
         private readonly string _apiUrl;
         private readonly HttpClient _httpClient;
 
@@ -26,25 +20,32 @@ namespace Services.Utils.AIDectection
 
         public async Task<bool> DetectFashionItemsAsync(string imageUrl)
         {
+            Console.WriteLine($"[AIDetection] Sending URL: {imageUrl} to {_apiUrl}");
+
             try
             {
                 var payload = new { image_url = imageUrl };
 
                 var response = await _httpClient.PostAsJsonAsync(_apiUrl, payload);
 
+                Console.WriteLine($"[AIDetection] Response Status: {response.StatusCode}");
+
                 if (!response.IsSuccessStatusCode)
                 {
-                    Console.WriteLine($"AI API Error: {response.StatusCode}");
+                    var errorBody = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"[AIDetection] AI API Error Body: {errorBody}");
                     return false;
                 }
 
                 var result = await response.Content.ReadFromJsonAsync<AIFashionDetectReponse>();
 
+                Console.WriteLine($"[AIDetection] IsFashion: {result?.IsFashion}");
+
                 return result?.IsFashion ?? false;
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Exception calling AI: {ex.Message}");
+                Console.WriteLine($"[AIDetection] Exception calling AI: {ex.Message}");
                 return false;
             }
         }
