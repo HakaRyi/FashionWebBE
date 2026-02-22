@@ -65,6 +65,27 @@ namespace WebAPIs.Controllers
                 return StatusCode(500, ex.Message);
             }
         }
+        [HttpGet("getMyPost")] 
+        public async Task<IActionResult> GetAllMyPosts()
+        {
+            try
+            {
+                var userId = User.FindFirst("AccountID")?.Value;
+                var result = await _postService.GetAllMyPostAsync(int.Parse(userId));
+                if (result == null || !result.Any())
+                {
+                    return NotFound(new { message = "Không có bài viết nào." });
+                }
+                else
+                {
+                    return Ok(result);
+                }
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, ex.Message);
+            }
+        }
         [HttpGet("detail/{id}")] //cho admin
         public async Task<IActionResult> GetPostsById(int id)
         {

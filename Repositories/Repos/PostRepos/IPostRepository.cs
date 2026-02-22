@@ -12,8 +12,8 @@ namespace Repositories.Repos.PostRepos
         Task AddPostAsync(Post post);
         Task<Post?> GetPostByIdAsync(int postId);
         Task UpdatePostAsync(Post post);
-        Task<List<Post>> GetAllPostAsync(); 
-
+        Task<List<Post>> GetAllPostAsync();
+        Task<List<Post>> GetAllMyPostAsync(int userId);
         Task DeletePostAsync(int postId);
     }
 }

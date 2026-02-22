@@ -21,7 +21,6 @@ namespace Repositories.Repos.PostRepos
                 .Include(p => p.Images)
                 .Include(p => p.Account)
                 .Include(p => p.Event)
-                .Include(p=>p.Images)
                 .OrderBy(p => p.Status == "Pending" ? 1 :
                       p.Status == "Published" ? 2 :
                       p.Status == "Draft" ? 3 : 4)
@@ -55,6 +54,20 @@ namespace Repositories.Repos.PostRepos
                 _context.Posts.Remove(post);
                 await _context.SaveChangesAsync();
             }
+        }
+
+        public async Task<List<Post>> GetAllMyPostAsync(int userId)
+        {
+            return await _context.Posts
+                .Include(p => p.Images)
+                .Include(p => p.Account)
+                .Include(p => p.Event)
+                .Where(p=>p.AccountId == userId)
+                .OrderBy(p => p.Status == "Pending" ? 1 :
+                      p.Status == "Published" ? 2 :
+                      p.Status == "Draft" ? 3 : 4)
+                .ThenByDescending(p => p.CreatedAt)
+                .ToListAsync();
         }
     }
 }

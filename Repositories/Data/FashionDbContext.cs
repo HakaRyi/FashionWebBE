@@ -913,7 +913,7 @@ public partial class FashionDbContext : DbContext
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at");
-
+                    
             entity.HasOne(d => d.User).WithMany(p => p.FollowUserNavigations)
                 .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.ClientSetNull)

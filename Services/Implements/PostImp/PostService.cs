@@ -108,7 +108,29 @@ namespace Services.Implements.PostImp
             }).ToList();
             return postResponses;
         }
-
+        public async Task<List<PostResponse>> GetAllMyPostAsync(int userId)
+        {
+            var posts = await _postRepo.GetAllMyPostAsync(userId);
+            var postResponses = posts.Select(post => new PostResponse
+            {
+                PostId = post.PostId,
+                UserName = post.Account.Username,
+                AvatarUrl = post.Account.Avatar,
+                EventId = post.EventId,
+                EventName = post.Event != null ? post.Event.Title : null,
+                Title = post.Tittle,
+                Content = post.Content,
+                ImageUrls = post.Images?.Select(img => img.ImageUrl).ToList(),
+                IsExpertPost = post.IsExpertPost,
+                Status = post.Status,
+                Score = post.Score,
+                LikeCount = post.LikeCount,
+                ShareCount = post.ShareCount,
+                CreatedAt = post.CreatedAt,
+                UpdatedAt = post.UpdatedAt
+            }).ToList();
+            return postResponses;
+        }
         public async Task<PostResponse> GetPostByIdAsync(int postId)
         {
             var post = await _postRepo.GetPostByIdAsync(postId);

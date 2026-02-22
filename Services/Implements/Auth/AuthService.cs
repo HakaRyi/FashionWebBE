@@ -165,6 +165,8 @@ namespace Services.Implements.Auth
             new Claim(ClaimTypes.NameIdentifier, user.AccountId.ToString()),
             new Claim("AccountID", user.AccountId.ToString()),
             new Claim(ClaimTypes.Email, user.Email),
+            new Claim("Avatar",user.Avatar),
+            new Claim("Username",user.Username),
             new Claim(ClaimTypes.Role, user.Role?.RoleName ?? "User")
         };
 
