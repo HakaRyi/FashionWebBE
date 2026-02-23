@@ -84,67 +84,37 @@ namespace Services.Implements.PostImp
 
             return newPost;
         }
-
         public async Task<List<PostResponse>> GetAllPostAsync()
         {
             var posts = await _postRepo.GetAllPostAsync();
-            var postResponses = posts.Select(post => new PostResponse
-            {
-                PostId = post.PostId,
-                UserName = post.Account.Username,
-                AvatarUrl = post.Account.Avatar,
-                EventId = post.EventId,
-                EventName = post.Event != null ? post.Event.Title : null,
-                Title = post.Tittle,
-                Content = post.Content,
-                ImageUrls = post.Images?.Select(img => img.ImageUrl).ToList(),
-                IsExpertPost = post.IsExpertPost,
-                Status = post.Status,
-                Score = post.Score,
-                LikeCount = post.LikeCount,
-                ShareCount = post.ShareCount,
-                CreatedAt = post.CreatedAt,
-                UpdatedAt = post.UpdatedAt
-            }).ToList();
-            return postResponses;
+            return posts.Select(post => MapToPostResponse(post)).ToList();
         }
+
         public async Task<List<PostResponse>> GetAllMyPostAsync(int userId)
         {
             var posts = await _postRepo.GetAllMyPostAsync(userId);
-            var postResponses = posts.Select(post => new PostResponse
-            {
-                PostId = post.PostId,
-                UserName = post.Account.Username,
-                AvatarUrl = post.Account.Avatar,
-                EventId = post.EventId,
-                EventName = post.Event != null ? post.Event.Title : null,
-                Title = post.Tittle,
-                Content = post.Content,
-                ImageUrls = post.Images?.Select(img => img.ImageUrl).ToList(),
-                IsExpertPost = post.IsExpertPost,
-                Status = post.Status,
-                Score = post.Score,
-                LikeCount = post.LikeCount,
-                ShareCount = post.ShareCount,
-                CreatedAt = post.CreatedAt,
-                UpdatedAt = post.UpdatedAt
-            }).ToList();
-            return postResponses;
+            return posts.Select(post => MapToPostResponse(post)).ToList();
         }
+
         public async Task<PostResponse> GetPostByIdAsync(int postId)
         {
             var post = await _postRepo.GetPostByIdAsync(postId);
             if (post == null) return null;
-            var postResponse = new PostResponse
+            return MapToPostResponse(post);
+        }
+
+        private PostResponse MapToPostResponse(Post post)
+        {
+            return new PostResponse
             {
                 PostId = post.PostId,
-                UserName = post.Account.Username,
-                AvatarUrl = post.Account.Avatar,
+                UserName = post.Account?.UserName,
+                AvatarUrl = post.Account?.Avatar,
                 EventId = post.EventId,
-                EventName = post.Event != null ? post.Event.Title : null,
+                EventName = post.Event?.Title,
                 Title = post.Tittle,
                 Content = post.Content,
-                ImageUrls = post.Images?.Select(img => img.ImageUrl).ToList(),
+                ImageUrls = post.Images?.Select(img => img.ImageUrl).ToList() ?? new List<string>(),
                 IsExpertPost = post.IsExpertPost,
                 Status = post.Status,
                 Score = post.Score,
@@ -153,9 +123,6 @@ namespace Services.Implements.PostImp
                 CreatedAt = post.CreatedAt,
                 UpdatedAt = post.UpdatedAt
             };
-            return postResponse;
-
-
         }
 
         public async Task UpdatePostAsync(int postId, UpdatePostRequest request)

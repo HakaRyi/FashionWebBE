@@ -25,7 +25,7 @@ namespace Services.Implements.Follow
                 CreatedAt = DateTime.UtcNow
             };
             var result = await _followRepository.FollowUserAsync(follow);
-            if(result > 0)
+            if (result > 0)
             {
                 return true;
             }
@@ -44,7 +44,7 @@ namespace Services.Implements.Follow
                 {
                     UserId = follow.UserId,
                     FollowerId = follow.FollowerId,
-                    FollowerName = follow.Follower.Username,
+                    FollowerName = follow.Follower.UserName,
                     FollowerAvatar = follow.Follower.Avatar,
                     CreatedAt = follow.CreatedAt
 
@@ -69,7 +69,7 @@ namespace Services.Implements.Follow
                 {
                     UserId = f.UserId,
                     FollowerId = f.FollowerId,
-                    FollowerName = f.Follower.Username,
+                    FollowerName = f.Follower.UserName,
                     FollowerAvatar = f.Follower.Avatar,
                     CreatedAt = f.CreatedAt
                 }).ToList();
@@ -77,7 +77,7 @@ namespace Services.Implements.Follow
             }
             catch
             {
-                
+
                 return new List<FollowResponse>();
             }
         }
@@ -85,7 +85,7 @@ namespace Services.Implements.Follow
         public async Task<bool> IsFollowingAsync(int userId, int followerId)
         {
             var follow = await _followRepository.GetFollowerByIdAsync(userId, followerId);
-            if(follow != null)
+            if (follow != null)
             {
                 return true;
             }
@@ -98,7 +98,7 @@ namespace Services.Implements.Follow
         public async Task<bool> UnfollowUserAsync(int userId, int followerId)
         {
             var result = await _followRepository.UnfollowUserAsync(userId, followerId);
-            if(result > 0)
+            if (result > 0)
             {
                 return true;
             }

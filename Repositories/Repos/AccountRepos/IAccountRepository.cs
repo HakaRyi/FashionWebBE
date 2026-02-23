@@ -9,16 +9,8 @@ namespace Repositories.Repos.AccountRepos
 {
     public interface IAccountRepository
     {
-        Task<Account?> SignUp(Account account);
-        Task<Account?> SignIn(string email, string password);
-        Task<Account?> GetAccountById(int accountId);
-        Task<Account?> GetAccountByEmail(string email);
-        Task<List<Account>> GetAllAccounts();
         Task<List<Account>> GetFashionExperts();
-        Task UpdateAccount(Account account);
-
         Task AddRefreshTokenAsync(RefreshToken refreshToken);
-
         Task<RefreshToken?> GetRefreshTokenByAccountIdAsync(int accountId);
         Task UpdateRefreshTokenAsync(RefreshToken token);
     }

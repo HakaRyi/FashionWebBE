@@ -12,8 +12,8 @@ using Repositories.Data;
 namespace Repositories.Migrations
 {
     [DbContext(typeof(FashionDbContext))]
-    [Migration("20260207101738_AddFollowTable")]
-    partial class AddFollowTable
+    [Migration("20260223085528_ChangeSchemas")]
+    partial class ChangeSchemas
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -41,7 +41,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("CategoryId");
 
-                    b.ToTable("Item_Category", "fashion_db");
+                    b.ToTable("Item_Category", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Account", b =>
@@ -109,7 +109,7 @@ namespace Repositories.Migrations
                     b.HasIndex(new[] { "Username" }, "Account_username_key")
                         .IsUnique();
 
-                    b.ToTable("Account", "fashion_db");
+                    b.ToTable("Account", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Category", b =>
@@ -134,7 +134,7 @@ namespace Repositories.Migrations
                     b.HasKey("CategoryId")
                         .HasName("Category_pkey");
 
-                    b.ToTable("Category", "fashion_db");
+                    b.ToTable("Category", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Comment", b =>
@@ -170,7 +170,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("PostId");
 
-                    b.ToTable("Comment", "fashion_db");
+                    b.ToTable("Comment", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Event", b =>
@@ -218,7 +218,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("CreatorId");
 
-                    b.ToTable("Events", "fashion_db");
+                    b.ToTable("Events", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.ExpertFile", b =>
@@ -276,7 +276,7 @@ namespace Repositories.Migrations
                     b.HasIndex(new[] { "ExpertProfileId" }, "Expert_File_expert_profile_id_key")
                         .IsUnique();
 
-                    b.ToTable("Expert_File", "fashion_db");
+                    b.ToTable("Expert_File", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.ExpertProfile", b =>
@@ -325,7 +325,7 @@ namespace Repositories.Migrations
                     b.HasIndex(new[] { "AccountId" }, "Expert_Profile_account_id_key")
                         .IsUnique();
 
-                    b.ToTable("Expert_Profile", "fashion_db");
+                    b.ToTable("Expert_Profile", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Follow", b =>
@@ -349,7 +349,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("FollowerId");
 
-                    b.ToTable("Follow", "fashion_db");
+                    b.ToTable("Follow", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Group", b =>
@@ -380,7 +380,7 @@ namespace Repositories.Migrations
                     b.HasKey("GroupId")
                         .HasName("Group_pkey");
 
-                    b.ToTable("Group", "fashion_db");
+                    b.ToTable("Group", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.GroupUser", b =>
@@ -402,7 +402,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("AccountId");
 
-                    b.ToTable("GroupUser", "fashion_db");
+                    b.ToTable("GroupUser", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Image", b =>
@@ -438,7 +438,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("OwnerId");
 
-                    b.ToTable("Images", "fashion_db");
+                    b.ToTable("Images", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Item", b =>
@@ -520,7 +520,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("WardrobeId");
 
-                    b.ToTable("Item", "fashion_db");
+                    b.ToTable("Item", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.MessReaction", b =>
@@ -551,7 +551,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("MessageId");
 
-                    b.ToTable("MessReaction", "fashion_db");
+                    b.ToTable("MessReaction", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Message", b =>
@@ -596,7 +596,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("ReplyToMessageId");
 
-                    b.ToTable("Message", "fashion_db");
+                    b.ToTable("Message", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Notification", b =>
@@ -645,7 +645,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("SenderId");
 
-                    b.ToTable("Notification", "fashion_db");
+                    b.ToTable("Notification", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Outfit", b =>
@@ -680,7 +680,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("AccountId");
 
-                    b.ToTable("Outfit", "fashion_db");
+                    b.ToTable("Outfit", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Package", b =>
@@ -724,7 +724,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("AccountId");
 
-                    b.ToTable("Package", "fashion_db");
+                    b.ToTable("Package", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Payment", b =>
@@ -774,7 +774,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("PackageId");
 
-                    b.ToTable("Payment", "fashion_db");
+                    b.ToTable("Payment", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Photo", b =>
@@ -799,7 +799,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("MessageId");
 
-                    b.ToTable("Photos", "fashion_db");
+                    b.ToTable("Photos", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.PinnedMessage", b =>
@@ -836,7 +836,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("MessageId");
 
-                    b.ToTable("PinnedMessage", "fashion_db");
+                    b.ToTable("PinnedMessage", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Post", b =>
@@ -904,7 +904,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("EventId");
 
-                    b.ToTable("Post", "fashion_db");
+                    b.ToTable("Post", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.PostVector", b =>
@@ -925,7 +925,7 @@ namespace Repositories.Migrations
                     b.HasKey("PostId")
                         .HasName("Post_Vector_pkey");
 
-                    b.ToTable("Post_Vector", "fashion_db");
+                    b.ToTable("Post_Vector", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Reaction", b =>
@@ -962,7 +962,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("PostId");
 
-                    b.ToTable("Reaction", "fashion_db");
+                    b.ToTable("Reaction", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.RefreshToken", b =>
@@ -1023,7 +1023,7 @@ namespace Repositories.Migrations
                     b.HasIndex(new[] { "Token" }, "RefreshToken_token_key")
                         .IsUnique();
 
-                    b.ToTable("RefreshToken", "fashion_db");
+                    b.ToTable("RefreshToken", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.ReportType", b =>
@@ -1052,7 +1052,7 @@ namespace Repositories.Migrations
                     b.HasIndex(new[] { "TypeName" }, "Report_Type_type_name_key")
                         .IsUnique();
 
-                    b.ToTable("Report_Type", "fashion_db");
+                    b.ToTable("Report_Type", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Role", b =>
@@ -1081,7 +1081,7 @@ namespace Repositories.Migrations
                     b.HasIndex(new[] { "RoleName" }, "Role_role_name_key")
                         .IsUnique();
 
-                    b.ToTable("Role", "fashion_db");
+                    b.ToTable("Role", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Transaction", b =>
@@ -1144,7 +1144,7 @@ namespace Repositories.Migrations
                     b.HasIndex(new[] { "PaymentId" }, "Transaction_payment_id_key")
                         .IsUnique();
 
-                    b.ToTable("Transaction", "fashion_db");
+                    b.ToTable("Transaction", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.UserProfileVector", b =>
@@ -1161,7 +1161,7 @@ namespace Repositories.Migrations
                     b.HasKey("AccountId")
                         .HasName("User_Profile_Vector_pkey");
 
-                    b.ToTable("User_Profile_Vector", "fashion_db");
+                    b.ToTable("User_Profile_Vector", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.UserReport", b =>
@@ -1202,7 +1202,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("ReportTypeId");
 
-                    b.ToTable("User_Report", "fashion_db");
+                    b.ToTable("User_Report", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Wardrobe", b =>
@@ -1233,7 +1233,7 @@ namespace Repositories.Migrations
                     b.HasIndex(new[] { "AccountId" }, "Wardrobe_account_id_key")
                         .IsUnique();
 
-                    b.ToTable("Wardrobe", "fashion_db");
+                    b.ToTable("Wardrobe", "public");
                 });
 
             modelBuilder.Entity("ItemCategory", b =>

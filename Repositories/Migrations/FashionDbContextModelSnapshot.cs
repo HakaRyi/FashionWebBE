@@ -38,17 +38,175 @@ namespace Repositories.Migrations
 
                     b.HasIndex("CategoryId");
 
-                    b.ToTable("Item_Category", "fashion_db");
+                    b.ToTable("Item_Category", "public");
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<int>", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("role_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .HasColumnType("text")
+                        .HasColumnName("concurrency_stamp");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("role_name");
+
+                    b.Property<string>("NormalizedName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("normalized_name");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedName")
+                        .IsUnique()
+                        .HasDatabaseName("RoleNameIndex");
+
+                    b.ToTable("Roles", (string)null);
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("role_claim_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ClaimType")
+                        .HasColumnType("text")
+                        .HasColumnName("claim_type");
+
+                    b.Property<string>("ClaimValue")
+                        .HasColumnType("text")
+                        .HasColumnName("claim_value");
+
+                    b.Property<int>("RoleId")
+                        .HasColumnType("integer")
+                        .HasColumnName("role_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("RoleClaims", (string)null);
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<int>", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("claim_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ClaimType")
+                        .HasColumnType("text")
+                        .HasColumnName("claim_type");
+
+                    b.Property<string>("ClaimValue")
+                        .HasColumnType("text")
+                        .HasColumnName("claim_value");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("account_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AccountClaims", (string)null);
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<int>", b =>
+                {
+                    b.Property<string>("LoginProvider")
+                        .HasColumnType("text")
+                        .HasColumnName("login_provider");
+
+                    b.Property<string>("ProviderKey")
+                        .HasColumnType("text")
+                        .HasColumnName("provider_key");
+
+                    b.Property<string>("ProviderDisplayName")
+                        .HasColumnType("text")
+                        .HasColumnName("provider_display_name");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("account_id");
+
+                    b.HasKey("LoginProvider", "ProviderKey");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AccountLogins", (string)null);
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<int>", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("account_id");
+
+                    b.Property<int>("RoleId")
+                        .HasColumnType("integer")
+                        .HasColumnName("role_id");
+
+                    b.HasKey("UserId", "RoleId");
+
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("AccountRoles", (string)null);
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<int>", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("LoginProvider")
+                        .HasColumnType("text")
+                        .HasColumnName("login_provider");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("text")
+                        .HasColumnName("token_name");
+
+                    b.Property<string>("Value")
+                        .HasColumnType("text")
+                        .HasColumnName("token_value");
+
+                    b.HasKey("UserId", "LoginProvider", "Name");
+
+                    b.ToTable("AccountTokens", (string)null);
                 });
 
             modelBuilder.Entity("Repositories.Entities.Account", b =>
                 {
-                    b.Property<int>("AccountId")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
                         .HasColumnName("account_id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("AccountId"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccessFailedCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("access_failed_count");
 
                     b.Property<string>("Avatar")
                         .HasMaxLength(500)
@@ -59,33 +217,68 @@ namespace Repositories.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("code_expires_at");
 
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .HasColumnType("text")
+                        .HasColumnName("concurrency_stamp");
+
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("created_at");
 
                     b.Property<string>("Email")
-                        .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")
                         .HasColumnName("email");
 
+                    b.Property<bool>("EmailConfirmed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("email_confirmed");
+
+                    b.Property<bool>("LockoutEnabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("lockout_enabled");
+
+                    b.Property<DateTimeOffset?>("LockoutEnd")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lockout_end");
+
+                    b.Property<string>("NormalizedEmail")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("normalized_email");
+
+                    b.Property<string>("NormalizedUserName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("normalized_username");
+
                     b.Property<string>("PasswordHash")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
+                        .HasColumnType("text")
                         .HasColumnName("password_hash");
 
-                    b.Property<int>("RoleId")
-                        .HasColumnType("integer")
-                        .HasColumnName("role_id");
+                    b.Property<string>("PhoneNumber")
+                        .HasColumnType("text")
+                        .HasColumnName("phone_number");
+
+                    b.Property<bool>("PhoneNumberConfirmed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("phone_number_confirmed");
+
+                    b.Property<string>("SecurityStamp")
+                        .HasColumnType("text")
+                        .HasColumnName("security_stamp");
 
                     b.Property<string>("Status")
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("status");
 
-                    b.Property<string>("Username")
-                        .IsRequired()
+                    b.Property<bool>("TwoFactorEnabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("two_factor_enabled");
+
+                    b.Property<string>("UserName")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("username");
@@ -95,18 +288,23 @@ namespace Repositories.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("verification_code");
 
-                    b.HasKey("AccountId")
+                    b.HasKey("Id")
                         .HasName("Account_pkey");
 
-                    b.HasIndex("RoleId");
+                    b.HasIndex("NormalizedEmail")
+                        .HasDatabaseName("EmailIndex");
+
+                    b.HasIndex("NormalizedUserName")
+                        .IsUnique()
+                        .HasDatabaseName("UserNameIndex");
 
                     b.HasIndex(new[] { "Email" }, "Account_email_key")
                         .IsUnique();
 
-                    b.HasIndex(new[] { "Username" }, "Account_username_key")
+                    b.HasIndex(new[] { "UserName" }, "Account_username_key")
                         .IsUnique();
 
-                    b.ToTable("Account", "fashion_db");
+                    b.ToTable("Accounts", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Category", b =>
@@ -131,7 +329,7 @@ namespace Repositories.Migrations
                     b.HasKey("CategoryId")
                         .HasName("Category_pkey");
 
-                    b.ToTable("Category", "fashion_db");
+                    b.ToTable("Category", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Comment", b =>
@@ -167,7 +365,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("PostId");
 
-                    b.ToTable("Comment", "fashion_db");
+                    b.ToTable("Comment", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Event", b =>
@@ -215,7 +413,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("CreatorId");
 
-                    b.ToTable("Events", "fashion_db");
+                    b.ToTable("Events", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.ExpertFile", b =>
@@ -273,7 +471,7 @@ namespace Repositories.Migrations
                     b.HasIndex(new[] { "ExpertProfileId" }, "Expert_File_expert_profile_id_key")
                         .IsUnique();
 
-                    b.ToTable("Expert_File", "fashion_db");
+                    b.ToTable("Expert_File", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.ExpertProfile", b =>
@@ -322,7 +520,7 @@ namespace Repositories.Migrations
                     b.HasIndex(new[] { "AccountId" }, "Expert_Profile_account_id_key")
                         .IsUnique();
 
-                    b.ToTable("Expert_Profile", "fashion_db");
+                    b.ToTable("Expert_Profile", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Follow", b =>
@@ -346,7 +544,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("FollowerId");
 
-                    b.ToTable("Follow", "fashion_db");
+                    b.ToTable("Follow", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Group", b =>
@@ -377,7 +575,7 @@ namespace Repositories.Migrations
                     b.HasKey("GroupId")
                         .HasName("Group_pkey");
 
-                    b.ToTable("Group", "fashion_db");
+                    b.ToTable("Group", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.GroupUser", b =>
@@ -399,7 +597,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("AccountId");
 
-                    b.ToTable("GroupUser", "fashion_db");
+                    b.ToTable("GroupUser", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Image", b =>
@@ -435,7 +633,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("OwnerId");
 
-                    b.ToTable("Images", "fashion_db");
+                    b.ToTable("Images", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Item", b =>
@@ -517,7 +715,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("WardrobeId");
 
-                    b.ToTable("Item", "fashion_db");
+                    b.ToTable("Item", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.MessReaction", b =>
@@ -548,7 +746,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("MessageId");
 
-                    b.ToTable("MessReaction", "fashion_db");
+                    b.ToTable("MessReaction", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Message", b =>
@@ -593,7 +791,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("ReplyToMessageId");
 
-                    b.ToTable("Message", "fashion_db");
+                    b.ToTable("Message", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Notification", b =>
@@ -642,7 +840,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("SenderId");
 
-                    b.ToTable("Notification", "fashion_db");
+                    b.ToTable("Notification", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Outfit", b =>
@@ -677,7 +875,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("AccountId");
 
-                    b.ToTable("Outfit", "fashion_db");
+                    b.ToTable("Outfit", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Package", b =>
@@ -721,7 +919,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("AccountId");
 
-                    b.ToTable("Package", "fashion_db");
+                    b.ToTable("Package", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Payment", b =>
@@ -771,7 +969,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("PackageId");
 
-                    b.ToTable("Payment", "fashion_db");
+                    b.ToTable("Payment", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Photo", b =>
@@ -796,7 +994,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("MessageId");
 
-                    b.ToTable("Photos", "fashion_db");
+                    b.ToTable("Photos", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.PinnedMessage", b =>
@@ -833,7 +1031,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("MessageId");
 
-                    b.ToTable("PinnedMessage", "fashion_db");
+                    b.ToTable("PinnedMessage", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Post", b =>
@@ -901,7 +1099,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("EventId");
 
-                    b.ToTable("Post", "fashion_db");
+                    b.ToTable("Post", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.PostVector", b =>
@@ -922,7 +1120,7 @@ namespace Repositories.Migrations
                     b.HasKey("PostId")
                         .HasName("Post_Vector_pkey");
 
-                    b.ToTable("Post_Vector", "fashion_db");
+                    b.ToTable("Post_Vector", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Reaction", b =>
@@ -959,7 +1157,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("PostId");
 
-                    b.ToTable("Reaction", "fashion_db");
+                    b.ToTable("Reaction", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.RefreshToken", b =>
@@ -1020,7 +1218,7 @@ namespace Repositories.Migrations
                     b.HasIndex(new[] { "Token" }, "RefreshToken_token_key")
                         .IsUnique();
 
-                    b.ToTable("RefreshToken", "fashion_db");
+                    b.ToTable("RefreshToken", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.ReportType", b =>
@@ -1049,36 +1247,7 @@ namespace Repositories.Migrations
                     b.HasIndex(new[] { "TypeName" }, "Report_Type_type_name_key")
                         .IsUnique();
 
-                    b.ToTable("Report_Type", "fashion_db");
-                });
-
-            modelBuilder.Entity("Repositories.Entities.Role", b =>
-                {
-                    b.Property<int>("RoleId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("role_id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("RoleId"));
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("description");
-
-                    b.Property<string>("RoleName")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("role_name");
-
-                    b.HasKey("RoleId")
-                        .HasName("Role_pkey");
-
-                    b.HasIndex(new[] { "RoleName" }, "Role_role_name_key")
-                        .IsUnique();
-
-                    b.ToTable("Role", "fashion_db");
+                    b.ToTable("Report_Type", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Transaction", b =>
@@ -1141,7 +1310,7 @@ namespace Repositories.Migrations
                     b.HasIndex(new[] { "PaymentId" }, "Transaction_payment_id_key")
                         .IsUnique();
 
-                    b.ToTable("Transaction", "fashion_db");
+                    b.ToTable("Transaction", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.UserProfileVector", b =>
@@ -1158,7 +1327,7 @@ namespace Repositories.Migrations
                     b.HasKey("AccountId")
                         .HasName("User_Profile_Vector_pkey");
 
-                    b.ToTable("User_Profile_Vector", "fashion_db");
+                    b.ToTable("User_Profile_Vector", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.UserReport", b =>
@@ -1199,7 +1368,7 @@ namespace Repositories.Migrations
 
                     b.HasIndex("ReportTypeId");
 
-                    b.ToTable("User_Report", "fashion_db");
+                    b.ToTable("User_Report", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Wardrobe", b =>
@@ -1230,7 +1399,7 @@ namespace Repositories.Migrations
                     b.HasIndex(new[] { "AccountId" }, "Wardrobe_account_id_key")
                         .IsUnique();
 
-                    b.ToTable("Wardrobe", "fashion_db");
+                    b.ToTable("Wardrobe", "public");
                 });
 
             modelBuilder.Entity("ItemCategory", b =>
@@ -1248,15 +1417,55 @@ namespace Repositories.Migrations
                         .HasConstraintName("Item_Category_item_id_fkey");
                 });
 
-            modelBuilder.Entity("Repositories.Entities.Account", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
                 {
-                    b.HasOne("Repositories.Entities.Role", "Role")
-                        .WithMany("Accounts")
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<int>", null)
+                        .WithMany()
                         .HasForeignKey("RoleId")
-                        .IsRequired()
-                        .HasConstraintName("Account_role_id_fkey");
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
 
-                    b.Navigation("Role");
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<int>", b =>
+                {
+                    b.HasOne("Repositories.Entities.Account", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<int>", b =>
+                {
+                    b.HasOne("Repositories.Entities.Account", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<int>", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<int>", null)
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Repositories.Entities.Account", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<int>", b =>
+                {
+                    b.HasOne("Repositories.Entities.Account", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Repositories.Entities.Comment", b =>
@@ -1736,11 +1945,6 @@ namespace Repositories.Migrations
             modelBuilder.Entity("Repositories.Entities.ReportType", b =>
                 {
                     b.Navigation("UserReports");
-                });
-
-            modelBuilder.Entity("Repositories.Entities.Role", b =>
-                {
-                    b.Navigation("Accounts");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Wardrobe", b =>
