@@ -53,7 +53,7 @@ namespace Services.Implements.AccountService
                 Id = account.Id,
                 Username = account.UserName,
                 Email = account.Email,
-                Avatar = avatar.ImageUrl ?? null,
+                Avatar = avatar?.ImageUrl ?? null,
                 Role = roles.FirstOrDefault() ?? "User",
                 CreatedAt = account.CreatedAt,
                 Status = account.Status,

@@ -22,6 +22,8 @@ namespace Services.Implements.ImageImp
             {
                 ImageUrl = image.ImageUrl,
                 AccountAvatarId = userId,
+                PostId = null,
+                ItemId = null,
                 CreatedAt = DateTime.UtcNow
             };
             return await _imageRepository.CreateImage(newImage);

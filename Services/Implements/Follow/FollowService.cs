@@ -60,15 +60,22 @@ namespace Services.Implements.Follow
         {
             try
             {
-                var follow = await _followRepository.GetFollowerByIdAsync(userId, followerId);
+                var f = await _followRepository.GetFollowerByIdAsync(userId, followerId);
                 var response = new FollowResponse
                 {
-                    UserId = follow.UserId,
-                    FollowerId = follow.FollowerId,
-                    FollowerName = follow.Follower.UserName,
-                    //FollowerAvatar = follow.Follower.Avatar,
-                    CreatedAt = follow.CreatedAt
-
+                    FollowingId = f.UserId,
+                    FollowerId = f.FollowerId,
+                    FollowerName = f.Follower.UserName,
+                    FollowerAvatar = f.Follower.Avatars
+                          .OrderByDescending(img => img.CreatedAt)
+                          .Select(img => img.ImageUrl)
+                          .FirstOrDefault() ?? null,
+                    FollowingAvatar = f.User.Avatars
+                          .OrderByDescending(img => img.CreatedAt)
+                          .Select(img => img.ImageUrl)
+                          .FirstOrDefault() ?? null,
+                    CreatedAt = f.CreatedAt,
+                    FollowingName = f.User.UserName
 
                 };
                 return response;
@@ -88,11 +95,48 @@ namespace Services.Implements.Follow
                 var follows = await _followRepository.GetFollowersByIdAsync(userId);
                 var responses = follows.Select(f => new FollowResponse
                 {
-                    UserId = f.UserId,
+                    FollowingId = f.UserId,
                     FollowerId = f.FollowerId,
                     FollowerName = f.Follower.UserName,
-                    //FollowerAvatar = f.Follower.Avatar,
-                    CreatedAt = f.CreatedAt
+                    FollowerAvatar = f.Follower.Avatars
+                          .OrderByDescending(img => img.CreatedAt)
+                          .Select(img => img.ImageUrl)
+                          .FirstOrDefault() ?? null,
+                    FollowingAvatar = f.User.Avatars
+                          .OrderByDescending(img => img.CreatedAt)
+                          .Select(img => img.ImageUrl)
+                          .FirstOrDefault() ?? null,
+                    CreatedAt = f.CreatedAt,
+                    FollowingName = f.User.UserName
+                }).ToList();
+                return responses;
+            }
+            catch
+            {
+
+                return new List<FollowResponse>();
+            }
+        }
+        public async Task<List<FollowResponse>> GetFollowingsByIdAsync(int userId)
+        {
+            try
+            {
+                var follows = await _followRepository.GetFollowingsByIdAsync(userId);
+                var responses = follows.Select(f => new FollowResponse
+                {
+                    FollowingId = f.UserId,
+                    FollowerId = f.FollowerId,
+                    FollowerName = f.Follower.UserName,
+                    FollowerAvatar = f.Follower.Avatars
+                          .OrderByDescending(img => img.CreatedAt)
+                          .Select(img => img.ImageUrl)
+                          .FirstOrDefault() ?? null,
+                    FollowingAvatar = f.User.Avatars
+                          .OrderByDescending(img => img.CreatedAt)
+                          .Select(img => img.ImageUrl)
+                          .FirstOrDefault() ?? null,
+                    CreatedAt = f.CreatedAt,
+                    FollowingName = f.User.UserName
                 }).ToList();
                 return responses;
             }

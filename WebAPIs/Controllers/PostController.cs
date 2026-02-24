@@ -70,7 +70,7 @@ namespace WebAPIs.Controllers
         {
             try
             {
-                var userId = User.FindFirst("AccountID")?.Value;
+                var userId = User.FindFirst("AccountId")?.Value;
                 var result = await _postService.GetAllMyPostAsync(int.Parse(userId));
                 if (result == null || !result.Any())
                 {

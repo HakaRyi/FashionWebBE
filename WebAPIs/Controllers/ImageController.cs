@@ -49,7 +49,7 @@ namespace WebAPIs.Controllers
         [HttpPost("create-avatar")]
         public async Task<IActionResult> Post([FromBody] Image image)
         {
-            var userId = User.FindFirst("AccountID")?.Value;
+            var userId = User.FindFirst("AccountId")?.Value;
             var result = await _imageService.CreateAvatarImage(int.Parse(userId),image);
             if(result > 0)
             {

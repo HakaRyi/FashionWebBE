@@ -56,7 +56,7 @@ namespace WebAPIs.Controllers
         [Authorize]
         public async Task<IActionResult> Post([FromBody] PackageRequest request)
         {
-            var userId = User.FindFirst("AccountID")?.Value;
+            var userId = User.FindFirst("AccountId")?.Value;
             var package = await _packageCoinService.CreateAsync(request,int.Parse(userId));
             if (package >0)
             {

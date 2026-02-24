@@ -120,7 +120,7 @@ namespace WebAPIs.Controllers
         [HttpPost("{postId}")]
         public async Task<IActionResult> Post([FromRoute] int postId)
         {
-            var userId = User.FindFirst("AccountID")?.Value;
+            var userId = User.FindFirst("AccountId")?.Value;
             var result = await _socialService.CreateReaction(int.Parse(userId),postId);
             if (result != 0)
             {
@@ -140,7 +140,7 @@ namespace WebAPIs.Controllers
         [HttpPost("createComment/{postId}")]
         public async Task<IActionResult> CreateComment([FromRoute] int postId, [FromBody]CommentRequest request)
         {
-            var userId = User.FindFirst("AccountID")?.Value;
+            var userId = User.FindFirst("AccountId")?.Value;
             var result = await _socialService.CreateComment(request,int.Parse(userId),postId);
             if (result != 0)
             {
@@ -160,7 +160,7 @@ namespace WebAPIs.Controllers
         [HttpPut("updateComment/{commentId}")]
         public async Task<IActionResult> PutComment([FromRoute] int commentId, [FromBody] CommentRequest request)
         {
-            var userId = User.FindFirst("AccountID")?.Value;
+            var userId = User.FindFirst("AccountId")?.Value;
             var result = await _socialService.UpdateComment(commentId, int.Parse(userId), request);
             if (result != 0)
             {
@@ -182,7 +182,7 @@ namespace WebAPIs.Controllers
         [HttpPut("{postId}")]
         public async Task<IActionResult> Put( [FromRoute] int postId, [FromBody] UpdateReactionRequest request)
         {
-            var userId = User.FindFirst("AccountID")?.Value;
+            var userId = User.FindFirst("AccountId")?.Value;
             var result = await _socialService.UpdateReaction(int.Parse(userId), postId, request);
             if (result != 0)
             {
@@ -204,7 +204,7 @@ namespace WebAPIs.Controllers
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(int id)
         {
-            var userId = User.FindFirst("AccountID")?.Value;
+            var userId = User.FindFirst("AccountId")?.Value;
             var result = await _socialService.RemoveReaction(id);
             if (result)
             {
@@ -224,7 +224,7 @@ namespace WebAPIs.Controllers
         [HttpDelete("deteleComment/{commentId}")]
         public async Task<IActionResult> DeleteComment(int commentId)
         {
-            var userId = User.FindFirst("AccountID")?.Value;
+            var userId = User.FindFirst("AccountId")?.Value;
             var result = await _socialService.RemoveReaction(commentId);
             if (result)
             {
