@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Repositories.Entities;
+using Repositories.Repos.AccountRepos;
 using Repositories.Repos.PostRepos;
 using Services.RabbitMQ;
 using Services.Request.PostReq;
@@ -19,17 +20,20 @@ namespace Services.Implements.PostImp
         private readonly ICloudStorageService _storageService;
         private readonly IAIDetectionService _aiService;
         private readonly IRabbitMQProducer _producer;
+        private readonly IAccountRepository _accountRepository;
 
         public PostService(
             IPostRepository postRepo,
             ICloudStorageService storageService,
             IAIDetectionService aiService,
-            IRabbitMQProducer producer)
+            IRabbitMQProducer producer,
+            IAccountRepository accountRepository)
         {
             _postRepo = postRepo;
             _storageService = storageService;
             _aiService = aiService;
             _producer = producer;
+            _accountRepository = accountRepository;
         }
 
         public async Task<string> AdminCheckTheStatusPost(CheckPostRequest request, int id)
@@ -62,7 +66,14 @@ namespace Services.Implements.PostImp
             };
 
             await _postRepo.AddPostAsync(newPost);
+            var account = await _accountRepository.GetAccountById(accountId);
+            account.CountPost += 1;
+            var updateAccount = await _accountRepository.UpdateAccount(account);
+            if(updateAccount <= 0)
+            {
+                throw new Exception("Failed to update account post count.");
 
+            }
             if (request.Images != null && request.Images.Any())
             {
                 var imageUrls = new List<string>();
@@ -109,7 +120,7 @@ namespace Services.Implements.PostImp
             {
                 PostId = post.PostId,
                 UserName = post.Account?.UserName,
-                AvatarUrl = post.Account?.Avatar,
+                //AvatarUrl = post.Account?.Avatar,
                 EventId = post.EventId,
                 EventName = post.Event?.Title,
                 Title = post.Tittle,
@@ -158,8 +169,22 @@ namespace Services.Implements.PostImp
         public async Task DeletePostAsync(int postId)
         {
             var post = await _postRepo.GetPostByIdAsync(postId);
+            var acc = await _accountRepository.GetAccountById(post.AccountId);
             if (post == null) return;
             await _postRepo.DeletePostAsync(postId);
+            acc.CountPost -= 1;
+            var updateAccount = await _accountRepository.UpdateAccount(acc);
+            if(updateAccount <= 0)
+            {
+               throw new Exception("Failed to update account post count.");
+
+            }
+        }
+
+        public async Task<int> CountAllMyPostAsync(int userId)
+        {
+            var posts = await _postRepo.GetAllMyPostAsync(userId);
+            return (posts.Select(post => MapToPostResponse(post)).ToList()).Count;
         }
         //private async Task ProcessPostAIInBackground(int postId, List<string> imageUrls)
         //{

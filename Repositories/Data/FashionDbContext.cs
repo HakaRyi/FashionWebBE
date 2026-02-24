@@ -124,12 +124,29 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
             entity.Property(e => e.CreatedAt).HasColumnType("timestamp without time zone").HasColumnName("created_at");
             entity.Property(e => e.Status).HasMaxLength(30).HasColumnName("status");
-            entity.Property(e => e.Avatar).HasMaxLength(500).HasColumnName("avatar");
             entity.Property(e => e.VerificationCode).HasMaxLength(100).HasColumnName("verification_code");
             entity.Property(e => e.CodeExpiredAt).HasColumnType("timestamp without time zone").HasColumnName("code_expires_at");
 
             entity.HasIndex(e => e.Email, "Account_email_key").IsUnique();
             entity.HasIndex(e => e.UserName, "Account_username_key").IsUnique();
+            entity.Property(e => e.FreeTryOn)
+                .HasDefaultValue(3)
+                .HasColumnName("free_try_on");
+            entity.Property(e => e.Description)
+                .HasMaxLength(500)
+                .HasColumnName("description");
+
+            entity.Property(e => e.CountPost)
+                .HasDefaultValue(0)
+                .HasColumnName("count_post");
+
+            entity.Property(e => e.CountFollower)
+                .HasDefaultValue(0)
+                .HasColumnName("count_follower");
+
+            entity.Property(e => e.CountFollowing)
+                .HasDefaultValue(0)
+                .HasColumnName("count_following");
         });
 
         modelBuilder.Entity<IdentityRole<int>>(entity =>
@@ -364,30 +381,28 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
         modelBuilder.Entity<Image>(entity =>
         {
             entity.HasKey(e => e.ImageId).HasName("Images_pkey");
-
             entity.ToTable("Images", "public");
 
             entity.Property(e => e.ImageId).HasColumnName("image_id");
-            entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("created_at");
-            entity.Property(e => e.ImageUrl)
-                .HasMaxLength(500)
-                .HasColumnName("image_url");
-            entity.Property(e => e.OwnerId).HasColumnName("owner_id");
-            entity.Property(e => e.OwnerType)
-                .HasMaxLength(50)
-                .HasColumnName("owner_type");
+            entity.Property(e => e.PostId).HasColumnName("post_id");
+            entity.Property(e => e.ItemId).HasColumnName("item_id");
+            entity.Property(e => e.AccountAvatarId).HasColumnName("account_avatar_id");
 
-            entity.HasOne(d => d.Owner).WithMany(p => p.Images)
-                .HasForeignKey(d => d.OwnerId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("Images_owner_id_fkey");
+            entity.Property(e => e.ImageUrl).HasMaxLength(500).HasColumnName("image_url");
+            entity.Property(e => e.OwnerType).HasMaxLength(50).HasColumnName("owner_type");
+            entity.Property(e => e.CreatedAt).HasColumnType("timestamp without time zone").HasColumnName("created_at");
 
-            entity.HasOne(d => d.OwnerNavigation).WithMany(p => p.Images)
-                .HasForeignKey(d => d.OwnerId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("Images_owner_id_fkey1");
+            entity.HasOne(d => d.Post).WithMany(p => p.Images)
+                .HasForeignKey(d => d.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.Item).WithMany(p => p.Images)
+                .HasForeignKey(d => d.ItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.Account).WithMany(p => p.Avatars)
+                .HasForeignKey(d => d.AccountAvatarId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Item>(entity =>
@@ -764,9 +779,9 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
             entity.HasIndex(e => e.AccountId, "RefreshToken_account_id_key").IsUnique();
 
-            entity.HasIndex(e => e.DeviceInfo, "RefreshToken_device_info_key").IsUnique();
+            entity.HasIndex(e => e.DeviceInfo, "RefreshToken_device_info_key");
 
-            entity.HasIndex(e => e.IpAddress, "RefreshToken_ip_address_key").IsUnique();
+            entity.HasIndex(e => e.IpAddress, "RefreshToken_ip_address_key");
 
             entity.HasIndex(e => e.Token, "RefreshToken_token_key").IsUnique();
 

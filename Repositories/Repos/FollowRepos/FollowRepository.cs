@@ -43,6 +43,15 @@ namespace Repositories.Repos.FollowRepos
                 .ToListAsync();
         }
 
+        public async Task<List<Follow>> GetFollowingsByIdAsync(int userId)
+        {
+            return await fashionDbContext.Follows
+                 .Where(f => f.FollowerId == userId)
+                 .Include(f => f.Follower)
+                 .Include(f => f.User)
+                 .OrderBy(f => f.CreatedAt)
+                 .ToListAsync();
+        }
 
         public async Task<int> UnfollowUserAsync(int userId, int followerId)
         {

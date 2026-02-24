@@ -80,12 +80,16 @@ namespace Services.Implements.Auth
             {
                 UserName = request.Username,
                 Email = request.Email,
-                Avatar = $"https://ui-avatars.com/api/?name={WebUtility.UrlEncode(request.Username)}&background=random",
                 CreatedAt = DateTime.UtcNow,
                 Status = "Unverified",
                 VerificationCode = verificationCode,
-                CodeExpiredAt = DateTime.UtcNow.AddMinutes(15)
+                CodeExpiredAt = DateTime.UtcNow.AddMinutes(15),
+                FreeTryOn = 3,
+                CountPost = 0,
+                CountFollower = 0,
+                CountFollowing = 0
             };
+
 
             var result = await _userManager.CreateAsync(newAccount, request.Password);
             if (!result.Succeeded)
@@ -201,8 +205,8 @@ namespace Services.Implements.Auth
                 new Claim("Username", user.UserName)
             };
 
-            if (!string.IsNullOrEmpty(user.Avatar))
-                claims.Add(new Claim("Avatar", user.Avatar));
+            //if (!string.IsNullOrEmpty(user.Avatar))
+            //    claims.Add(new Claim("Avatar", user.Avatar));
 
             foreach (var role in roles)
             {

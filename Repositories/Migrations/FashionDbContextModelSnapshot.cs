@@ -208,11 +208,6 @@ namespace Repositories.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("access_failed_count");
 
-                    b.Property<string>("Avatar")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("avatar");
-
                     b.Property<DateTime?>("CodeExpiredAt")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("code_expires_at");
@@ -222,9 +217,32 @@ namespace Repositories.Migrations
                         .HasColumnType("text")
                         .HasColumnName("concurrency_stamp");
 
+                    b.Property<int>("CountFollower")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("count_follower");
+
+                    b.Property<int>("CountFollowing")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("count_following");
+
+                    b.Property<int>("CountPost")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("count_post");
+
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("created_at");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
 
                     b.Property<string>("Email")
                         .HasMaxLength(255)
@@ -234,6 +252,12 @@ namespace Repositories.Migrations
                     b.Property<bool>("EmailConfirmed")
                         .HasColumnType("boolean")
                         .HasColumnName("email_confirmed");
+
+                    b.Property<int>("FreeTryOn")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(3)
+                        .HasColumnName("free_try_on");
 
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("boolean")
@@ -609,6 +633,10 @@ namespace Repositories.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ImageId"));
 
+                    b.Property<int?>("AccountAvatarId")
+                        .HasColumnType("integer")
+                        .HasColumnName("account_avatar_id");
+
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("created_at");
@@ -619,19 +647,27 @@ namespace Repositories.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("image_url");
 
-                    b.Property<int>("OwnerId")
+                    b.Property<int?>("ItemId")
                         .HasColumnType("integer")
-                        .HasColumnName("owner_id");
+                        .HasColumnName("item_id");
 
                     b.Property<string>("OwnerType")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("owner_type");
 
+                    b.Property<int?>("PostId")
+                        .HasColumnType("integer")
+                        .HasColumnName("post_id");
+
                     b.HasKey("ImageId")
                         .HasName("Images_pkey");
 
-                    b.HasIndex("OwnerId");
+                    b.HasIndex("AccountAvatarId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("PostId");
 
                     b.ToTable("Images", "public");
                 });
@@ -1209,11 +1245,9 @@ namespace Repositories.Migrations
                     b.HasIndex(new[] { "AccountId" }, "RefreshToken_account_id_key")
                         .IsUnique();
 
-                    b.HasIndex(new[] { "DeviceInfo" }, "RefreshToken_device_info_key")
-                        .IsUnique();
+                    b.HasIndex(new[] { "DeviceInfo" }, "RefreshToken_device_info_key");
 
-                    b.HasIndex(new[] { "IpAddress" }, "RefreshToken_ip_address_key")
-                        .IsUnique();
+                    b.HasIndex(new[] { "IpAddress" }, "RefreshToken_ip_address_key");
 
                     b.HasIndex(new[] { "Token" }, "RefreshToken_token_key")
                         .IsUnique();
@@ -1560,21 +1594,26 @@ namespace Repositories.Migrations
 
             modelBuilder.Entity("Repositories.Entities.Image", b =>
                 {
-                    b.HasOne("Repositories.Entities.Item", "Owner")
+                    b.HasOne("Repositories.Entities.Account", "Account")
+                        .WithMany("Avatars")
+                        .HasForeignKey("AccountAvatarId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Repositories.Entities.Item", "Item")
                         .WithMany("Images")
-                        .HasForeignKey("OwnerId")
-                        .IsRequired()
-                        .HasConstraintName("Images_owner_id_fkey");
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade);
 
-                    b.HasOne("Repositories.Entities.Post", "OwnerNavigation")
+                    b.HasOne("Repositories.Entities.Post", "Post")
                         .WithMany("Images")
-                        .HasForeignKey("OwnerId")
-                        .IsRequired()
-                        .HasConstraintName("Images_owner_id_fkey1");
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.Cascade);
 
-                    b.Navigation("Owner");
+                    b.Navigation("Account");
 
-                    b.Navigation("OwnerNavigation");
+                    b.Navigation("Item");
+
+                    b.Navigation("Post");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Item", b =>
@@ -1843,6 +1882,8 @@ namespace Repositories.Migrations
 
             modelBuilder.Entity("Repositories.Entities.Account", b =>
                 {
+                    b.Navigation("Avatars");
+
                     b.Navigation("Comments");
 
                     b.Navigation("Events");

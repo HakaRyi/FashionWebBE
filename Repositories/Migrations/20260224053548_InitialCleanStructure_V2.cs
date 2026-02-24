@@ -7,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Repositories.Migrations
 {
     /// <inheritdoc />
-    public partial class ChangeSchemas : Migration
+    public partial class InitialCleanStructure_V2 : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -17,6 +17,42 @@ namespace Repositories.Migrations
 
             migrationBuilder.AlterDatabase()
                 .Annotation("Npgsql:PostgresExtension:vector", ",,");
+
+            migrationBuilder.CreateTable(
+                name: "Accounts",
+                schema: "public",
+                columns: table => new
+                {
+                    account_id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true),
+                    status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
+                    verification_code = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    code_expires_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true),
+                    free_try_on = table.Column<int>(type: "integer", nullable: false, defaultValue: 3),
+                    description = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    count_post = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
+                    count_follower = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
+                    count_following = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
+                    username = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    normalized_username = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
+                    email = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    normalized_email = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
+                    email_confirmed = table.Column<bool>(type: "boolean", nullable: false),
+                    password_hash = table.Column<string>(type: "text", nullable: true),
+                    security_stamp = table.Column<string>(type: "text", nullable: true),
+                    concurrency_stamp = table.Column<string>(type: "text", nullable: true),
+                    phone_number = table.Column<string>(type: "text", nullable: true),
+                    phone_number_confirmed = table.Column<bool>(type: "boolean", nullable: false),
+                    two_factor_enabled = table.Column<bool>(type: "boolean", nullable: false),
+                    lockout_end = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    lockout_enabled = table.Column<bool>(type: "boolean", nullable: false),
+                    access_failed_count = table.Column<int>(type: "integer", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("Account_pkey", x => x.account_id);
+                });
 
             migrationBuilder.CreateTable(
                 name: "Category",
@@ -66,46 +102,82 @@ namespace Repositories.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Role",
-                schema: "public",
+                name: "Roles",
                 columns: table => new
                 {
                     role_id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    role_name = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    description = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true)
+                    role_name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
+                    normalized_name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
+                    concurrency_stamp = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("Role_pkey", x => x.role_id);
+                    table.PrimaryKey("PK_Roles", x => x.role_id);
                 });
 
             migrationBuilder.CreateTable(
-                name: "Account",
-                schema: "public",
+                name: "AccountClaims",
                 columns: table => new
                 {
-                    account_id = table.Column<int>(type: "integer", nullable: false)
+                    claim_id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    username = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    email = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
-                    password_hash = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: false),
-                    role_id = table.Column<int>(type: "integer", nullable: false),
-                    created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true),
-                    status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
-                    verification_code = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    code_expires_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true),
-                    avatar = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true)
+                    account_id = table.Column<int>(type: "integer", nullable: false),
+                    claim_type = table.Column<string>(type: "text", nullable: true),
+                    claim_value = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("Account_pkey", x => x.account_id);
+                    table.PrimaryKey("PK_AccountClaims", x => x.claim_id);
                     table.ForeignKey(
-                        name: "Account_role_id_fkey",
-                        column: x => x.role_id,
+                        name: "FK_AccountClaims_Accounts_account_id",
+                        column: x => x.account_id,
                         principalSchema: "public",
-                        principalTable: "Role",
-                        principalColumn: "role_id");
+                        principalTable: "Accounts",
+                        principalColumn: "account_id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AccountLogins",
+                columns: table => new
+                {
+                    login_provider = table.Column<string>(type: "text", nullable: false),
+                    provider_key = table.Column<string>(type: "text", nullable: false),
+                    provider_display_name = table.Column<string>(type: "text", nullable: true),
+                    account_id = table.Column<int>(type: "integer", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AccountLogins", x => new { x.login_provider, x.provider_key });
+                    table.ForeignKey(
+                        name: "FK_AccountLogins_Accounts_account_id",
+                        column: x => x.account_id,
+                        principalSchema: "public",
+                        principalTable: "Accounts",
+                        principalColumn: "account_id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AccountTokens",
+                columns: table => new
+                {
+                    account_id = table.Column<int>(type: "integer", nullable: false),
+                    login_provider = table.Column<string>(type: "text", nullable: false),
+                    token_name = table.Column<string>(type: "text", nullable: false),
+                    token_value = table.Column<string>(type: "text", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AccountTokens", x => new { x.account_id, x.login_provider, x.token_name });
+                    table.ForeignKey(
+                        name: "FK_AccountTokens_Accounts_account_id",
+                        column: x => x.account_id,
+                        principalSchema: "public",
+                        principalTable: "Accounts",
+                        principalColumn: "account_id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -130,7 +202,7 @@ namespace Repositories.Migrations
                         name: "Events_creator_id_fkey",
                         column: x => x.creator_id,
                         principalSchema: "public",
-                        principalTable: "Account",
+                        principalTable: "Accounts",
                         principalColumn: "account_id");
                 });
 
@@ -156,7 +228,7 @@ namespace Repositories.Migrations
                         name: "Expert_Profile_account_id_fkey",
                         column: x => x.account_id,
                         principalSchema: "public",
-                        principalTable: "Account",
+                        principalTable: "Accounts",
                         principalColumn: "account_id");
                 });
 
@@ -176,13 +248,154 @@ namespace Repositories.Migrations
                         name: "Follow_follower_id_fkey",
                         column: x => x.follower_id,
                         principalSchema: "public",
-                        principalTable: "Account",
+                        principalTable: "Accounts",
                         principalColumn: "account_id");
                     table.ForeignKey(
                         name: "Follow_user_id_fkey",
                         column: x => x.user_id,
                         principalSchema: "public",
-                        principalTable: "Account",
+                        principalTable: "Accounts",
+                        principalColumn: "account_id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Notification",
+                schema: "public",
+                columns: table => new
+                {
+                    notification_id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    sender_id = table.Column<int>(type: "integer", nullable: false),
+                    title = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    content = table.Column<string>(type: "text", nullable: true),
+                    image_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    type = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
+                    created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("Notification_pkey", x => x.notification_id);
+                    table.ForeignKey(
+                        name: "Notification_sender_id_fkey",
+                        column: x => x.sender_id,
+                        principalSchema: "public",
+                        principalTable: "Accounts",
+                        principalColumn: "account_id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Outfit",
+                schema: "public",
+                columns: table => new
+                {
+                    outfit_id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    account_id = table.Column<int>(type: "integer", nullable: false),
+                    outfit_name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    image_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("Outfit_pkey", x => x.outfit_id);
+                    table.ForeignKey(
+                        name: "Outfit_account_id_fkey",
+                        column: x => x.account_id,
+                        principalSchema: "public",
+                        principalTable: "Accounts",
+                        principalColumn: "account_id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Package",
+                schema: "public",
+                columns: table => new
+                {
+                    package_id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    account_id = table.Column<int>(type: "integer", nullable: false),
+                    name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    coin_amount = table.Column<int>(type: "integer", nullable: false),
+                    price_vnd = table.Column<int>(type: "integer", nullable: false),
+                    is_active = table.Column<bool>(type: "boolean", nullable: true, defaultValue: true),
+                    created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("Package_pkey", x => x.package_id);
+                    table.ForeignKey(
+                        name: "Package_account_id_fkey",
+                        column: x => x.account_id,
+                        principalSchema: "public",
+                        principalTable: "Accounts",
+                        principalColumn: "account_id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "RefreshToken",
+                schema: "public",
+                columns: table => new
+                {
+                    refresh_token_id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    token = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    account_id = table.Column<int>(type: "integer", nullable: false),
+                    expiry_date = table.Column<DateTime>(type: "timestamp without time zone", nullable: false),
+                    created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true),
+                    device_info = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    ip_address = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    isAvailable = table.Column<bool>(type: "boolean", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("RefreshToken_pkey", x => x.refresh_token_id);
+                    table.ForeignKey(
+                        name: "RefreshToken_account_id_fkey",
+                        column: x => x.account_id,
+                        principalSchema: "public",
+                        principalTable: "Accounts",
+                        principalColumn: "account_id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "User_Profile_Vector",
+                schema: "public",
+                columns: table => new
+                {
+                    account_id = table.Column<int>(type: "integer", nullable: false),
+                    updated_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("User_Profile_Vector_pkey", x => x.account_id);
+                    table.ForeignKey(
+                        name: "User_Profile_Vector_account_id_fkey",
+                        column: x => x.account_id,
+                        principalSchema: "public",
+                        principalTable: "Accounts",
+                        principalColumn: "account_id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Wardrobe",
+                schema: "public",
+                columns: table => new
+                {
+                    wardrobe_id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    account_id = table.Column<int>(type: "integer", nullable: false),
+                    name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("Wardrobe_pkey", x => x.wardrobe_id);
+                    table.ForeignKey(
+                        name: "Wardrobe_account_id_fkey",
+                        column: x => x.account_id,
+                        principalSchema: "public",
+                        principalTable: "Accounts",
                         principalColumn: "account_id");
                 });
 
@@ -202,7 +415,7 @@ namespace Repositories.Migrations
                         name: "GroupUser_account_id_fkey",
                         column: x => x.account_id,
                         principalSchema: "public",
-                        principalTable: "Account",
+                        principalTable: "Accounts",
                         principalColumn: "account_id");
                     table.ForeignKey(
                         name: "GroupUser_group_id_fkey",
@@ -233,7 +446,7 @@ namespace Repositories.Migrations
                         name: "Message_account_id_fkey",
                         column: x => x.account_id,
                         principalSchema: "public",
-                        principalTable: "Account",
+                        principalTable: "Accounts",
                         principalColumn: "account_id");
                     table.ForeignKey(
                         name: "Message_group_id_fkey",
@@ -250,144 +463,49 @@ namespace Repositories.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "Notification",
-                schema: "public",
-                columns: table => new
-                {
-                    notification_id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    sender_id = table.Column<int>(type: "integer", nullable: false),
-                    title = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
-                    content = table.Column<string>(type: "text", nullable: true),
-                    image_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    type = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
-                    status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
-                    created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("Notification_pkey", x => x.notification_id);
-                    table.ForeignKey(
-                        name: "Notification_sender_id_fkey",
-                        column: x => x.sender_id,
-                        principalSchema: "public",
-                        principalTable: "Account",
-                        principalColumn: "account_id");
-                });
-
-            migrationBuilder.CreateTable(
-                name: "Outfit",
-                schema: "public",
-                columns: table => new
-                {
-                    outfit_id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    account_id = table.Column<int>(type: "integer", nullable: false),
-                    outfit_name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    image_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("Outfit_pkey", x => x.outfit_id);
-                    table.ForeignKey(
-                        name: "Outfit_account_id_fkey",
-                        column: x => x.account_id,
-                        principalSchema: "public",
-                        principalTable: "Account",
-                        principalColumn: "account_id");
-                });
-
-            migrationBuilder.CreateTable(
-                name: "Package",
-                schema: "public",
-                columns: table => new
-                {
-                    package_id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    account_id = table.Column<int>(type: "integer", nullable: false),
-                    name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    coin_amount = table.Column<int>(type: "integer", nullable: false),
-                    price_vnd = table.Column<int>(type: "integer", nullable: false),
-                    is_active = table.Column<bool>(type: "boolean", nullable: true, defaultValue: true),
-                    created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("Package_pkey", x => x.package_id);
-                    table.ForeignKey(
-                        name: "Package_account_id_fkey",
-                        column: x => x.account_id,
-                        principalSchema: "public",
-                        principalTable: "Account",
-                        principalColumn: "account_id");
-                });
-
-            migrationBuilder.CreateTable(
-                name: "RefreshToken",
-                schema: "public",
-                columns: table => new
-                {
-                    refresh_token_id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    token = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
-                    account_id = table.Column<int>(type: "integer", nullable: false),
-                    expiry_date = table.Column<DateTime>(type: "timestamp without time zone", nullable: false),
-                    created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true),
-                    device_info = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
-                    ip_address = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
-                    isAvailable = table.Column<bool>(type: "boolean", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("RefreshToken_pkey", x => x.refresh_token_id);
-                    table.ForeignKey(
-                        name: "RefreshToken_account_id_fkey",
-                        column: x => x.account_id,
-                        principalSchema: "public",
-                        principalTable: "Account",
-                        principalColumn: "account_id");
-                });
-
-            migrationBuilder.CreateTable(
-                name: "User_Profile_Vector",
-                schema: "public",
+                name: "AccountRoles",
                 columns: table => new
                 {
                     account_id = table.Column<int>(type: "integer", nullable: false),
-                    updated_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true)
+                    role_id = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("User_Profile_Vector_pkey", x => x.account_id);
+                    table.PrimaryKey("PK_AccountRoles", x => new { x.account_id, x.role_id });
                     table.ForeignKey(
-                        name: "User_Profile_Vector_account_id_fkey",
+                        name: "FK_AccountRoles_Accounts_account_id",
                         column: x => x.account_id,
                         principalSchema: "public",
-                        principalTable: "Account",
-                        principalColumn: "account_id");
+                        principalTable: "Accounts",
+                        principalColumn: "account_id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_AccountRoles_Roles_role_id",
+                        column: x => x.role_id,
+                        principalTable: "Roles",
+                        principalColumn: "role_id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
-                name: "Wardrobe",
-                schema: "public",
+                name: "RoleClaims",
                 columns: table => new
                 {
-                    wardrobe_id = table.Column<int>(type: "integer", nullable: false)
+                    role_claim_id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    account_id = table.Column<int>(type: "integer", nullable: false),
-                    name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true)
+                    role_id = table.Column<int>(type: "integer", nullable: false),
+                    claim_type = table.Column<string>(type: "text", nullable: true),
+                    claim_value = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("Wardrobe_pkey", x => x.wardrobe_id);
+                    table.PrimaryKey("PK_RoleClaims", x => x.role_claim_id);
                     table.ForeignKey(
-                        name: "Wardrobe_account_id_fkey",
-                        column: x => x.account_id,
-                        principalSchema: "public",
-                        principalTable: "Account",
-                        principalColumn: "account_id");
+                        name: "FK_RoleClaims_Roles_role_id",
+                        column: x => x.role_id,
+                        principalTable: "Roles",
+                        principalColumn: "role_id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -416,7 +534,7 @@ namespace Repositories.Migrations
                         name: "Post_account_id_fkey",
                         column: x => x.account_id,
                         principalSchema: "public",
-                        principalTable: "Account",
+                        principalTable: "Accounts",
                         principalColumn: "account_id");
                     table.ForeignKey(
                         name: "Post_event_id_fkey",
@@ -455,6 +573,71 @@ namespace Repositories.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Payment",
+                schema: "public",
+                columns: table => new
+                {
+                    payment_id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    account_id = table.Column<int>(type: "integer", nullable: false),
+                    package_id = table.Column<int>(type: "integer", nullable: true),
+                    provider = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    order_code = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
+                    created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true),
+                    paid_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("Payment_pkey", x => x.payment_id);
+                    table.ForeignKey(
+                        name: "Payment_account_id_fkey",
+                        column: x => x.account_id,
+                        principalSchema: "public",
+                        principalTable: "Accounts",
+                        principalColumn: "account_id");
+                    table.ForeignKey(
+                        name: "Payment_package_id_fkey",
+                        column: x => x.package_id,
+                        principalSchema: "public",
+                        principalTable: "Package",
+                        principalColumn: "package_id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "Item",
+                schema: "public",
+                columns: table => new
+                {
+                    item_id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    wardrobe_id = table.Column<int>(type: "integer", nullable: false),
+                    item_name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    description = table.Column<string>(type: "text", nullable: true),
+                    main_color = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    pattern = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    style = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    texture = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    fabric = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    brand = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
+                    placement = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
+                    style_score = table.Column<double>(type: "double precision", nullable: true),
+                    created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true),
+                    update_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true),
+                    status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("Item_pkey", x => x.item_id);
+                    table.ForeignKey(
+                        name: "Item_wardrobe_id_fkey",
+                        column: x => x.wardrobe_id,
+                        principalSchema: "public",
+                        principalTable: "Wardrobe",
+                        principalColumn: "wardrobe_id");
+                });
+
+            migrationBuilder.CreateTable(
                 name: "MessReaction",
                 schema: "public",
                 columns: table => new
@@ -472,7 +655,7 @@ namespace Repositories.Migrations
                         name: "MessReaction_account_react_id_fkey",
                         column: x => x.account_react_id,
                         principalSchema: "public",
-                        principalTable: "Account",
+                        principalTable: "Accounts",
                         principalColumn: "account_id");
                     table.ForeignKey(
                         name: "MessReaction_message_id_fkey",
@@ -522,7 +705,7 @@ namespace Repositories.Migrations
                         name: "PinnedMessage_accountPinned_id_fkey",
                         column: x => x.accountPinned_id,
                         principalSchema: "public",
-                        principalTable: "Account",
+                        principalTable: "Accounts",
                         principalColumn: "account_id");
                     table.ForeignKey(
                         name: "PinnedMessage_group_id_fkey",
@@ -536,71 +719,6 @@ namespace Repositories.Migrations
                         principalSchema: "public",
                         principalTable: "Message",
                         principalColumn: "message_id");
-                });
-
-            migrationBuilder.CreateTable(
-                name: "Payment",
-                schema: "public",
-                columns: table => new
-                {
-                    payment_id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    account_id = table.Column<int>(type: "integer", nullable: false),
-                    package_id = table.Column<int>(type: "integer", nullable: true),
-                    provider = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
-                    order_code = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
-                    created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true),
-                    paid_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("Payment_pkey", x => x.payment_id);
-                    table.ForeignKey(
-                        name: "Payment_account_id_fkey",
-                        column: x => x.account_id,
-                        principalSchema: "public",
-                        principalTable: "Account",
-                        principalColumn: "account_id");
-                    table.ForeignKey(
-                        name: "Payment_package_id_fkey",
-                        column: x => x.package_id,
-                        principalSchema: "public",
-                        principalTable: "Package",
-                        principalColumn: "package_id");
-                });
-
-            migrationBuilder.CreateTable(
-                name: "Item",
-                schema: "public",
-                columns: table => new
-                {
-                    item_id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    wardrobe_id = table.Column<int>(type: "integer", nullable: false),
-                    item_name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
-                    description = table.Column<string>(type: "text", nullable: true),
-                    main_color = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
-                    pattern = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
-                    style = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
-                    texture = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
-                    fabric = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
-                    brand = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
-                    placement = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
-                    style_score = table.Column<double>(type: "double precision", nullable: true),
-                    created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true),
-                    update_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true),
-                    status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true)
-                },
-                constraints: table =>
-                {
-                    table.PrimaryKey("Item_pkey", x => x.item_id);
-                    table.ForeignKey(
-                        name: "Item_wardrobe_id_fkey",
-                        column: x => x.wardrobe_id,
-                        principalSchema: "public",
-                        principalTable: "Wardrobe",
-                        principalColumn: "wardrobe_id");
                 });
 
             migrationBuilder.CreateTable(
@@ -622,7 +740,7 @@ namespace Repositories.Migrations
                         name: "Comment_account_id_fkey",
                         column: x => x.account_id,
                         principalSchema: "public",
-                        principalTable: "Account",
+                        principalTable: "Accounts",
                         principalColumn: "account_id");
                     table.ForeignKey(
                         name: "Comment_post_id_fkey",
@@ -671,7 +789,7 @@ namespace Repositories.Migrations
                         name: "Reaction_account_id_fkey",
                         column: x => x.account_id,
                         principalSchema: "public",
-                        principalTable: "Account",
+                        principalTable: "Accounts",
                         principalColumn: "account_id");
                     table.ForeignKey(
                         name: "Reaction_post_id_fkey",
@@ -701,7 +819,7 @@ namespace Repositories.Migrations
                         name: "User_Report_account_id_fkey",
                         column: x => x.account_id,
                         principalSchema: "public",
-                        principalTable: "Account",
+                        principalTable: "Accounts",
                         principalColumn: "account_id");
                     table.ForeignKey(
                         name: "User_Report_post_id_fkey",
@@ -742,7 +860,7 @@ namespace Repositories.Migrations
                         name: "Transaction_account_id_fkey",
                         column: x => x.account_id,
                         principalSchema: "public",
-                        principalTable: "Account",
+                        principalTable: "Accounts",
                         principalColumn: "account_id");
                     table.ForeignKey(
                         name: "Transaction_payment_id_fkey",
@@ -759,8 +877,10 @@ namespace Repositories.Migrations
                 {
                     image_id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    owner_id = table.Column<int>(type: "integer", nullable: false),
                     image_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    post_id = table.Column<int>(type: "integer", nullable: true),
+                    item_id = table.Column<int>(type: "integer", nullable: true),
+                    account_avatar_id = table.Column<int>(type: "integer", nullable: true),
                     owner_type = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true)
                 },
@@ -768,17 +888,26 @@ namespace Repositories.Migrations
                 {
                     table.PrimaryKey("Images_pkey", x => x.image_id);
                     table.ForeignKey(
-                        name: "Images_owner_id_fkey",
-                        column: x => x.owner_id,
+                        name: "FK_Images_Accounts_account_avatar_id",
+                        column: x => x.account_avatar_id,
+                        principalSchema: "public",
+                        principalTable: "Accounts",
+                        principalColumn: "account_id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Images_Item_item_id",
+                        column: x => x.item_id,
                         principalSchema: "public",
                         principalTable: "Item",
-                        principalColumn: "item_id");
+                        principalColumn: "item_id",
+                        onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
-                        name: "Images_owner_id_fkey1",
-                        column: x => x.owner_id,
+                        name: "FK_Images_Post_post_id",
+                        column: x => x.post_id,
                         principalSchema: "public",
                         principalTable: "Post",
-                        principalColumn: "post_id");
+                        principalColumn: "post_id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -807,24 +936,46 @@ namespace Repositories.Migrations
                 });
 
             migrationBuilder.CreateIndex(
+                name: "IX_AccountClaims_account_id",
+                table: "AccountClaims",
+                column: "account_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AccountLogins_account_id",
+                table: "AccountLogins",
+                column: "account_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_AccountRoles_role_id",
+                table: "AccountRoles",
+                column: "role_id");
+
+            migrationBuilder.CreateIndex(
                 name: "Account_email_key",
                 schema: "public",
-                table: "Account",
+                table: "Accounts",
                 column: "email",
                 unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "Account_username_key",
                 schema: "public",
-                table: "Account",
+                table: "Accounts",
                 column: "username",
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "IX_Account_role_id",
+                name: "EmailIndex",
                 schema: "public",
-                table: "Account",
-                column: "role_id");
+                table: "Accounts",
+                column: "normalized_email");
+
+            migrationBuilder.CreateIndex(
+                name: "UserNameIndex",
+                schema: "public",
+                table: "Accounts",
+                column: "normalized_username",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "IX_Comment_account_id",
@@ -871,10 +1022,22 @@ namespace Repositories.Migrations
                 column: "account_id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Images_owner_id",
+                name: "IX_Images_account_avatar_id",
                 schema: "public",
                 table: "Images",
-                column: "owner_id");
+                column: "account_avatar_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Images_item_id",
+                schema: "public",
+                table: "Images",
+                column: "item_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Images_post_id",
+                schema: "public",
+                table: "Images",
+                column: "post_id");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Item_wardrobe_id",
@@ -1007,15 +1170,13 @@ namespace Repositories.Migrations
                 name: "RefreshToken_device_info_key",
                 schema: "public",
                 table: "RefreshToken",
-                column: "device_info",
-                unique: true);
+                column: "device_info");
 
             migrationBuilder.CreateIndex(
                 name: "RefreshToken_ip_address_key",
                 schema: "public",
                 table: "RefreshToken",
-                column: "ip_address",
-                unique: true);
+                column: "ip_address");
 
             migrationBuilder.CreateIndex(
                 name: "RefreshToken_token_key",
@@ -1032,10 +1193,14 @@ namespace Repositories.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
-                name: "Role_role_name_key",
-                schema: "public",
-                table: "Role",
-                column: "role_name",
+                name: "IX_RoleClaims_role_id",
+                table: "RoleClaims",
+                column: "role_id");
+
+            migrationBuilder.CreateIndex(
+                name: "RoleNameIndex",
+                table: "Roles",
+                column: "normalized_name",
                 unique: true);
 
             migrationBuilder.CreateIndex(
@@ -1080,6 +1245,18 @@ namespace Repositories.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropTable(
+                name: "AccountClaims");
+
+            migrationBuilder.DropTable(
+                name: "AccountLogins");
+
+            migrationBuilder.DropTable(
+                name: "AccountRoles");
+
+            migrationBuilder.DropTable(
+                name: "AccountTokens");
+
             migrationBuilder.DropTable(
                 name: "Comment",
                 schema: "public");
@@ -1137,6 +1314,9 @@ namespace Repositories.Migrations
                 schema: "public");
 
             migrationBuilder.DropTable(
+                name: "RoleClaims");
+
+            migrationBuilder.DropTable(
                 name: "Transaction",
                 schema: "public");
 
@@ -1163,6 +1343,9 @@ namespace Repositories.Migrations
             migrationBuilder.DropTable(
                 name: "Message",
                 schema: "public");
+
+            migrationBuilder.DropTable(
+                name: "Roles");
 
             migrationBuilder.DropTable(
                 name: "Payment",
@@ -1193,11 +1376,7 @@ namespace Repositories.Migrations
                 schema: "public");
 
             migrationBuilder.DropTable(
-                name: "Account",
-                schema: "public");
-
-            migrationBuilder.DropTable(
-                name: "Role",
+                name: "Accounts",
                 schema: "public");
         }
     }

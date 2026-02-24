@@ -12,8 +12,8 @@ using Repositories.Data;
 namespace Repositories.Migrations
 {
     [DbContext(typeof(FashionDbContext))]
-    [Migration("20260223085528_ChangeSchemas")]
-    partial class ChangeSchemas
+    [Migration("20260224053548_InitialCleanStructure_V2")]
+    partial class InitialCleanStructure_V2
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -44,51 +44,268 @@ namespace Repositories.Migrations
                     b.ToTable("Item_Category", "public");
                 });
 
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<int>", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("role_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .HasColumnType("text")
+                        .HasColumnName("concurrency_stamp");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("role_name");
+
+                    b.Property<string>("NormalizedName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("normalized_name");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("NormalizedName")
+                        .IsUnique()
+                        .HasDatabaseName("RoleNameIndex");
+
+                    b.ToTable("Roles", (string)null);
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("role_claim_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ClaimType")
+                        .HasColumnType("text")
+                        .HasColumnName("claim_type");
+
+                    b.Property<string>("ClaimValue")
+                        .HasColumnType("text")
+                        .HasColumnName("claim_value");
+
+                    b.Property<int>("RoleId")
+                        .HasColumnType("integer")
+                        .HasColumnName("role_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("RoleClaims", (string)null);
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<int>", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("claim_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ClaimType")
+                        .HasColumnType("text")
+                        .HasColumnName("claim_type");
+
+                    b.Property<string>("ClaimValue")
+                        .HasColumnType("text")
+                        .HasColumnName("claim_value");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("account_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AccountClaims", (string)null);
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<int>", b =>
+                {
+                    b.Property<string>("LoginProvider")
+                        .HasColumnType("text")
+                        .HasColumnName("login_provider");
+
+                    b.Property<string>("ProviderKey")
+                        .HasColumnType("text")
+                        .HasColumnName("provider_key");
+
+                    b.Property<string>("ProviderDisplayName")
+                        .HasColumnType("text")
+                        .HasColumnName("provider_display_name");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("account_id");
+
+                    b.HasKey("LoginProvider", "ProviderKey");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("AccountLogins", (string)null);
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<int>", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("account_id");
+
+                    b.Property<int>("RoleId")
+                        .HasColumnType("integer")
+                        .HasColumnName("role_id");
+
+                    b.HasKey("UserId", "RoleId");
+
+                    b.HasIndex("RoleId");
+
+                    b.ToTable("AccountRoles", (string)null);
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<int>", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("account_id");
+
+                    b.Property<string>("LoginProvider")
+                        .HasColumnType("text")
+                        .HasColumnName("login_provider");
+
+                    b.Property<string>("Name")
+                        .HasColumnType("text")
+                        .HasColumnName("token_name");
+
+                    b.Property<string>("Value")
+                        .HasColumnType("text")
+                        .HasColumnName("token_value");
+
+                    b.HasKey("UserId", "LoginProvider", "Name");
+
+                    b.ToTable("AccountTokens", (string)null);
+                });
+
             modelBuilder.Entity("Repositories.Entities.Account", b =>
                 {
-                    b.Property<int>("AccountId")
+                    b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
                         .HasColumnName("account_id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("AccountId"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
 
-                    b.Property<string>("Avatar")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("avatar");
+                    b.Property<int>("AccessFailedCount")
+                        .HasColumnType("integer")
+                        .HasColumnName("access_failed_count");
 
                     b.Property<DateTime?>("CodeExpiredAt")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("code_expires_at");
 
+                    b.Property<string>("ConcurrencyStamp")
+                        .IsConcurrencyToken()
+                        .HasColumnType("text")
+                        .HasColumnName("concurrency_stamp");
+
+                    b.Property<int>("CountFollower")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("count_follower");
+
+                    b.Property<int>("CountFollowing")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("count_following");
+
+                    b.Property<int>("CountPost")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("count_post");
+
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
+
                     b.Property<string>("Email")
-                        .IsRequired()
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")
                         .HasColumnName("email");
 
+                    b.Property<bool>("EmailConfirmed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("email_confirmed");
+
+                    b.Property<int>("FreeTryOn")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(3)
+                        .HasColumnName("free_try_on");
+
+                    b.Property<bool>("LockoutEnabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("lockout_enabled");
+
+                    b.Property<DateTimeOffset?>("LockoutEnd")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("lockout_end");
+
+                    b.Property<string>("NormalizedEmail")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("normalized_email");
+
+                    b.Property<string>("NormalizedUserName")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)")
+                        .HasColumnName("normalized_username");
+
                     b.Property<string>("PasswordHash")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
+                        .HasColumnType("text")
                         .HasColumnName("password_hash");
 
-                    b.Property<int>("RoleId")
-                        .HasColumnType("integer")
-                        .HasColumnName("role_id");
+                    b.Property<string>("PhoneNumber")
+                        .HasColumnType("text")
+                        .HasColumnName("phone_number");
+
+                    b.Property<bool>("PhoneNumberConfirmed")
+                        .HasColumnType("boolean")
+                        .HasColumnName("phone_number_confirmed");
+
+                    b.Property<string>("SecurityStamp")
+                        .HasColumnType("text")
+                        .HasColumnName("security_stamp");
 
                     b.Property<string>("Status")
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("status");
 
-                    b.Property<string>("Username")
-                        .IsRequired()
+                    b.Property<bool>("TwoFactorEnabled")
+                        .HasColumnType("boolean")
+                        .HasColumnName("two_factor_enabled");
+
+                    b.Property<string>("UserName")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("username");
@@ -98,18 +315,23 @@ namespace Repositories.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("verification_code");
 
-                    b.HasKey("AccountId")
+                    b.HasKey("Id")
                         .HasName("Account_pkey");
 
-                    b.HasIndex("RoleId");
+                    b.HasIndex("NormalizedEmail")
+                        .HasDatabaseName("EmailIndex");
+
+                    b.HasIndex("NormalizedUserName")
+                        .IsUnique()
+                        .HasDatabaseName("UserNameIndex");
 
                     b.HasIndex(new[] { "Email" }, "Account_email_key")
                         .IsUnique();
 
-                    b.HasIndex(new[] { "Username" }, "Account_username_key")
+                    b.HasIndex(new[] { "UserName" }, "Account_username_key")
                         .IsUnique();
 
-                    b.ToTable("Account", "public");
+                    b.ToTable("Accounts", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Category", b =>
@@ -414,6 +636,10 @@ namespace Repositories.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ImageId"));
 
+                    b.Property<int?>("AccountAvatarId")
+                        .HasColumnType("integer")
+                        .HasColumnName("account_avatar_id");
+
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("created_at");
@@ -424,19 +650,27 @@ namespace Repositories.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("image_url");
 
-                    b.Property<int>("OwnerId")
+                    b.Property<int?>("ItemId")
                         .HasColumnType("integer")
-                        .HasColumnName("owner_id");
+                        .HasColumnName("item_id");
 
                     b.Property<string>("OwnerType")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("owner_type");
 
+                    b.Property<int?>("PostId")
+                        .HasColumnType("integer")
+                        .HasColumnName("post_id");
+
                     b.HasKey("ImageId")
                         .HasName("Images_pkey");
 
-                    b.HasIndex("OwnerId");
+                    b.HasIndex("AccountAvatarId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("PostId");
 
                     b.ToTable("Images", "public");
                 });
@@ -1014,11 +1248,9 @@ namespace Repositories.Migrations
                     b.HasIndex(new[] { "AccountId" }, "RefreshToken_account_id_key")
                         .IsUnique();
 
-                    b.HasIndex(new[] { "DeviceInfo" }, "RefreshToken_device_info_key")
-                        .IsUnique();
+                    b.HasIndex(new[] { "DeviceInfo" }, "RefreshToken_device_info_key");
 
-                    b.HasIndex(new[] { "IpAddress" }, "RefreshToken_ip_address_key")
-                        .IsUnique();
+                    b.HasIndex(new[] { "IpAddress" }, "RefreshToken_ip_address_key");
 
                     b.HasIndex(new[] { "Token" }, "RefreshToken_token_key")
                         .IsUnique();
@@ -1053,35 +1285,6 @@ namespace Repositories.Migrations
                         .IsUnique();
 
                     b.ToTable("Report_Type", "public");
-                });
-
-            modelBuilder.Entity("Repositories.Entities.Role", b =>
-                {
-                    b.Property<int>("RoleId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("role_id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("RoleId"));
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("description");
-
-                    b.Property<string>("RoleName")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("role_name");
-
-                    b.HasKey("RoleId")
-                        .HasName("Role_pkey");
-
-                    b.HasIndex(new[] { "RoleName" }, "Role_role_name_key")
-                        .IsUnique();
-
-                    b.ToTable("Role", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Transaction", b =>
@@ -1251,15 +1454,55 @@ namespace Repositories.Migrations
                         .HasConstraintName("Item_Category_item_id_fkey");
                 });
 
-            modelBuilder.Entity("Repositories.Entities.Account", b =>
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
                 {
-                    b.HasOne("Repositories.Entities.Role", "Role")
-                        .WithMany("Accounts")
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<int>", null)
+                        .WithMany()
                         .HasForeignKey("RoleId")
-                        .IsRequired()
-                        .HasConstraintName("Account_role_id_fkey");
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
 
-                    b.Navigation("Role");
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<int>", b =>
+                {
+                    b.HasOne("Repositories.Entities.Account", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<int>", b =>
+                {
+                    b.HasOne("Repositories.Entities.Account", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<int>", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<int>", null)
+                        .WithMany()
+                        .HasForeignKey("RoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Repositories.Entities.Account", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<int>", b =>
+                {
+                    b.HasOne("Repositories.Entities.Account", null)
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Repositories.Entities.Comment", b =>
@@ -1354,21 +1597,26 @@ namespace Repositories.Migrations
 
             modelBuilder.Entity("Repositories.Entities.Image", b =>
                 {
-                    b.HasOne("Repositories.Entities.Item", "Owner")
+                    b.HasOne("Repositories.Entities.Account", "Account")
+                        .WithMany("Avatars")
+                        .HasForeignKey("AccountAvatarId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Repositories.Entities.Item", "Item")
                         .WithMany("Images")
-                        .HasForeignKey("OwnerId")
-                        .IsRequired()
-                        .HasConstraintName("Images_owner_id_fkey");
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade);
 
-                    b.HasOne("Repositories.Entities.Post", "OwnerNavigation")
+                    b.HasOne("Repositories.Entities.Post", "Post")
                         .WithMany("Images")
-                        .HasForeignKey("OwnerId")
-                        .IsRequired()
-                        .HasConstraintName("Images_owner_id_fkey1");
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.Cascade);
 
-                    b.Navigation("Owner");
+                    b.Navigation("Account");
 
-                    b.Navigation("OwnerNavigation");
+                    b.Navigation("Item");
+
+                    b.Navigation("Post");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Item", b =>
@@ -1637,6 +1885,8 @@ namespace Repositories.Migrations
 
             modelBuilder.Entity("Repositories.Entities.Account", b =>
                 {
+                    b.Navigation("Avatars");
+
                     b.Navigation("Comments");
 
                     b.Navigation("Events");
@@ -1739,11 +1989,6 @@ namespace Repositories.Migrations
             modelBuilder.Entity("Repositories.Entities.ReportType", b =>
                 {
                     b.Navigation("UserReports");
-                });
-
-            modelBuilder.Entity("Repositories.Entities.Role", b =>
-                {
-                    b.Navigation("Accounts");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Wardrobe", b =>

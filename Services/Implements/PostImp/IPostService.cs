@@ -16,6 +16,7 @@ namespace Services.Implements.PostImp
         public Task<PostResponse> GetPostByIdAsync(int postId);
         public Task<string> AdminCheckTheStatusPost(CheckPostRequest request, int id);
         Task<List<PostResponse>> GetAllMyPostAsync(int userId);
+        Task<int> CountAllMyPostAsync(int userId);
         public Task UpdatePostAsync(int postid, UpdatePostRequest post);
         public Task DeletePostAsync(int postId);
     }

@@ -9,6 +9,7 @@ using Repositories.Repos.AccountRepos;
 using Repositories.Repos.ExpertFileRepos;
 using Repositories.Repos.ExpertProfileRepos;
 using Repositories.Repos.FollowRepos;
+using Repositories.Repos.ImageRepos;
 using Repositories.Repos.PackageCoinRepos;
 using Repositories.Repos.PostRepos;
 using Repositories.Repos.SocialRepos;
@@ -21,6 +22,7 @@ using Services.Implements.Auth;
 using Services.Implements.BackgroundServices;
 using Services.Implements.ExpertFileImp;
 using Services.Implements.Follow;
+using Services.Implements.ImageImp;
 using Services.Implements.PackageCoinImp;
 using Services.Implements.PostImp;
 using Services.Implements.SocialImp;
@@ -81,6 +83,7 @@ builder.Services.AddIdentity<Account, IdentityRole<int>>(options =>
 .AddDefaultTokenProviders();
 
 // Repository Layer
+builder.Services.AddScoped<IImageRepository, ImageReository>();
 builder.Services.AddScoped<ISocialRepository, SocialRepository>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<IPackageCoinRepository, PackageCoinRepository>();
@@ -100,6 +103,7 @@ builder.Services.AddScoped<IUserReportService, UserReportService>();
 builder.Services.AddScoped<IPackageCoinService, PackageCoinService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<ISocialService,SocialService>();
+builder.Services.AddScoped<IImageService, ImageService>();
 
 
 // Service Layer

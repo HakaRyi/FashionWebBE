@@ -18,6 +18,7 @@ namespace Repositories.Repos.AccountRepos
             return await _db.Accounts
                 .Include(a => a.ExpertProfile)
                     .ThenInclude(ep => ep.ExpertFile)
+                .Include(a => a.Avatars)
                 .Where(a => a.ExpertProfile != null)
                 .ToListAsync();
         }
@@ -37,6 +38,18 @@ namespace Repositories.Repos.AccountRepos
         {
             _db.RefreshTokens.Update(token);
             await _db.SaveChangesAsync();
+        }
+
+        public async Task<int> UpdateAccount(Account account)
+        {
+            _db.Accounts.Update(account);
+            return await _db.SaveChangesAsync();
+        }
+
+        public async Task<Account> GetAccountById(int userId)
+        {
+            return await _db.Accounts
+                .FirstOrDefaultAsync(a => a.Id == userId);
         }
     }
 }

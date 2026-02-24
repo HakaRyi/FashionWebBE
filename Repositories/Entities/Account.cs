@@ -15,7 +15,15 @@ public partial class Account : IdentityUser<int>
 
     public DateTime? CodeExpiredAt { get; set; }
 
-    public string? Avatar { get; set; }
+    public int FreeTryOn { get; set; }
+
+    public string? Description { get; set; }
+
+    public int CountPost { get; set; }
+
+    public int CountFollower { get; set; } 
+
+    public int CountFollowing { get; set; } 
 
     public virtual ICollection<Comment> Comments { get; set; } = new List<Comment>();
 
@@ -56,4 +64,5 @@ public partial class Account : IdentityUser<int>
     public virtual ICollection<Follow> FollowUserNavigations { get; set; } = new List<Follow>();
 
     public virtual ICollection<Follow> FollowFollowerNavigations { get; set; } = new List<Follow>();
+    public virtual ICollection<Image> Avatars { get; set; } = new List<Image>();
 }
