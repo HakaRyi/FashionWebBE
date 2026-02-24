@@ -19,7 +19,7 @@ namespace Repositories.Repos.PostRepos
         public async Task<List<Post>> GetAllPostAsync(){
             return await _context.Posts
                 .Include(p => p.Images)
-                .Include(p => p.Account)
+                .Include(p => p.Account).ThenInclude(a => a.Avatars)
                 .Include(p => p.Event)
                 .OrderBy(p => p.Status == "Pending" ? 1 :
                       p.Status == "Published" ? 2 :
@@ -35,7 +35,9 @@ namespace Repositories.Repos.PostRepos
 
         public async Task<Post?> GetPostByIdAsync(int postId)
         {
-            return await _context.Posts.FindAsync(postId);
+            return await _context.Posts
+                .Include(p=>p.Account).ThenInclude(a => a.Avatars)
+                .FirstOrDefaultAsync(p=>p.PostId==postId);
         }
 
         public async Task UpdatePostAsync(Post post)
@@ -60,7 +62,7 @@ namespace Repositories.Repos.PostRepos
         {
             return await _context.Posts
                 .Include(p => p.Images)
-                .Include(p => p.Account)
+                .Include(p => p.Account).ThenInclude(a => a.Avatars)
                 .Include(p => p.Event)
                 .Where(p=>p.AccountId == userId)
                 .OrderBy(p => p.Status == "Pending" ? 1 :

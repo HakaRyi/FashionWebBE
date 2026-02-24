@@ -24,6 +24,7 @@ namespace Services.Implements.ImageImp
                 AccountAvatarId = userId,
                 PostId = null,
                 ItemId = null,
+                OwnerType = "AVATAR",
                 CreatedAt = DateTime.UtcNow
             };
             return await _imageRepository.CreateImage(newImage);

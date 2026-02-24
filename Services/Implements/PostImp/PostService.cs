@@ -120,7 +120,10 @@ namespace Services.Implements.PostImp
             {
                 PostId = post.PostId,
                 UserName = post.Account?.UserName,
-                //AvatarUrl = post.Account?.Avatar,
+                AvatarUrl = post.Account?.Avatars
+                          .OrderByDescending(img => img.CreatedAt)
+                          .Select(img => img.ImageUrl)
+                          .FirstOrDefault() ?? null,
                 EventId = post.EventId,
                 EventName = post.Event?.Title,
                 Title = post.Tittle,
