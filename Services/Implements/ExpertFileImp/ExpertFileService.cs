@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Repositories.Repos.ExpertFileRepos;
+﻿using Repositories.Repos.ExpertFileRepos;
 using Services.Response.AccountRep;
 
 namespace Services.Implements.ExpertFileImp

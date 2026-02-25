@@ -92,17 +92,17 @@ builder.Services.AddScoped<IExpertFileRepository, ExpertFileRepository>();
 builder.Services.AddScoped<IExpertProfileRepository, ExpertProfileRepository>();
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IWardrobeRepository, WardrobeRepository>();
-builder.Services.AddScoped<IFollowRepository,FollowRepository>();
+builder.Services.AddScoped<IFollowRepository, FollowRepository>();
 builder.Services.AddScoped<IPostRepository, PostRepository>();
 builder.Services.AddScoped<IPostService, PostService>();
 builder.Services.AddScoped<ICloudStorageService, CloundStorageService>();
 builder.Services.AddScoped<IAIDetectionService, AIDetectionService>();
-builder.Services.AddScoped<IAccountService,AccountService>();
+builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IExpertFileService, ExpertFileService>();
 builder.Services.AddScoped<IUserReportService, UserReportService>();
 builder.Services.AddScoped<IPackageCoinService, PackageCoinService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
-builder.Services.AddScoped<ISocialService,SocialService>();
+builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IImageService, ImageService>();
 
 

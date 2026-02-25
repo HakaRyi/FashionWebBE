@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace Repositories.Entities;
+﻿namespace Repositories.Entities;
 
 public partial class Image
 {
@@ -15,8 +12,8 @@ public partial class Image
     public string? OwnerType { get; set; }
     public DateTime? CreatedAt { get; set; }
 
-    public virtual Item? Item { get; set; } 
+    public virtual Item? Item { get; set; }
 
-    public virtual Post? Post { get; set; } 
+    public virtual Post? Post { get; set; }
     public virtual Account? Account { get; set; }
 }

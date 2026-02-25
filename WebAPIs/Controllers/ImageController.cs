@@ -50,8 +50,8 @@ namespace WebAPIs.Controllers
         public async Task<IActionResult> Post([FromBody] Image image)
         {
             var userId = User.FindFirst("AccountId")?.Value;
-            var result = await _imageService.CreateAvatarImage(int.Parse(userId),image);
-            if(result > 0)
+            var result = await _imageService.CreateAvatarImage(int.Parse(userId), image);
+            if (result > 0)
             {
                 return Ok(new { Message = "Avatar image created successfully", ImageId = result });
             }

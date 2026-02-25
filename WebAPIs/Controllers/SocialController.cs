@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Repositories.Entities;
 using Services.Implements.SocialImp;
 using Services.Request.CommentReq;
 using Services.Request.ReactionReq;
@@ -121,7 +120,7 @@ namespace WebAPIs.Controllers
         public async Task<IActionResult> Post([FromRoute] int postId)
         {
             var userId = User.FindFirst("AccountId")?.Value;
-            var result = await _socialService.CreateReaction(int.Parse(userId),postId);
+            var result = await _socialService.CreateReaction(int.Parse(userId), postId);
             if (result != 0)
             {
                 return Ok(new
@@ -138,10 +137,10 @@ namespace WebAPIs.Controllers
             }
         }
         [HttpPost("createComment/{postId}")]
-        public async Task<IActionResult> CreateComment([FromRoute] int postId, [FromBody]CommentRequest request)
+        public async Task<IActionResult> CreateComment([FromRoute] int postId, [FromBody] CommentRequest request)
         {
             var userId = User.FindFirst("AccountId")?.Value;
-            var result = await _socialService.CreateComment(request,int.Parse(userId),postId);
+            var result = await _socialService.CreateComment(request, int.Parse(userId), postId);
             if (result != 0)
             {
                 return Ok(new
@@ -180,7 +179,7 @@ namespace WebAPIs.Controllers
 
         // PUT api/<SocialController>/5
         [HttpPut("{postId}")]
-        public async Task<IActionResult> Put( [FromRoute] int postId, [FromBody] UpdateReactionRequest request)
+        public async Task<IActionResult> Put([FromRoute] int postId, [FromBody] UpdateReactionRequest request)
         {
             var userId = User.FindFirst("AccountId")?.Value;
             var result = await _socialService.UpdateReaction(int.Parse(userId), postId, request);

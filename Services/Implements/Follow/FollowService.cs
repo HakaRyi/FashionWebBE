@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Repositories.Repos.AccountRepos;
+﻿using Repositories.Repos.AccountRepos;
 using Repositories.Repos.FollowRepos;
 using Services.Response.FollowResp;
 
@@ -163,13 +158,13 @@ namespace Services.Implements.Follow
         public async Task<bool> UnfollowUserAsync(int userId, int followerId)
         {
             var result = await _followRepository.UnfollowUserAsync(userId, followerId);
-                var account = await _accountRepository.GetAccountById(userId);
-                var follower = await _accountRepository.GetAccountById(followerId);
-                account.CountFollowing -= 1;
-                follower.CountFollower -= 1;
-                var updateCountFollowing = await _accountRepository.UpdateAccount(account);
-                var updateCountFollower = await _accountRepository.UpdateAccount(follower);
-            if (result > 0 && updateCountFollowing > 0 && updateCountFollower >0)
+            var account = await _accountRepository.GetAccountById(userId);
+            var follower = await _accountRepository.GetAccountById(followerId);
+            account.CountFollowing -= 1;
+            follower.CountFollower -= 1;
+            var updateCountFollowing = await _accountRepository.UpdateAccount(account);
+            var updateCountFollower = await _accountRepository.UpdateAccount(follower);
+            if (result > 0 && updateCountFollowing > 0 && updateCountFollower > 0)
             {
                 return true;
             }

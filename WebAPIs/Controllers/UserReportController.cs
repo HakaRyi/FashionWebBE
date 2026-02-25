@@ -31,7 +31,7 @@ namespace WebAPIs.Controllers
 
         // GET api/<UserReportController>/5
         [HttpGet("{id}")]
-        public async Task<IActionResult> Get([FromRoute]int id)
+        public async Task<IActionResult> Get([FromRoute] int id)
         {
             var result = await _userReportService.GetById(id);
             if (result != null)

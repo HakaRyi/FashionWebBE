@@ -3,8 +3,6 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Repositories.Entities;
-using System;
-using System.Collections.Generic;
 
 namespace Repositories.Data;
 
@@ -950,7 +948,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at");
-                    
+
             entity.HasOne(d => d.User).WithMany(p => p.FollowUserNavigations)
                 .HasForeignKey(d => d.UserId)
                 .OnDelete(DeleteBehavior.ClientSetNull)

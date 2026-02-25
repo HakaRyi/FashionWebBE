@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Repositories.Entities;
+﻿using Repositories.Entities;
 using Services.Request.CommentReq;
 using Services.Request.ReactionReq;
 
@@ -17,7 +12,7 @@ namespace Services.Implements.SocialImp
         Task<List<Reaction>> GetAllReactionByPostId(int postId);
         Task<int> GetReactionCountByPostId(int postId);
         Task<int> GetCommentCountByPostId(int postId);
-        Task<bool> RemoveReaction( int reactId);
+        Task<bool> RemoveReaction(int reactId);
         Task<bool> CheckIsLikedByUser(int accId, int postId);
         Task<int> CreateComment(CommentRequest request, int accId, int postId);
         Task<int> UpdateComment(int commentId, int accId, CommentRequest request);

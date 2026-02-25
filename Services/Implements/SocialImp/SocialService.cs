@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Repositories.Entities;
+﻿using Repositories.Entities;
 using Repositories.Repos.SocialRepos;
 using Services.Request.CommentReq;
 using Services.Request.ReactionReq;
@@ -80,7 +75,7 @@ namespace Services.Implements.SocialImp
 
         public async Task<int> GetReactionCountByPostId(int postId)
         {
-           return (await _socialRepository.GetAllReactionByPostId(postId)).Count;
+            return (await _socialRepository.GetAllReactionByPostId(postId)).Count;
         }
 
         public async Task<bool> RemoveReaction(int reactId)
@@ -106,7 +101,7 @@ namespace Services.Implements.SocialImp
 
         public async Task<int> UpdateReaction(int accId, int postId, UpdateReactionRequest request)
         {
-            var reaction = await _socialRepository.GetReactByAccIdAndPostId(accId,postId);
+            var reaction = await _socialRepository.GetReactByAccIdAndPostId(accId, postId);
             if (reaction == null || reaction.AccountId != accId || reaction.PostId != postId)
             {
                 throw new Exception("Reaction not found or does not belong to the user/post.");

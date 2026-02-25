@@ -1,7 +1,5 @@
-﻿using CloudinaryDotNet;
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Repositories.Entities;
 using Repositories.Repos.AccountRepos;
 using Repositories.Repos.ExpertProfileRepos;
 using Repositories.Repos.ImageRepos;

@@ -28,7 +28,7 @@ namespace WebAPIs.Controllers
                 return Unauthorized(new { message = "Token không chứa AccountID hợp lệ." });
             }
             var result = await service.GetFollowersByIdAsync(int.Parse(userIdClaim));
-            if(result != null)
+            if (result != null)
             {
                 return Ok(result);
             }
@@ -67,7 +67,7 @@ namespace WebAPIs.Controllers
 
         // GET api/<FollowController>/5
         [HttpGet("{followerId}")]
-        public async Task<IActionResult> GetById([FromRoute]int followerId)
+        public async Task<IActionResult> GetById([FromRoute] int followerId)
         {
             var userId = User.FindFirst("AccountId")?.Value;
             var result = await service.GetFollowerByIdAsync(int.Parse(userId), followerId);
@@ -83,7 +83,7 @@ namespace WebAPIs.Controllers
                 });
             }
         }
-      
+
 
         // POST api/<FollowController>
         [HttpPost("{followerId}")]
@@ -91,8 +91,8 @@ namespace WebAPIs.Controllers
         public async Task<IActionResult> Post([FromRoute] int followerId)
         {
             var userId = User.FindFirst("AccountId")?.Value;
-            var result =  await service.FollowUserAsync(int.Parse(userId), followerId);
-            if(result)
+            var result = await service.FollowUserAsync(int.Parse(userId), followerId);
+            if (result)
             {
                 return Ok(new
                 {
@@ -141,7 +141,7 @@ namespace WebAPIs.Controllers
                 return Ok(new
                 {
                     message = "Unfollow thanh cong"
-                }); 
+                });
             }
             else
             {

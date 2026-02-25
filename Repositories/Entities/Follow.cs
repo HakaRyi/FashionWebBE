@@ -1,14 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Repositories.Entities
+﻿namespace Repositories.Entities
 {
     public partial class Follow
     {
-        public int UserId { get; set; } 
+        public int UserId { get; set; }
 
         public int FollowerId { get; set; }
 

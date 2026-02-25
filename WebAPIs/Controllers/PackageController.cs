@@ -20,14 +20,15 @@ namespace WebAPIs.Controllers
         [HttpGet]
         public async Task<IActionResult> Get()
         {
-            var result =  await _packageCoinService.GetAll();
-            if(result != null)
+            var result = await _packageCoinService.GetAll();
+            if (result != null)
             {
                 return Ok(result);
             }
             else
             {
-                return StatusCode(404, new {
+                return StatusCode(404, new
+                {
                     message = "No packages found"
                 });
             }
@@ -57,10 +58,11 @@ namespace WebAPIs.Controllers
         public async Task<IActionResult> Post([FromBody] PackageRequest request)
         {
             var userId = User.FindFirst("AccountId")?.Value;
-            var package = await _packageCoinService.CreateAsync(request,int.Parse(userId));
-            if (package >0)
+            var package = await _packageCoinService.CreateAsync(request, int.Parse(userId));
+            if (package > 0)
             {
-                return Ok(new {
+                return Ok(new
+                {
                     message = "Package created successfully"
                 });
             }
@@ -77,8 +79,8 @@ namespace WebAPIs.Controllers
         [HttpPut("{id}")]
         public async Task<IActionResult> Put(int id, [FromBody] PackageRequest request)
         {
-            var updated = await _packageCoinService.UpdateAsync(request,id);
-            if (updated>0)
+            var updated = await _packageCoinService.UpdateAsync(request, id);
+            if (updated > 0)
             {
                 return Ok(new
                 {
@@ -112,7 +114,7 @@ namespace WebAPIs.Controllers
                     message = "Package not found"
                 });
             }
-            else 
+            else
             {
                 return StatusCode(500, new
                 {

@@ -1,23 +1,17 @@
 ﻿using Repositories.Entities;
 using Services.Request.PostReq;
 using Services.Response.PostResp;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Services.Implements.PostImp
 {
     public interface IPostService
     {
-        public Task<Post> CreatePostAsync(int accountId, CreatePostRequest request);
-        public Task<List<PostResponse>> GetAllPostAsync();
-        public Task<PostResponse> GetPostByIdAsync(int postId);
-        public Task<string> AdminCheckTheStatusPost(CheckPostRequest request, int id);
+        Task<Post> CreatePostAsync(int accountId, CreatePostRequest request);
+        Task<List<PostResponse>> GetAllPostAsync();
+        Task<PostResponse?> GetPostByIdAsync(int postId);
+        Task<string> AdminCheckTheStatusPost(CheckPostRequest request, int id);
         Task<List<PostResponse>> GetAllMyPostAsync(int userId);
-        Task<int> CountAllMyPostAsync(int userId);
-        public Task UpdatePostAsync(int postid, UpdatePostRequest post);
-        public Task DeletePostAsync(int postId);
+        Task UpdatePostAsync(int postId, int accountId, UpdatePostRequest request);
+        Task DeletePostAsync(int postId);
     }
 }

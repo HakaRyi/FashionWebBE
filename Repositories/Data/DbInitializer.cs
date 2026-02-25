@@ -2,8 +2,6 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Repositories.Entities;
-using System;
-using System.Threading.Tasks;
 
 namespace Repositories.Data
 {

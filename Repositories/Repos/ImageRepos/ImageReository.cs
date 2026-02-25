@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Repositories.Data;
 using Repositories.Entities;
 
@@ -58,7 +53,7 @@ namespace Repositories.Repos.ImageRepos
 
         public async Task<Image> GetById(int id)
         {
-            return await _db.Images.FirstOrDefaultAsync(i=>i.ImageId==id);
+            return await _db.Images.FirstOrDefaultAsync(i => i.ImageId == id);
         }
     }
 }

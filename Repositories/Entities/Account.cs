@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 
 namespace Repositories.Entities;
 
@@ -21,9 +18,9 @@ public partial class Account : IdentityUser<int>
 
     public int CountPost { get; set; }
 
-    public int CountFollower { get; set; } 
+    public int CountFollower { get; set; }
 
-    public int CountFollowing { get; set; } 
+    public int CountFollowing { get; set; }
 
     public virtual ICollection<Comment> Comments { get; set; } = new List<Comment>();
 

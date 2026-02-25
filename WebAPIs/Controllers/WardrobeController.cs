@@ -1,6 +1,4 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Mvc;
 using Services.Implements.Wardrobe;
 using Services.Request.WardrobeReq;
@@ -20,7 +18,7 @@ namespace WebAPIs.Controllers
         public async Task<IActionResult> GetAll()
         {
             var result = await _wardrobeService.GetAll();
-            if(result != null)
+            if (result != null)
             {
                 return Ok(result);
             }
@@ -55,7 +53,7 @@ namespace WebAPIs.Controllers
         public async Task<ActionResult> Create(WardrobeRequest wardrobeRequest)
         {
             var wardrobe = await _wardrobeService.Create(wardrobeRequest);
-            if(wardrobe > 0)
+            if (wardrobe > 0)
             {
                 return Ok(wardrobe);
             }
@@ -69,6 +67,6 @@ namespace WebAPIs.Controllers
 
         }
 
-       
+
     }
 }
