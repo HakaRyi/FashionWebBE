@@ -1,12 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Repositories.Entities;
+using System;
+using System.Collections.Generic;
 
 namespace Repositories.Data;
 
-public partial class FashionDbContext : DbContext
+public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<int>, int>
 {
     public FashionDbContext()
     {
@@ -63,8 +65,6 @@ public partial class FashionDbContext : DbContext
 
     public virtual DbSet<ReportType> ReportTypes { get; set; }
 
-    public virtual DbSet<Role> Roles { get; set; }
-
     public virtual DbSet<Transaction> Transactions { get; set; }
 
     public virtual DbSet<UserProfileVector> UserProfileVectors { get; set; }
@@ -73,9 +73,7 @@ public partial class FashionDbContext : DbContext
 
     public virtual DbSet<Wardrobe> Wardrobes { get; set; }
 
-    //    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    //#warning To protect potentially sensitive information in your connection string, you should move it out of source code. You can avoid scaffolding the connection string by using the Name= syntax to read it from configuration - see https://go.microsoft.com/fwlink/?linkid=2131148. For more guidance on storing connection strings, see https://go.microsoft.com/fwlink/?LinkId=723263.
-    //        => optionsBuilder.UseNpgsql("Host=localhost;Database=fashionDB;Username=postgres;Password=12345");
+    public virtual DbSet<Follow> Follows { get; set; }
 
     public static string GetConnectionString(string connectionStringName)
     {
@@ -101,45 +99,113 @@ public partial class FashionDbContext : DbContext
     {
         modelBuilder.HasPostgresExtension("vector");
 
+        base.OnModelCreating(modelBuilder);
+
         modelBuilder.Entity<Account>(entity =>
         {
-            entity.HasKey(e => e.AccountId).HasName("Account_pkey");
+            entity.ToTable("Accounts", "public");
+            entity.Property(e => e.Id).HasColumnName("account_id");
+            entity.HasKey(e => e.Id).HasName("Account_pkey");
 
-            entity.ToTable("Account", "fashion_db");
+            entity.Property(e => e.UserName).HasColumnName("username").HasMaxLength(100);
+            entity.Property(e => e.NormalizedUserName).HasColumnName("normalized_username");
+            entity.Property(e => e.Email).HasColumnName("email").HasMaxLength(255);
+            entity.Property(e => e.NormalizedEmail).HasColumnName("normalized_email");
+            entity.Property(e => e.PasswordHash).HasColumnName("password_hash");
+            entity.Property(e => e.EmailConfirmed).HasColumnName("email_confirmed");
+            entity.Property(e => e.SecurityStamp).HasColumnName("security_stamp");
+            entity.Property(e => e.ConcurrencyStamp).HasColumnName("concurrency_stamp");
+            entity.Property(e => e.PhoneNumber).HasColumnName("phone_number");
+            entity.Property(e => e.PhoneNumberConfirmed).HasColumnName("phone_number_confirmed");
+            entity.Property(e => e.TwoFactorEnabled).HasColumnName("two_factor_enabled");
+            entity.Property(e => e.LockoutEnd).HasColumnName("lockout_end");
+            entity.Property(e => e.LockoutEnabled).HasColumnName("lockout_enabled");
+            entity.Property(e => e.AccessFailedCount).HasColumnName("access_failed_count");
+
+            entity.Property(e => e.CreatedAt).HasColumnType("timestamp without time zone").HasColumnName("created_at");
+            entity.Property(e => e.Status).HasMaxLength(30).HasColumnName("status");
+            entity.Property(e => e.VerificationCode).HasMaxLength(100).HasColumnName("verification_code");
+            entity.Property(e => e.CodeExpiredAt).HasColumnType("timestamp without time zone").HasColumnName("code_expires_at");
 
             entity.HasIndex(e => e.Email, "Account_email_key").IsUnique();
+            entity.HasIndex(e => e.UserName, "Account_username_key").IsUnique();
+            entity.Property(e => e.FreeTryOn)
+                .HasDefaultValue(3)
+                .HasColumnName("free_try_on");
+            entity.Property(e => e.Description)
+                .HasMaxLength(500)
+                .HasColumnName("description");
 
-            entity.HasIndex(e => e.Username, "Account_username_key").IsUnique();
+            entity.Property(e => e.CountPost)
+                .HasDefaultValue(0)
+                .HasColumnName("count_post");
 
-            entity.Property(e => e.AccountId).HasColumnName("account_id");
-            entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("created_at");
-            entity.Property(e => e.Email)
-                .HasMaxLength(255)
-                .HasColumnName("email");
-            entity.Property(e => e.PasswordHash)
-                .HasMaxLength(255)
-                .HasColumnName("password_hash");
+            entity.Property(e => e.CountFollower)
+                .HasDefaultValue(0)
+                .HasColumnName("count_follower");
+
+            entity.Property(e => e.CountFollowing)
+                .HasDefaultValue(0)
+                .HasColumnName("count_following");
+        });
+
+        modelBuilder.Entity<IdentityRole<int>>(entity =>
+        {
+            entity.ToTable("Roles");
+            entity.Property(e => e.Id).HasColumnName("role_id");
+            entity.Property(e => e.Name).HasColumnName("role_name");
+            entity.Property(e => e.NormalizedName).HasColumnName("normalized_name");
+            entity.Property(e => e.ConcurrencyStamp).HasColumnName("concurrency_stamp");
+        });
+
+        modelBuilder.Entity<IdentityUserRole<int>>(entity =>
+        {
+            entity.ToTable("AccountRoles");
+            entity.Property(e => e.UserId).HasColumnName("account_id");
             entity.Property(e => e.RoleId).HasColumnName("role_id");
-            entity.Property(e => e.Status)
-                .HasMaxLength(30)
-                .HasColumnName("status");
-            entity.Property(e => e.Username)
-                .HasMaxLength(100)
-                .HasColumnName("username");
+        });
 
-            entity.HasOne(d => d.Role).WithMany(p => p.Accounts)
-                .HasForeignKey(d => d.RoleId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("Account_role_id_fkey");
+        modelBuilder.Entity<IdentityUserClaim<int>>(entity =>
+        {
+            entity.ToTable("AccountClaims");
+            entity.Property(e => e.Id).HasColumnName("claim_id");
+            entity.Property(e => e.UserId).HasColumnName("account_id");
+            entity.Property(e => e.ClaimType).HasColumnName("claim_type");
+            entity.Property(e => e.ClaimValue).HasColumnName("claim_value");
+        });
+
+        modelBuilder.Entity<IdentityRoleClaim<int>>(entity =>
+        {
+            entity.ToTable("RoleClaims");
+            entity.Property(e => e.Id).HasColumnName("role_claim_id");
+            entity.Property(e => e.RoleId).HasColumnName("role_id");
+            entity.Property(e => e.ClaimType).HasColumnName("claim_type");
+            entity.Property(e => e.ClaimValue).HasColumnName("claim_value");
+        });
+
+        modelBuilder.Entity<IdentityUserLogin<int>>(entity =>
+        {
+            entity.ToTable("AccountLogins");
+            entity.Property(e => e.UserId).HasColumnName("account_id");
+            entity.Property(e => e.LoginProvider).HasColumnName("login_provider");
+            entity.Property(e => e.ProviderKey).HasColumnName("provider_key");
+            entity.Property(e => e.ProviderDisplayName).HasColumnName("provider_display_name");
+        });
+
+        modelBuilder.Entity<IdentityUserToken<int>>(entity =>
+        {
+            entity.ToTable("AccountTokens");
+            entity.Property(e => e.UserId).HasColumnName("account_id");
+            entity.Property(e => e.LoginProvider).HasColumnName("login_provider");
+            entity.Property(e => e.Name).HasColumnName("token_name");
+            entity.Property(e => e.Value).HasColumnName("token_value");
         });
 
         modelBuilder.Entity<Category>(entity =>
         {
             entity.HasKey(e => e.CategoryId).HasName("Category_pkey");
 
-            entity.ToTable("Category", "fashion_db");
+            entity.ToTable("Category", "public");
 
             entity.Property(e => e.CategoryId).HasColumnName("category_id");
             entity.Property(e => e.CategoryName)
@@ -154,7 +220,7 @@ public partial class FashionDbContext : DbContext
         {
             entity.HasKey(e => e.CommentId).HasName("Comment_pkey");
 
-            entity.ToTable("Comment", "fashion_db");
+            entity.ToTable("Comment", "public");
 
             entity.Property(e => e.CommentId).HasColumnName("comment_id");
             entity.Property(e => e.AccountId).HasColumnName("account_id");
@@ -179,7 +245,7 @@ public partial class FashionDbContext : DbContext
         {
             entity.HasKey(e => e.EventId).HasName("Events_pkey");
 
-            entity.ToTable("Events", "fashion_db");
+            entity.ToTable("Events", "public");
 
             entity.Property(e => e.EventId).HasColumnName("event_id");
             entity.Property(e => e.CreatedAt)
@@ -210,7 +276,7 @@ public partial class FashionDbContext : DbContext
         {
             entity.HasKey(e => e.ExpertFileId).HasName("Expert_File_pkey");
 
-            entity.ToTable("Expert_File", "fashion_db");
+            entity.ToTable("Expert_File", "public");
 
             entity.HasIndex(e => e.ExpertProfileId, "Expert_File_expert_profile_id_key").IsUnique();
 
@@ -245,7 +311,7 @@ public partial class FashionDbContext : DbContext
         {
             entity.HasKey(e => e.ExpertProfileId).HasName("Expert_Profile_pkey");
 
-            entity.ToTable("Expert_Profile", "fashion_db");
+            entity.ToTable("Expert_Profile", "public");
 
             entity.HasIndex(e => e.AccountId, "Expert_Profile_account_id_key").IsUnique();
 
@@ -276,7 +342,7 @@ public partial class FashionDbContext : DbContext
         {
             entity.HasKey(e => e.GroupId).HasName("Group_pkey");
 
-            entity.ToTable("Group", "fashion_db");
+            entity.ToTable("Group", "public");
 
             entity.Property(e => e.GroupId).HasColumnName("group_id");
             entity.Property(e => e.CreateBy).HasColumnName("create_by");
@@ -293,7 +359,7 @@ public partial class FashionDbContext : DbContext
         {
             entity.HasKey(e => new { e.GroupId, e.AccountId }).HasName("GroupUser_pkey");
 
-            entity.ToTable("GroupUser", "fashion_db");
+            entity.ToTable("GroupUser", "public");
 
             entity.Property(e => e.GroupId).HasColumnName("group_id");
             entity.Property(e => e.AccountId).HasColumnName("account_id");
@@ -315,37 +381,35 @@ public partial class FashionDbContext : DbContext
         modelBuilder.Entity<Image>(entity =>
         {
             entity.HasKey(e => e.ImageId).HasName("Images_pkey");
-
-            entity.ToTable("Images", "fashion_db");
+            entity.ToTable("Images", "public");
 
             entity.Property(e => e.ImageId).HasColumnName("image_id");
-            entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("created_at");
-            entity.Property(e => e.ImageUrl)
-                .HasMaxLength(500)
-                .HasColumnName("image_url");
-            entity.Property(e => e.OwnerId).HasColumnName("owner_id");
-            entity.Property(e => e.OwnerType)
-                .HasMaxLength(50)
-                .HasColumnName("owner_type");
+            entity.Property(e => e.PostId).HasColumnName("post_id");
+            entity.Property(e => e.ItemId).HasColumnName("item_id");
+            entity.Property(e => e.AccountAvatarId).HasColumnName("account_avatar_id");
 
-            entity.HasOne(d => d.Owner).WithMany(p => p.Images)
-                .HasForeignKey(d => d.OwnerId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("Images_owner_id_fkey");
+            entity.Property(e => e.ImageUrl).HasMaxLength(500).HasColumnName("image_url");
+            entity.Property(e => e.OwnerType).HasMaxLength(50).HasColumnName("owner_type");
+            entity.Property(e => e.CreatedAt).HasColumnType("timestamp without time zone").HasColumnName("created_at");
 
-            entity.HasOne(d => d.OwnerNavigation).WithMany(p => p.Images)
-                .HasForeignKey(d => d.OwnerId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("Images_owner_id_fkey1");
+            entity.HasOne(d => d.Post).WithMany(p => p.Images)
+                .HasForeignKey(d => d.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.Item).WithMany(p => p.Images)
+                .HasForeignKey(d => d.ItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.Account).WithMany(p => p.Avatars)
+                .HasForeignKey(d => d.AccountAvatarId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Item>(entity =>
         {
             entity.HasKey(e => e.ItemId).HasName("Item_pkey");
 
-            entity.ToTable("Item", "fashion_db");
+            entity.ToTable("Item", "public");
 
             entity.Property(e => e.ItemId).HasColumnName("item_id");
             entity.Property(e => e.Brand)
@@ -404,7 +468,7 @@ public partial class FashionDbContext : DbContext
                     j =>
                     {
                         j.HasKey("ItemId", "CategoryId").HasName("Item_Category_pkey");
-                        j.ToTable("Item_Category", "fashion_db");
+                        j.ToTable("Item_Category", "public");
                         j.IndexerProperty<int>("ItemId").HasColumnName("item_id");
                         j.IndexerProperty<int>("CategoryId").HasColumnName("category_id");
                     });
@@ -414,7 +478,7 @@ public partial class FashionDbContext : DbContext
         {
             entity.HasKey(e => e.ReactId).HasName("MessReaction_pkey");
 
-            entity.ToTable("MessReaction", "fashion_db");
+            entity.ToTable("MessReaction", "public");
 
             entity.Property(e => e.ReactId).HasColumnName("react_id");
             entity.Property(e => e.AccountReactId).HasColumnName("account_react_id");
@@ -436,7 +500,7 @@ public partial class FashionDbContext : DbContext
         {
             entity.HasKey(e => e.MessageId).HasName("Message_pkey");
 
-            entity.ToTable("Message", "fashion_db");
+            entity.ToTable("Message", "public");
 
             entity.Property(e => e.MessageId).HasColumnName("message_id");
             entity.Property(e => e.AccountId).HasColumnName("account_id");
@@ -465,7 +529,7 @@ public partial class FashionDbContext : DbContext
         {
             entity.HasKey(e => e.NotificationId).HasName("Notification_pkey");
 
-            entity.ToTable("Notification", "fashion_db");
+            entity.ToTable("Notification", "public");
 
             entity.Property(e => e.NotificationId).HasColumnName("notification_id");
             entity.Property(e => e.Content).HasColumnName("content");
@@ -496,7 +560,7 @@ public partial class FashionDbContext : DbContext
         {
             entity.HasKey(e => e.OutfitId).HasName("Outfit_pkey");
 
-            entity.ToTable("Outfit", "fashion_db");
+            entity.ToTable("Outfit", "public");
 
             entity.Property(e => e.OutfitId).HasColumnName("outfit_id");
             entity.Property(e => e.AccountId).HasColumnName("account_id");
@@ -520,7 +584,7 @@ public partial class FashionDbContext : DbContext
         {
             entity.HasKey(e => e.PackageId).HasName("Package_pkey");
 
-            entity.ToTable("Package", "fashion_db");
+            entity.ToTable("Package", "public");
 
             entity.Property(e => e.PackageId).HasColumnName("package_id");
             entity.Property(e => e.AccountId).HasColumnName("account_id");
@@ -546,7 +610,7 @@ public partial class FashionDbContext : DbContext
         {
             entity.HasKey(e => e.PaymentId).HasName("Payment_pkey");
 
-            entity.ToTable("Payment", "fashion_db");
+            entity.ToTable("Payment", "public");
 
             entity.Property(e => e.PaymentId).HasColumnName("payment_id");
             entity.Property(e => e.AccountId).HasColumnName("account_id");
@@ -581,7 +645,7 @@ public partial class FashionDbContext : DbContext
         {
             entity.HasKey(e => e.PhotoId).HasName("Photos_pkey");
 
-            entity.ToTable("Photos", "fashion_db");
+            entity.ToTable("Photos", "public");
 
             entity.Property(e => e.PhotoId).HasColumnName("photo_id");
             entity.Property(e => e.MessageId).HasColumnName("message_id");
@@ -598,7 +662,7 @@ public partial class FashionDbContext : DbContext
         {
             entity.HasKey(e => e.PinnedMsgId).HasName("PinnedMessage_pkey");
 
-            entity.ToTable("PinnedMessage", "fashion_db");
+            entity.ToTable("PinnedMessage", "public");
 
             entity.Property(e => e.PinnedMsgId).HasColumnName("pinnedMsg_id");
             entity.Property(e => e.AccountPinnedId).HasColumnName("accountPinned_id");
@@ -625,7 +689,7 @@ public partial class FashionDbContext : DbContext
         {
             entity.HasKey(e => e.PostId).HasName("Post_pkey");
 
-            entity.ToTable("Post", "fashion_db");
+            entity.ToTable("Post", "public");
 
             entity.Property(e => e.PostId).HasColumnName("post_id");
             entity.Property(e => e.AccountId).HasColumnName("account_id");
@@ -664,7 +728,7 @@ public partial class FashionDbContext : DbContext
         {
             entity.HasKey(e => e.PostId).HasName("Post_Vector_pkey");
 
-            entity.ToTable("Post_Vector", "fashion_db");
+            entity.ToTable("Post_Vector", "public");
 
             entity.Property(e => e.PostId)
                 .ValueGeneratedNever()
@@ -684,7 +748,7 @@ public partial class FashionDbContext : DbContext
         {
             entity.HasKey(e => e.ReactionId).HasName("Reaction_pkey");
 
-            entity.ToTable("Reaction", "fashion_db");
+            entity.ToTable("Reaction", "public");
 
             entity.Property(e => e.ReactionId).HasColumnName("reaction_id");
             entity.Property(e => e.AccountId).HasColumnName("account_id");
@@ -711,13 +775,13 @@ public partial class FashionDbContext : DbContext
         {
             entity.HasKey(e => e.RefreshTokenId).HasName("RefreshToken_pkey");
 
-            entity.ToTable("RefreshToken", "fashion_db");
+            entity.ToTable("RefreshToken", "public");
 
             entity.HasIndex(e => e.AccountId, "RefreshToken_account_id_key").IsUnique();
 
-            entity.HasIndex(e => e.DeviceInfo, "RefreshToken_device_info_key").IsUnique();
+            entity.HasIndex(e => e.DeviceInfo, "RefreshToken_device_info_key");
 
-            entity.HasIndex(e => e.IpAddress, "RefreshToken_ip_address_key").IsUnique();
+            entity.HasIndex(e => e.IpAddress, "RefreshToken_ip_address_key");
 
             entity.HasIndex(e => e.Token, "RefreshToken_token_key").IsUnique();
 
@@ -750,7 +814,7 @@ public partial class FashionDbContext : DbContext
         {
             entity.HasKey(e => e.ReportTypeId).HasName("Report_Type_pkey");
 
-            entity.ToTable("Report_Type", "fashion_db");
+            entity.ToTable("Report_Type", "public");
 
             entity.HasIndex(e => e.TypeName, "Report_Type_type_name_key").IsUnique();
 
@@ -763,28 +827,11 @@ public partial class FashionDbContext : DbContext
                 .HasColumnName("type_name");
         });
 
-        modelBuilder.Entity<Role>(entity =>
-        {
-            entity.HasKey(e => e.RoleId).HasName("Role_pkey");
-
-            entity.ToTable("Role", "fashion_db");
-
-            entity.HasIndex(e => e.RoleName, "Role_role_name_key").IsUnique();
-
-            entity.Property(e => e.RoleId).HasColumnName("role_id");
-            entity.Property(e => e.Description)
-                .HasMaxLength(255)
-                .HasColumnName("description");
-            entity.Property(e => e.RoleName)
-                .HasMaxLength(50)
-                .HasColumnName("role_name");
-        });
-
         modelBuilder.Entity<Transaction>(entity =>
         {
             entity.HasKey(e => e.TransactionId).HasName("Transaction_pkey");
 
-            entity.ToTable("Transaction", "fashion_db");
+            entity.ToTable("Transaction", "public");
 
             entity.HasIndex(e => e.PaymentId, "Transaction_payment_id_key").IsUnique();
 
@@ -823,7 +870,7 @@ public partial class FashionDbContext : DbContext
         {
             entity.HasKey(e => e.AccountId).HasName("User_Profile_Vector_pkey");
 
-            entity.ToTable("User_Profile_Vector", "fashion_db");
+            entity.ToTable("User_Profile_Vector", "public");
 
             entity.Property(e => e.AccountId)
                 .ValueGeneratedOnAdd()
@@ -842,7 +889,7 @@ public partial class FashionDbContext : DbContext
         {
             entity.HasKey(e => e.UserReportId).HasName("User_Report_pkey");
 
-            entity.ToTable("User_Report", "fashion_db");
+            entity.ToTable("User_Report", "public");
 
             entity.Property(e => e.UserReportId).HasColumnName("user_report_id");
             entity.Property(e => e.AccountId).HasColumnName("account_id");
@@ -873,7 +920,7 @@ public partial class FashionDbContext : DbContext
         {
             entity.HasKey(e => e.WardrobeId).HasName("Wardrobe_pkey");
 
-            entity.ToTable("Wardrobe", "fashion_db");
+            entity.ToTable("Wardrobe", "public");
 
             entity.HasIndex(e => e.AccountId, "Wardrobe_account_id_key").IsUnique();
 
@@ -890,6 +937,30 @@ public partial class FashionDbContext : DbContext
                 .HasForeignKey<Wardrobe>(d => d.AccountId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("Wardrobe_account_id_fkey");
+        });
+        modelBuilder.Entity<Follow>(entity =>
+        {
+            entity.HasKey(e => new { e.UserId, e.FollowerId }).HasName("Follow_pkey");
+
+            entity.ToTable("Follow", "public");
+
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.FollowerId).HasColumnName("follower_id");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+                    
+            entity.HasOne(d => d.User).WithMany(p => p.FollowUserNavigations)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("Follow_user_id_fkey");
+
+            // Thiết lập mối quan hệ với bảng Account (Người nhấn follow)
+            entity.HasOne(d => d.Follower).WithMany(p => p.FollowFollowerNavigations)
+                .HasForeignKey(d => d.FollowerId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("Follow_follower_id_fkey");
         });
 
         OnModelCreatingPartial(modelBuilder);
