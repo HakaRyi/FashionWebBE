@@ -4,11 +4,12 @@ namespace Repositories.Repos.ImageRepos
 {
     public interface IImageRepository
     {
-        Task<Image> GetNewestAvatar(int userId);
-        Task<Image> GetById(int id);
-        Task<List<Image>> GetAllMyAvatar(int userId);
-        Task<List<Image>> GetAllAvatar();
-        Task<int> CreateImage(Image image);
-        Task<bool> DeteleImage(Image image);
+        Task<Image?> GetByIdAsync(int id);
+        Task<Image?> GetNewestAvatarAsync(int userId);
+        Task<List<Image>> GetAllMyAvatarAsync(int userId);
+        Task<List<Image>> GetAllAvatarAsync();
+        Task AddAsync(Image image);
+        Task AddRangeAsync(List<Image> images);
+        void Delete(Image image);
     }
 }

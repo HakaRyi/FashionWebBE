@@ -14,13 +14,7 @@ namespace Repositories.Repos.PostRepos
             _context = context;
         }
 
-        public async Task AddPostAsync(Post post)
-        {
-            await _context.Posts.AddAsync(post);
-            await _context.SaveChangesAsync();
-        }
-
-        public async Task<Post?> GetPostByIdAsync(int postId)
+        public async Task<Post?> GetByIdAsync(int postId)
         {
             return await _context.Posts
                 .Include(p => p.Images)
@@ -29,7 +23,7 @@ namespace Repositories.Repos.PostRepos
                 .FirstOrDefaultAsync(p => p.PostId == postId);
         }
 
-        public async Task<List<Post>> GetAllPostAsync()
+        public async Task<List<Post>> GetAllPublishedAsync()
         {
             return await _context.Posts
                 .Include(p => p.Images)
@@ -40,7 +34,7 @@ namespace Repositories.Repos.PostRepos
                 .ToListAsync();
         }
 
-        public async Task<List<Post>> GetAllMyPostAsync(int userId)
+        public async Task<List<Post>> GetAllByUserAsync(int userId)
         {
             return await _context.Posts
                 .Include(p => p.Images)
@@ -51,16 +45,19 @@ namespace Repositories.Repos.PostRepos
                 .ToListAsync();
         }
 
-        public async Task UpdatePostAsync(Post post)
+        public async Task AddAsync(Post post)
         {
-            _context.Posts.Update(post);
-            await _context.SaveChangesAsync();
+            await _context.Posts.AddAsync(post);
         }
 
-        public async Task DeletePostAsync(Post post)
+        public void Update(Post post)
+        {
+            _context.Posts.Update(post);
+        }
+
+        public void Delete(Post post)
         {
             _context.Posts.Remove(post);
-            await _context.SaveChangesAsync();
         }
     }
 }

@@ -1,81 +1,79 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Repositories.Entities;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Services.Implements.ImageImp;
-
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+using Services.Request.ImageReq;
+using Services.Utils;
+using System.Security.Claims;
 
 namespace WebAPIs.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [Authorize]
     public class ImageController : ControllerBase
     {
         private readonly IImageService _imageService;
-        public ImageController(IImageService imageService)
+        private readonly ICloudStorageService _cloudService;
+
+        public ImageController(
+            IImageService imageService,
+            ICloudStorageService cloudService)
         {
             _imageService = imageService;
-        }
-        // GET: api/<ImageController>
-        [HttpGet]
-        public async Task<IActionResult> Get()
-        {
-            var result = await _imageService.GetAllAvatar();
-            if (result != null && result.Count > 0)
-            {
-                return Ok(result);
-            }
-            else
-            {
-                return NotFound(new { Message = "No images found" });
-            }
+            _cloudService = cloudService;
         }
 
-        // GET api/<ImageController>/5
-        [HttpGet("{id}")]
+        [HttpGet("avatars")]
+        public async Task<IActionResult> GetAllAvatar()
+        {
+            var result = await _imageService.GetAllAvatarAsync();
+            return Ok(result);
+        }
+
+        [HttpGet("{id:int}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var result = await _imageService.GetByIdAsync(id);
-            if (result != null)
-            {
-                return Ok(result);
-            }
-            else
-            {
-                return NotFound(new { Message = "Image not found" });
-            }
+            var image = await _imageService.GetByIdAsync(id);
+
+            if (image == null)
+                return NotFound(new { message = "Image not found" });
+
+            return Ok(image);
         }
 
-        // POST api/<ImageController>
-        [HttpPost("create-avatar")]
-        public async Task<IActionResult> Post([FromBody] Image image)
+        [HttpPost("avatar")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> CreateAvatar([FromForm] UploadAvatarRequest request)
         {
-            var userId = User.FindFirst("AccountId")?.Value;
-            var result = await _imageService.CreateAvatarImage(int.Parse(userId), image);
-            if (result > 0)
+            if (request.File == null || request.File.Length == 0)
+                return BadRequest("File is required");
+
+            var userId = GetUserId();
+
+            var imageUrl = await _cloudService.UploadImageAsync(request.File);
+            var image = await _imageService.CreateAvatarImageAsync(userId, imageUrl);
+
+            return Ok(new
             {
-                return Ok(new { Message = "Avatar image created successfully", ImageId = result });
-            }
-            else
-            {
-                return StatusCode(500, new { Message = "Failed to create avatar image" });
-            }
+                message = "Avatar uploaded successfully",
+                imageId = image.ImageId,
+                url = image.ImageUrl
+            });
         }
 
-
-        // DELETE api/<ImageController>/5
-        [HttpDelete("{id}")]
+        [HttpDelete("{id:int}")]
         public async Task<IActionResult> Delete(int id)
         {
+            await _imageService.DeleteImageAsync(id);
+            return Ok(new { message = "Image deleted successfully" });
+        }
 
-            var result = await _imageService.DeteleImage(id);
-            if (result)
-            {
-                return Ok(new { Message = "Image deleted successfully" });
-            }
-            else
-            {
-                return StatusCode(500, new { Message = "Failed to delete image" });
-            }
+        private int GetUserId()
+        {
+            var claim = User.FindFirst(ClaimTypes.NameIdentifier)
+                ?? throw new Exception("User not authenticated");
+
+            return int.Parse(claim.Value);
         }
     }
 }

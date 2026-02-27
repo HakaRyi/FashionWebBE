@@ -45,7 +45,7 @@ namespace Services.Implements.AccountService
             if (account == null) return null;
 
             var roles = await _userManager.GetRolesAsync(account);
-            var avatar = await _imageRepository.GetNewestAvatar(account.Id);
+            var avatar = await _imageRepository.GetNewestAvatarAsync(account.Id);
             return new AccountResponse
             {
                 Id = account.Id,

@@ -4,11 +4,11 @@ namespace Services.Implements.ImageImp
 {
     public interface IImageService
     {
-        Task<Image> GetNewestAvatar(int userId);
-        Task<Image> GetByIdAsync(int id);
-        Task<List<Image>> GetAllMyAvatar(int userId);
-        Task<List<Image>> GetAllAvatar();
-        Task<int> CreateAvatarImage(int userId, Image image);
-        Task<bool> DeteleImage(int imageId);
+        Task<Image> CreateAvatarImageAsync(int userId, string imageUrl);
+        Task DeleteImageAsync(int imageId);
+        Task<List<Image>> GetAllAvatarAsync();
+        Task<List<Image>> GetAllMyAvatarAsync(int userId);
+        Task<Image?> GetByIdAsync(int id);
+        Task<Image?> GetNewestAvatarAsync(int userId);
     }
 }

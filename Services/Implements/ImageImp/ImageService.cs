@@ -1,55 +1,65 @@
 ﻿using Repositories.Entities;
 using Repositories.Repos.ImageRepos;
+using Repositories.UnitOfWork;
 
 namespace Services.Implements.ImageImp
 {
     public class ImageService : IImageService
     {
         private readonly IImageRepository _imageRepository;
-        public ImageService(IImageRepository imageRepository)
+        private readonly IUnitOfWork _unitOfWork;
+
+        public ImageService(
+            IImageRepository imageRepository,
+            IUnitOfWork unitOfWork)
         {
             _imageRepository = imageRepository;
+            _unitOfWork = unitOfWork;
         }
 
-        public async Task<int> CreateAvatarImage(int userId, Image image)
+        public async Task<Image> CreateAvatarImageAsync(int userId, string imageUrl)
         {
             var newImage = new Image
             {
-                ImageUrl = image.ImageUrl,
+                ImageUrl = imageUrl,
                 AccountAvatarId = userId,
-                PostId = null,
-                ItemId = null,
                 OwnerType = "AVATAR",
                 CreatedAt = DateTime.UtcNow
             };
-            return await _imageRepository.CreateImage(newImage);
+
+            await _imageRepository.AddAsync(newImage);
+            await _unitOfWork.SaveChangesAsync();
+
+            return newImage;
         }
 
-        public async Task<bool> DeteleImage(int imageId)
+        public async Task DeleteImageAsync(int imageId)
         {
-            var image = await _imageRepository.GetById(imageId);
-            var result = await _imageRepository.DeteleImage(image);
-            return true;
+            var image = await _imageRepository.GetByIdAsync(imageId)
+                ?? throw new Exception("Image not found");
+
+            _imageRepository.Delete(image);
+            await _unitOfWork.SaveChangesAsync();
         }
 
-        public async Task<List<Image>> GetAllAvatar()
+        public async Task<List<Image>> GetAllAvatarAsync()
         {
-            return await _imageRepository.GetAllAvatar();
+            return await _imageRepository.GetAllAvatarAsync();
         }
 
-        public async Task<List<Image>> GetAllMyAvatar(int userId)
+        public async Task<List<Image>> GetAllMyAvatarAsync(int userId)
         {
-            return await _imageRepository.GetAllMyAvatar(userId);
+            return await _imageRepository.GetAllMyAvatarAsync(userId);
         }
 
-        public async Task<Image> GetByIdAsync(int id)
+        public async Task<Image?> GetByIdAsync(int id)
         {
-            return await _imageRepository.GetById(id);
+            return await _imageRepository.GetByIdAsync(id);
         }
 
-        public async Task<Image> GetNewestAvatar(int userId)
+        public async Task<Image?> GetNewestAvatarAsync(int userId)
         {
-            return await _imageRepository.GetNewestAvatar(userId);
+            return await _imageRepository.GetNewestAvatarAsync(userId);
         }
     }
 }

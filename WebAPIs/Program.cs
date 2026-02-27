@@ -16,6 +16,7 @@ using Repositories.Repos.SocialRepos;
 using Repositories.Repos.TransactionRepos;
 using Repositories.Repos.UserReportRepos;
 using Repositories.Repos.WardrobeRepos;
+using Repositories.UnitOfWork;
 using Services.Helpers;
 using Services.Implements.AccountService;
 using Services.Implements.Auth;
@@ -83,7 +84,8 @@ builder.Services.AddIdentity<Account, IdentityRole<int>>(options =>
 .AddDefaultTokenProviders();
 
 // Repository Layer
-builder.Services.AddScoped<IImageRepository, ImageReository>();
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+builder.Services.AddScoped<IImageRepository, ImageRepository>();
 builder.Services.AddScoped<ISocialRepository, SocialRepository>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<IPackageCoinRepository, PackageCoinRepository>();

@@ -6,7 +6,7 @@ namespace Services.Implements.PostImp
 {
     public interface IPostService
     {
-        Task<Post> CreatePostAsync(int accountId, CreatePostRequest request);
+        Task<PostResponse> CreatePostAsync(int accountId, CreatePostRequest request);
         Task<List<PostResponse>> GetAllPostAsync();
         Task<PostResponse?> GetPostByIdAsync(int postId);
         Task<string> AdminCheckTheStatusPost(CheckPostRequest request, int id);
