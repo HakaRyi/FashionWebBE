@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
 using Repositories.Constants;
 using Repositories.Data;
 using Repositories.Entities;

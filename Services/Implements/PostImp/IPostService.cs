@@ -1,5 +1,4 @@
-﻿using Repositories.Entities;
-using Services.Request.PostReq;
+﻿using Services.Request.PostReq;
 using Services.Response.PostResp;
 
 namespace Services.Implements.PostImp
