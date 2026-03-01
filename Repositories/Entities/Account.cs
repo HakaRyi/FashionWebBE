@@ -1,32 +1,26 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema;
+﻿using Microsoft.AspNetCore.Identity;
 
 namespace Repositories.Entities;
 
-public partial class Account
+public partial class Account : IdentityUser<int>
 {
-    public int AccountId { get; set; }
-
-    public string Username { get; set; } = null!;
-
-    public string Email { get; set; } = null!;
-
-    public string PasswordHash { get; set; } = null!;
-
-    public int RoleId { get; set; }
-
     public DateTime? CreatedAt { get; set; }
 
     public string? Status { get; set; }
 
-    [Column("verification_code")]
     public string? VerificationCode { get; set; }
 
-    [Column("code_expires_at")]
     public DateTime? CodeExpiredAt { get; set; }
-    [Column("avatar")]
-    public string? Avatar { get; set; }
+
+    public int FreeTryOn { get; set; }
+
+    public string? Description { get; set; }
+
+    public int CountPost { get; set; }
+
+    public int CountFollower { get; set; }
+
+    public int CountFollowing { get; set; }
 
     public virtual ICollection<Comment> Comments { get; set; } = new List<Comment>();
 
@@ -56,8 +50,6 @@ public partial class Account
 
     public virtual RefreshToken? RefreshToken { get; set; }
 
-    public virtual Role Role { get; set; } = null!;
-
     public virtual ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();
 
     public virtual UserProfileVector? UserProfileVector { get; set; }
@@ -69,4 +61,5 @@ public partial class Account
     public virtual ICollection<Follow> FollowUserNavigations { get; set; } = new List<Follow>();
 
     public virtual ICollection<Follow> FollowFollowerNavigations { get; set; } = new List<Follow>();
+    public virtual ICollection<Image> Avatars { get; set; } = new List<Image>();
 }

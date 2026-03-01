@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Repositories.Repos.UserReportRepos;
+﻿using Repositories.Repos.UserReportRepos;
 using Services.Response.UserReportResp;
 
 namespace Services.Implements.UserReportImp

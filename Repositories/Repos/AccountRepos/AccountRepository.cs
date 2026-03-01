@@ -1,11 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Repositories.Data;
 using Repositories.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Repositories.Repos.AccountRepos
 {
@@ -18,47 +13,16 @@ namespace Repositories.Repos.AccountRepos
             _db = db;
         }
 
-        public async Task<Account?> GetAccountByEmail(string email)
-        {
-            return await _db.Accounts.Include(x => x.Role)
-                                     .FirstOrDefaultAsync(x => x.Email == email);
-        }
-
-        public async Task<Account?> GetAccountById(int accountId)
-        {
-            return await _db.Accounts.Include(x => x.Role)
-                                     .FirstOrDefaultAsync(x => x.AccountId == accountId);
-
-        }
-
-        public async Task<List<Account>> GetAllAccounts()
+        public async Task<List<Account>> GetFashionExperts()
         {
             return await _db.Accounts
-                .Where(a => a.RoleId != 1)
-                .Include(a => a.Role)
-                .OrderByDescending(a => a.CreatedAt)
+                .Include(a => a.ExpertProfile)
+                    .ThenInclude(ep => ep.ExpertFile)
+                .Include(a => a.Avatars)
+                .Where(a => a.ExpertProfile != null)
                 .ToListAsync();
         }
 
-        public Task<Account?> SignIn(string email, string password)
-        {
-            throw new NotImplementedException();
-        }
-
-        public async Task<Account> SignUp(Account account)
-        {
-            await _db.Accounts.AddAsync(account);
-            await _db.SaveChangesAsync();
-            return account;
-        }
-
-        public async Task UpdateAccount(Account account)
-        {
-            _db.Accounts.Update(account);
-            await _db.SaveChangesAsync();
-        }
-
-        // ====================================Refresh Token methods===================================
         public async Task AddRefreshTokenAsync(RefreshToken refreshToken)
         {
             await _db.RefreshTokens.AddAsync(refreshToken);
@@ -76,13 +40,16 @@ namespace Repositories.Repos.AccountRepos
             await _db.SaveChangesAsync();
         }
 
+        public async Task<int> UpdateAccount(Account account)
+        {
+            _db.Accounts.Update(account);
+            return await _db.SaveChangesAsync();
+        }
 
-        public async Task<List<Account>> GetFashionExperts()
+        public async Task<Account> GetAccountById(int userId)
         {
             return await _db.Accounts
-                .Where(a => a.RoleId == 3)
-                .Include(a => a.ExpertProfile).ThenInclude(ep => ep.ExpertFile)
-                .ToListAsync();
+                .FirstOrDefaultAsync(a => a.Id == userId);
         }
     }
 }

@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Services.Implements.AccountService;
 using Services.Request.AccountReq;
-using static Microsoft.EntityFrameworkCore.DbLoggerCategory;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
@@ -20,9 +19,9 @@ namespace WebAPIs.Controllers
         public async Task<IActionResult> CountUser()
         {
             var count = await service.CountAccount();
-            if(count == null) 
+            if (count == null)
             {
-                return NotFound(new { message = "ko dem dc"});
+                return NotFound(new { message = "ko dem dc" });
             }
             return Ok(new { count });
         }
@@ -54,7 +53,7 @@ namespace WebAPIs.Controllers
         public async Task<IActionResult> GetAll()
         {
             var result = await service.GetListAccount();
-            if(result != null)
+            if (result != null)
             {
                 return Ok(result);
             }
@@ -66,7 +65,7 @@ namespace WebAPIs.Controllers
 
         // GET api/<AccountController>/5
         [HttpGet("{id}")]
-        public async Task<IActionResult> GetById([FromRoute]int id)
+        public async Task<IActionResult> GetById([FromRoute] int id)
         {
             return await service.GetAccountById(id) is var account && account != null
                 ? Ok(account)

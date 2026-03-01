@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Repositories.Entities;
-using Repositories.Repos.WardrobeRepos;
+﻿using Repositories.Repos.WardrobeRepos;
 using Services.Request.WardrobeReq;
 using Services.Response.WardrobeResp;
 

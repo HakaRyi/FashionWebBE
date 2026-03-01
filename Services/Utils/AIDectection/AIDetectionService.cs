@@ -1,9 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Repositories.Repos.AI;
-using System;
-using System.Net.Http;
 using System.Net.Http.Json;
-using System.Threading.Tasks;
 
 namespace Services.Utils.AIDectection
 {

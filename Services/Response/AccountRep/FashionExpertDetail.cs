@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Services.Response.AccountRep
+﻿namespace Services.Response.AccountRep
 {
     public class FashionExpertDetail
     {
@@ -29,6 +22,11 @@ namespace Services.Response.AccountRep
         public string? Bio { get; set; }
 
         public bool? Verified { get; set; }
+        public int FollowerCount { get; set; }
+        public int FollowingCount { get; set; }
+        public int PostCount { get; set; }
+        public string? Description { get; set; }
+
 
         public DateTime? CreatedAtProfile { get; set; }
 

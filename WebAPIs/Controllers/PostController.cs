@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Services.Implements.PostImp;
 using Services.Request.PostReq;
@@ -11,7 +10,8 @@ namespace WebAPIs.Controllers
     [ApiController]
     public class PostController : ControllerBase
     {
-        protected readonly IPostService _postService;
+        private readonly IPostService _postService;
+
         public PostController(IPostService postService)
         {
             _postService = postService;
@@ -21,108 +21,84 @@ namespace WebAPIs.Controllers
         [Authorize]
         public async Task<IActionResult> CreatePost([FromForm] CreatePostRequest request)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var accountIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+            if (accountIdClaim == null || !int.TryParse(accountIdClaim.Value, out int accountId))
+                return Unauthorized();
 
             try
             {
-                var accountIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-
-                if (accountIdClaim == null || !int.TryParse(accountIdClaim.Value, out int accountId))
-                {
-                    return Unauthorized();
-                }
-
                 var result = await _postService.CreatePostAsync(accountId, request);
 
-                return StatusCode(201, new
-                {
-                    message = "Bài viết đang được xử lý.",
-                    data = result
-                });
+                return CreatedAtAction(
+                    nameof(GetPostsById),
+                    new { id = result.PostId },
+                    result);
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ex.Message);
+                return BadRequest(new { message = ex.Message });
             }
         }
-        [HttpGet] //cho admin
+
+        [HttpGet]
         public async Task<IActionResult> GetAllPosts()
         {
-            try
-            {
-                var result = await _postService.GetAllPostAsync();
-                if (result == null || !result.Any())
-                {
-                    return NotFound(new { message = "Không có bài viết nào." });
-                }
-                else
-                {
-                    return Ok(result);
-                }
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
+            var result = await _postService.GetAllPostAsync();
+            return Ok(result);
         }
-        [HttpGet("getMyPost")] 
+
+        [HttpGet("my")]
+        [Authorize]
         public async Task<IActionResult> GetAllMyPosts()
         {
-            try
-            {
-                var userId = User.FindFirst("AccountID")?.Value;
-                var result = await _postService.GetAllMyPostAsync(int.Parse(userId));
-                if (result == null || !result.Any())
-                {
-                    return NotFound(new { message = "Không có bài viết nào." });
-                }
-                else
-                {
-                    return Ok(result);
-                }
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
+            var accountIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+
+            if (accountIdClaim == null || !int.TryParse(accountIdClaim.Value, out int userId))
+                return Unauthorized();
+
+            var result = await _postService.GetAllMyPostAsync(userId);
+            return Ok(result);
         }
-        [HttpGet("detail/{id}")] //cho admin
+
+        [HttpGet("{id:int}")]
         public async Task<IActionResult> GetPostsById(int id)
         {
-            try
-            {
-                var result = await _postService.GetPostByIdAsync(id);
-                if (result == null)
-                {
-                    return NotFound(new { message = "Không có bài viết nào cho tài khoản này." });
-                }
-                else
-                {
-                    return Ok(result);
-                }
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
+            if (id <= 0)
+                return BadRequest(new { message = "Invalid post id." });
+
+            var result = await _postService.GetPostByIdAsync(id);
+
+            if (result == null)
+                return NotFound(new { message = "Post not found." });
+
+            return Ok(result);
         }
-        [HttpPut("adminCheck/{id}")] //cho admin
-        public async Task<IActionResult> AdminCheckTheStatusPost([FromBody] CheckPostRequest request, int id)
+
+        [HttpPut("admin/{id:int}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> AdminCheckTheStatusPost(
+            [FromBody] CheckPostRequest request,
+            int id)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-            try
-            {
-                var result = await _postService.AdminCheckTheStatusPost(request, id);
-                if (result == "Post not found.")
-                {
-                    return NotFound(new { message = result });
-                }
-                return Ok(new { message = result });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, ex.Message);
-            }
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            if (id <= 0)
+                return BadRequest(new { message = "Invalid post id." });
+
+            var result = await _postService.AdminCheckTheStatusPost(request, id);
+
+            if (result == "Post not found.")
+                return NotFound(new { message = result });
+
+            if (result.Contains("Invalid") || result.Contains("not"))
+                return BadRequest(new { message = result });
+
+            return Ok(new { message = result });
         }
     }
 }

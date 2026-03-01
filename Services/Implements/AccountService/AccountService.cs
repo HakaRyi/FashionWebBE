@@ -1,12 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Repositories.Entities;
+﻿using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Repositories.Repos.AccountRepos;
-using Repositories.Repos.ExpertFileRepos;
 using Repositories.Repos.ExpertProfileRepos;
+using Repositories.Repos.ImageRepos;
 using Services.Request.AccountReq;
 using Services.Response.AccountRep;
 
@@ -14,134 +10,156 @@ namespace Services.Implements.AccountService
 {
     public class AccountService : IAccountService
     {
-        private readonly IAccountRepository accountRepository;
-        private readonly IExpertProfileRepository expertProfileRepository;
-        public AccountService(IAccountRepository accountRepository, IExpertProfileRepository expertProfileRepository)
+        private readonly IAccountRepository _accountRepository;
+        private readonly IExpertProfileRepository _expertProfileRepository;
+        private readonly UserManager<Repositories.Entities.Account> _userManager;
+        private readonly IImageRepository _imageRepository;
+
+        public AccountService(
+            IAccountRepository accountRepository,
+            IExpertProfileRepository expertProfileRepository,
+            IImageRepository imageRepository,
+            UserManager<Repositories.Entities.Account> userManager)
         {
-            this.accountRepository = accountRepository;
-            this.expertProfileRepository = expertProfileRepository;
+            _accountRepository = accountRepository;
+            _expertProfileRepository = expertProfileRepository;
+            _userManager = userManager;
+            _imageRepository = imageRepository;
+
         }
 
         public async Task<int> CountAccount()
         {
-            var accounts = await accountRepository.GetAllAccounts();
-            return accounts.Count;
+            return await _userManager.Users.CountAsync();
         }
 
         public async Task<int> CountExpert()
         {
-            var experts = await accountRepository.GetFashionExperts();
+            var experts = await _accountRepository.GetFashionExperts();
             return experts.Count;
         }
 
         public async Task<AccountResponse?> GetAccountById(int accountId)
         {
-            var account = await accountRepository.GetAccountById(accountId);
-            if (account == null)
-            {
-                return new AccountResponse();
-            }
-            var accountResponse = new AccountResponse
-            {
-                Id = account.AccountId,
-                Username = account.Username,
-                Email = account.Email,
-                Avatar = account.Avatar,
-                Role = account.Role.RoleName,
-                CreatedAt = account.CreatedAt,
-                Status = account.Status
-            };
-            return accountResponse;
+            var account = await _userManager.FindByIdAsync(accountId.ToString());
+            if (account == null) return null;
 
+            var roles = await _userManager.GetRolesAsync(account);
+            var avatar = await _imageRepository.GetNewestAvatarAsync(account.Id);
+            return new AccountResponse
+            {
+                Id = account.Id,
+                Username = account.UserName,
+                Email = account.Email,
+                Avatar = avatar?.ImageUrl ?? null,
+                Role = roles.FirstOrDefault() ?? "User",
+                CreatedAt = account.CreatedAt,
+                Status = account.Status,
+                FollowerCount = account.CountFollower,
+                FollowingCount = account.CountFollowing,
+                PostCount = account.CountPost,
+                Description = account.Description
+
+            };
         }
 
         public async Task<List<FashionExpertResponse>> GetFashionExpert()
         {
-            var experts = await accountRepository.GetFashionExperts();
-            if (experts == null || experts.Count == 0)
+            var experts = await _accountRepository.GetFashionExperts();
+            return experts.Select(e => new FashionExpertResponse
             {
-                return new List<FashionExpertResponse>();
-            }
-            var expertResponses = experts.Select(e => new FashionExpertResponse
-            {
-                Avatar = e.Avatar,
-                AccountId = e.AccountId,
-                ExpertProfileId = e.ExpertProfile.ExpertProfileId,
-                FullName = e.Username,
-                Verified = e.ExpertProfile.Verified,
-                ExpertiseField = e.ExpertProfile.ExpertiseField,
-                Rating = e.ExpertProfile.ExpertFile.RatingAvg
+                Avatar = e.Avatars
+                  .OrderByDescending(img => img.CreatedAt)
+                  .Select(img => img.ImageUrl)
+                  .FirstOrDefault() ?? null,
+                AccountId = e.Id,
+                ExpertProfileId = e.ExpertProfile?.ExpertProfileId ?? 0,
+                FullName = e.UserName,
+                Verified = e.ExpertProfile?.Verified ?? false,
+                ExpertiseField = e.ExpertProfile?.ExpertiseField,
+                Rating = e.ExpertProfile?.ExpertFile?.RatingAvg ?? 0,
+                Description = e.Description,
+                FollowerCount = e.CountFollower,
+                FollowingCount = e.CountFollowing,
+                PostCount = e.CountPost
             }).ToList();
-            return expertResponses;
-
         }
-
-   
 
         public async Task<FashionExpertDetail> GetFashionExpertDetail(int id)
         {
-            var account = await accountRepository.GetAccountById(id);
-            var expertProfile = await expertProfileRepository.GetById(id);
-            if (account == null || expertProfile == null)
+            var account = await _userManager.FindByIdAsync(id.ToString());
+            var expertProfile = await _expertProfileRepository.GetById(id);
+
+            if (account == null || expertProfile == null) return new FashionExpertDetail();
+
+            return new FashionExpertDetail
             {
-                return new FashionExpertDetail();
-            }
-            var fashionExpertDetail = new FashionExpertDetail
-            {
-                AccountId = account.AccountId,
+                AccountId = account.Id,
                 ExpertProfileId = expertProfile.ExpertProfileId,
-                Username = account.Username,
+                Username = account.UserName,
                 Email = account.Email,
-                PasswordHash = account.PasswordHash,
-                RoleId = account.RoleId,
                 CreatedAt = account.CreatedAt,
                 Status = account.Status,
-                Avatar = account.Avatar,
+                Avatar = account.Avatars
+                  .OrderByDescending(img => img.CreatedAt)
+                  .Select(img => img.ImageUrl)
+                  .FirstOrDefault() ?? null,
                 YearsOfExperience = expertProfile.YearsOfExperience,
                 Bio = expertProfile.Bio,
                 Verified = expertProfile.Verified,
                 CreatedAtProfile = expertProfile.CreatedAt,
-                UpdatedAtProfile = expertProfile.UpdatedAt
+                UpdatedAtProfile = expertProfile.UpdatedAt,
+                FollowerCount = account.CountFollower,
+                FollowingCount = account.CountFollowing,
+                PostCount = account.CountPost,
+                Description = account.Description
             };
-            return fashionExpertDetail;
         }
 
         public async Task<List<AccountResponse>> GetListAccount()
         {
-            var accounts = await accountRepository.GetAllAccounts();
-            if (accounts == null || accounts.Count == 0)
-            {
-                return new List<AccountResponse>();
-            }
-            var accountResponses = accounts.Select(a => new AccountResponse
-            {
-                Id = a.AccountId,
-                Username = a.Username,
-                Email = a.Email,
-                Avatar = a.Avatar,
-                Role = a.Role.RoleName ,
-                CreatedAt = a.CreatedAt,
-                Status = a.Status
-            }).ToList();
-            return accountResponses;
+            // Lấy list user từ UserManager
+            var users = await _userManager.Users.OrderByDescending(u => u.CreatedAt).ToListAsync();
+            var responses = new List<AccountResponse>();
 
+            foreach (var user in users)
+            {
+                var roles = await _userManager.GetRolesAsync(user);
+                responses.Add(new AccountResponse
+                {
+                    Id = user.Id,
+                    Username = user.UserName,
+                    Email = user.Email,
+                    Avatar = user.Avatars
+                      .OrderByDescending(img => img.CreatedAt)
+                      .Select(img => img.ImageUrl)
+                      .FirstOrDefault() ?? null,
+                    Role = roles.FirstOrDefault() ?? "User",
+                    CreatedAt = user.CreatedAt,
+                    Status = user.Status,
+                    FollowerCount = user.CountFollower,
+                    FollowingCount = user.CountFollowing,
+                    PostCount = user.CountPost,
+                    Description = user.Description
+                });
+            }
+            return responses;
         }
 
-        public async Task<string> updateAccountRequest(int accountId,UpdateAccountRequest request)
+        public async Task<string> updateAccountRequest(int accountId, UpdateAccountRequest request)
         {
-            var account = await accountRepository.GetAccountById(accountId);
-            if (account == null)
-            {
-                return null;
-            }
-            account.Username = request.Username;
-            account.Avatar = request.Avatar;
+            var account = await _userManager.FindByIdAsync(accountId.ToString());
+            if (account == null) return "User not found";
+
+            // Cập nhật các field
+            account.UserName = request.Username;
+            //account.Avatar = request.Avatar;
             account.Status = request.Status;
             account.Email = request.Email;
-            account.RoleId = request.Role;
-            await accountRepository.UpdateAccount(account);
-            return "Update success";
-        }
 
+            // UserManager sẽ lo việc SaveChanges và Validate
+            var result = await _userManager.UpdateAsync(account);
+            return result.Succeeded ? "Update success" : string.Join(", ", result.Errors.Select(e => e.Description));
+        }
     }
 }

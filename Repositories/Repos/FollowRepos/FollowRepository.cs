@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Repositories.Data;
 using Repositories.Entities;
 
@@ -31,18 +26,27 @@ namespace Repositories.Repos.FollowRepos
                 .FirstOrDefaultAsync(f => f.UserId == userId && f.FollowerId == followerId);
         }
 
-      
+
 
         public async Task<List<Follow>> GetFollowersByIdAsync(int userId)
         {
             return await fashionDbContext.Follows
                 .Where(f => f.UserId == userId)
-                .Include(f => f.Follower)
+                .Include(f => f.Follower).ThenInclude(f => f.Avatars)
                 .Include(f => f.User)
                 .OrderBy(f => f.CreatedAt)
                 .ToListAsync();
         }
 
+        public async Task<List<Follow>> GetFollowingsByIdAsync(int userId)
+        {
+            return await fashionDbContext.Follows
+                 .Where(f => f.FollowerId == userId)
+                 .Include(f => f.Follower).ThenInclude(f => f.Avatars)
+                 .Include(f => f.User)
+                 .OrderBy(f => f.CreatedAt)
+                 .ToListAsync();
+        }
 
         public async Task<int> UnfollowUserAsync(int userId, int followerId)
         {

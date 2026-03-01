@@ -1,25 +1,14 @@
 ﻿using Repositories.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Repositories.Repos.AccountRepos
 {
     public interface IAccountRepository
     {
-        Task<Account?> SignUp(Account account);
-        Task<Account?> SignIn(string email, string password);
-        Task<Account?> GetAccountById(int accountId);
-        Task<Account?> GetAccountByEmail(string email);
-        Task<List<Account>> GetAllAccounts();
         Task<List<Account>> GetFashionExperts();
-        Task UpdateAccount(Account account);
-
+        Task<Account> GetAccountById(int userId);
         Task AddRefreshTokenAsync(RefreshToken refreshToken);
-
         Task<RefreshToken?> GetRefreshTokenByAccountIdAsync(int accountId);
         Task UpdateRefreshTokenAsync(RefreshToken token);
+        Task<int> UpdateAccount(Account account);
     }
 }

@@ -1,24 +1,29 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Repositories.Data;
+using Repositories.Entities;
 using Repositories.Repos.AccountRepos;
 using Repositories.Repos.ExpertFileRepos;
 using Repositories.Repos.ExpertProfileRepos;
 using Repositories.Repos.FollowRepos;
+using Repositories.Repos.ImageRepos;
 using Repositories.Repos.PackageCoinRepos;
 using Repositories.Repos.PostRepos;
 using Repositories.Repos.SocialRepos;
 using Repositories.Repos.TransactionRepos;
 using Repositories.Repos.UserReportRepos;
 using Repositories.Repos.WardrobeRepos;
+using Repositories.UnitOfWork;
 using Services.Helpers;
 using Services.Implements.AccountService;
 using Services.Implements.Auth;
 using Services.Implements.BackgroundServices;
 using Services.Implements.ExpertFileImp;
 using Services.Implements.Follow;
+using Services.Implements.ImageImp;
 using Services.Implements.PackageCoinImp;
 using Services.Implements.PostImp;
 using Services.Implements.SocialImp;
@@ -42,6 +47,7 @@ builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddHttpContextAccessor();
 
 //-------------------------------------------------------------------------------//
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
@@ -51,13 +57,35 @@ builder.Services.AddDbContext<FashionDbContext>(options =>
     options.UseNpgsql(connectionString, npgsqlOptions =>
     {
         npgsqlOptions.UseVector();
-        npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", schemaName);
+        //npgsqlOptions.MigrationsHistoryTable("__EFMigrationsHistory", schemaName);
     });
 
-    options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
+    //options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
 });
 
+builder.Services.AddIdentity<Account, IdentityRole<int>>(options =>
+{
+    options.Password.RequireDigit = false;
+    options.Password.RequiredLength = 6;
+    options.Password.RequireNonAlphanumeric = false;
+    options.Password.RequireUppercase = false;
+    options.Password.RequireLowercase = false;
+
+    //Lockout (If the account has multiple incorrect password attempts)
+    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
+    options.Lockout.MaxFailedAccessAttempts = 5;
+
+    options.User.RequireUniqueEmail = true;
+
+    // Identity Email
+    options.SignIn.RequireConfirmedEmail = true;
+})
+.AddEntityFrameworkStores<FashionDbContext>()
+.AddDefaultTokenProviders();
+
 // Repository Layer
+builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+builder.Services.AddScoped<IImageRepository, ImageRepository>();
 builder.Services.AddScoped<ISocialRepository, SocialRepository>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<IPackageCoinRepository, PackageCoinRepository>();
@@ -66,17 +94,18 @@ builder.Services.AddScoped<IExpertFileRepository, ExpertFileRepository>();
 builder.Services.AddScoped<IExpertProfileRepository, ExpertProfileRepository>();
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IWardrobeRepository, WardrobeRepository>();
-builder.Services.AddScoped<IFollowRepository,FollowRepository>();
+builder.Services.AddScoped<IFollowRepository, FollowRepository>();
 builder.Services.AddScoped<IPostRepository, PostRepository>();
 builder.Services.AddScoped<IPostService, PostService>();
 builder.Services.AddScoped<ICloudStorageService, CloundStorageService>();
 builder.Services.AddScoped<IAIDetectionService, AIDetectionService>();
-builder.Services.AddScoped<IAccountService,AccountService>();
+builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IExpertFileService, ExpertFileService>();
 builder.Services.AddScoped<IUserReportService, UserReportService>();
 builder.Services.AddScoped<IPackageCoinService, PackageCoinService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
-builder.Services.AddScoped<ISocialService,SocialService>();
+builder.Services.AddScoped<ISocialService, SocialService>();
+builder.Services.AddScoped<IImageService, ImageService>();
 
 
 // Service Layer
@@ -93,6 +122,8 @@ builder.Services.AddHttpClient<IAIDetectionService, AIDetectionService>(client =
 builder.Services.AddScoped<IRabbitMQProducer, RabbitMQProducer>();
 builder.Services.AddHostedService<PostProcessingWorker>();
 
+/////
+
 //-------------------------------------------------------------------------------//
 var jwtSettings = builder.Configuration.GetSection("Jwt");
 var secretKey = Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!);
@@ -101,6 +132,7 @@ builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
 })
 .AddJwtBearer(options =>
 {
@@ -178,5 +210,20 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    var configuration = services.GetRequiredService<IConfiguration>();
+    try
+    {
+        await DbInitializer.SeedRolesAndAdminAsync(services, configuration);
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Errors seeding Roles");
+    }
+}
 
 app.Run();

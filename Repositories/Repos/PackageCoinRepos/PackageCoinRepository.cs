@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Repositories.Data;
 using Repositories.Entities;
 
@@ -27,13 +22,13 @@ namespace Repositories.Repos.PackageCoinRepos
         {
             return await _db.Packages
                 .Include(p => p.Account)
-                .FirstOrDefaultAsync(p=>p.PackageId==id);
+                .FirstOrDefaultAsync(p => p.PackageId == id);
         }
 
         public async Task<List<Package>> GetPackages()
         {
             return await _db.Packages
-                .OrderBy(p=>p.PriceVnd)
+                .OrderBy(p => p.PriceVnd)
                 .ToListAsync();
         }
         public async Task<int> UpdatePackage(Package package)

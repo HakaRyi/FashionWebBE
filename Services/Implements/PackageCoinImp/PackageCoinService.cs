@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Repositories.Entities;
+﻿using Repositories.Entities;
 using Repositories.Repos.PackageCoinRepos;
 using Services.Request.PackageReq;
 using Services.Response.PackageResp;
@@ -18,7 +13,7 @@ namespace Services.Implements.PackageCoinImp
             this.packageCoinRepository = packageCoinRepository;
         }
 
-        public async Task<int> CreateAsync(PackageRequest request, int accountCreatedId )
+        public async Task<int> CreateAsync(PackageRequest request, int accountCreatedId)
         {
             var package = new Package
             {
@@ -26,7 +21,7 @@ namespace Services.Implements.PackageCoinImp
                 CoinAmount = request.CoinAmount,
                 PriceVnd = request.PriceVnd,
                 IsActive = request.IsActive,
-                AccountId = accountCreatedId, 
+                AccountId = accountCreatedId,
                 CreatedAt = DateTime.UtcNow
 
             };
@@ -57,12 +52,12 @@ namespace Services.Implements.PackageCoinImp
             var response = new CoinPackageDetail
             {
                 PackageId = package.PackageId,
-                Name =  package.Name,
+                Name = package.Name,
                 CoinAmount = package.CoinAmount,
                 PriceVnd = package.PriceVnd,
                 IsActive = package.IsActive,
                 CreatedAt = package.CreatedAt,
-                CreateBy = package.Account.Username,
+                CreateBy = package.Account.UserName,
                 AccountId = package.AccountId
             };
             return response;
@@ -90,7 +85,7 @@ namespace Services.Implements.PackageCoinImp
                 return "ko thay";
             }
             package.IsActive = false;
-            var result =  await packageCoinRepository.UpdatePackage(package);
+            var result = await packageCoinRepository.UpdatePackage(package);
             if (result > 0)
             {
                 return "success";

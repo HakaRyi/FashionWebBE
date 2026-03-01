@@ -1,5 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Repositories.Repos.PostRepos;
@@ -7,7 +8,6 @@ using Services.RabbitMQ;
 using Services.Utils;
 using System.Text;
 using System.Text.Json;
-using Microsoft.Extensions.Hosting;
 
 namespace Services.Implements.BackgroundServices
 {
@@ -71,7 +71,7 @@ namespace Services.Implements.BackgroundServices
 
                 try
                 {
-                    var post = await postRepo.GetPostByIdAsync(message.PostId);
+                    var post = await postRepo.GetByIdAsync(message.PostId);
                     if (post == null) return;
 
                     bool hasFashionItem = false;
@@ -87,7 +87,7 @@ namespace Services.Implements.BackgroundServices
                     post.Status = hasFashionItem ? "Active" : "PendingAdmin";
                     post.UpdatedAt = DateTime.UtcNow;
 
-                    await postRepo.UpdatePostAsync(post);
+                    postRepo.Update(post);
                     Console.WriteLine($"Processed Post {post.PostId}: {post.Status}");
                 }
                 catch (Exception ex)

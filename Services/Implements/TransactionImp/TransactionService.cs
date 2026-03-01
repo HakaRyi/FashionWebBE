@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Repositories.Repos.TransactionRepos;
+﻿using Repositories.Repos.TransactionRepos;
 using Services.Response.TransactionResp;
 
 namespace Services.Implements.TransactionImp
@@ -11,6 +6,7 @@ namespace Services.Implements.TransactionImp
     public class TransactionService : ITransactionService
     {
         private readonly ITransactionRepository _transactionRepository;
+
         public TransactionService(ITransactionRepository transactionRepository)
         {
             _transactionRepository = transactionRepository;
@@ -23,11 +19,12 @@ namespace Services.Implements.TransactionImp
             {
                 return null;
             }
-            var response = new TransactionResponse
+
+            return new TransactionResponse
             {
                 TransactionId = transaction.TransactionId,
                 AccountId = transaction.AccountId,
-                AccountName = transaction.Account.Username,
+                AccountName = transaction.Account?.UserName,
                 PaymentId = transaction.PaymentId,
                 AmountCoin = transaction.AmountCoin,
                 Type = transaction.Type,
@@ -38,18 +35,18 @@ namespace Services.Implements.TransactionImp
                 CreatedAt = transaction.CreatedAt,
                 Status = transaction.Status
             };
-            return response;
         }
 
         public async Task<List<TransactionResponse>> GetTransactions()
         {
             var transactions = await _transactionRepository.GetTransactions();
-            var responses = transactions.Select(transaction => new TransactionResponse
+
+            return transactions.Select(transaction => new TransactionResponse
             {
                 TransactionId = transaction.TransactionId,
                 AccountId = transaction.AccountId,
-                AccountName = transaction.Account.Username,
-                PaymentId = transaction.PaymentId ,
+                AccountName = transaction.Account?.UserName,
+                PaymentId = transaction.PaymentId,
                 AmountCoin = transaction.AmountCoin,
                 Type = transaction.Type,
                 ReferenceType = transaction.ReferenceType,
@@ -59,8 +56,6 @@ namespace Services.Implements.TransactionImp
                 CreatedAt = transaction.CreatedAt,
                 Status = transaction.Status
             }).ToList();
-            return responses;
-
         }
     }
 }

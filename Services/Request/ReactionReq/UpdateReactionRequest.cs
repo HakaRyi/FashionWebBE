@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Services.Request.ReactionReq
+﻿namespace Services.Request.ReactionReq
 {
     public class UpdateReactionRequest
     {

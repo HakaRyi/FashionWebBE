@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Repositories.Data;
 using Repositories.Entities;
 
@@ -21,7 +16,7 @@ namespace Repositories.Repos.TransactionRepos
         {
             return await _db.Transactions
                 .Include(t => t.Account)
-                .FirstOrDefaultAsync(tr=>tr.TransactionId==id);
+                .FirstOrDefaultAsync(tr => tr.TransactionId == id);
         }
 
         public async Task<List<Transaction>> GetTransactions()
