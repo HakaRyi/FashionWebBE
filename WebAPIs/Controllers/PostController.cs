@@ -100,5 +100,12 @@ namespace WebAPIs.Controllers
 
             return Ok(new { message = result });
         }
+
+        [HttpGet("feed")]
+        public async Task<IActionResult> GetFeed(DateTime? cursor, int pageSize = 10)
+        {
+            var result = await _postService.GetFeedAsync(cursor, pageSize);
+            return Ok(result);
+        }
     }
 }

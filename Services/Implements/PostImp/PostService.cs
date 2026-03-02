@@ -240,16 +240,35 @@ namespace Services.Implements.PostImp
             }
         }
 
+        public async Task<List<PostResponse>> GetFeedAsync(DateTime? cursor, int pageSize)
+        {
+            var posts = await _postRepo.GetFeedByCursorAsync(cursor, pageSize);
+            return posts.Select(MapToResponse).ToList();
+        }
+
         private PostResponse MapToResponse(Post post)
         {
             return new PostResponse
             {
                 PostId = post.PostId,
+
+                // ===== USER INFO =====
+                UserName = post.Account?.UserName,
+                AvatarUrl = post.Account?.Avatars
+                                .OrderByDescending(a => a.CreatedAt)
+                                .Select(a => a.ImageUrl)
+                                .FirstOrDefault(),
+
+                // ===== POST INFO =====
                 EventId = post.EventId,
                 EventName = post.Event?.Title,
                 Title = post.Tittle,
                 Content = post.Content,
-                ImageUrls = post.Images?.Select(i => i.ImageUrl).ToList(),
+                ImageUrls = post.Images?
+                                .OrderBy(i => i.CreatedAt)
+                                .Select(i => i.ImageUrl)
+                                .ToList(),
+
                 IsExpertPost = post.IsExpertPost,
                 Status = post.Status,
                 Score = post.Score,
