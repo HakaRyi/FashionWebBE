@@ -10,6 +10,7 @@ using Repositories.Repos.ExpertFileRepos;
 using Repositories.Repos.ExpertProfileRepos;
 using Repositories.Repos.FollowRepos;
 using Repositories.Repos.ImageRepos;
+using Repositories.Repos.OutfitRepos;
 using Repositories.Repos.PackageCoinRepos;
 using Repositories.Repos.PostRepos;
 using Repositories.Repos.SocialRepos;
@@ -24,6 +25,7 @@ using Services.Implements.BackgroundServices;
 using Services.Implements.ExpertFileImp;
 using Services.Implements.Follow;
 using Services.Implements.ImageImp;
+using Services.Implements.OutfitImp;
 using Services.Implements.PackageCoinImp;
 using Services.Implements.PostImp;
 using Services.Implements.SocialImp;
@@ -106,6 +108,8 @@ builder.Services.AddScoped<IPackageCoinService, PackageCoinService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IImageService, ImageService>();
+builder.Services.AddScoped<IOutfitRepository, OutfitRepository>();
+
 
 
 // Service Layer
@@ -114,6 +118,7 @@ builder.Services.AddScoped<IFollowService, FollowService>();
 builder.Services.AddScoped<IWardrobeService, WardrobeService>();
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddHttpClient<ITryOnService, TryOnService>();
+builder.Services.AddScoped<IOutfitService, OutfitService>();
 
 builder.Services.AddHttpClient<IAIDetectionService, AIDetectionService>(client =>
 {

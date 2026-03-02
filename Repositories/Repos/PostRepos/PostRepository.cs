@@ -2,6 +2,7 @@
 using Repositories.Constants;
 using Repositories.Data;
 using Repositories.Entities;
+using System.Threading.Tasks;
 
 namespace Repositories.Repos.PostRepos
 {
@@ -50,9 +51,10 @@ namespace Repositories.Repos.PostRepos
             await _context.Posts.AddAsync(post);
         }
 
-        public void Update(Post post)
+        public async Task  Update(Post post)
         {
             _context.Posts.Update(post);
+            await _context.SaveChangesAsync();
         }
 
         public void Delete(Post post)
