@@ -432,6 +432,9 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.Placement)
                 .HasMaxLength(255)
                 .HasColumnName("placement");
+            entity.Property(e => e.ItemEmbedding)
+                .HasColumnName("item_embedding")
+                .HasColumnType("vector(768)");
             entity.Property(e => e.Status)
                 .HasMaxLength(30)
                 .HasColumnName("status");

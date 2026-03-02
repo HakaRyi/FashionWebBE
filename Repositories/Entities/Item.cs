@@ -1,4 +1,7 @@
-﻿namespace Repositories.Entities;
+﻿using Pgvector;
+using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Repositories.Entities;
 
 public partial class Item
 {
@@ -25,6 +28,9 @@ public partial class Item
     public string? Placement { get; set; }
 
     public double? StyleScore { get; set; }
+
+    [Column(TypeName = "vector(768)")]
+    public Vector ItemEmbedding { get; set; } = null!;
 
     public DateTime? CreatedAt { get; set; }
 
