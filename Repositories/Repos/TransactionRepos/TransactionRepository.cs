@@ -12,7 +12,7 @@ namespace Repositories.Repos.TransactionRepos
             _db = db;
         }
 
-        public async Task<Transaction> GetById(int id)
+        public async Task<Transaction?> GetById(int id)
         {
             return await _db.Transactions
                 .Include(t => t.Account)
@@ -26,6 +26,20 @@ namespace Repositories.Repos.TransactionRepos
                 .OrderByDescending(t => t.CreatedAt)
                 .ToListAsync();
 
+        }
+
+        public async Task AddAsync(Transaction transaction) => await _db.Transactions.AddAsync(transaction);
+
+        public async Task<IEnumerable<Transaction>> GetHistoryByAccountIdAsync(int accountId)
+            => await _db.Transactions.Where(t => t.AccountId == accountId).OrderByDescending(t => t.CreatedAt).ToListAsync();
+
+        public async Task<int> GetCurrentBalanceAsync(int accountId)
+        {
+            var lastTransaction = await _db.Transactions
+                .Where(t => t.AccountId == accountId && t.Status == "Success")
+                .OrderByDescending(t => t.CreatedAt)
+                .FirstOrDefaultAsync();
+            return lastTransaction?.BalanceAfter ?? 0;
         }
     }
 }

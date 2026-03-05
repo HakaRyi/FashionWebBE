@@ -10,7 +10,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Services.Item
+namespace Services.Implements.Items
 {
     public class ItemService: IItemService
     {

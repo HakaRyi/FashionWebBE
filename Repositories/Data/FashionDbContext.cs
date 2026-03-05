@@ -279,25 +279,27 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.HasIndex(e => e.ExpertProfileId, "Expert_File_expert_profile_id_key").IsUnique();
 
             entity.Property(e => e.ExpertFileId).HasColumnName("expert_file_id");
-            entity.Property(e => e.Bio)
-                .HasMaxLength(500)
-                .HasColumnName("bio");
+            entity.Property(e => e.ExpertProfileId).HasColumnName("expert_profile_id");
+
+            entity.Property(e => e.CvUrl)
+          .HasMaxLength(500)
+          .HasColumnName("cv_url");
             entity.Property(e => e.CertificateUrl)
                 .HasMaxLength(500)
                 .HasColumnName("certificate_url");
-            entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("created_at");
-            entity.Property(e => e.ExperienceYears).HasColumnName("experience_years");
-            entity.Property(e => e.ExpertProfileId).HasColumnName("expert_profile_id");
             entity.Property(e => e.LicenseUrl)
                 .HasMaxLength(500)
                 .HasColumnName("license_url");
+            entity.Property(e => e.IdentityProofUrl)
+              .HasMaxLength(500)
+              .HasColumnName("identity_proof_url");
             entity.Property(e => e.RatingAvg).HasColumnName("rating_avg");
             entity.Property(e => e.Status)
                 .HasMaxLength(30)
                 .HasColumnName("status");
-            entity.Property(e => e.Verified).HasColumnName("verified");
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("created_at");
 
             entity.HasOne(d => d.ExpertProfile).WithOne(p => p.ExpertFile)
                 .HasForeignKey<ExpertFile>(d => d.ExpertProfileId)
@@ -315,20 +317,25 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
             entity.Property(e => e.ExpertProfileId).HasColumnName("expert_profile_id");
             entity.Property(e => e.AccountId).HasColumnName("account_id");
-            entity.Property(e => e.Bio).HasColumnName("bio");
-            entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("created_at");
+            entity.Property(e => e.Bio)
+                    .HasColumnType("text")
+                    .HasColumnName("bio");
             entity.Property(e => e.ExpertiseField)
                 .HasMaxLength(100)
                 .HasColumnName("expertise_field");
-            entity.Property(e => e.UpdatedAt)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("updated_at");
+            entity.Property(e => e.StyleAesthetic)
+                .HasMaxLength(100)
+                .HasColumnName("style_aesthetic");
+            entity.Property(e => e.YearsOfExperience).HasColumnName("years_of_experience");
             entity.Property(e => e.Verified)
                 .HasDefaultValue(false)
                 .HasColumnName("verified");
-            entity.Property(e => e.YearsOfExperience).HasColumnName("years_of_experience");
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("updated_at");
 
             entity.HasOne(d => d.Account).WithOne(p => p.ExpertProfile)
                 .HasForeignKey<ExpertProfile>(d => d.AccountId)

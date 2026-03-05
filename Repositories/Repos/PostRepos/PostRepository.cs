@@ -45,6 +45,11 @@ namespace Repositories.Repos.PostRepos
                 .ToListAsync();
         }
 
+        public async Task<IEnumerable<Post>> GetPostsByEventIdAsync(int eventId)
+        => await _context.Posts.Where(p => p.EventId == eventId)
+                          .OrderByDescending(p => p.Score)
+                          .ToListAsync();
+
         public async Task AddAsync(Post post)
         {
             await _context.Posts.AddAsync(post);

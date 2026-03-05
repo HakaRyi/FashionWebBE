@@ -1,6 +1,6 @@
 ﻿using Services.Response.AccountRep;
 
-namespace Services.Implements.ExpertFileImp
+namespace Services.Implements.ExpertsService.ExpertFileImp
 {
     public interface IExpertFileService
     {
