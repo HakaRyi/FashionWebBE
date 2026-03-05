@@ -12,6 +12,8 @@ public partial class Comment
 
     public DateTime? CreatedAt { get; set; }
 
+    public DateTime? UpdatedAt { get; set; }
+
     public virtual Account Account { get; set; } = null!;
 
     public virtual Post Post { get; set; } = null!;

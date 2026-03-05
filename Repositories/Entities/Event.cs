@@ -20,5 +20,6 @@ public partial class Event
 
     public virtual Account Creator { get; set; } = null!;
 
-    public virtual ICollection<Post> Posts { get; set; } = new List<Post>();
+    public virtual ICollection<Post> Posts { get; set; } = new List<Post>(); 
+    public virtual ICollection<PrizeEvent> PrizeEvents { get; set; } = new List<PrizeEvent>();
 }

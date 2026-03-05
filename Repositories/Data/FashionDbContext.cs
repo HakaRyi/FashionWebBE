@@ -73,6 +73,14 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
     public virtual DbSet<Follow> Follows { get; set; }
 
+    public virtual DbSet<TryOnHistory> TryOnHistories { get; set; }
+
+    public virtual DbSet<PrizeEvent> PrizeEvents { get; set; }
+
+    public virtual DbSet<EventWinner> EventWinners { get; set; }
+
+    public virtual DbSet<Scoreboard> Scoreboards { get; set; }
+
     public static string GetConnectionString(string connectionStringName)
     {
         var config = new ConfigurationBuilder()
@@ -226,6 +234,10 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.CreatedAt)
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at");
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnName("updated_at")
+                .HasColumnType("timestamp without time zone");
+
             entity.Property(e => e.PostId).HasColumnName("post_id");
 
             entity.HasOne(d => d.Account).WithMany(p => p.Comments)
@@ -237,6 +249,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasForeignKey(d => d.PostId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("Comment_post_id_fkey");
+            entity.HasIndex(e => e.PostId).HasDatabaseName("IX_Comment_PostId");
         });
 
         modelBuilder.Entity<Event>(entity =>
@@ -770,6 +783,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasForeignKey(d => d.PostId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("Reaction_post_id_fkey");
+            entity.HasIndex(e => new { e.AccountId, e.PostId }, "UQ_Account_Post_Reaction").IsUnique();
         });
 
         modelBuilder.Entity<RefreshToken>(entity =>
@@ -962,6 +976,45 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasForeignKey(d => d.FollowerId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("Follow_follower_id_fkey");
+
+        });
+        modelBuilder.Entity<TryOnHistory>(entity => {
+            entity.ToTable("TryOnHistory", "public");
+            entity.HasKey(e => e.TryOnId);
+            entity.Property(e => e.TryOnId).HasColumnName("tryon_id");
+            entity.Property(e => e.AccountId).HasColumnName("acc_id");
+            entity.Property(e => e.ImageUrl).HasColumnName("img_url").HasMaxLength(500);
+            entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(30);
+            entity.Property(e => e.CreatedAt).HasColumnName("create_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasOne(d => d.Account).WithMany(p => p.TryOnHistories).HasForeignKey(d => d.AccountId);
+        });
+        modelBuilder.Entity<PrizeEvent>(entity => {
+            entity.ToTable("PrizeEvent", "public");
+            entity.HasKey(e => e.PrizeEventId);
+            entity.Property(e => e.PrizeEventId).HasColumnName("prize_event_id");
+            entity.Property(e => e.EventId).HasColumnName("event_id");
+            entity.Property(e => e.Ranked).HasColumnName("ranked").HasMaxLength(50);
+            entity.Property(e => e.RewardCoin).HasColumnName("reward_coin");
+            entity.Property(e => e.CreatedAt).HasColumnName("create_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.HasOne(d => d.Event).WithMany(p => p.PrizeEvents).HasForeignKey(d => d.EventId);
+        });
+        modelBuilder.Entity<EventWinner>(entity => {
+            entity.ToTable("TheEventWinner", "public");
+            entity.HasKey(e => e.EventWinnerId);
+            entity.HasIndex(e => e.AccountId).IsUnique();
+            entity.HasIndex(e => e.PrizeEventId).IsUnique();
+
+            entity.HasOne(d => d.Account).WithOne(p => p.EventWinner).HasForeignKey<EventWinner>(d => d.AccountId);
+            entity.HasOne(d => d.PrizeEvent).WithOne(p => p.EventWinner).HasForeignKey<EventWinner>(d => d.PrizeEventId);
+        });
+        modelBuilder.Entity<Scoreboard>(entity => {
+            entity.ToTable("Scoreboard", "public");
+            entity.HasKey(e => e.ScoreboardId);
+            entity.HasIndex(e => e.PostId).IsUnique();
+
+            entity.HasOne(d => d.Post).WithOne(p => p.Scoreboard).HasForeignKey<Scoreboard>(d => d.PostId);
         });
 
         OnModelCreatingPartial(modelBuilder);
