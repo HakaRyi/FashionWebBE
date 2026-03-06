@@ -876,6 +876,42 @@ namespace Repositories.Migrations
                     b.ToTable("Message", "public");
                 });
 
+            modelBuilder.Entity("Repositories.Entities.Model", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("integer")
+                        .HasColumnName("acc_id");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("create_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("img_url");
+
+                    b.Property<string>("Status")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.ToTable("AccountModels", "public");
+                });
+
             modelBuilder.Entity("Repositories.Entities.Notification", b =>
                 {
                     b.Property<int>("NotificationId")
@@ -1854,6 +1890,18 @@ namespace Repositories.Migrations
                     b.Navigation("ReplyToMessage");
                 });
 
+            modelBuilder.Entity("Repositories.Entities.Model", b =>
+                {
+                    b.HasOne("Repositories.Entities.Account", "Account")
+                        .WithMany("AccountModels")
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_Account_Models");
+
+                    b.Navigation("Account");
+                });
+
             modelBuilder.Entity("Repositories.Entities.Notification", b =>
                 {
                     b.HasOne("Repositories.Entities.Account", "Sender")
@@ -2101,6 +2149,8 @@ namespace Repositories.Migrations
 
             modelBuilder.Entity("Repositories.Entities.Account", b =>
                 {
+                    b.Navigation("AccountModels");
+
                     b.Navigation("Avatars");
 
                     b.Navigation("Comments");

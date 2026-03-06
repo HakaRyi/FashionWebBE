@@ -8,7 +8,7 @@ using Pgvector;
 namespace Repositories.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCleanStructureV3 : Migration
+    public partial class InitialFullStructureV4 : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -154,6 +154,30 @@ namespace Repositories.Migrations
                     table.ForeignKey(
                         name: "FK_AccountLogins_Accounts_account_id",
                         column: x => x.account_id,
+                        principalSchema: "public",
+                        principalTable: "Accounts",
+                        principalColumn: "account_id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AccountModels",
+                schema: "public",
+                columns: table => new
+                {
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    acc_id = table.Column<int>(type: "integer", nullable: false),
+                    img_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
+                    create_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true, defaultValueSql: "CURRENT_TIMESTAMP")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AccountModels", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_Account_Models",
+                        column: x => x.acc_id,
                         principalSchema: "public",
                         principalTable: "Accounts",
                         principalColumn: "account_id",
@@ -1058,6 +1082,12 @@ namespace Repositories.Migrations
                 column: "account_id");
 
             migrationBuilder.CreateIndex(
+                name: "IX_AccountModels_acc_id",
+                schema: "public",
+                table: "AccountModels",
+                column: "acc_id");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_AccountRoles_role_id",
                 table: "AccountRoles",
                 column: "role_id");
@@ -1396,6 +1426,10 @@ namespace Repositories.Migrations
 
             migrationBuilder.DropTable(
                 name: "AccountLogins");
+
+            migrationBuilder.DropTable(
+                name: "AccountModels",
+                schema: "public");
 
             migrationBuilder.DropTable(
                 name: "AccountRoles");

@@ -81,6 +81,10 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
     public virtual DbSet<Scoreboard> Scoreboards { get; set; }
 
+    public virtual DbSet<Model> Models { get; set; }
+
+ 
+
     public static string GetConnectionString(string connectionStringName)
     {
         var config = new ConfigurationBuilder()
@@ -153,6 +157,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.CountFollowing)
                 .HasDefaultValue(0)
                 .HasColumnName("count_following");
+
         });
 
         modelBuilder.Entity<IdentityRole<int>>(entity =>
@@ -162,6 +167,27 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.Name).HasColumnName("role_name");
             entity.Property(e => e.NormalizedName).HasColumnName("normalized_name");
             entity.Property(e => e.ConcurrencyStamp).HasColumnName("concurrency_stamp");
+        });
+        modelBuilder.Entity<Model>(entity =>
+        {
+            entity.ToTable("AccountModels", "public");
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.AccountId).HasColumnName("acc_id");
+            entity.Property(e => e.ImageUrl).HasColumnName("img_url").HasMaxLength(500);
+            entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(30);
+            entity.Property(e => e.CreatedAt)
+                .HasColumnName("create_at")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp without time zone");
+
+            // Quan hệ 1 Account có nhiều Models
+            entity.HasOne(d => d.Account)
+                .WithMany(p => p.AccountModels)
+                .HasForeignKey(d => d.AccountId)
+                .OnDelete(DeleteBehavior.Cascade) // Nếu xóa Account thì xóa luôn model ảnh
+                .HasConstraintName("FK_Account_Models");
         });
 
         modelBuilder.Entity<IdentityUserRole<int>>(entity =>
