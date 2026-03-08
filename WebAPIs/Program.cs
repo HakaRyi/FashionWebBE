@@ -137,7 +137,7 @@ builder.Services.AddScoped<IOutfitService, OutfitService>();
 
 builder.Services.AddHttpClient<IAIDetectionService, AIDetectionService>(client =>
 {
-    client.Timeout = TimeSpan.FromSeconds(30);
+    client.Timeout = TimeSpan.FromSeconds(60);
 });
 builder.Services.AddScoped<IRabbitMQProducer, RabbitMQProducer>();
 builder.Services.AddHostedService<PostProcessingWorker>();
