@@ -11,6 +11,7 @@ using Repositories.Repos.ExpertFileRepos;
 using Repositories.Repos.ExpertProfileRepos;
 using Repositories.Repos.FollowRepos;
 using Repositories.Repos.ImageRepos;
+using Repositories.Repos.OutfitRepos;
 using Repositories.Repos.ItemRespos;
 using Repositories.Repos.PackageCoinRepos;
 using Repositories.Repos.Payments;
@@ -31,6 +32,7 @@ using Services.Implements.ExpertsService.ExpertFileImp;
 using Services.Implements.Follow;
 using Services.Implements.ImageImp;
 using Services.Implements.Items;
+using Services.Implements.OutfitImp;
 using Services.Implements.PackageCoinImp;
 using Services.Implements.PaymentService;
 using Services.Implements.PostImp;
@@ -117,6 +119,7 @@ builder.Services.AddScoped<IPackageCoinService, PackageCoinService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IImageService, ImageService>();
+builder.Services.AddScoped<IOutfitRepository, OutfitRepository>();
 builder.Services.AddScoped<IItemRepository, ItemRepository>();
 builder.Services.AddScoped<IEventRepository, EventRepository>();
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
@@ -140,11 +143,12 @@ builder.Services.AddScoped<IFileService>(sp =>
 });
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddHttpClient<ITryOnService, TryOnService>();
+builder.Services.AddScoped<IOutfitService, OutfitService>();
 
 
 builder.Services.AddHttpClient<IAIDetectionService, AIDetectionService>(client =>
 {
-    client.Timeout = TimeSpan.FromSeconds(30);
+    client.Timeout = TimeSpan.FromSeconds(60);
 });
 builder.Services.AddScoped<IRabbitMQProducer, RabbitMQProducer>();
 builder.Services.AddHostedService<PostProcessingWorker>();

@@ -1,12 +1,14 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+﻿using System;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
+using Pgvector;
 
 #nullable disable
 
 namespace Repositories.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCleanStructure_V2 : Migration
+    public partial class InitialFullStructureV4 : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -152,6 +154,30 @@ namespace Repositories.Migrations
                     table.ForeignKey(
                         name: "FK_AccountLogins_Accounts_account_id",
                         column: x => x.account_id,
+                        principalSchema: "public",
+                        principalTable: "Accounts",
+                        principalColumn: "account_id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
+                name: "AccountModels",
+                schema: "public",
+                columns: table => new
+                {
+                    id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    acc_id = table.Column<int>(type: "integer", nullable: false),
+                    img_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
+                    create_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true, defaultValueSql: "CURRENT_TIMESTAMP")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_AccountModels", x => x.id);
+                    table.ForeignKey(
+                        name: "FK_Account_Models",
+                        column: x => x.acc_id,
                         principalSchema: "public",
                         principalTable: "Accounts",
                         principalColumn: "account_id",
@@ -358,6 +384,30 @@ namespace Repositories.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "TryOnHistory",
+                schema: "public",
+                columns: table => new
+                {
+                    tryon_id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    acc_id = table.Column<int>(type: "integer", nullable: false),
+                    img_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
+                    status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false),
+                    create_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP")
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_TryOnHistory", x => x.tryon_id);
+                    table.ForeignKey(
+                        name: "FK_TryOnHistory_Accounts_acc_id",
+                        column: x => x.acc_id,
+                        principalSchema: "public",
+                        principalTable: "Accounts",
+                        principalColumn: "account_id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "User_Profile_Vector",
                 schema: "public",
                 columns: table => new
@@ -544,6 +594,33 @@ namespace Repositories.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "PrizeEvent",
+                schema: "public",
+                columns: table => new
+                {
+                    prize_event_id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    event_id = table.Column<int>(type: "integer", nullable: false),
+                    ranked = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
+                    reward_coin = table.Column<int>(type: "integer", nullable: false),
+                    Description = table.Column<string>(type: "text", nullable: false),
+                    create_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP"),
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp without time zone", nullable: false),
+                    Status = table.Column<string>(type: "text", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_PrizeEvent", x => x.prize_event_id);
+                    table.ForeignKey(
+                        name: "FK_PrizeEvent_Events_event_id",
+                        column: x => x.event_id,
+                        principalSchema: "public",
+                        principalTable: "Events",
+                        principalColumn: "event_id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Expert_File",
                 schema: "public",
                 columns: table => new
@@ -621,6 +698,7 @@ namespace Repositories.Migrations
                     brand = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     placement = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
                     style_score = table.Column<double>(type: "double precision", nullable: true),
+                    item_embedding = table.Column<Vector>(type: "vector(768)", nullable: false),
                     created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true),
                     update_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true),
                     status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true)
@@ -730,7 +808,8 @@ namespace Repositories.Migrations
                     post_id = table.Column<int>(type: "integer", nullable: false),
                     account_id = table.Column<int>(type: "integer", nullable: false),
                     content = table.Column<string>(type: "text", nullable: false),
-                    created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true)
+                    created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true),
+                    updated_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -799,6 +878,32 @@ namespace Repositories.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Scoreboard",
+                schema: "public",
+                columns: table => new
+                {
+                    ScoreboardId = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    PostId = table.Column<int>(type: "integer", nullable: false),
+                    Score = table.Column<double>(type: "double precision", nullable: false),
+                    Like = table.Column<int>(type: "integer", nullable: false),
+                    Share = table.Column<int>(type: "integer", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp without time zone", nullable: false),
+                    Status = table.Column<string>(type: "text", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Scoreboard", x => x.ScoreboardId);
+                    table.ForeignKey(
+                        name: "FK_Scoreboard_Post_PostId",
+                        column: x => x.PostId,
+                        principalSchema: "public",
+                        principalTable: "Post",
+                        principalColumn: "post_id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "User_Report",
                 schema: "public",
                 columns: table => new
@@ -832,6 +937,38 @@ namespace Repositories.Migrations
                         principalSchema: "public",
                         principalTable: "Report_Type",
                         principalColumn: "report_type_id");
+                });
+
+            migrationBuilder.CreateTable(
+                name: "TheEventWinner",
+                schema: "public",
+                columns: table => new
+                {
+                    EventWinnerId = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    AccountId = table.Column<int>(type: "integer", nullable: false),
+                    PrizeEventId = table.Column<int>(type: "integer", nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp without time zone", nullable: false),
+                    UpdatedAt = table.Column<DateTime>(type: "timestamp without time zone", nullable: false),
+                    Status = table.Column<string>(type: "text", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_TheEventWinner", x => x.EventWinnerId);
+                    table.ForeignKey(
+                        name: "FK_TheEventWinner_Accounts_AccountId",
+                        column: x => x.AccountId,
+                        principalSchema: "public",
+                        principalTable: "Accounts",
+                        principalColumn: "account_id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_TheEventWinner_PrizeEvent_PrizeEventId",
+                        column: x => x.PrizeEventId,
+                        principalSchema: "public",
+                        principalTable: "PrizeEvent",
+                        principalColumn: "prize_event_id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(
@@ -945,6 +1082,12 @@ namespace Repositories.Migrations
                 column: "account_id");
 
             migrationBuilder.CreateIndex(
+                name: "IX_AccountModels_acc_id",
+                schema: "public",
+                table: "AccountModels",
+                column: "acc_id");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_AccountRoles_role_id",
                 table: "AccountRoles",
                 column: "role_id");
@@ -983,7 +1126,7 @@ namespace Repositories.Migrations
                 column: "account_id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Comment_post_id",
+                name: "IX_Comment_PostId",
                 schema: "public",
                 table: "Comment",
                 column: "post_id");
@@ -1147,16 +1290,23 @@ namespace Repositories.Migrations
                 column: "event_id");
 
             migrationBuilder.CreateIndex(
-                name: "IX_Reaction_account_id",
+                name: "IX_PrizeEvent_event_id",
                 schema: "public",
-                table: "Reaction",
-                column: "account_id");
+                table: "PrizeEvent",
+                column: "event_id");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Reaction_post_id",
                 schema: "public",
                 table: "Reaction",
                 column: "post_id");
+
+            migrationBuilder.CreateIndex(
+                name: "UQ_Account_Post_Reaction",
+                schema: "public",
+                table: "Reaction",
+                columns: new[] { "account_id", "post_id" },
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "RefreshToken_account_id_key",
@@ -1203,6 +1353,27 @@ namespace Repositories.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_Scoreboard_PostId",
+                schema: "public",
+                table: "Scoreboard",
+                column: "PostId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TheEventWinner_AccountId",
+                schema: "public",
+                table: "TheEventWinner",
+                column: "AccountId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TheEventWinner_PrizeEventId",
+                schema: "public",
+                table: "TheEventWinner",
+                column: "PrizeEventId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Transaction_account_id",
                 schema: "public",
                 table: "Transaction",
@@ -1214,6 +1385,12 @@ namespace Repositories.Migrations
                 table: "Transaction",
                 column: "payment_id",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_TryOnHistory_acc_id",
+                schema: "public",
+                table: "TryOnHistory",
+                column: "acc_id");
 
             migrationBuilder.CreateIndex(
                 name: "IX_User_Report_account_id",
@@ -1249,6 +1426,10 @@ namespace Repositories.Migrations
 
             migrationBuilder.DropTable(
                 name: "AccountLogins");
+
+            migrationBuilder.DropTable(
+                name: "AccountModels",
+                schema: "public");
 
             migrationBuilder.DropTable(
                 name: "AccountRoles");
@@ -1316,7 +1497,19 @@ namespace Repositories.Migrations
                 name: "RoleClaims");
 
             migrationBuilder.DropTable(
+                name: "Scoreboard",
+                schema: "public");
+
+            migrationBuilder.DropTable(
+                name: "TheEventWinner",
+                schema: "public");
+
+            migrationBuilder.DropTable(
                 name: "Transaction",
+                schema: "public");
+
+            migrationBuilder.DropTable(
+                name: "TryOnHistory",
                 schema: "public");
 
             migrationBuilder.DropTable(
@@ -1345,6 +1538,10 @@ namespace Repositories.Migrations
 
             migrationBuilder.DropTable(
                 name: "Roles");
+
+            migrationBuilder.DropTable(
+                name: "PrizeEvent",
+                schema: "public");
 
             migrationBuilder.DropTable(
                 name: "Payment",

@@ -36,6 +36,8 @@ public partial class Post
 
     public virtual PostVector? PostVector { get; set; }
 
+    public virtual Scoreboard? Scoreboard { get; set; }
+
     public virtual ICollection<Reaction> Reactions { get; set; } = new List<Reaction>();
 
     public virtual ICollection<UserReport> UserReports { get; set; } = new List<UserReport>();

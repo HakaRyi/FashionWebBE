@@ -10,6 +10,7 @@ namespace Repositories.Repos.ImageRepos
         Task<List<Image>> GetAllAvatarAsync();
         Task AddAsync(Image image);
         Task AddRangeAsync(List<Image> images);
+        void DeleteRange(List<Image> images);
         void Delete(Image image);
     }
 }

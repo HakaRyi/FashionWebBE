@@ -3,7 +3,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
+using Repositories.Constants;
 using Repositories.Repos.PostRepos;
+using Repositories.UnitOfWork;
 using Services.RabbitMQ;
 using Services.Utils;
 using System.Text;
@@ -17,6 +19,7 @@ namespace Services.Implements.BackgroundServices
         private readonly IServiceScopeFactory _scopeFactory;
         private IConnection _connection;
         private IModel _channel;
+        //private readonly IUnitOfWork _unitOfWork;
 
         public PostProcessingWorker(IConfiguration config, IServiceScopeFactory scopeFactory)
         {
@@ -84,10 +87,10 @@ namespace Services.Implements.BackgroundServices
                         }
                     }
 
-                    post.Status = hasFashionItem ? "Active" : "PendingAdmin";
+                    post.Status = hasFashionItem ? PostStatus.Published : PostStatus.PendingAdmin;
                     post.UpdatedAt = DateTime.UtcNow;
 
-                    postRepo.Update(post);
+                    using var _ = postRepo.Update(post);
                     Console.WriteLine($"Processed Post {post.PostId}: {post.Status}");
                 }
                 catch (Exception ex)

@@ -58,8 +58,14 @@ public partial class Account : IdentityUser<int>
 
     public virtual Wardrobe? Wardrobe { get; set; }
 
+    public virtual EventWinner? EventWinner { get; set; }
+    
+
     public virtual ICollection<Follow> FollowUserNavigations { get; set; } = new List<Follow>();
 
     public virtual ICollection<Follow> FollowFollowerNavigations { get; set; } = new List<Follow>();
     public virtual ICollection<Image> Avatars { get; set; } = new List<Image>();
+    public virtual ICollection<TryOnHistory> TryOnHistories { get; set; } = new List<TryOnHistory>();
+
+    public virtual ICollection<Model> AccountModels { get; set; } = new List<Model>();
 }

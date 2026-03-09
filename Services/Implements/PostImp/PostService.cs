@@ -44,7 +44,22 @@ namespace Services.Implements.PostImp
         {
             ValidatePostContent(request.Content, request.Images);
 
+            //if (request.EventId.HasValue)
+            //{
+            //    var eventExists = await _eventRepo.ExistsAsync(request.EventId.Value);
+            //    if (!eventExists) throw new KeyNotFoundException("Event không tồn tại.");
+            //}
+
             var now = DateTime.UtcNow;
+
+            List<string> imageUrls = new List<string>();
+            if (request.Images != null && request.Images.Any())
+            {
+                var uploadTasks = request.Images.Select(f => _storageService.UploadImageAsync(f));
+                imageUrls = (await Task.WhenAll(uploadTasks)).ToList();
+            }
+
+            var initialStatus = imageUrls.Any() ? PostStatus.Verifying : PostStatus.Published;
 
             var post = new Post
             {
@@ -53,90 +68,83 @@ namespace Services.Implements.PostImp
                 EventId = request.EventId,
                 CreatedAt = now,
                 UpdatedAt = now,
-                Status = PostStatus.Draft,
+                Status = initialStatus,
                 LikeCount = 0,
                 ShareCount = 0,
                 Score = 0,
-                IsExpertPost = false
+                IsExpertPost = false,
+
+                Images = imageUrls.Select(url => new Image
+                {
+                    ImageUrl = url,
+                    OwnerType = "Post",
+                    CreatedAt = now
+                }).ToList()
             };
 
             await _postRepo.AddAsync(post);
-            await _unitOfWork.SaveChangesAsync(); // cần để có PostId
-
-            // =============================
-            // KHÔNG CÓ ẢNH
-            // =============================
-            if (request.Images == null || !request.Images.Any())
-            {
-                post.Status = PostStatus.Published;
-                post.UpdatedAt = now;
-
-                await _unitOfWork.SaveChangesAsync();
-
-                // load navigation cần thiết
-                post = await _postRepo.GetByIdAsync(post.PostId);
-
-                return MapToResponse(post);
-            }
-
-            // =============================
-            // CÓ ẢNH
-            // =============================
-
-            // Upload song song
-            var uploadTasks = request.Images.Select(f => _storageService.UploadImageAsync(f));
-            var imageUrls = (await Task.WhenAll(uploadTasks)).ToList();
-
-            var imageEntities = imageUrls.Select(url => new Image
-            {
-                ImageUrl = url,
-                PostId = post.PostId,
-                OwnerType = "Post",
-                CreatedAt = now
-            }).ToList();
-
-            await _imageRepo.AddRangeAsync(imageEntities);
-
-            post.Status = PostStatus.Verifying;
-            post.UpdatedAt = now;
-
             await _unitOfWork.SaveChangesAsync();
 
-            // Đẩy vào queue (không await vì không async)
-            _producer.SendMessage(new PostImageMessage
+            if (imageUrls.Any())
             {
-                PostId = post.PostId,
-                ImageUrls = imageUrls
-            });
-
-            // load lại để có Images + Account + Event
-            post = await _postRepo.GetByIdAsync(post.PostId);
-
+                await _producer.SendMessage(new PostImageMessage
+                {
+                    PostId = post.PostId,
+                    ImageUrls = imageUrls
+                });
+            }
             return MapToResponse(post);
         }
 
         // ==============================
         // UPDATE POST
         // ==============================
-        public async Task UpdatePostAsync(int postId, int accountId, UpdatePostRequest request)
+        public async Task<PostResponse> UpdatePostAsync(int postId, int accountId, UpdatePostRequest request)
         {
-            var post = await _postRepo.GetByIdAsync(postId)
-                ?? throw new Exception("Post not found");
+            var post = await _postRepo.GetByIdAsync(postId);
+            if (post == null) throw new KeyNotFoundException("Bài viết không tồn tại");
 
-            if (post.AccountId != accountId)
-                throw new Exception("You are not the owner of this post");
+            if (post.AccountId != accountId) throw new UnauthorizedAccessException("Không chính chủ");
 
-            UpdateBasicInfo(post, request);
+            post.Content = request.Content?.Trim();
+            post.IsExpertPost = request.IsPublish;
+            post.UpdatedAt = DateTime.UtcNow;
 
-            await _unitOfWork.SaveChangesAsync();
+            if (request.Images != null && request.Images.Any())
+            {
+                var oldImages = post.Images.ToList();
+                _imageRepo.DeleteRange(oldImages);
 
-            if (request.Images == null || !request.Images.Any())
-                return;
+                var uploadTasks = request.Images.Select(img => _storageService.UploadImageAsync(img));
+                var newImageUrls = (await Task.WhenAll(uploadTasks)).ToList();
 
-            post.Status = PostStatus.Draft;
-            await _unitOfWork.SaveChangesAsync();
+                var newImageEntities = newImageUrls.Select(url => new Image
+                {
+                    ImageUrl = url,
+                    PostId = post.PostId,
+                    OwnerType = "Post",
+                    CreatedAt = DateTime.UtcNow
+                }).ToList();
 
-            await HandleImageUploadAndModeration(post, request.Images);
+                await _imageRepo.AddRangeAsync(newImageEntities);
+
+                post.Status = PostStatus.Verifying;
+
+                await _unitOfWork.SaveChangesAsync();
+
+                await _producer.SendMessage(new PostImageMessage
+                {
+                    PostId = post.PostId,
+                    ImageUrls = newImageUrls
+                });
+            }
+            else
+            {
+                await _unitOfWork.SaveChangesAsync();
+            }
+
+            var updatedPost = await _postRepo.GetByIdAsync(postId);
+            return MapToResponse(updatedPost);
         }
 
         // ==============================

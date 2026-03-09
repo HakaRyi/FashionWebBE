@@ -56,5 +56,10 @@ namespace Repositories.Repos.ImageRepos
         {
             _db.Images.Remove(image);
         }
+
+        public void DeleteRange(List<Image> images)
+        {
+            _db.Images.RemoveRange(images);
+        }
     }
 }

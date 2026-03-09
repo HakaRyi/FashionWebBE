@@ -9,7 +9,7 @@ namespace Repositories.Repos.PostRepos
         Task<List<Post>> GetAllByUserAsync(int userId);
         Task<IEnumerable<Post>> GetPostsByEventIdAsync(int eventId);
         Task AddAsync(Post post);
-        void Update(Post post);
+        Task Update(Post post);
         void Delete(Post post);
     }
 }

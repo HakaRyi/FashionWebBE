@@ -14,7 +14,7 @@ namespace Services.RabbitMQ
             _config = config;
         }
 
-        public void SendMessage<T>(T message)
+        public Task SendMessage<T>(T message)
         {
             var factory = new ConnectionFactory
             {
@@ -35,6 +35,7 @@ namespace Services.RabbitMQ
             properties.Persistent = true;
 
             channel.BasicPublish(exchange: "", routingKey: "post_image_queue", basicProperties: properties, body: body);
+            return Task.CompletedTask;
         }
     }
 }
