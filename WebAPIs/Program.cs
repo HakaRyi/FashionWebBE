@@ -43,6 +43,8 @@ using Services.Utils.AIDectection;
 using Services.Utils.CloundStorage;
 using Services.Utils.File;
 using System.Text;
+using Services.Implements.ModelImp;
+using Repositories.Repos.ModelRepos;
 
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -116,6 +118,7 @@ builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IImageService, ImageService>();
 builder.Services.AddScoped<IOutfitRepository, OutfitRepository>();
 builder.Services.AddScoped<IItemRepository, ItemRepository>();
+builder.Services.AddScoped<IModelRepository, ModelRepository>();
 
 
 // Service Layer
@@ -124,6 +127,7 @@ builder.Services.AddScoped<IFollowService, FollowService>();
 builder.Services.AddScoped<IWardrobeService, WardrobeService>();
 builder.Services.AddScoped<IItemService, ItemService>();
 builder.Services.AddScoped<IAiService, AiService>();
+builder.Services.AddScoped<IModelService, ModelService>();
 //builder.Services.AddScoped<IFileService, LocalFileService>();
 builder.Services.AddScoped<IFileService>(sp =>
 {
