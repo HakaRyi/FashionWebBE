@@ -40,6 +40,9 @@ namespace Repositories.Repos.ItemRespos
         public async Task<IEnumerable<Item>> GetByWardrobeIdAsync(int wardrobeId)
         {
             return await _context.Items
+                .AsNoTracking()
+                .OrderByDescending(i => i.CreatedAt)
+                .Include(i => i.Images)
                 .Where(i => i.WardrobeId == wardrobeId)
                 .ToListAsync();
         }
