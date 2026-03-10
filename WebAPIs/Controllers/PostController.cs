@@ -44,6 +44,31 @@ namespace WebAPIs.Controllers
             }
         }
 
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdatePost(int id, [FromForm] UpdatePostRequest request)
+        {
+            try
+            {
+                var accountId = int.Parse(User.FindFirst("AccountId")?.Value!);
+
+                var result = await _postService.UpdatePostAsync(id, accountId, request);
+
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return StatusCode(403, new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = ex.Message });
+            }
+        }
+
         [HttpGet]
         public async Task<IActionResult> GetAllPosts()
         {
