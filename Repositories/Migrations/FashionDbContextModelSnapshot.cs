@@ -18,7 +18,7 @@ namespace Repositories.Migrations
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.12")
+                .HasAnnotation("ProductVersion", "8.0.10")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "vector");
@@ -317,17 +317,12 @@ namespace Repositories.Migrations
                         .HasName("Account_pkey");
 
                     b.HasIndex("NormalizedEmail")
+                        .IsUnique()
                         .HasDatabaseName("EmailIndex");
 
                     b.HasIndex("NormalizedUserName")
                         .IsUnique()
                         .HasDatabaseName("UserNameIndex");
-
-                    b.HasIndex(new[] { "Email" }, "Account_email_key")
-                        .IsUnique();
-
-                    b.HasIndex(new[] { "UserName" }, "Account_username_key")
-                        .IsUnique();
 
                     b.ToTable("Accounts", "public");
                 });
@@ -490,27 +485,28 @@ namespace Repositories.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ExpertFileId"));
 
-                    b.Property<string>("Bio")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("bio");
-
                     b.Property<string>("CertificateUrl")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("certificate_url");
 
                     b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("timestamp without time zone")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
-                    b.Property<int?>("ExperienceYears")
-                        .HasColumnType("integer")
-                        .HasColumnName("experience_years");
+                    b.Property<string>("CvUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("cv_url");
 
                     b.Property<int>("ExpertProfileId")
                         .HasColumnType("integer")
                         .HasColumnName("expert_profile_id");
+
+                    b.Property<string>("IdentityProofUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("identity_proof_url");
 
                     b.Property<string>("LicenseUrl")
                         .HasMaxLength(500)
@@ -525,10 +521,6 @@ namespace Repositories.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("status");
-
-                    b.Property<bool?>("Verified")
-                        .HasColumnType("boolean")
-                        .HasColumnName("verified");
 
                     b.HasKey("ExpertFileId")
                         .HasName("Expert_File_pkey");
@@ -564,6 +556,11 @@ namespace Repositories.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("expertise_field");
+
+                    b.Property<string>("StyleAesthetic")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("style_aesthetic");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp without time zone")
@@ -892,7 +889,7 @@ namespace Repositories.Migrations
                     b.Property<DateTime?>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp without time zone")
-                        .HasColumnName("create_at")
+                        .HasColumnName("created_at")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<string>("ImageUrl")

@@ -8,6 +8,8 @@ public partial class ExpertProfile
 
     public string? ExpertiseField { get; set; }
 
+    public string? StyleAesthetic { get; set; }
+
     public int? YearsOfExperience { get; set; }
 
     public string? Bio { get; set; }

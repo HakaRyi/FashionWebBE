@@ -4,6 +4,11 @@ namespace Repositories.Repos.ExpertProfileRepos
 {
     public interface IExpertProfileRepository
     {
-        Task<ExpertProfile> GetById(int id);
+        Task<IEnumerable<ExpertProfile>> GetAllAsync();
+        Task<ExpertProfile?> GetById(int id);
+        Task<ExpertProfile?> GetByAccountIdAsync(int accountId);
+        Task AddAsync(ExpertProfile profile);
+        void Update(ExpertProfile profile);
+        Task DeleteAsync(int id);
     }
 }

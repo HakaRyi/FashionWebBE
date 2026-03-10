@@ -6,17 +6,15 @@ public partial class ExpertFile
 
     public int ExpertProfileId { get; set; }
 
+    public string? CvUrl { get; set; }
+
     public string? CertificateUrl { get; set; }
 
     public string? LicenseUrl { get; set; }
 
-    public string? Bio { get; set; }
+    public string? IdentityProofUrl { get; set; }
 
     public double? RatingAvg { get; set; }
-
-    public int? ExperienceYears { get; set; }
-
-    public bool? Verified { get; set; }
 
     public string? Status { get; set; }
 

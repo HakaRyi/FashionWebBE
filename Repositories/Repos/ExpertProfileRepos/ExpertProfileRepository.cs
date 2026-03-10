@@ -1,4 +1,5 @@
-﻿using Repositories.Data;
+﻿using Microsoft.EntityFrameworkCore;
+using Repositories.Data;
 using Repositories.Entities;
 
 namespace Repositories.Repos.ExpertProfileRepos
@@ -11,9 +12,47 @@ namespace Repositories.Repos.ExpertProfileRepos
             _db = db;
         }
 
-        public async Task<ExpertProfile> GetById(int id)
+        public async Task<IEnumerable<ExpertProfile>> GetAllAsync()
         {
-            return await _db.ExpertProfiles.FindAsync(id);
+            return await _db.ExpertProfiles
+                .Include(p => p.ExpertFile)
+                .ToListAsync();
+        }
+
+
+        public async Task<ExpertProfile?> GetById(int id)
+        {
+            return await _db.ExpertProfiles
+                .Include(p => p.Account)
+                .Include(p => p.ExpertFile)
+                .FirstOrDefaultAsync(p => p.ExpertProfileId == id);
+        }
+
+        public async Task<ExpertProfile?> GetByAccountIdAsync(int accountId)
+        {
+            return await _db.ExpertProfiles
+                .FirstOrDefaultAsync(p => p.AccountId == accountId);
+        }
+
+        public async Task AddAsync(ExpertProfile profile)
+        {
+            profile.CreatedAt = DateTime.UtcNow;
+            await _db.ExpertProfiles.AddAsync(profile);
+        }
+
+        public void Update(ExpertProfile profile)
+        {
+            profile.UpdatedAt = DateTime.UtcNow;
+            _db.ExpertProfiles.Update(profile);
+        }
+
+        public async Task DeleteAsync(int id)
+        {
+            var profile = await _db.ExpertProfiles.FindAsync(id);
+            if (profile != null)
+            {
+                _db.ExpertProfiles.Remove(profile);
+            }
         }
     }
 }

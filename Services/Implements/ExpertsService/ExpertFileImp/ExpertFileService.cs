@@ -1,7 +1,7 @@
 ﻿using Repositories.Repos.ExpertFileRepos;
 using Services.Response.AccountRep;
 
-namespace Services.Implements.ExpertFileImp
+namespace Services.Implements.ExpertsService.ExpertFileImp
 {
     public class ExpertFileService : IExpertFileService
     {
@@ -24,10 +24,10 @@ namespace Services.Implements.ExpertFileImp
                 ExpertProfileId = expertFile.ExpertProfileId,
                 CertificateUrl = expertFile.CertificateUrl,
                 LicenseUrl = expertFile.LicenseUrl,
-                Bio = expertFile.Bio,
+                //Bio = expertFile.Bio,
                 RatingAvg = expertFile.RatingAvg,
-                ExperienceYears = expertFile.ExperienceYears,
-                Verified = expertFile.Verified,
+                //ExperienceYears = expertFile.ExperienceYears,
+                //Verified = expertFile.Verified,
                 Status = expertFile.Status,
                 CreatedAt = expertFile.CreatedAt
             };

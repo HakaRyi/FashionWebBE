@@ -8,7 +8,7 @@ using Pgvector;
 namespace Repositories.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialFullStructureV4 : Migration
+    public partial class FixIndexAccount : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -170,7 +170,7 @@ namespace Repositories.Migrations
                     acc_id = table.Column<int>(type: "integer", nullable: false),
                     img_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
-                    create_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true, defaultValueSql: "CURRENT_TIMESTAMP")
+                    created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true, defaultValueSql: "CURRENT_TIMESTAMP")
                 },
                 constraints: table =>
                 {
@@ -240,6 +240,7 @@ namespace Repositories.Migrations
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     account_id = table.Column<int>(type: "integer", nullable: false),
                     expertise_field = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    style_aesthetic = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     years_of_experience = table.Column<int>(type: "integer", nullable: true),
                     bio = table.Column<string>(type: "text", nullable: true),
                     verified = table.Column<bool>(type: "boolean", nullable: true, defaultValue: false),
@@ -628,14 +629,13 @@ namespace Repositories.Migrations
                     expert_file_id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     expert_profile_id = table.Column<int>(type: "integer", nullable: false),
+                    cv_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     certificate_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     license_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
-                    bio = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
+                    identity_proof_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),
                     rating_avg = table.Column<double>(type: "double precision", nullable: true),
-                    experience_years = table.Column<int>(type: "integer", nullable: true),
-                    verified = table.Column<bool>(type: "boolean", nullable: true),
                     status = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
-                    created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true)
+                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -1093,24 +1093,11 @@ namespace Repositories.Migrations
                 column: "role_id");
 
             migrationBuilder.CreateIndex(
-                name: "Account_email_key",
-                schema: "public",
-                table: "Accounts",
-                column: "email",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
-                name: "Account_username_key",
-                schema: "public",
-                table: "Accounts",
-                column: "username",
-                unique: true);
-
-            migrationBuilder.CreateIndex(
                 name: "EmailIndex",
                 schema: "public",
                 table: "Accounts",
-                column: "normalized_email");
+                column: "normalized_email",
+                unique: true);
 
             migrationBuilder.CreateIndex(
                 name: "UserNameIndex",
