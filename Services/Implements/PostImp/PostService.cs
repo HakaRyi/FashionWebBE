@@ -256,7 +256,11 @@ namespace Services.Implements.PostImp
                 LikeCount = post.LikeCount,
                 ShareCount = post.ShareCount,
                 CreatedAt = post.CreatedAt,
-                UpdatedAt = post.UpdatedAt
+                UpdatedAt = post.UpdatedAt,
+                AvatarUrl = post.Account?.Avatars?
+                        .OrderByDescending(a => a.CreatedAt)
+                        .FirstOrDefault()?.ImageUrl,
+                UserName = post.Account?.UserName
             };
         }
     }

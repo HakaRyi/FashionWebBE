@@ -30,6 +30,7 @@ namespace Services.Response.ItemResp
         public string? Pattern { get; set; }
         public string? Texture { get; set; }
         public string? Placement { get; set; }
-        public IFormFile? File { get; set; }
+        public string? PrimaryImageUrl { get; set; }
+        //public IFormFile? File { get; set; }
     }
 }

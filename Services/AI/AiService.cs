@@ -1,15 +1,16 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
-using Pgvector;
-using Services.Response.AiResp;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Pgvector;
+using Services.Response.AiResp;
 
 
 namespace Services.AI
@@ -34,15 +35,18 @@ namespace Services.AI
             }
         }
 
-        public async Task<Vector> GetEmbeddingFromPhotoAsync(IFormFile file, string description)
+        public async Task<Vector> GetEmbeddingFromPhotoAsync(string imageUrl, string description)
         {
+            using var httpClient = new HttpClient();
+            var imageBytes = await httpClient.GetByteArrayAsync(imageUrl);
             using var content = new MultipartFormDataContent();
-            using var fileStream = file.OpenReadStream();
+            //using var fileStream = file.OpenReadStream();
 
-            var streamContent = new StreamContent(fileStream);
-            streamContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
+            //var streamContent = new StreamContent(fileStream);
+            var streamContent = new StreamContent(new MemoryStream(imageBytes));
+            streamContent.Headers.ContentType = new MediaTypeHeaderValue("image/jpeg");
 
-            content.Add(streamContent, "file", file.FileName);
+            content.Add(streamContent, "file", "item_image.jpg");
             content.Add(new StringContent(description ?? ""), "description");
 
             var response = await _httpClient.PostAsync($"{_baseUrl}/get-embedding", content);

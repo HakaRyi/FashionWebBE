@@ -45,20 +45,19 @@ namespace Services.Item
 
         public async Task<ItemResponseDto> CreateFashionItemAsync(ProductUploadDto dto)
         {
-            if (dto.File == null) throw new ArgumentException("File is required");
-
-            Vector vectorObject = await _aiService.GetEmbeddingFromPhotoAsync(dto.File, dto.Description);
+            //if (dto.File == null) throw new ArgumentException("File is required");
+            Vector vectorObject = await _aiService.GetEmbeddingFromPhotoAsync(dto.PrimaryImageUrl, dto.Description);
 
             var newItem = _mapper.ToEntity(dto);
             newItem.ItemEmbedding = vectorObject;
             newItem.Status = "Active";
-
-            string uploadedUrl = await _fileService.UploadAsync(dto.File);
+            newItem.CreatedAt = DateTime.UtcNow;
             var imageRecord = new Repositories.Entities.Image
             {
-                ImageUrl = uploadedUrl,
+                ImageUrl = dto.PrimaryImageUrl,
                 OwnerType = "Item",
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                Item = newItem
             };
 
             newItem.Images.Add(imageRecord);
