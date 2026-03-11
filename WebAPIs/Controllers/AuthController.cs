@@ -4,7 +4,7 @@ using Services.Request.AccountReq;
 
 namespace WebAPIs.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/auth")]
     [ApiController]
     public class AuthController : ControllerBase
     {

@@ -8,5 +8,6 @@ namespace Services.Request.PostReq
         public string? Content { get; set; }
         public List<IFormFile>? Images { get; set; }
         public bool? IsExpertPost { get; set; }
+        public bool? IsPublish { get; set; }
     }
 }

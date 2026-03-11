@@ -11,7 +11,7 @@ namespace Services.Implements.TryOn
         public TryOnService(HttpClient httpClient, IConfiguration config)
         {
             _httpClient = httpClient;
-            _httpClient.BaseAddress = new Uri("http://localhost:5000/");
+            _httpClient.BaseAddress = new Uri("http://localhost:8080/");
 
             _httpClient.Timeout = TimeSpan.FromMinutes(15);
         }

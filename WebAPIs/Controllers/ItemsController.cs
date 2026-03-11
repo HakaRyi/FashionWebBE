@@ -1,5 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Services.Item;
+using Services.Implements.Items;
 using Services.Response.ItemResp;
 
 namespace WebAPIs.Controllers
@@ -21,6 +21,13 @@ namespace WebAPIs.Controllers
             var results = await _itemService.GetAllItemsAsync();
             return Ok(results);
         }
+        [HttpGet("/api/my-items")]
+        public async Task<ActionResult<IEnumerable<ItemResponseDto>>> GetMyItems()
+        {
+            var accountId = int.Parse(User.FindFirst("AccountId")?.Value!);
+            var results = await _itemService.GetMyItemsAsync(accountId);
+            return Ok(results);
+        }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<ItemResponseDto>> GetById(int id)
@@ -34,12 +41,14 @@ namespace WebAPIs.Controllers
         }
 
         [HttpPost("upload")]
-        [Consumes("multipart/form-data")]
-        public async Task<ActionResult<ItemResponseDto>> Create([FromForm] ProductUploadDto dto)
+        //[Consumes("multipart/form-data")]
+        public async Task<ActionResult<ItemResponseDto>> Create([FromBody] ProductUploadDto dto)
         {
+
             try
             {
-                var result = await _itemService.CreateFashionItemAsync(dto);
+                var accountId = int.Parse(User.FindFirst("AccountId")?.Value!);
+                var result = await _itemService.CreateFashionItemAsync(dto,accountId);
                 return Ok(result);
             }
             catch (ArgumentException ex)

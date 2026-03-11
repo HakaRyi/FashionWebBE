@@ -100,25 +100,52 @@ namespace Services.Implements.PostImp
         // ==============================
         // UPDATE POST
         // ==============================
-        public async Task UpdatePostAsync(int postId, int accountId, UpdatePostRequest request)
+        public async Task<PostResponse> UpdatePostAsync(int postId, int accountId, UpdatePostRequest request)
         {
-            var post = await _postRepo.GetByIdAsync(postId)
-                ?? throw new Exception("Post not found");
+            var post = await _postRepo.GetByIdAsync(postId);
+            if (post == null) throw new KeyNotFoundException("Bài viết không tồn tại");
 
-            if (post.AccountId != accountId)
-                throw new Exception("You are not the owner of this post");
+            if (post.AccountId != accountId) throw new UnauthorizedAccessException("Không chính chủ");
 
-            UpdateBasicInfo(post, request);
+            post.Content = request.Content?.Trim();
+            post.IsExpertPost = request.IsPublish;
+            post.UpdatedAt = DateTime.UtcNow;
 
-            await _unitOfWork.SaveChangesAsync();
+            if (request.Images != null && request.Images.Any())
+            {
+                var oldImages = post.Images.ToList();
+                _imageRepo.DeleteRange(oldImages);
 
-            if (request.Images == null || !request.Images.Any())
-                return;
+                var uploadTasks = request.Images.Select(img => _storageService.UploadImageAsync(img));
+                var newImageUrls = (await Task.WhenAll(uploadTasks)).ToList();
 
-            post.Status = PostStatus.Draft;
-            await _unitOfWork.SaveChangesAsync();
+                var newImageEntities = newImageUrls.Select(url => new Image
+                {
+                    ImageUrl = url,
+                    PostId = post.PostId,
+                    OwnerType = "Post",
+                    CreatedAt = DateTime.UtcNow
+                }).ToList();
 
-            await HandleImageUploadAndModeration(post, request.Images);
+                await _imageRepo.AddRangeAsync(newImageEntities);
+
+                post.Status = PostStatus.Verifying;
+
+                await _unitOfWork.SaveChangesAsync();
+
+                await _producer.SendMessage(new PostImageMessage
+                {
+                    PostId = post.PostId,
+                    ImageUrls = newImageUrls
+                });
+            }
+            else
+            {
+                await _unitOfWork.SaveChangesAsync();
+            }
+
+            var updatedPost = await _postRepo.GetByIdAsync(postId);
+            return MapToResponse(updatedPost);
         }
 
         // ==============================
@@ -281,7 +308,11 @@ namespace Services.Implements.PostImp
                 LikeCount = post.LikeCount,
                 ShareCount = post.ShareCount,
                 CreatedAt = post.CreatedAt,
-                UpdatedAt = post.UpdatedAt
+                UpdatedAt = post.UpdatedAt,
+                AvatarUrl = post.Account?.Avatars?
+                        .OrderByDescending(a => a.CreatedAt)
+                        .FirstOrDefault()?.ImageUrl,
+                UserName = post.Account?.UserName
             };
         }
     }

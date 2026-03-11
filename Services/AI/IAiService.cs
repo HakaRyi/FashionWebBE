@@ -6,7 +6,7 @@ namespace Services.AI
 {
     public interface IAiService
     {
-        Task<Vector> GetEmbeddingFromPhotoAsync(IFormFile file, string description);
+        Task<Vector> GetEmbeddingFromPhotoAsync(string imageUrl, string description);
         Task<Vector> GetTextEmbeddingAsync(string prompt);
     }
 }

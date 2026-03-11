@@ -6,12 +6,14 @@ using Microsoft.OpenApi.Models;
 using Repositories.Data;
 using Repositories.Entities;
 using Repositories.Repos.AccountRepos;
+using Repositories.Repos.Events;
 using Repositories.Repos.ExpertFileRepos;
 using Repositories.Repos.ExpertProfileRepos;
 using Repositories.Repos.FollowRepos;
 using Repositories.Repos.ImageRepos;
 using Repositories.Repos.ItemRespos;
 using Repositories.Repos.PackageCoinRepos;
+using Repositories.Repos.Payments;
 using Repositories.Repos.PostRepos;
 using Repositories.Repos.SocialRepos;
 using Repositories.Repos.TransactionRepos;
@@ -23,19 +25,22 @@ using Services.Helpers;
 using Services.Implements.AccountService;
 using Services.Implements.Auth;
 using Services.Implements.BackgroundServices;
-using Services.Implements.ExpertFileImp;
+using Services.Implements.Events;
+using Services.Implements.Experts;
+using Services.Implements.ExpertsService.ExpertFileImp;
 using Services.Implements.Follow;
 using Services.Implements.ImageImp;
+using Services.Implements.Items;
 using Services.Implements.OutfitImp;
 using Repositories.Repos.OutfitRepos;
 using Services.Implements.PackageCoinImp;
+using Services.Implements.PaymentService;
 using Services.Implements.PostImp;
 using Services.Implements.SocialImp;
 using Services.Implements.TransactionImp;
 using Services.Implements.TryOn;
 using Services.Implements.UserReportImp;
 using Services.Implements.Wardrobe;
-using Services.Item;
 using Services.Mappers;
 using Services.RabbitMQ;
 using Services.Utils;
@@ -43,6 +48,8 @@ using Services.Utils.AIDectection;
 using Services.Utils.CloundStorage;
 using Services.Utils.File;
 using System.Text;
+using Services.Implements.ModelImp;
+using Repositories.Repos.ModelRepos;
 
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -116,13 +123,21 @@ builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IImageService, ImageService>();
 builder.Services.AddScoped<IItemRepository, ItemRepository>();
 builder.Services.AddScoped<IOutfitRepository, OutfitRepository>();
+builder.Services.AddScoped<IItemRepository, ItemRepository>();
+builder.Services.AddScoped<IEventRepository, EventRepository>();
+builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+builder.Services.AddScoped<IModelRepository, ModelRepository>();
 
 // Service Layer
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IFollowService, FollowService>();
 builder.Services.AddScoped<IWardrobeService, WardrobeService>();
 builder.Services.AddScoped<IItemService, ItemService>();
+builder.Services.AddScoped<IExpertService, ExpertService>();
+builder.Services.AddScoped<IEventService, EventService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IAiService, AiService>();
+builder.Services.AddScoped<IModelService, ModelService>();
 //builder.Services.AddScoped<IFileService, LocalFileService>();
 builder.Services.AddScoped<IFileService>(sp =>
 {
@@ -136,7 +151,7 @@ builder.Services.AddScoped<IOutfitService, OutfitService>();
 
 builder.Services.AddHttpClient<IAIDetectionService, AIDetectionService>(client =>
 {
-    client.Timeout = TimeSpan.FromSeconds(30);
+    client.Timeout = TimeSpan.FromSeconds(60);
 });
 builder.Services.AddScoped<IRabbitMQProducer, RabbitMQProducer>();
 builder.Services.AddHostedService<PostProcessingWorker>();

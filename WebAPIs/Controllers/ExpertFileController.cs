@@ -1,7 +1,5 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Services.Implements.ExpertFileImp;
-
-// For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
+using Services.Implements.ExpertsService.ExpertFileImp;
 
 namespace WebAPIs.Controllers
 {
@@ -14,14 +12,14 @@ namespace WebAPIs.Controllers
         {
             this.service = service;
         }
-        // GET: api/<ExpertFileController>
+        
         [HttpGet]
         public IEnumerable<string> Get()
         {
             return new string[] { "value1", "value2" };
         }
 
-        // GET api/<ExpertFileController>/5
+        
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
