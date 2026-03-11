@@ -216,27 +216,53 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
         modelBuilder.Entity<Comment>(entity =>
         {
-            entity.HasKey(e => e.CommentId).HasName("Comment_pkey");
+            entity.HasKey(e => e.CommentId)
+                  .HasName("comment_pkey");
 
             entity.ToTable("Comment", "public");
 
-            entity.Property(e => e.CommentId).HasColumnName("comment_id");
-            entity.Property(e => e.AccountId).HasColumnName("account_id");
-            entity.Property(e => e.Content).HasColumnName("content");
+            entity.Property(e => e.CommentId)
+                  .HasColumnName("comment_id");
+
+            entity.Property(e => e.AccountId)
+                  .IsRequired()
+                  .HasColumnName("account_id");
+
+            entity.Property(e => e.PostId)
+                  .IsRequired()
+                  .HasColumnName("post_id");
+
+            entity.Property(e => e.Content)
+                  .IsRequired()
+                  .HasMaxLength(1000)   
+                  .HasColumnName("content");
+
             entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("created_at");
-            entity.Property(e => e.PostId).HasColumnName("post_id");
+                  .HasColumnType("timestamp without time zone")
+                  .HasColumnName("created_at")
+                  .HasDefaultValueSql("NOW()");
 
-            entity.HasOne(d => d.Account).WithMany(p => p.Comments)
-                .HasForeignKey(d => d.AccountId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("Comment_account_id_fkey");
+            entity.Property(e => e.UpdatedAt)
+                  .HasColumnType("timestamp without time zone")
+                  .HasColumnName("updated_at");
 
-            entity.HasOne(d => d.Post).WithMany(p => p.Comments)
-                .HasForeignKey(d => d.PostId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("Comment_post_id_fkey");
+            entity.HasIndex(e => e.PostId)
+                  .HasDatabaseName("ix_comment_post_id");
+
+            entity.HasIndex(e => e.AccountId)
+                  .HasDatabaseName("ix_comment_account_id");
+
+            entity.HasOne(d => d.Account)
+                  .WithMany(p => p.Comments)
+                  .HasForeignKey(d => d.AccountId)
+                  .OnDelete(DeleteBehavior.Cascade)
+                  .HasConstraintName("comment_account_id_fkey");
+
+            entity.HasOne(d => d.Post)
+                  .WithMany(p => p.Comments)
+                  .HasForeignKey(d => d.PostId)
+                  .OnDelete(DeleteBehavior.Cascade)
+                  .HasConstraintName("comment_post_id_fkey");
         });
 
         modelBuilder.Entity<Event>(entity =>
@@ -747,29 +773,48 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
         modelBuilder.Entity<Reaction>(entity =>
         {
-            entity.HasKey(e => e.ReactionId).HasName("Reaction_pkey");
+            entity.HasKey(e => e.ReactionId)
+                  .HasName("reaction_pkey");
 
             entity.ToTable("Reaction", "public");
 
-            entity.Property(e => e.ReactionId).HasColumnName("reaction_id");
-            entity.Property(e => e.AccountId).HasColumnName("account_id");
+            entity.Property(e => e.ReactionId)
+                  .HasColumnName("reaction_id");
+
+            entity.Property(e => e.AccountId)
+                  .IsRequired()
+                  .HasColumnName("account_id");
+
+            entity.Property(e => e.PostId)
+                  .IsRequired()
+                  .HasColumnName("post_id");
+
             entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("created_at");
-            entity.Property(e => e.PostId).HasColumnName("post_id");
-            entity.Property(e => e.ReactionType)
-                .HasMaxLength(30)
-                .HasColumnName("reaction_type");
+                  .HasColumnType("timestamp without time zone")
+                  .HasColumnName("created_at")
+                  .HasDefaultValueSql("NOW()");
 
-            entity.HasOne(d => d.Account).WithMany(p => p.Reactions)
-                .HasForeignKey(d => d.AccountId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("Reaction_account_id_fkey");
+            entity.HasIndex(e => new { e.AccountId, e.PostId })
+                  .IsUnique()
+                  .HasDatabaseName("ux_reaction_account_post");
 
-            entity.HasOne(d => d.Post).WithMany(p => p.Reactions)
-                .HasForeignKey(d => d.PostId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("Reaction_post_id_fkey");
+            entity.HasIndex(e => e.PostId)
+                  .HasDatabaseName("ix_reaction_post_id");
+
+            entity.HasIndex(e => e.AccountId)
+                  .HasDatabaseName("ix_reaction_account_id");
+
+            entity.HasOne(d => d.Account)
+                  .WithMany(p => p.Reactions)
+                  .HasForeignKey(d => d.AccountId)
+                  .OnDelete(DeleteBehavior.Cascade)
+                  .HasConstraintName("reaction_account_id_fkey");
+
+            entity.HasOne(d => d.Post)
+                  .WithMany(p => p.Reactions)
+                  .HasForeignKey(d => d.PostId)
+                  .OnDelete(DeleteBehavior.Cascade)
+                  .HasConstraintName("reaction_post_id_fkey");
         });
 
         modelBuilder.Entity<RefreshToken>(entity =>

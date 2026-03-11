@@ -1,4 +1,4 @@
-﻿namespace Services.Response.PostResp
+﻿namespace Repositories.Dto.Response
 {
     public class PostResponse
     {
@@ -15,6 +15,8 @@
         public double? Score { get; set; }
         public int? LikeCount { get; set; }
         public int? ShareCount { get; set; }
+        public int CommentCount { get; set; }
+        public bool IsLiked { get; set; }
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
     }

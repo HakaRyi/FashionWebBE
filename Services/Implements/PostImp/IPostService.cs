@@ -1,4 +1,5 @@
-﻿using Services.Request.PostReq;
+﻿using Repositories.Dto.Response;
+using Services.Request.PostReq;
 using Services.Response.PostResp;
 
 namespace Services.Implements.PostImp
@@ -10,7 +11,7 @@ namespace Services.Implements.PostImp
         Task<PostResponse?> GetPostByIdAsync(int postId);
         Task<string> AdminCheckTheStatusPost(CheckPostRequest request, int id);
         Task<List<PostResponse>> GetAllMyPostAsync(int userId);
-        Task<List<PostResponse>> GetFeedAsync(DateTime? cursor, int pageSize);
+        Task<List<PostResponse>> GetFeedAsync(int userId, DateTime? cursor, int pageSize);
         Task UpdatePostAsync(int postId, int accountId, UpdatePostRequest request);
         Task DeletePostAsync(int postId);
     }

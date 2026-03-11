@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Services.Implements.PostImp;
 using Services.Request.PostReq;
-using System.Security.Claims;
+using Services.Utils;
 
 namespace WebAPIs.Controllers
 {
@@ -24,19 +24,20 @@ namespace WebAPIs.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var accountIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-
-            if (accountIdClaim == null || !int.TryParse(accountIdClaim.Value, out int accountId))
-                return Unauthorized();
-
             try
             {
-                var result = await _postService.CreatePostAsync(accountId, request);
+                var userId = User.GetUserId();
+
+                var result = await _postService.CreatePostAsync(userId, request);
 
                 return CreatedAtAction(
                     nameof(GetPostsById),
                     new { id = result.PostId },
                     result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -55,13 +56,18 @@ namespace WebAPIs.Controllers
         [Authorize]
         public async Task<IActionResult> GetAllMyPosts()
         {
-            var accountIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            try
+            {
+                var userId = User.GetUserId();
 
-            if (accountIdClaim == null || !int.TryParse(accountIdClaim.Value, out int userId))
-                return Unauthorized();
+                var result = await _postService.GetAllMyPostAsync(userId);
 
-            var result = await _postService.GetAllMyPostAsync(userId);
-            return Ok(result);
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { message = ex.Message });
+            }
         }
 
         [HttpGet("{id:int}")]
@@ -102,10 +108,23 @@ namespace WebAPIs.Controllers
         }
 
         [HttpGet("feed")]
-        public async Task<IActionResult> GetFeed(DateTime? cursor, int pageSize = 10)
+        [Authorize]
+        public async Task<IActionResult> GetFeed(
+            [FromQuery] DateTime? cursor,
+            [FromQuery] int pageSize = 10)
         {
-            var result = await _postService.GetFeedAsync(cursor, pageSize);
-            return Ok(result);
+            try
+            {
+                var userId = User.GetUserId();
+
+                var result = await _postService.GetFeedAsync(userId, cursor, pageSize);
+
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new { message = ex.Message });
+            }
         }
     }
 }

@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Repositories.Constants;
 using Repositories.Data;
+using Repositories.Dto.Response;
 using Repositories.Entities;
 using Repositories.Repos.ImageRepos;
 using Repositories.Repos.PostRepos;
@@ -240,10 +241,15 @@ namespace Services.Implements.PostImp
             }
         }
 
-        public async Task<List<PostResponse>> GetFeedAsync(DateTime? cursor, int pageSize)
+        public async Task<List<PostResponse>> GetFeedAsync(
+            int userId,
+            DateTime? cursor,
+            int pageSize)
         {
-            var posts = await _postRepo.GetFeedByCursorAsync(cursor, pageSize);
-            return posts.Select(MapToResponse).ToList();
+            var posts = await _postRepo
+                .GetFeedWithSocialAsync(userId, cursor, pageSize);
+
+            return posts;
         }
 
         private PostResponse MapToResponse(Post post)

@@ -1,113 +1,140 @@
 ﻿using Repositories.Entities;
 using Repositories.Repos.SocialRepos;
 using Services.Request.CommentReq;
-using Services.Request.ReactionReq;
+using Services.Response.CommentResp;
 
 namespace Services.Implements.SocialImp
 {
     public class SocialService : ISocialService
     {
-        private readonly ISocialRepository _socialRepository;
-        public SocialService(ISocialRepository socialRepository)
+        private readonly ISocialRepository _repo;
+
+        public SocialService(ISocialRepository repo)
         {
-            _socialRepository = socialRepository;
+            _repo = repo;
         }
 
-        public Task<bool> CheckIsLikedByUser(int accId, int postId)
-        {
-            return _socialRepository.CheckIsLikedByUser(accId, postId);
-        }
+        // ================= LIKE =================
 
-        public async Task<int> CreateComment(CommentRequest request, int accId, int postId)
+        public async Task<bool> ToggleLikeAsync(int userId, int postId)
         {
-            var comment = new Comment
+            var existing = await _repo.GetReactionAsync(userId, postId);
+
+            if (existing != null)
             {
-                AccountId = accId,
-                PostId = postId,
-                Content = request.Content,
-                CreatedAt = DateTime.UtcNow
-            };
-            return await _socialRepository.Comment(comment);
-        }
+                await _repo.RemoveReactionAsync(existing);
+                await _repo.SaveChangesAsync();
+                return false; // unlike
+            }
 
-        public async Task<int> CreateReaction(int accId, int postId)
-        {
             var reaction = new Reaction
             {
-                AccountId = accId,
+                AccountId = userId,
                 PostId = postId,
-                ReactionType = "Like",
                 CreatedAt = DateTime.UtcNow
             };
-            return await _socialRepository.CreateReact(reaction);
+
+            await _repo.AddReactionAsync(reaction);
+            await _repo.SaveChangesAsync();
+            return true; // liked
         }
 
-        public async Task<bool> DeleteComment(int commentId)
+        public Task<bool> IsLikedAsync(int userId, int postId)
         {
-            var comment = await _socialRepository.GetCommentById(commentId);
-            return await _socialRepository.Delete(comment);
+            return _repo.IsLikedAsync(userId, postId);
         }
 
-        public async Task<List<Comment>> GetAllCommentByPostId(int postId)
+        public Task<int> GetLikeCountAsync(int postId)
         {
-            return await _socialRepository.GetAllCommentByPostId(postId);
+            return _repo.CountReactionAsync(postId);
         }
 
-        public async Task<List<Reaction>> GetAllReactionByPostId(int postId)
-        {
-            return await _socialRepository.GetAllReactionByPostId(postId);
-        }
+        // ================= COMMENT =================
 
-        public async Task<Reaction> GetById(int reactionId)
+        public async Task<int> CreateCommentAsync(
+            CommentRequest request,
+            int userId,
+            int postId)
         {
-            return await _socialRepository.GetById(reactionId);
-        }
+            if (string.IsNullOrWhiteSpace(request.Content))
+                throw new Exception("Comment content cannot be empty.");
 
-        public async Task<Comment> GetCommentById(int commentId)
-        {
-            return await _socialRepository.GetCommentById(commentId);
-        }
-
-        public async Task<int> GetCommentCountByPostId(int postId)
-        {
-            return (await _socialRepository.GetAllCommentByPostId(postId)).Count;
-        }
-
-        public async Task<int> GetReactionCountByPostId(int postId)
-        {
-            return (await _socialRepository.GetAllReactionByPostId(postId)).Count;
-        }
-
-        public async Task<bool> RemoveReaction(int reactId)
-        {
-            var react = await _socialRepository.GetById(reactId);
-            if (react == null)
+            var comment = new Comment
             {
-                throw new Exception("Reaction not found.");
-            }
-            return await _socialRepository.RemoveReaction(reactId);
+                AccountId = userId,
+                PostId = postId,
+                Content = request.Content.Trim(),
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _repo.AddCommentAsync(comment);
+            await _repo.SaveChangesAsync();
+
+            return comment.CommentId;
         }
 
-        public async Task<int> UpdateComment(int commentId, int accId, CommentRequest request)
+        public async Task<int> UpdateCommentAsync(
+            int commentId,
+            int userId,
+            CommentRequest request)
         {
-            var comment = await _socialRepository.GetCommentById(commentId);
-            if (comment == null || comment.AccountId != accId)
-            {
-                throw new Exception("Comment not found or does not belong to the user.");
-            }
-            comment.Content = request.Content;
-            return await _socialRepository.UpdateComment(comment);
+            var comment = await _repo.GetCommentByIdAsync(commentId);
+
+            if (comment == null)
+                throw new Exception("Comment not found.");
+
+            if (comment.AccountId != userId)
+                throw new Exception("You are not allowed to edit this comment.");
+
+            comment.Content = request.Content.Trim();
+            comment.UpdatedAt = DateTime.UtcNow;
+
+            await _repo.UpdateCommentAsync(comment);
+            await _repo.SaveChangesAsync();
+
+            return comment.CommentId;
         }
 
-        public async Task<int> UpdateReaction(int accId, int postId, UpdateReactionRequest request)
+        public async Task<bool> DeleteCommentAsync(int commentId, int userId)
         {
-            var reaction = await _socialRepository.GetReactByAccIdAndPostId(accId, postId);
-            if (reaction == null || reaction.AccountId != accId || reaction.PostId != postId)
+            var comment = await _repo.GetCommentByIdAsync(commentId);
+
+            if (comment == null)
+                throw new Exception("Comment not found.");
+
+            if (comment.AccountId != userId)
+                throw new Exception("You are not allowed to delete this comment.");
+
+            await _repo.DeleteCommentAsync(comment);
+            await _repo.SaveChangesAsync();
+
+            return true;
+        }
+
+        public Task<Comment?> GetCommentByIdAsync(int commentId)
+        {
+            return _repo.GetCommentByIdAsync(commentId);
+        }
+
+        public async Task<List<CommentResponse>> GetCommentsByPostIdAsync(int postId)
+        {
+            var comments = await _repo.GetCommentsByPostIdAsync(postId);
+
+            return comments.Select(c => new CommentResponse
             {
-                throw new Exception("Reaction not found or does not belong to the user/post.");
-            }
-            reaction.ReactionType = request.ReactionType;
-            return await _socialRepository.UpdateReact(reaction);
+                CommentId = c.CommentId,
+                PostId = c.PostId,
+                Content = c.Content,
+                CreatedAt = c.CreatedAt,
+                UpdatedAt = c.UpdatedAt,
+                AccountId = c.AccountId,
+                Username = c.Account.UserName
+            }).ToList();
+        }
+
+        public Task<int> GetCommentCountAsync(int postId)
+        {
+            return _repo.CountCommentAsync(postId);
         }
     }
 }

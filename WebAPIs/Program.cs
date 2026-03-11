@@ -27,6 +27,7 @@ using Services.Implements.ExpertFileImp;
 using Services.Implements.Follow;
 using Services.Implements.ImageImp;
 using Services.Implements.OutfitImp;
+using Repositories.Repos.OutfitRepos;
 using Services.Implements.PackageCoinImp;
 using Services.Implements.PostImp;
 using Services.Implements.SocialImp;
@@ -114,7 +115,7 @@ builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IImageService, ImageService>();
 builder.Services.AddScoped<IItemRepository, ItemRepository>();
-
+builder.Services.AddScoped<IOutfitRepository, OutfitRepository>();
 
 // Service Layer
 builder.Services.AddScoped<IAuthService, AuthService>();
