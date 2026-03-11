@@ -10,7 +10,7 @@ using Repositories.Repos.ExpertFileRepos;
 using Repositories.Repos.ExpertProfileRepos;
 using Repositories.Repos.FollowRepos;
 using Repositories.Repos.ImageRepos;
-using Repositories.Repos.OutfitRepos;
+using Repositories.Repos.ItemRespos;
 using Repositories.Repos.PackageCoinRepos;
 using Repositories.Repos.PostRepos;
 using Repositories.Repos.SocialRepos;
@@ -18,6 +18,7 @@ using Repositories.Repos.TransactionRepos;
 using Repositories.Repos.UserReportRepos;
 using Repositories.Repos.WardrobeRepos;
 using Repositories.UnitOfWork;
+using Services.AI;
 using Services.Helpers;
 using Services.Implements.AccountService;
 using Services.Implements.Auth;
@@ -33,11 +34,15 @@ using Services.Implements.TransactionImp;
 using Services.Implements.TryOn;
 using Services.Implements.UserReportImp;
 using Services.Implements.Wardrobe;
+using Services.Item;
+using Services.Mappers;
 using Services.RabbitMQ;
 using Services.Utils;
 using Services.Utils.AIDectection;
 using Services.Utils.CloundStorage;
+using Services.Utils.File;
 using System.Text;
+
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
@@ -108,17 +113,25 @@ builder.Services.AddScoped<IPackageCoinService, PackageCoinService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IImageService, ImageService>();
-builder.Services.AddScoped<IOutfitRepository, OutfitRepository>();
-
+builder.Services.AddScoped<IItemRepository, ItemRepository>();
 
 
 // Service Layer
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IFollowService, FollowService>();
 builder.Services.AddScoped<IWardrobeService, WardrobeService>();
+builder.Services.AddScoped<IItemService, ItemService>();
+builder.Services.AddScoped<IAiService, AiService>();
+//builder.Services.AddScoped<IFileService, LocalFileService>();
+builder.Services.AddScoped<IFileService>(sp =>
+{
+    var env = sp.GetRequiredService<IWebHostEnvironment>();
+    return new LocalFileService(env.WebRootPath);
+});
 builder.Services.AddScoped<EmailService>();
 builder.Services.AddHttpClient<ITryOnService, TryOnService>();
 builder.Services.AddScoped<IOutfitService, OutfitService>();
+
 
 builder.Services.AddHttpClient<IAIDetectionService, AIDetectionService>(client =>
 {
@@ -126,6 +139,8 @@ builder.Services.AddHttpClient<IAIDetectionService, AIDetectionService>(client =
 });
 builder.Services.AddScoped<IRabbitMQProducer, RabbitMQProducer>();
 builder.Services.AddHostedService<PostProcessingWorker>();
+
+builder.Services.AddSingleton<FashionMapper>();
 
 /////
 
