@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Repositories.Constants;
-using Repositories.Data;
 using Repositories.Dto.Response;
 using Repositories.Entities;
 using Repositories.Repos.ImageRepos;
@@ -20,47 +19,36 @@ namespace Services.Implements.PostImp
         private readonly ICloudStorageService _storageService;
         private readonly IRabbitMQProducer _producer;
         private readonly IUnitOfWork _unitOfWork;
-        private readonly FashionDbContext _context;
+
+        private const int MAX_IMAGES = 5;
 
         public PostService(
             IPostRepository postRepo,
             IImageRepository imageRepo,
             ICloudStorageService storageService,
             IRabbitMQProducer producer,
-            IUnitOfWork unitOfWork,
-            FashionDbContext context)
+            IUnitOfWork unitOfWork)
         {
             _postRepo = postRepo;
             _imageRepo = imageRepo;
             _storageService = storageService;
             _producer = producer;
             _unitOfWork = unitOfWork;
-            _context = context;
         }
 
-        // ==============================
-        // CREATE POST
-        // ==============================
-        public async Task<PostResponse> CreatePostAsync(int accountId, CreatePostRequest request)
+        public async Task<PostResponse> CreatePostAsync(
+            int accountId,
+            CreatePostRequest request)
         {
             ValidatePostContent(request.Content, request.Images);
 
-            //if (request.EventId.HasValue)
-            //{
-            //    var eventExists = await _eventRepo.ExistsAsync(request.EventId.Value);
-            //    if (!eventExists) throw new KeyNotFoundException("Event không tồn tại.");
-            //}
-
             var now = DateTime.UtcNow;
 
-            List<string> imageUrls = new List<string>();
-            if (request.Images != null && request.Images.Any())
-            {
-                var uploadTasks = request.Images.Select(f => _storageService.UploadImageAsync(f));
-                imageUrls = (await Task.WhenAll(uploadTasks)).ToList();
-            }
+            var imageUrls = await UploadImagesAsync(request.Images);
 
-            var initialStatus = imageUrls.Any() ? PostStatus.Verifying : PostStatus.Published;
+            var status = imageUrls.Any()
+                ? PostStatus.Verifying
+                : PostStatus.Published;
 
             var post = new Post
             {
@@ -69,12 +57,11 @@ namespace Services.Implements.PostImp
                 EventId = request.EventId,
                 CreatedAt = now,
                 UpdatedAt = now,
-                Status = initialStatus,
+                Status = status,
                 LikeCount = 0,
                 ShareCount = 0,
                 Score = 0,
                 IsExpertPost = false,
-
                 Images = imageUrls.Select(url => new Image
                 {
                     ImageUrl = url,
@@ -88,142 +75,134 @@ namespace Services.Implements.PostImp
 
             if (imageUrls.Any())
             {
-                await _producer.SendMessage(new PostImageMessage
-                {
-                    PostId = post.PostId,
-                    ImageUrls = imageUrls
-                });
+                await SendModerationMessage(post.PostId, imageUrls);
             }
+
             return MapToResponse(post);
         }
 
-        // ==============================
-        // UPDATE POST
-        // ==============================
-        public async Task<PostResponse> UpdatePostAsync(int postId, int accountId, UpdatePostRequest request)
+        public async Task<PostResponse> UpdatePostAsync(
+            int postId,
+            int accountId,
+            UpdatePostRequest request)
         {
-            var post = await _postRepo.GetByIdAsync(postId);
-            if (post == null) throw new KeyNotFoundException("Bài viết không tồn tại");
+            var post = await _postRepo.GetByIdAsync(postId)
+                ?? throw new KeyNotFoundException("Post not found");
 
-            if (post.AccountId != accountId) throw new UnauthorizedAccessException("Không chính chủ");
+            if (post.AccountId != accountId)
+                throw new UnauthorizedAccessException();
 
-            post.Content = request.Content?.Trim();
-            post.IsExpertPost = request.IsPublish;
-            post.UpdatedAt = DateTime.UtcNow;
+            UpdateBasicInfo(post, request);
 
             if (request.Images != null && request.Images.Any())
             {
-                var oldImages = post.Images.ToList();
-                _imageRepo.DeleteRange(oldImages);
-
-                var uploadTasks = request.Images.Select(img => _storageService.UploadImageAsync(img));
-                var newImageUrls = (await Task.WhenAll(uploadTasks)).ToList();
-
-                var newImageEntities = newImageUrls.Select(url => new Image
-                {
-                    ImageUrl = url,
-                    PostId = post.PostId,
-                    OwnerType = "Post",
-                    CreatedAt = DateTime.UtcNow
-                }).ToList();
-
-                await _imageRepo.AddRangeAsync(newImageEntities);
-
-                post.Status = PostStatus.Verifying;
-
-                await _unitOfWork.SaveChangesAsync();
-
-                await _producer.SendMessage(new PostImageMessage
-                {
-                    PostId = post.PostId,
-                    ImageUrls = newImageUrls
-                });
-            }
-            else
-            {
-                await _unitOfWork.SaveChangesAsync();
+                await ReplaceImages(post, request.Images);
             }
 
-            var updatedPost = await _postRepo.GetByIdAsync(postId);
-            return MapToResponse(updatedPost);
+            post.UpdatedAt = DateTime.UtcNow;
+
+            await _unitOfWork.SaveChangesAsync();
+
+            return MapToResponse(post);
         }
 
-        // ==============================
-        // DELETE
-        // ==============================
         public async Task DeletePostAsync(int postId)
         {
             var post = await _postRepo.GetByIdAsync(postId)
-                ?? throw new Exception("Post not found");
+                ?? throw new KeyNotFoundException("Post not found");
+
+            await DeleteImages(post.Images);
 
             _postRepo.Delete(post);
+
             await _unitOfWork.SaveChangesAsync();
         }
 
-        // ==============================
-        // ADMIN MODERATION
-        // ==============================
-        public async Task<string> AdminCheckTheStatusPost(CheckPostRequest request, int id)
+        public async Task<string> AdminCheckTheStatusPost(
+            CheckPostRequest request,
+            int postId)
         {
             if (string.IsNullOrWhiteSpace(request.Status))
                 return "Status is required.";
 
-            var newStatus = request.Status.Trim();
-
-            if (!PostStatus.IsValid(newStatus))
+            if (!PostStatus.IsValid(request.Status))
                 return "Invalid status.";
 
-            var post = await _postRepo.GetByIdAsync(id);
+            var post = await _postRepo.GetByIdAsync(postId);
+
             if (post == null)
                 return "Post not found.";
 
             if (post.Status != PostStatus.PendingAdmin &&
                 post.Status != PostStatus.Verifying)
-                return "This post is not waiting for moderation.";
+                return "Post is not waiting moderation.";
 
-            if (post.Status == newStatus)
-                return "Status is already set.";
+            if (post.Status == request.Status)
+                return "Status already set.";
 
-            post.Status = newStatus;
+            post.Status = request.Status;
             post.UpdatedAt = DateTime.UtcNow;
 
             await _unitOfWork.SaveChangesAsync();
 
-            return "Post moderation updated successfully.";
+            return "Post moderation updated.";
         }
 
-        // ==============================
-        // GET METHODS
-        // ==============================
         public async Task<List<PostResponse>> GetAllPostAsync()
         {
             var posts = await _postRepo.GetAllPublishedAsync();
+
             return posts.Select(MapToResponse).ToList();
         }
 
         public async Task<List<PostResponse>> GetAllMyPostAsync(int userId)
         {
             var posts = await _postRepo.GetAllByUserAsync(userId);
+
             return posts.Select(MapToResponse).ToList();
         }
 
         public async Task<PostResponse?> GetPostByIdAsync(int postId)
         {
             var post = await _postRepo.GetByIdAsync(postId);
+
             return post == null ? null : MapToResponse(post);
         }
 
-        // ==============================
-        // PRIVATE HELPERS
-        // ==============================
-
-        private async Task HandleImageUploadAndModeration(Post post, IEnumerable<IFormFile> files)
+        public async Task<List<PostResponse>> GetFeedAsync(
+            int userId,
+            DateTime? cursor,
+            int pageSize)
         {
-            // Upload song song
-            var uploadTasks = files.Select(f => _storageService.UploadImageAsync(f));
-            var imageUrls = (await Task.WhenAll(uploadTasks)).ToList();
+            return await _postRepo
+                .GetFeedWithSocialAsync(userId, cursor, pageSize);
+        }
 
-            var imageEntities = imageUrls.Select(url => new Image
+        private async Task<List<string>> UploadImagesAsync(
+            List<IFormFile>? images)
+        {
+            if (images == null || !images.Any())
+                return new List<string>();
+
+            if (images.Count > MAX_IMAGES)
+                throw new Exception("Maximum 5 images allowed.");
+
+            var tasks = images
+                .Select(img => _storageService.UploadImageAsync(img));
+
+            return (await Task.WhenAll(tasks)).ToList();
+        }
+
+        private async Task ReplaceImages(Post post, List<IFormFile>? files)
+        {
+            if (files == null || files.Count == 0)
+                return;
+
+            await DeleteImages(post.Images);
+
+            var urls = await UploadImagesAsync(files);
+
+            var images = urls.Select(url => new Image
             {
                 ImageUrl = url,
                 PostId = post.PostId,
@@ -231,21 +210,45 @@ namespace Services.Implements.PostImp
                 CreatedAt = DateTime.UtcNow
             }).ToList();
 
-            await _imageRepo.AddRangeAsync(imageEntities);
+            await _imageRepo.AddRangeAsync(images);
 
             post.Status = PostStatus.Verifying;
-            post.UpdatedAt = DateTime.UtcNow;
 
-            await _unitOfWork.SaveChangesAsync();
+            await SendModerationMessage(post.PostId, urls);
+        }
 
-            _producer.SendMessage(new PostImageMessage
+        private async Task DeleteImages(IEnumerable<Image>? images)
+        {
+            if (images == null)
+                return;
+
+            var imageList = images.ToList();
+
+            if (imageList.Count == 0)
+                return;
+
+            foreach (var img in imageList)
             {
-                PostId = post.PostId,
+                await _storageService.DeleteImageAsync(img.ImageUrl);
+            }
+
+            _imageRepo.DeleteRange(imageList);
+        }
+
+        private async Task SendModerationMessage(
+            int postId,
+            List<string> imageUrls)
+        {
+            await _producer.SendMessage(new PostImageMessage
+            {
+                PostId = postId,
                 ImageUrls = imageUrls
             });
         }
 
-        private void UpdateBasicInfo(Post post, UpdatePostRequest request)
+        private void UpdateBasicInfo(
+            Post post,
+            UpdatePostRequest request)
         {
             if (!string.IsNullOrWhiteSpace(request.Tittle))
                 post.Tittle = request.Tittle.Trim();
@@ -255,28 +258,40 @@ namespace Services.Implements.PostImp
 
             if (request.IsExpertPost.HasValue)
                 post.IsExpertPost = request.IsExpertPost.Value;
-
-            post.UpdatedAt = DateTime.UtcNow;
         }
 
-        private void ValidatePostContent(string? content, IEnumerable<IFormFile>? images)
+        private void ValidatePostContent(
+            string? content,
+            IEnumerable<IFormFile>? images)
         {
             if (string.IsNullOrWhiteSpace(content)
                 && (images == null || !images.Any()))
             {
-                throw new Exception("Post must contain content or images.");
+                throw new Exception(
+                    "Post must contain content or images.");
             }
         }
 
-        public async Task<List<PostResponse>> GetFeedAsync(
-            int userId,
-            DateTime? cursor,
-            int pageSize)
+        public async Task<List<PostResponse>> GetPostsByUserAsync(int userId, int pageSize)
         {
-            var posts = await _postRepo
-                .GetFeedWithSocialAsync(userId, cursor, pageSize);
+            if (pageSize <= 0)
+                pageSize = 10;
 
-            return posts;
+            if (pageSize > 50)
+                pageSize = 50;
+
+            return await _postRepo.GetPostsByUserAsync(userId, pageSize);
+        }
+
+        public async Task<List<PostResponse>> GetTrendingPostsAsync(int limit)
+        {
+            if (limit <= 0)
+                limit = 10;
+
+            if (limit > 50)
+                limit = 50;
+
+            return await _postRepo.GetTrendingPostsAsync(limit);
         }
 
         private PostResponse MapToResponse(Post post)
@@ -284,35 +299,33 @@ namespace Services.Implements.PostImp
             return new PostResponse
             {
                 PostId = post.PostId,
-
-                // ===== USER INFO =====
                 UserName = post.Account?.UserName,
                 AvatarUrl = post.Account?.Avatars
-                                .OrderByDescending(a => a.CreatedAt)
-                                .Select(a => a.ImageUrl)
-                                .FirstOrDefault(),
+                    ?.OrderByDescending(a => a.CreatedAt)
+                    .FirstOrDefault()?.ImageUrl,
 
-                // ===== POST INFO =====
                 EventId = post.EventId,
                 EventName = post.Event?.Title,
+
                 Title = post.Tittle,
                 Content = post.Content,
+
                 ImageUrls = post.Images?
-                                .OrderBy(i => i.CreatedAt)
-                                .Select(i => i.ImageUrl)
-                                .ToList(),
+                    .OrderBy(i => i.CreatedAt)
+                    .Select(i => i.ImageUrl)
+                    .ToList(),
 
                 IsExpertPost = post.IsExpertPost,
                 Status = post.Status,
+
                 Score = post.Score,
                 LikeCount = post.LikeCount,
                 ShareCount = post.ShareCount,
+
+                CommentCount = post.Comments?.Count ?? 0,
+
                 CreatedAt = post.CreatedAt,
-                UpdatedAt = post.UpdatedAt,
-                AvatarUrl = post.Account?.Avatars?
-                        .OrderByDescending(a => a.CreatedAt)
-                        .FirstOrDefault()?.ImageUrl,
-                UserName = post.Account?.UserName
+                UpdatedAt = post.UpdatedAt
             };
         }
     }

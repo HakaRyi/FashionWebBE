@@ -805,27 +805,44 @@ namespace Repositories.Migrations
                 {
                     comment_id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+
                     post_id = table.Column<int>(type: "integer", nullable: false),
+
                     account_id = table.Column<int>(type: "integer", nullable: false),
-                    content = table.Column<string>(type: "text", nullable: false),
-                    created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true),
-                    updated_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true)
+
+                    content = table.Column<string>(
+                        type: "character varying(1000)",
+                        maxLength: 1000,
+                        nullable: false),
+
+                    created_at = table.Column<DateTime>(
+                        type: "timestamp without time zone",
+                        nullable: false,
+                        defaultValueSql: "NOW()"),
+
+                    updated_at = table.Column<DateTime>(
+                        type: "timestamp without time zone",
+                        nullable: true)
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("Comment_pkey", x => x.comment_id);
+                    table.PrimaryKey("comment_pkey", x => x.comment_id);
+
                     table.ForeignKey(
-                        name: "Comment_account_id_fkey",
+                        name: "comment_account_id_fkey",
                         column: x => x.account_id,
                         principalSchema: "public",
                         principalTable: "Accounts",
-                        principalColumn: "account_id");
+                        principalColumn: "account_id",
+                        onDelete: ReferentialAction.Cascade);
+
                     table.ForeignKey(
-                        name: "Comment_post_id_fkey",
+                        name: "comment_post_id_fkey",
                         column: x => x.post_id,
                         principalSchema: "public",
                         principalTable: "Post",
-                        principalColumn: "post_id");
+                        principalColumn: "post_id",
+                        onDelete: ReferentialAction.Cascade);
                 });
 
             migrationBuilder.CreateTable(

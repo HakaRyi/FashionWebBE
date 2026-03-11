@@ -353,51 +353,50 @@ namespace Repositories.Migrations
                 });
 
             modelBuilder.Entity("Repositories.Entities.Comment", b =>
-                {
-                    b.Property<int>("CommentId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("comment_id");
+            {
+                b.Property<int>("CommentId")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("integer")
+                    .HasColumnName("comment_id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("CommentId"));
+                NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(
+                    b.Property<int>("CommentId"));
 
-                    b.Property<int>("AccountId")
-                        .HasColumnType("integer")
-                        .HasColumnName("account_id");
+                b.Property<int>("AccountId")
+                    .HasColumnType("integer")
+                    .HasColumnName("account_id");
 
-                    b.Property<string>("Content")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)")
-                        .HasColumnName("content");
+                b.Property<string>("Content")
+                    .IsRequired()
+                    .HasMaxLength(1000)
+                    .HasColumnType("character varying(1000)")
+                    .HasColumnName("content");
 
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("NOW()");
+                b.Property<DateTime>("CreatedAt")
+                    .ValueGeneratedOnAdd()
+                    .HasColumnType("timestamp without time zone")
+                    .HasColumnName("created_at")
+                    .HasDefaultValueSql("NOW()");
 
-                    b.Property<int>("PostId")
-                        .HasColumnType("integer")
-                        .HasColumnName("post_id");
+                b.Property<int>("PostId")
+                    .HasColumnType("integer")
+                    .HasColumnName("post_id");
 
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("updated_at");
+                b.Property<DateTime?>("UpdatedAt")
+                    .HasColumnType("timestamp without time zone")
+                    .HasColumnName("updated_at");
 
-                    b.HasKey("CommentId")
-                        .HasName("comment_pkey");
+                b.HasKey("CommentId")
+                    .HasName("comment_pkey");
 
-                    b.HasIndex("AccountId")
-                        .HasDatabaseName("ix_comment_account_id");
+                b.HasIndex("AccountId")
+                    .HasDatabaseName("ix_comment_account_id");
 
-                    b.HasIndex("PostId")
-                        .HasDatabaseName("IX_Comment_PostId");
-                    b.HasIndex("PostId")
-                        .HasDatabaseName("ix_comment_post_id");
+                b.HasIndex("PostId")
+                    .HasDatabaseName("ix_comment_post_id");
 
-                    b.ToTable("Comment", "public");
-                });
+                b.ToTable("Comment", "public");
+            });
 
             modelBuilder.Entity("Repositories.Entities.Event", b =>
                 {

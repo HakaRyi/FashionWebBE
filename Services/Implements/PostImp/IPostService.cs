@@ -1,6 +1,5 @@
 ﻿using Repositories.Dto.Response;
 using Services.Request.PostReq;
-using Services.Response.PostResp;
 
 namespace Services.Implements.PostImp
 {
@@ -12,7 +11,9 @@ namespace Services.Implements.PostImp
         Task<string> AdminCheckTheStatusPost(CheckPostRequest request, int id);
         Task<List<PostResponse>> GetAllMyPostAsync(int userId);
         Task<List<PostResponse>> GetFeedAsync(int userId, DateTime? cursor, int pageSize);
-        Task UpdatePostAsync(int postId, int accountId, UpdatePostRequest request);
+        Task<List<PostResponse>> GetPostsByUserAsync(int userId, int pageSize);
+        Task<List<PostResponse>> GetTrendingPostsAsync(int limit);
+        Task<PostResponse> UpdatePostAsync(int postId, int accountId, UpdatePostRequest request);
         Task DeletePostAsync(int postId);
     }
 }

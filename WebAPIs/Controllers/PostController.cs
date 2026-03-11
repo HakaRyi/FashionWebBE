@@ -31,7 +31,7 @@ namespace WebAPIs.Controllers
                 var result = await _postService.CreatePostAsync(userId, request);
 
                 return CreatedAtAction(
-                    nameof(GetPostsById),
+                    nameof(GetPostById),
                     new { id = result.PostId },
                     result);
             }
@@ -41,18 +41,27 @@ namespace WebAPIs.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return StatusCode(500, new { message = ex.Message });
             }
         }
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdatePost(int id, [FromForm] UpdatePostRequest request)
+        [HttpPut("{id:int}")]
+        [Authorize]
+        public async Task<IActionResult> UpdatePost(
+            int id,
+            [FromForm] UpdatePostRequest request)
         {
+            if (id <= 0)
+                return BadRequest(new { message = "Invalid post id." });
+
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
             try
             {
-                var accountId = int.Parse(User.FindFirst("AccountId")?.Value!);
+                var userId = User.GetUserId();
 
-                var result = await _postService.UpdatePostAsync(id, accountId, request);
+                var result = await _postService.UpdatePostAsync(id, userId, request);
 
                 return Ok(result);
             }
@@ -62,11 +71,26 @@ namespace WebAPIs.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                return StatusCode(403, new { message = ex.Message });
+                return Forbid(ex.Message);
             }
-            catch (Exception ex)
+        }
+
+        [HttpDelete("{id:int}")]
+        [Authorize]
+        public async Task<IActionResult> DeletePost(int id)
+        {
+            if (id <= 0)
+                return BadRequest(new { message = "Invalid post id." });
+
+            try
             {
-                return StatusCode(500, new { message = ex.Message });
+                await _postService.DeletePostAsync(id);
+
+                return Ok(new { message = "Post deleted successfully." });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
             }
         }
 
@@ -74,29 +98,12 @@ namespace WebAPIs.Controllers
         public async Task<IActionResult> GetAllPosts()
         {
             var result = await _postService.GetAllPostAsync();
+
             return Ok(result);
         }
 
-        [HttpGet("my")]
-        [Authorize]
-        public async Task<IActionResult> GetAllMyPosts()
-        {
-            try
-            {
-                var userId = User.GetUserId();
-
-                var result = await _postService.GetAllMyPostAsync(userId);
-
-                return Ok(result);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Unauthorized(new { message = ex.Message });
-            }
-        }
-
         [HttpGet("{id:int}")]
-        public async Task<IActionResult> GetPostsById(int id)
+        public async Task<IActionResult> GetPostById(int id)
         {
             if (id <= 0)
                 return BadRequest(new { message = "Invalid post id." });
@@ -109,17 +116,81 @@ namespace WebAPIs.Controllers
             return Ok(result);
         }
 
+        [HttpGet("my")]
+        [Authorize]
+        public async Task<IActionResult> GetMyPosts()
+        {
+            var userId = User.GetUserId();
+
+            var result = await _postService.GetAllMyPostAsync(userId);
+
+            return Ok(result);
+        }
+
+        [HttpGet("user/{userId:int}")]
+        public async Task<IActionResult> GetPostsByUser(
+            int userId,
+            [FromQuery] int pageSize = 10)
+        {
+            if (userId <= 0)
+                return BadRequest(new { message = "Invalid user id." });
+
+            if (pageSize <= 0)
+                pageSize = 10;
+
+            if (pageSize > 50)
+                pageSize = 50;
+
+            var result = await _postService.GetPostsByUserAsync(userId, pageSize);
+
+            return Ok(result);
+        }
+
+        [HttpGet("feed")]
+        [Authorize]
+        public async Task<IActionResult> GetFeed(
+            [FromQuery] DateTime? cursor,
+            [FromQuery] int pageSize = 10)
+        {
+            var userId = User.GetUserId();
+
+            if (pageSize <= 0)
+                pageSize = 10;
+
+            if (pageSize > 50)
+                pageSize = 50;
+
+            var result = await _postService.GetFeedAsync(userId, cursor, pageSize);
+
+            return Ok(result);
+        }
+
+        [HttpGet("trending")]
+        public async Task<IActionResult> GetTrendingPosts(
+            [FromQuery] int limit = 10)
+        {
+            if (limit <= 0)
+                limit = 10;
+
+            if (limit > 50)
+                limit = 50;
+
+            var result = await _postService.GetTrendingPostsAsync(limit);
+
+            return Ok(result);
+        }
+
         [HttpPut("admin/{id:int}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> AdminCheckTheStatusPost(
-            [FromBody] CheckPostRequest request,
-            int id)
+            int id,
+            [FromBody] CheckPostRequest request)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
             if (id <= 0)
                 return BadRequest(new { message = "Invalid post id." });
+
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
 
             var result = await _postService.AdminCheckTheStatusPost(request, id);
 
@@ -130,26 +201,6 @@ namespace WebAPIs.Controllers
                 return BadRequest(new { message = result });
 
             return Ok(new { message = result });
-        }
-
-        [HttpGet("feed")]
-        [Authorize]
-        public async Task<IActionResult> GetFeed(
-            [FromQuery] DateTime? cursor,
-            [FromQuery] int pageSize = 10)
-        {
-            try
-            {
-                var userId = User.GetUserId();
-
-                var result = await _postService.GetFeedAsync(userId, cursor, pageSize);
-
-                return Ok(result);
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return Unauthorized(new { message = ex.Message });
-            }
         }
     }
 }

@@ -299,17 +299,10 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
             entity.Property(e => e.Content)
                   .IsRequired()
-                  .HasMaxLength(1000)   
+                  .HasMaxLength(1000)
                   .HasColumnName("content");
 
             entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("created_at");
-            entity.Property(e => e.UpdatedAt)
-                .HasColumnName("updated_at")
-                .HasColumnType("timestamp without time zone");
-
-            entity.Property(e => e.PostId).HasColumnName("post_id");
                   .HasColumnType("timestamp without time zone")
                   .HasColumnName("created_at")
                   .HasDefaultValueSql("NOW()");
@@ -330,11 +323,6 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                   .OnDelete(DeleteBehavior.Cascade)
                   .HasConstraintName("comment_account_id_fkey");
 
-            entity.HasOne(d => d.Post).WithMany(p => p.Comments)
-                .HasForeignKey(d => d.PostId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("Comment_post_id_fkey");
-            entity.HasIndex(e => e.PostId).HasDatabaseName("IX_Comment_PostId");
             entity.HasOne(d => d.Post)
                   .WithMany(p => p.Comments)
                   .HasForeignKey(d => d.PostId)
