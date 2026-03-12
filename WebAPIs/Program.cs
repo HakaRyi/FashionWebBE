@@ -50,6 +50,7 @@ using Services.Utils.File;
 using System.Text;
 using Services.Implements.ModelImp;
 using Repositories.Repos.ModelRepos;
+using Repositories.Repos.TryOn;
 
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -126,6 +127,7 @@ builder.Services.AddScoped<IItemRepository, ItemRepository>();
 builder.Services.AddScoped<IEventRepository, EventRepository>();
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IModelRepository, ModelRepository>();
+builder.Services.AddScoped<ITryOnHistoryRepository, TryOnHistoryRepository>();
 
 
 
@@ -139,6 +141,7 @@ builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IAiService, AiService>();
 builder.Services.AddScoped<IModelService, ModelService>();
+builder.Services.AddScoped<ITryOnHistoryService, TryOnHistoryService>();
 //builder.Services.AddScoped<IFileService, LocalFileService>();
 builder.Services.AddScoped<IFileService>(sp =>
 {

@@ -210,7 +210,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.ImageUrl).HasColumnName("img_url").HasMaxLength(500);
             entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(30);
             entity.Property(e => e.CreatedAt)
-                .HasColumnName("created_at")
+                .HasColumnName("create_at")
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp without time zone");
 
