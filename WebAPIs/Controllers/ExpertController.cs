@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Services.Implements.Experts;
 using Services.Request.ExpertReq;
 using Services.Response.ExpertResp;
@@ -22,34 +23,38 @@ namespace WebAPIs.Controllers
         #region Expert Logic (Registration)
 
         [HttpPost("register")]
+        //[Authorize]
         public async Task<IActionResult> Register([FromForm] ExpertRequest request)
         {
             try
             {
-                string finalPortfolioUrl = request.PortfolioUrl;
+                string finalUrl = request.PortfolioUrl;
 
                 if (request.EvidenceType?.ToLower() == "pdf" && request.File != null)
                 {
-                    finalPortfolioUrl = await _fileService.UploadAsync(request.File);
+                    finalUrl = await _fileService.UploadAsync(request.File);
                 }
 
                 var dto = new ExpertRegistrationDto
                 {
-                    AccountId = request.AccountId,
                     Style = request.Style,
+                    StyleAesthetic = request.StyleAesthetic,
+                    YearsOfExperience = request.YearsOfExperience,
                     Bio = request.Bio,
                     EvidenceType = request.EvidenceType,
-                    PortfolioUrl = finalPortfolioUrl
+                    PortfolioUrl = finalUrl
                 };
 
                 var result = await _expertService.RegisterExpertAsync(dto);
-                if (result) return Ok(new { message = "Đăng ký thành công, vui lòng chờ duyệt." });
 
-                return BadRequest();
+                if (result)
+                    return Ok(new { message = "Hồ sơ chuyên gia đã được gửi và đang chờ phê duyệt." });
+
+                return BadRequest("Không thể lưu hồ sơ.");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Lỗi hệ thống: {ex.Message}");
+                return StatusCode(500, ex.Message);
             }
         }
 
@@ -64,6 +69,12 @@ namespace WebAPIs.Controllers
         #endregion
 
         #region Admin Logic (Moderation)
+        [HttpGet("/api/experts")]
+        public async Task<IActionResult> GetAllExperts()
+        {
+            var experts = await _expertService.GetAllExpertsAsync();
+            return Ok(experts);
+        }
 
         [HttpGet("admin/pending")]
         public async Task<IActionResult> GetPending()
@@ -75,7 +86,6 @@ namespace WebAPIs.Controllers
         [HttpPost("admin/process")]
         public async Task<IActionResult> ProcessApplication(int fileId, string status, string? reason)
         {
-            // Valid status usually: "Approved" or "Rejected"
             var result = await _expertService.ProcessApplicationAsync(fileId, status, reason);
             if (result) return Ok(new { message = $"Đã cập nhật trạng thái: {status}" });
 

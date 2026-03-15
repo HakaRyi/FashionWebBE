@@ -17,7 +17,7 @@ namespace Repositories.Repos.AccountRepos
         {
             return await _db.Accounts
                 .Include(a => a.ExpertProfile)
-                    .ThenInclude(ep => ep.ExpertFile)
+                    .ThenInclude(ep => ep.ExpertRequests)
                 .Include(a => a.Avatars)
                 .Where(a => a.ExpertProfile != null)
                 .ToListAsync();

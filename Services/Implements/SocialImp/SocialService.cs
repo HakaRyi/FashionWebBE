@@ -36,7 +36,7 @@ namespace Services.Implements.SocialImp
             {
                 AccountId = accId,
                 PostId = postId,
-                ReactionType = "Like",
+                //ReactionType = "Like",
                 CreatedAt = DateTime.UtcNow
             };
             return await _socialRepository.CreateReact(reaction);
@@ -106,7 +106,7 @@ namespace Services.Implements.SocialImp
             {
                 throw new Exception("Reaction not found or does not belong to the user/post.");
             }
-            reaction.ReactionType = request.ReactionType;
+            //reaction.ReactionType = request.ReactionType;
             return await _socialRepository.UpdateReact(reaction);
         }
     }

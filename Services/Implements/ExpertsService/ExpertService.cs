@@ -1,7 +1,10 @@
-﻿using Repositories.Entities;
-using Repositories.Repos.ExpertFileRepos;
+﻿using Microsoft.AspNetCore.Identity;
+using Repositories.Entities;
+using Repositories.Repos.ExpertRequestRepos;
 using Repositories.Repos.ExpertProfileRepos;
 using Repositories.UnitOfWork;
+using Services.Implements.Auth;
+using Services.Request.ExpertReq;
 using Services.Response.ExpertResp;
 
 namespace Services.Implements.Experts
@@ -9,54 +12,62 @@ namespace Services.Implements.Experts
     public class ExpertService : IExpertService
     {
         private readonly IExpertProfileRepository _profileRepo;
-        private readonly IExpertFileRepository _fileRepo;
+        private readonly IExpertRequestRepository _fileRepo;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ICurrentUserService _currentUser;
+        private readonly UserManager<Account> _userManager;
 
         public ExpertService(
             IExpertProfileRepository profileRepo,
-            IExpertFileRepository fileRepo,
-            IUnitOfWork unitOfWork)
+            IExpertRequestRepository fileRepo,
+            IUnitOfWork unitOfWork,
+            ICurrentUserService currentUser,
+            UserManager<Account> userManager)
         {
             _profileRepo = profileRepo;
             _fileRepo = fileRepo;
             _unitOfWork = unitOfWork;
+            _currentUser = currentUser;
+            _userManager = userManager;
         }
 
         public async Task<bool> RegisterExpertAsync(ExpertRegistrationDto dto)
         {
+            var userId = _currentUser.GetUserId();
+            if (userId == null) throw new UnauthorizedAccessException("Cần đăng nhập.");
+
             try
             {
-                // 1. Check if profile exists
-                var profile = await _profileRepo.GetByAccountIdAsync(dto.AccountId);
+                var profile = await _profileRepo.GetByAccountIdAsync(userId.Value);
+                bool isNewProfile = (profile == null);
 
-                if (profile == null)
+                if (isNewProfile)
                 {
                     profile = new ExpertProfile
                     {
-                        AccountId = dto.AccountId,
-                        ExpertiseField = dto.Style,
-                        Bio = dto.Bio,
-                        Verified = false,
+                        AccountId = userId.Value,
                         CreatedAt = DateTime.UtcNow
                     };
-                    await _profileRepo.AddAsync(profile);
+                }
 
-                    await _unitOfWork.SaveChangesAsync();
-                }
-                else
-                {
-                    profile.ExpertiseField = dto.Style;
-                    profile.Bio = dto.Bio;
-                    profile.UpdatedAt = DateTime.UtcNow;
-                    _profileRepo.Update(profile);
-                }
+                profile.ExpertiseField = dto.Style;
+                profile.StyleAesthetic = dto.StyleAesthetic;
+                profile.YearsOfExperience = dto.YearsOfExperience;
+                profile.Bio = dto.Bio;
+                profile.Verified = false;
+                profile.UpdatedAt = DateTime.UtcNow;
+
+                if (isNewProfile) await _profileRepo.AddAsync(profile);
+                else _profileRepo.Update(profile);
+
+                await _unitOfWork.SaveChangesAsync();
 
                 var file = await _fileRepo.GetByProfileIdAsync(profile.ExpertProfileId);
                 bool isNewFile = (file == null);
 
                 if (isNewFile)
                 {
-                    file = new ExpertFile
+                    file = new Repositories.Entities.ExpertRequest
                     {
                         ExpertProfileId = profile.ExpertProfileId,
                         CreatedAt = DateTime.UtcNow
@@ -64,98 +75,103 @@ namespace Services.Implements.Experts
                 }
 
                 file.Status = "Pending";
-                var evidenceType = dto.EvidenceType?.ToLower();
 
-                if (evidenceType == "pdf")
+                if (dto.EvidenceType?.ToLower() == "pdf")
                 {
                     file.CertificateUrl = dto.PortfolioUrl;
-                }
-                else if (evidenceType == "link")
-                {
-                    file.LicenseUrl = dto.PortfolioUrl;
-                }
-
-                if (isNewFile)
-                {
-                    await _fileRepo.AddAsync(file);
+                    file.LicenseUrl = null;
                 }
                 else
                 {
-                    _fileRepo.Update(file);
+                    file.LicenseUrl = dto.PortfolioUrl;
+                    file.CertificateUrl = null;
                 }
 
-                var result = await _unitOfWork.SaveChangesAsync();
-                return result > 0;
+                if (isNewFile) await _fileRepo.AddAsync(file);
+                else _fileRepo.Update(file);
+
+                return await _unitOfWork.SaveChangesAsync() > 0;
             }
             catch (Exception ex)
             {
-                throw new Exception($"Lỗi khi đăng ký chuyên gia: {ex.Message}", ex);
+                throw new Exception($"Lỗi đăng ký Expert: {ex.Message}");
             }
-        }
-
-        public async Task<ExpertProfile?> GetProfileByAccountId(int accountId)
-        {
-            return await _profileRepo.GetByAccountIdAsync(accountId);
         }
 
         #region Admin Logic
-        public async Task<bool> ReviewApplicationAsync(int fileId, bool isApproved, string? feedback)
-        {
-            var file = await _fileRepo.GetById(fileId);
-            if (file == null) return false;
-
-            file.Status = isApproved ? "Approved" : "Rejected";
-
-            _fileRepo.Update(file);
-
-            if (isApproved)
-            {
-                var profile = await _profileRepo.GetById(file.ExpertProfileId);
-                if (profile != null)
-                {
-                    profile.Verified = true;
-                    profile.UpdatedAt = DateTime.UtcNow;
-                    _profileRepo.Update(profile);
-                }
-            }
-
-            return await _unitOfWork.SaveChangesAsync() > 0;
-        }
-
-        public async Task<IEnumerable<ExpertFile>> GetPendingApplicationsAsync()
-        {
-            var status = "Pending";
-            return await _fileRepo.GetStatusApplicationsAsync(status);
-        }
 
         public async Task<bool> ProcessApplicationAsync(int fileId, string status, string? reason)
         {
             var file = await _fileRepo.GetById(fileId);
             if (file == null) return false;
 
-            // Update File Status (Approved / Rejected)
-            file.Status = status;
-            _fileRepo.Update(file);
-
-            // If approved, verify the profile
-            if (status.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+            using (var transaction = await _unitOfWork.BeginTransactionAsync())
             {
-                var profile = await _profileRepo.GetById(file.ExpertProfileId);
-                if (profile != null)
+                try
                 {
-                    profile.Verified = true;
-                    _profileRepo.Update(profile);
+                    file.Status = status;
+                    _fileRepo.Update(file);
+
+                    if (status.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var profile = await _profileRepo.GetById(file.ExpertProfileId);
+                        if (profile != null)
+                        {
+                            profile.Verified = true;
+                            profile.UpdatedAt = DateTime.UtcNow;
+                            _profileRepo.Update(profile);
+
+                            var account = await _userManager.FindByIdAsync(profile.AccountId.ToString());
+                            if (account != null)
+                            {
+                                if (!await _userManager.IsInRoleAsync(account, "Expert"))
+                                {
+                                    var removeResult = await _userManager.RemoveFromRoleAsync(account, "User");
+                                    var addResult = await _userManager.AddToRoleAsync(account, "Expert");
+
+                                    if (!addResult.Succeeded)
+                                    {
+                                        throw new Exception("Không thể cập nhật quyền Expert cho người dùng.");
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    var saveResult = await _unitOfWork.SaveChangesAsync() > 0;
+
+                    await transaction.CommitAsync();
+                    return saveResult;
+                }
+                catch (Exception)
+                {
+                    await transaction.RollbackAsync();
+                    throw;
                 }
             }
-
-            return await _unitOfWork.SaveChangesAsync() > 0;
         }
 
-#endregion
+        public async Task<bool> ReviewApplicationAsync(int fileId, bool isApproved, string? feedback)
+        {
+            string status = isApproved ? "Approved" : "Rejected";
+            return await ProcessApplicationAsync(fileId, status, feedback);
+        }
+
+        public async Task<IEnumerable<ExpertProfile>> GetAllExpertsAsync()
+        {
+            return await _profileRepo.GetAllAsync();
+        }
+
+        public async Task<IEnumerable<Repositories.Entities.ExpertRequest>> GetPendingApplicationsAsync()
+        {
+            return await _fileRepo.GetStatusApplicationsAsync("Pending");
+        }
+
+        #endregion
 
         #region General Retrieval
 
-        public async Task<ExpertProfile?> GetProfileByAccountIdAsync(int accountId)
+        public async Task<ExpertProfile?> GetProfileByAccountId(int accountId)
         {
             return await _profileRepo.GetByAccountIdAsync(accountId);
         }
@@ -163,7 +179,7 @@ namespace Services.Implements.Experts
         public async Task<IEnumerable<ExpertProfile>> GetAllVerifiedExpertsAsync()
         {
             var all = await _profileRepo.GetAllAsync();
-            return all.Where(p => (bool)p.Verified);
+            return all.Where(p => p.Verified == true);
         }
 
         public async Task<bool> DeleteExpertProfileAsync(int profileId)

@@ -247,7 +247,7 @@ namespace Services.Implements.PostImp
         private void UpdateBasicInfo(Post post, UpdatePostRequest request)
         {
             if (!string.IsNullOrWhiteSpace(request.Tittle))
-                post.Tittle = request.Tittle.Trim();
+                post.Title = request.Tittle.Trim();
 
             if (!string.IsNullOrWhiteSpace(request.Content))
                 post.Content = request.Content.Trim();
@@ -274,7 +274,7 @@ namespace Services.Implements.PostImp
                 PostId = post.PostId,
                 EventId = post.EventId,
                 EventName = post.Event?.Title,
-                Title = post.Tittle,
+                Title = post.Title,
                 Content = post.Content,
                 ImageUrls = post.Images?.Select(i => i.ImageUrl).ToList(),
                 IsExpertPost = post.IsExpertPost,

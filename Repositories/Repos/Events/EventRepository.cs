@@ -15,15 +15,18 @@ namespace Repositories.Repos.Events
         public EventRepository(FashionDbContext db) => _db = db;
 
         public async Task<Event?> GetByIdAsync(int id)
-            => await _db.Events.Include(e => e.Posts).FirstOrDefaultAsync(e => e.EventId == id);
+            => await _db.Events
+                .Include(e => e.PrizeEvents)
+                .FirstOrDefaultAsync(e => e.EventId == id);
 
         public async Task<IEnumerable<Event>> GetAllByCreatorIdAsync(int creatorId)
-            => await _db.Events.Where(e => e.CreatorId == creatorId).ToListAsync();
+            => await _db.Events
+                .Where(e => e.CreatorId == creatorId)
+                .OrderByDescending(e => e.CreatedAt)
+                .ToListAsync();
 
         public async Task AddAsync(Event @event)
         {
-            @event.CreatedAt = DateTime.UtcNow;
-            @event.Status = "Active";
             await _db.Events.AddAsync(@event);
         }
 

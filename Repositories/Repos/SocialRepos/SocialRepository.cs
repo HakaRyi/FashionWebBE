@@ -14,7 +14,7 @@ namespace Repositories.Repos.SocialRepos
 
         public async Task<bool> CheckIsLikedByUser(int userId, int postId)
         {
-            return await _db.Reactions.AnyAsync(r => r.AccountId == userId && r.PostId == postId && r.ReactionType != null);
+            return await _db.Reactions.AnyAsync(r => r.AccountId == userId && r.PostId == postId);
         }
 
         public Task<bool> CheckIsSharedByUser(int userId, int postId)
