@@ -7,7 +7,7 @@ namespace Repositories.Repos.TransactionRepos
         Task<Transaction?> GetById(int id);
         Task<List<Transaction>> GetTransactions();
         Task AddAsync(Transaction transaction);
-        Task<IEnumerable<Transaction>> GetHistoryByAccountIdAsync(int accountId);
-        Task<int> GetCurrentBalanceAsync(int accountId);
+        Task<List<Transaction>> GetHistoryByWalletIdAsync(int walletId);
+        Task<IEnumerable<Transaction>> GetByWalletIdAsync(int walletId);
     }
 }

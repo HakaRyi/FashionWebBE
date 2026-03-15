@@ -8,6 +8,8 @@ public partial class Payment
 
     public int? PackageId { get; set; }
 
+    public decimal Amount { get; set; }
+
     public string? Provider { get; set; }
 
     public string? OrderCode { get; set; }

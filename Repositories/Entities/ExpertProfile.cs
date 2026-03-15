@@ -16,11 +16,13 @@ public partial class ExpertProfile
 
     public bool? Verified { get; set; }
 
+    public double? RatingAvg { get; set; }
+
     public DateTime? CreatedAt { get; set; }
 
     public DateTime? UpdatedAt { get; set; }
 
     public virtual Account Account { get; set; } = null!;
 
-    public virtual ExpertFile? ExpertFile { get; set; }
+    public virtual ICollection<ExpertRequest> ExpertRequests { get; set; } = new List<ExpertRequest>();
 }

@@ -8,8 +8,6 @@ public partial class Reaction
 
     public int AccountId { get; set; }
 
-    public string ReactionType { get; set; } = null!;
-
     public DateTime? CreatedAt { get; set; }
 
     public virtual Account Account { get; set; } = null!;

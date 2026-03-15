@@ -1,5 +1,6 @@
 ﻿using Repositories.Repos.TransactionRepos;
 using Services.Response.TransactionResp;
+using Repositories.Entities;
 
 namespace Services.Implements.TransactionImp
 {
@@ -12,50 +13,38 @@ namespace Services.Implements.TransactionImp
             _transactionRepository = transactionRepository;
         }
 
-        public async Task<TransactionResponse> GetById(int id)
+        public async Task<TransactionResponse?> GetById(int id)
         {
-            var transaction = await _transactionRepository.GetById(id);
-            if (transaction == null)
-            {
-                return null;
-            }
+            var t = await _transactionRepository.GetById(id);
+            if (t == null) return null;
 
-            return new TransactionResponse
-            {
-                TransactionId = transaction.TransactionId,
-                AccountId = transaction.AccountId,
-                AccountName = transaction.Account?.UserName,
-                PaymentId = transaction.PaymentId,
-                AmountCoin = transaction.AmountCoin,
-                Type = transaction.Type,
-                ReferenceType = transaction.ReferenceType,
-                ReferenceId = transaction.ReferenceId,
-                BalanceAfter = transaction.BalanceAfter,
-                Description = transaction.Description,
-                CreatedAt = transaction.CreatedAt,
-                Status = transaction.Status
-            };
+            return MapToResponse(t);
         }
 
         public async Task<List<TransactionResponse>> GetTransactions()
         {
             var transactions = await _transactionRepository.GetTransactions();
+            return transactions.Select(t => MapToResponse(t)).ToList();
+        }
 
-            return transactions.Select(transaction => new TransactionResponse
+        private TransactionResponse MapToResponse(Transaction t)
+        {
+            return new TransactionResponse
             {
-                TransactionId = transaction.TransactionId,
-                AccountId = transaction.AccountId,
-                AccountName = transaction.Account?.UserName,
-                PaymentId = transaction.PaymentId,
-                AmountCoin = transaction.AmountCoin,
-                Type = transaction.Type,
-                ReferenceType = transaction.ReferenceType,
-                ReferenceId = transaction.ReferenceId,
-                BalanceAfter = transaction.BalanceAfter,
-                Description = transaction.Description,
-                CreatedAt = transaction.CreatedAt,
-                Status = transaction.Status
-            }).ToList();
+                TransactionId = t.TransactionId,
+                WalletId = t.WalletId,
+                UserName = t.Wallet?.Account?.UserName ?? "Unknown",
+                PaymentId = t.PaymentId,
+                Amount = t.Amount,
+                BalanceBefore = t.BalanceBefore,
+                BalanceAfter = t.BalanceAfter,
+                Type = t.Type,
+                ReferenceType = t.ReferenceType,
+                ReferenceId = t.ReferenceId,
+                Description = t.Description,
+                CreatedAt = t.CreatedAt,
+                Status = t.Status
+            };
         }
     }
 }

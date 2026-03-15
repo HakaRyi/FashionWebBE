@@ -77,7 +77,7 @@ namespace Services.Implements.AccountService
                 FullName = e.UserName,
                 Verified = e.ExpertProfile?.Verified ?? false,
                 ExpertiseField = e.ExpertProfile?.ExpertiseField,
-                Rating = e.ExpertProfile?.ExpertFile?.RatingAvg ?? 0,
+                Rating = e.ExpertProfile?.RatingAvg ?? 0,
                 Description = e.Description,
                 FollowerCount = e.CountFollower,
                 FollowingCount = e.CountFollowing,
