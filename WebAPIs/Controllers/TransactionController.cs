@@ -5,7 +5,7 @@ using Services.Implements.TransactionImp;
 
 namespace WebAPIs.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/transaction")]
     [ApiController]
     public class TransactionController : ControllerBase
     {

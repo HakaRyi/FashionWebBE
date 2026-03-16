@@ -10,6 +10,14 @@ public partial class Event
 
     public string? Description { get; set; }
 
+    public double ExpertWeight { get; set; }
+
+    public double UserWeight { get; set; }
+
+    public double PointPerLike { get; set; } = 1;
+
+    public double PointPerShare { get; set; } = 2;
+
     public DateTime? StartTime { get; set; }
 
     public DateTime? EndTime { get; set; }
@@ -22,4 +30,6 @@ public partial class Event
 
     public virtual ICollection<Post> Posts { get; set; } = new List<Post>(); 
     public virtual ICollection<PrizeEvent> PrizeEvents { get; set; } = new List<PrizeEvent>();
+    public virtual ICollection<EventExpert> EventExperts { get; set; } = new List<EventExpert>();
+    public virtual ICollection<Image> Images { get; set; } = new List<Image>();
 }

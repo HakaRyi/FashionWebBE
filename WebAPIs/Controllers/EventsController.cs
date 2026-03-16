@@ -1,63 +1,105 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Services.Implements.Auth;
 using Services.Implements.Events;
-using Services.Response.EventResp;
+using Services.Request.EventReq;
+using Services.Request.ExpertRatingReq;
 
 namespace WebAPIs.Controllers
 {
     [ApiController]
-    [Route("api/event")]
+    [Route("api/events")]
+    //[Authorize]
     public class EventsController : ControllerBase
     {
         private readonly IEventService _eventService;
+        private readonly ICurrentUserService _currentUserService;
 
-        public EventsController(IEventService eventService)
+        public EventsController(IEventService eventService, ICurrentUserService currentUserService)
         {
             _eventService = eventService;
+            _currentUserService = currentUserService;
         }
 
-        [HttpPost("create")]
-        public async Task<IActionResult> CreateEvent([FromBody] CreateEventDto dto)
+        /// <summary>
+        /// Tạo sự kiện mới và ký quỹ tiền thưởng từ ví Expert hiện tại
+        /// </summary>
+        [HttpPost("create-with-prizes")]
+        public async Task<IActionResult> CreateEventWithPrizes([FromBody] CreateEventRequest request)
         {
-            // LƯU Ý: Ở thực tế, accountId từ User.Claims (Token JWT)
-            int accountId = 3;
+            if (!ModelState.IsValid) return BadRequest(ModelState);
 
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
-            var result = await _eventService.CreateEventAsync(accountId, dto);
-
-            if (result)
-            {
-                return Ok(new { message = "Khai mạc sự kiện thành công!", status = "Active" });
-            }
-
-            return BadRequest(new { message = "Tạo sự kiện thất bại. Vui lòng kiểm tra lại số dư hoặc thông tin." });
-        }
-
-        [HttpPost("deposit")]
-        public async Task<IActionResult> Deposit([FromBody] DepositDto dto)
-        {
-            var result = await _eventService.DepositCoinsAsync(dto);
-
-            if (result)
-            {
-                return Ok(new { message = "Giao dịch thành công!" });
-            }
-
-            return BadRequest(new { message = "Giao dịch thất bại." });
-        }
-
-        [HttpPost("calculate-score")]
-        public async Task<IActionResult> CalculateScore(int postId, double expertGrade, double communityGrade, double weight)
-        {
             try
             {
-                await _eventService.CalculateFinalScoreAsync(postId, expertGrade, communityGrade, weight);
-                return Ok(new { message = "Cập nhật điểm số thành công!" });
+                var result = await _eventService.CreateEventAndLockFundsAsync(request);
+
+                return Ok(new
+                {
+                    message = "Sự kiện đã được tạo và ký quỹ thành công!",
+                    eventId = result.EventId,
+                    status = result.Status
+                });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = ex.Message });
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Lấy danh sách các sự kiện do Expert hiện tại tạo
+        /// </summary>
+        [HttpGet("my-events")]
+        public async Task<IActionResult> GetMyEvents()
+        {
+            int currentUserId = _currentUserService.GetRequiredUserId();
+            var events = await _eventService.GetExpertEventsAsync(currentUserId);
+            return Ok(events);
+        }
+
+        /// <summary>
+        /// Xem chi tiết một sự kiện
+        /// </summary>
+        [HttpGet("{id}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetDetails(int id)
+        {
+            var ev = await _eventService.GetEventDetailsAsync(id);
+            if (ev == null) return NotFound(new { message = "Không tìm thấy sự kiện." });
+            return Ok(ev);
+        }
+
+        /// <summary>
+        /// Chuyên gia chấm điểm cho bài thi trong sự kiện
+        /// </summary>
+        [HttpPost("submit-rating")]
+        public async Task<IActionResult> SubmitRating([FromBody] ExpertRatingRequest request)
+        {
+            try
+            {
+                await _eventService.SubmitExpertRatingAsync(request);
+                return Ok(new { message = "Chấm điểm thành công và đã cập nhật bảng điểm tổng." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Chốt sự kiện, công bố kết quả và tự động giải ngân tiền thưởng
+        /// </summary>
+        [HttpPost("{id}/finalize")]
+        public async Task<IActionResult> FinalizeEvent(int id)
+        {
+            try
+            {
+                await _eventService.FinalizeEventAndDistributePrizesAsync(id);
+                return Ok(new { message = "Sự kiện đã kết thúc. Tiền thưởng đã được chuyển đến ví của những người thắng cuộc." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
         }
     }

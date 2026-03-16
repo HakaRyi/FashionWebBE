@@ -327,6 +327,46 @@ namespace Repositories.Migrations
                     b.ToTable("Accounts", "public");
                 });
 
+            modelBuilder.Entity("Repositories.Entities.AccountSubscription", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("integer")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("end_date");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true)
+                        .HasColumnName("is_active");
+
+                    b.Property<int>("PackageId")
+                        .HasColumnType("integer")
+                        .HasColumnName("package_id");
+
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("start_date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("PackageId");
+
+                    b.ToTable("AccountSubscription", "public");
+                });
+
             modelBuilder.Entity("Repositories.Entities.Category", b =>
                 {
                     b.Property<int>("CategoryId")
@@ -367,12 +407,25 @@ namespace Repositories.Migrations
 
                     b.Property<string>("Content")
                         .IsRequired()
-                        .HasColumnType("text")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
                         .HasColumnName("content");
 
-                    b.Property<DateTime?>("CreatedAt")
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp without time zone")
-                        .HasColumnName("created_at");
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("NOW()");
+
+                    b.Property<int>("LikeCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("like_count");
+
+                    b.Property<int?>("ParentCommentId")
+                        .HasColumnType("integer")
+                        .HasColumnName("parent_comment_id");
 
                     b.Property<int>("PostId")
                         .HasColumnType("integer")
@@ -383,14 +436,128 @@ namespace Repositories.Migrations
                         .HasColumnName("updated_at");
 
                     b.HasKey("CommentId")
-                        .HasName("Comment_pkey");
+                        .HasName("comment_pkey");
 
-                    b.HasIndex("AccountId");
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_comment_account_id");
+
+                    b.HasIndex("ParentCommentId")
+                        .HasDatabaseName("ix_comment_parent_comment_id");
 
                     b.HasIndex("PostId")
-                        .HasDatabaseName("IX_Comment_PostId");
+                        .HasDatabaseName("ix_comment_post_id");
 
                     b.ToTable("Comment", "public");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.CommentReaction", b =>
+                {
+                    b.Property<int>("CommentReactionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("comment_reaction_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("CommentReactionId"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("integer")
+                        .HasColumnName("account_id");
+
+                    b.Property<int>("CommentId")
+                        .HasColumnType("integer")
+                        .HasColumnName("comment_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("NOW()");
+
+                    b.HasKey("CommentReactionId")
+                        .HasName("comment_reaction_pkey");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_comment_reaction_account_id");
+
+                    b.HasIndex("CommentId")
+                        .HasDatabaseName("ix_comment_reaction_comment_id");
+
+                    b.HasIndex("AccountId", "CommentId")
+                        .IsUnique()
+                        .HasDatabaseName("ux_comment_reaction_account_comment");
+
+                    b.ToTable("CommentReaction", "public");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.EscrowSession", b =>
+                {
+                    b.Property<int>("EscrowSessionId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("escrow_session_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("EscrowSessionId"));
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("amount");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
+
+                    b.Property<int?>("EventId")
+                        .HasColumnType("integer")
+                        .HasColumnName("event_id");
+
+                    b.Property<int?>("OrderId")
+                        .HasColumnType("integer")
+                        .HasColumnName("order_id");
+
+                    b.Property<int?>("ReceiverId")
+                        .HasColumnType("integer")
+                        .HasColumnName("receiver_id");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("resolved_at");
+
+                    b.Property<int>("SenderId")
+                        .HasColumnType("integer")
+                        .HasColumnName("sender_id");
+
+                    b.Property<decimal>("ServiceFee")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("service_fee");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.HasKey("EscrowSessionId")
+                        .HasName("EscrowSession_pkey");
+
+                    b.HasIndex("EventId");
+
+                    b.HasIndex("OrderId")
+                        .IsUnique();
+
+                    b.HasIndex("ReceiverId");
+
+                    b.HasIndex("SenderId");
+
+                    b.ToTable("EscrowSession", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Event", b =>
@@ -403,8 +570,10 @@ namespace Repositories.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("EventId"));
 
                     b.Property<DateTime?>("CreatedAt")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp without time zone")
-                        .HasColumnName("created_at");
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<int>("CreatorId")
                         .HasColumnType("integer")
@@ -417,6 +586,24 @@ namespace Repositories.Migrations
                     b.Property<DateTime?>("EndTime")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("end_time");
+
+                    b.Property<double>("ExpertWeight")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("double precision")
+                        .HasDefaultValue(0.0)
+                        .HasColumnName("expert_weight");
+
+                    b.Property<double>("PointPerLike")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("double precision")
+                        .HasDefaultValue(1.0)
+                        .HasColumnName("point_per_like");
+
+                    b.Property<double>("PointPerShare")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("double precision")
+                        .HasDefaultValue(2.0)
+                        .HasColumnName("point_per_share");
 
                     b.Property<DateTime?>("StartTime")
                         .HasColumnType("timestamp without time zone")
@@ -433,6 +620,12 @@ namespace Repositories.Migrations
                         .HasColumnType("character varying(255)")
                         .HasColumnName("title");
 
+                    b.Property<double>("UserWeight")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("double precision")
+                        .HasDefaultValue(0.0)
+                        .HasColumnName("user_weight");
+
                     b.HasKey("EventId")
                         .HasName("Events_pkey");
 
@@ -441,94 +634,100 @@ namespace Repositories.Migrations
                     b.ToTable("Events", "public");
                 });
 
-            modelBuilder.Entity("Repositories.Entities.EventWinner", b =>
+            modelBuilder.Entity("Repositories.Entities.EventExpert", b =>
                 {
-                    b.Property<int>("EventWinnerId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("EventWinnerId"));
-
-                    b.Property<int>("AccountId")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.Property<int>("PrizeEventId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp without time zone");
-
-                    b.HasKey("EventWinnerId");
-
-                    b.HasIndex("AccountId")
-                        .IsUnique();
-
-                    b.HasIndex("PrizeEventId")
-                        .IsUnique();
-
-                    b.ToTable("TheEventWinner", "public");
-                });
-
-            modelBuilder.Entity("Repositories.Entities.ExpertFile", b =>
-                {
-                    b.Property<int>("ExpertFileId")
+                    b.Property<int>("EventExpertId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")
-                        .HasColumnName("expert_file_id");
+                        .HasColumnName("event_expert_id");
 
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ExpertFileId"));
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("EventExpertId"));
 
-                    b.Property<string>("CertificateUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("certificate_url");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at");
-
-                    b.Property<string>("CvUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("cv_url");
-
-                    b.Property<int>("ExpertProfileId")
+                    b.Property<int>("EventId")
                         .HasColumnType("integer")
-                        .HasColumnName("expert_profile_id");
+                        .HasColumnName("event_id");
 
-                    b.Property<string>("IdentityProofUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("identity_proof_url");
+                    b.Property<int>("ExpertId")
+                        .HasColumnType("integer")
+                        .HasColumnName("expert_id");
 
-                    b.Property<string>("LicenseUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("license_url");
-
-                    b.Property<double?>("RatingAvg")
-                        .HasColumnType("double precision")
-                        .HasColumnName("rating_avg");
+                    b.Property<DateTime>("JoinedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("joined_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<string>("Status")
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("status");
 
-                    b.HasKey("ExpertFileId")
-                        .HasName("Expert_File_pkey");
+                    b.HasKey("EventExpertId")
+                        .HasName("EventExpert_pkey");
 
-                    b.HasIndex(new[] { "ExpertProfileId" }, "Expert_File_expert_profile_id_key")
-                        .IsUnique();
+                    b.HasIndex("ExpertId");
 
-                    b.ToTable("Expert_File", "public");
+                    b.HasIndex("EventId", "ExpertId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_EventExpert_Event_Expert");
+
+                    b.ToTable("EventExpert", "public");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.EventWinner", b =>
+                {
+                    b.Property<int>("EventWinnerId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("event_winner_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("EventWinnerId"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("integer")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("ExpertFeedback")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("expert_feedback");
+
+                    b.Property<int>("FinalRank")
+                        .HasColumnType("integer")
+                        .HasColumnName("final_rank");
+
+                    b.Property<int>("PrizeEventId")
+                        .HasColumnType("integer")
+                        .HasColumnName("prize_event_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at");
+
+                    b.Property<double>("WinningScore")
+                        .HasColumnType("double precision")
+                        .HasColumnName("winning_score");
+
+                    b.HasKey("EventWinnerId")
+                        .HasName("EventWinner_pkey");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("PrizeEventId");
+
+                    b.ToTable("EventWinner", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.ExpertProfile", b =>
@@ -557,6 +756,10 @@ namespace Repositories.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("expertise_field");
 
+                    b.Property<double?>("RatingAvg")
+                        .HasColumnType("double precision")
+                        .HasColumnName("rating_avg");
+
                     b.Property<string>("StyleAesthetic")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
@@ -583,6 +786,169 @@ namespace Repositories.Migrations
                         .IsUnique();
 
                     b.ToTable("Expert_Profile", "public");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.ExpertRating", b =>
+                {
+                    b.Property<int>("ExpertRatingId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("expert_rating_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ExpertRatingId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<int>("ExpertId")
+                        .HasColumnType("integer")
+                        .HasColumnName("expert_id");
+
+                    b.Property<int>("PostId")
+                        .HasColumnType("integer")
+                        .HasColumnName("post_id");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("reason");
+
+                    b.Property<double>("Score")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("double precision")
+                        .HasDefaultValue(0.0)
+                        .HasColumnName("score");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("ExpertRatingId")
+                        .HasName("ExpertRating_pkey");
+
+                    b.HasIndex("ExpertId");
+
+                    b.HasIndex("PostId", "ExpertId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_ExpertRating_Post_Expert");
+
+                    b.ToTable("ExpertRating", "public");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.ExpertRequest", b =>
+                {
+                    b.Property<int>("ExpertFileId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("expert_file_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ExpertFileId"));
+
+                    b.Property<string>("Bio")
+                        .HasColumnType("text")
+                        .HasColumnName("bio");
+
+                    b.Property<string>("CertificateUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("certificate_url");
+
+                    b.Property<DateTime?>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("CvUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("cv_url");
+
+                    b.Property<int>("ExpertProfileId")
+                        .HasColumnType("integer")
+                        .HasColumnName("expert_profile_id");
+
+                    b.Property<string>("ExpertiseField")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("expertise_field");
+
+                    b.Property<string>("IdentityProofUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("identity_proof_url");
+
+                    b.Property<string>("LicenseUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("license_url");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("processed_at");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("reason");
+
+                    b.Property<string>("Status")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("StyleAesthetic")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("style_aesthetic");
+
+                    b.Property<int?>("YearsOfExperience")
+                        .HasColumnType("integer")
+                        .HasColumnName("years_of_experience");
+
+                    b.HasKey("ExpertFileId")
+                        .HasName("Expert_File_pkey");
+
+                    b.HasIndex(new[] { "ExpertProfileId" }, "Expert_File_expert_profile_id_idx");
+
+                    b.ToTable("Expert_File", "public");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.Feature", b =>
+                {
+                    b.Property<int>("FeatureId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("feature_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("FeatureId"));
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("FeatureCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("feature_code");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.HasKey("FeatureId")
+                        .HasName("Feature_pkey");
+
+                    b.HasIndex("FeatureCode")
+                        .IsUnique()
+                        .HasDatabaseName("UQ_Feature_FeatureCode");
+
+                    b.ToTable("Feature", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Follow", b =>
@@ -679,6 +1045,10 @@ namespace Repositories.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<int?>("EventId")
+                        .HasColumnType("integer")
+                        .HasColumnName("event_id");
+
                     b.Property<string>("ImageUrl")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -702,6 +1072,8 @@ namespace Repositories.Migrations
                         .HasName("Images_pkey");
 
                     b.HasIndex("AccountAvatarId");
+
+                    b.HasIndex("EventId");
 
                     b.HasIndex("ItemId");
 
@@ -962,6 +1334,124 @@ namespace Repositories.Migrations
                     b.ToTable("Notification", "public");
                 });
 
+            modelBuilder.Entity("Repositories.Entities.Order", b =>
+                {
+                    b.Property<int>("OrderId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("order_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("OrderId"));
+
+                    b.Property<int>("BuyerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("buyer_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("note");
+
+                    b.Property<string>("ReceiverName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("receiver_name");
+
+                    b.Property<string>("ReceiverPhone")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("receiver_phone");
+
+                    b.Property<int>("SellerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("seller_id");
+
+                    b.Property<decimal>("ServiceFee")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("service_fee");
+
+                    b.Property<string>("ShippingAddress")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("shipping_address");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<decimal>("SubTotal")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("sub_total");
+
+                    b.Property<decimal>("TotalAmount")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("total_amount");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("OrderId")
+                        .HasName("Order_pkey");
+
+                    b.HasIndex("BuyerId");
+
+                    b.HasIndex("SellerId");
+
+                    b.ToTable("Order", "public");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.OrderDetail", b =>
+                {
+                    b.Property<int>("OrderDetailId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("order_detail_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("OrderDetailId"));
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("integer")
+                        .HasColumnName("order_id");
+
+                    b.Property<int?>("OutfitId")
+                        .HasColumnType("integer")
+                        .HasColumnName("outfit_id");
+
+                    b.Property<int?>("ProductId")
+                        .HasColumnType("integer")
+                        .HasColumnName("product_id");
+
+                    b.Property<int>("Quantity")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
+                        .HasColumnName("quantity");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("unit_price");
+
+                    b.HasKey("OrderDetailId")
+                        .HasName("OrderDetail_pkey");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("OutfitId");
+
+                    b.ToTable("OrderDetail", "public");
+                });
+
             modelBuilder.Entity("Repositories.Entities.Outfit", b =>
                 {
                     b.Property<int>("OutfitId")
@@ -1010,13 +1500,20 @@ namespace Repositories.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("account_id");
 
-                    b.Property<int>("CoinAmount")
-                        .HasColumnType("integer")
-                        .HasColumnName("coin_amount");
-
                     b.Property<DateTime?>("CreatedAt")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp without time zone")
-                        .HasColumnName("created_at");
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
+
+                    b.Property<int>("DurationDays")
+                        .HasColumnType("integer")
+                        .HasColumnName("duration_days");
 
                     b.Property<bool?>("IsActive")
                         .ValueGeneratedOnAdd()
@@ -1029,9 +1526,9 @@ namespace Repositories.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("name");
 
-                    b.Property<int>("PriceVnd")
-                        .HasColumnType("integer")
-                        .HasColumnName("price_vnd");
+                    b.Property<decimal>("Price")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("price");
 
                     b.HasKey("PackageId")
                         .HasName("Package_pkey");
@@ -1039,6 +1536,30 @@ namespace Repositories.Migrations
                     b.HasIndex("AccountId");
 
                     b.ToTable("Package", "public");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.PackageFeature", b =>
+                {
+                    b.Property<int>("PackageId")
+                        .HasColumnType("integer")
+                        .HasColumnName("package_id");
+
+                    b.Property<int>("FeatureId")
+                        .HasColumnType("integer")
+                        .HasColumnName("feature_id");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("value");
+
+                    b.HasKey("PackageId", "FeatureId")
+                        .HasName("PackageFeature_pkey");
+
+                    b.HasIndex("FeatureId");
+
+                    b.ToTable("PackageFeature", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Payment", b =>
@@ -1053,6 +1574,10 @@ namespace Repositories.Migrations
                     b.Property<int>("AccountId")
                         .HasColumnType("integer")
                         .HasColumnName("account_id");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric(18,2)")
+                        .HasColumnName("amount");
 
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp without time zone")
@@ -1166,6 +1691,12 @@ namespace Repositories.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("account_id");
 
+                    b.Property<int?>("CommentCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("comment_count");
+
                     b.Property<string>("Content")
                         .HasColumnType("text")
                         .HasColumnName("content");
@@ -1203,9 +1734,9 @@ namespace Repositories.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("status");
 
-                    b.Property<string>("Tittle")
+                    b.Property<string>("Title")
                         .HasColumnType("text")
-                        .HasColumnName("tittle");
+                        .HasColumnName("title");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp without time zone")
@@ -1219,6 +1750,38 @@ namespace Repositories.Migrations
                     b.HasIndex("EventId");
 
                     b.ToTable("Post", "public");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.PostSave", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("integer")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<int>("PostId")
+                        .HasColumnType("integer")
+                        .HasColumnName("post_id");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PostId");
+
+                    b.HasIndex("AccountId", "PostId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_postsaves_account_post");
+
+                    b.ToTable("PostSaves", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.PostVector", b =>
@@ -1251,38 +1814,32 @@ namespace Repositories.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("PrizeEventId"));
 
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("create_at")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<string>("Description")
-                        .IsRequired()
-                        .HasColumnType("text");
+                    b.Property<int?>("EscrowSessionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("escrow_session_id");
 
                     b.Property<int>("EventId")
                         .HasColumnType("integer")
                         .HasColumnName("event_id");
 
-                    b.Property<string>("Ranked")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                    b.Property<int>("Ranked")
+                        .HasColumnType("integer")
                         .HasColumnName("ranked");
 
-                    b.Property<int>("RewardCoin")
-                        .HasColumnType("integer")
-                        .HasColumnName("reward_coin");
+                    b.Property<decimal>("RewardAmount")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("reward_amount");
 
                     b.Property<string>("Status")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
 
-                    b.Property<DateTime>("UpdatedAt")
-                        .HasColumnType("timestamp without time zone");
+                    b.HasKey("PrizeEventId")
+                        .HasName("PrizeEvent_pkey");
 
-                    b.HasKey("PrizeEventId");
+                    b.HasIndex("EscrowSessionId");
 
                     b.HasIndex("EventId");
 
@@ -1309,12 +1866,6 @@ namespace Repositories.Migrations
                     b.Property<int>("PostId")
                         .HasColumnType("integer")
                         .HasColumnName("post_id");
-
-                    b.Property<string>("ReactionType")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
-                        .HasColumnName("reaction_type");
 
                     b.HasKey("ReactionId")
                         .HasName("Reaction_pkey");
@@ -1373,12 +1924,7 @@ namespace Repositories.Migrations
                     b.HasKey("RefreshTokenId")
                         .HasName("RefreshToken_pkey");
 
-                    b.HasIndex(new[] { "AccountId" }, "RefreshToken_account_id_key")
-                        .IsUnique();
-
-                    b.HasIndex(new[] { "DeviceInfo" }, "RefreshToken_device_info_key");
-
-                    b.HasIndex(new[] { "IpAddress" }, "RefreshToken_ip_address_key");
+                    b.HasIndex(new[] { "AccountId" }, "RefreshToken_account_id_idx");
 
                     b.HasIndex(new[] { "Token" }, "RefreshToken_token_key")
                         .IsUnique();
@@ -1419,30 +1965,63 @@ namespace Repositories.Migrations
                 {
                     b.Property<int>("ScoreboardId")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("scoreboard_id");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ScoreboardId"));
 
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone");
+                    b.Property<double>("CommunityScore")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("double precision")
+                        .HasDefaultValue(0.0)
+                        .HasColumnName("community_score");
 
-                    b.Property<int>("Like")
-                        .HasColumnType("integer");
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("ExpertReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("expert_reason");
+
+                    b.Property<double>("ExpertScore")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("double precision")
+                        .HasDefaultValue(0.0)
+                        .HasColumnName("expert_score");
+
+                    b.Property<int>("FinalLikeCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("final_like_count");
+
+                    b.Property<double>("FinalScore")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("double precision")
+                        .HasDefaultValue(0.0)
+                        .HasColumnName("final_score");
+
+                    b.Property<int>("FinalShareCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
+                        .HasColumnName("final_share_count");
 
                     b.Property<int>("PostId")
-                        .HasColumnType("integer");
-
-                    b.Property<double>("Score")
-                        .HasColumnType("double precision");
-
-                    b.Property<int>("Share")
-                        .HasColumnType("integer");
+                        .HasColumnType("integer")
+                        .HasColumnName("post_id");
 
                     b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("status");
 
-                    b.HasKey("ScoreboardId");
+                    b.HasKey("ScoreboardId")
+                        .HasName("Scoreboard_pkey");
 
                     b.HasIndex("PostId")
                         .IsUnique();
@@ -1459,19 +2038,22 @@ namespace Repositories.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("TransactionId"));
 
-                    b.Property<int>("AccountId")
-                        .HasColumnType("integer")
-                        .HasColumnName("account_id");
+                    b.Property<int?>("AccountId")
+                        .HasColumnType("integer");
 
-                    b.Property<int>("AmountCoin")
-                        .HasColumnType("integer")
-                        .HasColumnName("amount_coin");
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("amount");
 
-                    b.Property<int?>("BalanceAfter")
-                        .HasColumnType("integer")
+                    b.Property<decimal>("BalanceAfter")
+                        .HasColumnType("decimal(18,2)")
                         .HasColumnName("balance_after");
 
-                    b.Property<DateTime?>("CreatedAt")
+                    b.Property<decimal>("BalanceBefore")
+                        .HasColumnType("decimal(18,2)")
+                        .HasColumnName("balance_before");
+
+                    b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("created_at");
 
@@ -1479,7 +2061,7 @@ namespace Repositories.Migrations
                         .HasColumnType("text")
                         .HasColumnName("description");
 
-                    b.Property<int>("PaymentId")
+                    b.Property<int?>("PaymentId")
                         .HasColumnType("integer")
                         .HasColumnName("payment_id");
 
@@ -1488,8 +2070,8 @@ namespace Repositories.Migrations
                         .HasColumnName("reference_id");
 
                     b.Property<string>("ReferenceType")
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
                         .HasColumnName("reference_type");
 
                     b.Property<string>("Status")
@@ -1502,10 +2084,16 @@ namespace Repositories.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("type");
 
+                    b.Property<int>("WalletId")
+                        .HasColumnType("integer")
+                        .HasColumnName("wallet_id");
+
                     b.HasKey("TransactionId")
                         .HasName("Transaction_pkey");
 
                     b.HasIndex("AccountId");
+
+                    b.HasIndex("WalletId");
 
                     b.HasIndex(new[] { "PaymentId" }, "Transaction_payment_id_key")
                         .IsUnique();
@@ -1609,6 +2197,53 @@ namespace Repositories.Migrations
                     b.ToTable("User_Report", "public");
                 });
 
+            modelBuilder.Entity("Repositories.Entities.Wallet", b =>
+                {
+                    b.Property<int>("WalletId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("wallet_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("WalletId"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("integer")
+                        .HasColumnName("account_id");
+
+                    b.Property<decimal>("Balance")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("balance");
+
+                    b.Property<string>("Currency")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)")
+                        .HasDefaultValue("VND")
+                        .HasColumnName("currency");
+
+                    b.Property<decimal>("LockedBalance")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0m)
+                        .HasColumnName("locked_balance");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("WalletId")
+                        .HasName("Wallet_pkey");
+
+                    b.HasIndex(new[] { "AccountId" }, "Wallet_account_id_key")
+                        .IsUnique();
+
+                    b.ToTable("Wallet", "public");
+                });
+
             modelBuilder.Entity("Repositories.Entities.Wardrobe", b =>
                 {
                     b.Property<int>("WardrobeId")
@@ -1706,23 +2341,106 @@ namespace Repositories.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Repositories.Entities.AccountSubscription", b =>
+                {
+                    b.HasOne("Repositories.Entities.Account", "Account")
+                        .WithMany("AccountSubscriptions")
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Repositories.Entities.Package", "Package")
+                        .WithMany("Subscriptions")
+                        .HasForeignKey("PackageId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+
+                    b.Navigation("Package");
+                });
+
             modelBuilder.Entity("Repositories.Entities.Comment", b =>
                 {
                     b.HasOne("Repositories.Entities.Account", "Account")
                         .WithMany("Comments")
                         .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("Comment_account_id_fkey");
+                        .HasConstraintName("comment_account_id_fkey");
+
+                    b.HasOne("Repositories.Entities.Comment", "ParentComment")
+                        .WithMany("Replies")
+                        .HasForeignKey("ParentCommentId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .HasConstraintName("comment_parent_comment_fkey");
 
                     b.HasOne("Repositories.Entities.Post", "Post")
                         .WithMany("Comments")
                         .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("Comment_post_id_fkey");
+                        .HasConstraintName("comment_post_id_fkey");
 
                     b.Navigation("Account");
 
+                    b.Navigation("ParentComment");
+
                     b.Navigation("Post");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.CommentReaction", b =>
+                {
+                    b.HasOne("Repositories.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("comment_reaction_account_id_fkey");
+
+                    b.HasOne("Repositories.Entities.Comment", "Comment")
+                        .WithMany("Reactions")
+                        .HasForeignKey("CommentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("comment_reaction_comment_id_fkey");
+
+                    b.Navigation("Account");
+
+                    b.Navigation("Comment");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.EscrowSession", b =>
+                {
+                    b.HasOne("Repositories.Entities.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Repositories.Entities.Order", "Order")
+                        .WithOne("EscrowSession")
+                        .HasForeignKey("Repositories.Entities.EscrowSession", "OrderId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Repositories.Entities.Account", "Receiver")
+                        .WithMany("ReceivedEscrows")
+                        .HasForeignKey("ReceiverId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("EscrowSession_receiver_id_fkey");
+
+                    b.HasOne("Repositories.Entities.Account", "Sender")
+                        .WithMany("SentEscrows")
+                        .HasForeignKey("SenderId")
+                        .IsRequired()
+                        .HasConstraintName("EscrowSession_sender_id_fkey");
+
+                    b.Navigation("Event");
+
+                    b.Navigation("Order");
+
+                    b.Navigation("Receiver");
+
+                    b.Navigation("Sender");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Event", b =>
@@ -1736,34 +2454,45 @@ namespace Repositories.Migrations
                     b.Navigation("Creator");
                 });
 
+            modelBuilder.Entity("Repositories.Entities.EventExpert", b =>
+                {
+                    b.HasOne("Repositories.Entities.Event", "Event")
+                        .WithMany("EventExperts")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("EventExpert_event_id_fkey");
+
+                    b.HasOne("Repositories.Entities.Account", "Expert")
+                        .WithMany()
+                        .HasForeignKey("ExpertId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("EventExpert_expert_id_fkey");
+
+                    b.Navigation("Event");
+
+                    b.Navigation("Expert");
+                });
+
             modelBuilder.Entity("Repositories.Entities.EventWinner", b =>
                 {
                     b.HasOne("Repositories.Entities.Account", "Account")
-                        .WithOne("EventWinner")
-                        .HasForeignKey("Repositories.Entities.EventWinner", "AccountId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .WithMany("EventWinners")
+                        .HasForeignKey("AccountId")
+                        .IsRequired()
+                        .HasConstraintName("EventWinner_account_id_fkey");
 
                     b.HasOne("Repositories.Entities.PrizeEvent", "PrizeEvent")
-                        .WithOne("EventWinner")
-                        .HasForeignKey("Repositories.Entities.EventWinner", "PrizeEventId")
+                        .WithMany("EventWinners")
+                        .HasForeignKey("PrizeEventId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("EventWinner_prize_event_id_fkey");
 
                     b.Navigation("Account");
 
                     b.Navigation("PrizeEvent");
-                });
-
-            modelBuilder.Entity("Repositories.Entities.ExpertFile", b =>
-                {
-                    b.HasOne("Repositories.Entities.ExpertProfile", "ExpertProfile")
-                        .WithOne("ExpertFile")
-                        .HasForeignKey("Repositories.Entities.ExpertFile", "ExpertProfileId")
-                        .IsRequired()
-                        .HasConstraintName("Expert_File_expert_profile_id_fkey");
-
-                    b.Navigation("ExpertProfile");
                 });
 
             modelBuilder.Entity("Repositories.Entities.ExpertProfile", b =>
@@ -1775,6 +2504,39 @@ namespace Repositories.Migrations
                         .HasConstraintName("Expert_Profile_account_id_fkey");
 
                     b.Navigation("Account");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.ExpertRating", b =>
+                {
+                    b.HasOne("Repositories.Entities.Account", "Expert")
+                        .WithMany()
+                        .HasForeignKey("ExpertId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("ExpertRating_expert_id_fkey");
+
+                    b.HasOne("Repositories.Entities.Post", "Post")
+                        .WithMany("ExpertRatings")
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("ExpertRating_post_id_fkey");
+
+                    b.Navigation("Expert");
+
+                    b.Navigation("Post");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.ExpertRequest", b =>
+                {
+                    b.HasOne("Repositories.Entities.ExpertProfile", "ExpertProfile")
+                        .WithMany("ExpertRequests")
+                        .HasForeignKey("ExpertProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("Expert_File_expert_profile_id_fkey");
+
+                    b.Navigation("ExpertProfile");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Follow", b =>
@@ -1822,6 +2584,11 @@ namespace Repositories.Migrations
                         .HasForeignKey("AccountAvatarId")
                         .OnDelete(DeleteBehavior.Cascade);
 
+                    b.HasOne("Repositories.Entities.Event", "Event")
+                        .WithMany("Images")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.HasOne("Repositories.Entities.Item", "Item")
                         .WithMany("Images")
                         .HasForeignKey("ItemId")
@@ -1833,6 +2600,8 @@ namespace Repositories.Migrations
                         .OnDelete(DeleteBehavior.Cascade);
 
                     b.Navigation("Account");
+
+                    b.Navigation("Event");
 
                     b.Navigation("Item");
 
@@ -1914,6 +2683,45 @@ namespace Repositories.Migrations
                     b.Navigation("Sender");
                 });
 
+            modelBuilder.Entity("Repositories.Entities.Order", b =>
+                {
+                    b.HasOne("Repositories.Entities.Account", "Buyer")
+                        .WithMany()
+                        .HasForeignKey("BuyerId")
+                        .IsRequired()
+                        .HasConstraintName("Order_buyer_id_fkey");
+
+                    b.HasOne("Repositories.Entities.Account", "Seller")
+                        .WithMany()
+                        .HasForeignKey("SellerId")
+                        .IsRequired()
+                        .HasConstraintName("Order_seller_id_fkey");
+
+                    b.Navigation("Buyer");
+
+                    b.Navigation("Seller");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.OrderDetail", b =>
+                {
+                    b.HasOne("Repositories.Entities.Order", "Order")
+                        .WithMany("OrderDetails")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("OrderDetail_order_id_fkey");
+
+                    b.HasOne("Repositories.Entities.Outfit", "Outfit")
+                        .WithMany()
+                        .HasForeignKey("OutfitId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("OrderDetail_outfit_id_fkey");
+
+                    b.Navigation("Order");
+
+                    b.Navigation("Outfit");
+                });
+
             modelBuilder.Entity("Repositories.Entities.Outfit", b =>
                 {
                     b.HasOne("Repositories.Entities.Account", "Account")
@@ -1931,9 +2739,30 @@ namespace Repositories.Migrations
                         .WithMany("Packages")
                         .HasForeignKey("AccountId")
                         .IsRequired()
-                        .HasConstraintName("Package_account_id_fkey");
+                        .HasConstraintName("FK_Package_Account");
 
                     b.Navigation("Account");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.PackageFeature", b =>
+                {
+                    b.HasOne("Repositories.Entities.Feature", "Feature")
+                        .WithMany("PackageFeatures")
+                        .HasForeignKey("FeatureId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_PackageFeature_Feature");
+
+                    b.HasOne("Repositories.Entities.Package", "Package")
+                        .WithMany("PackageFeatures")
+                        .HasForeignKey("PackageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("FK_PackageFeature_Package");
+
+                    b.Navigation("Feature");
+
+                    b.Navigation("Package");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Payment", b =>
@@ -1947,6 +2776,7 @@ namespace Repositories.Migrations
                     b.HasOne("Repositories.Entities.Package", "Package")
                         .WithMany("Payments")
                         .HasForeignKey("PackageId")
+                        .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("Payment_package_id_fkey");
 
                     b.Navigation("Account");
@@ -2006,6 +2836,25 @@ namespace Repositories.Migrations
                     b.Navigation("Event");
                 });
 
+            modelBuilder.Entity("Repositories.Entities.PostSave", b =>
+                {
+                    b.HasOne("Repositories.Entities.Account", "Account")
+                        .WithMany("SavedPosts")
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Repositories.Entities.Post", "Post")
+                        .WithMany("Saves")
+                        .HasForeignKey("PostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+
+                    b.Navigation("Post");
+                });
+
             modelBuilder.Entity("Repositories.Entities.PostVector", b =>
                 {
                     b.HasOne("Repositories.Entities.Post", "Post")
@@ -2019,11 +2868,18 @@ namespace Repositories.Migrations
 
             modelBuilder.Entity("Repositories.Entities.PrizeEvent", b =>
                 {
+                    b.HasOne("Repositories.Entities.EscrowSession", null)
+                        .WithMany()
+                        .HasForeignKey("EscrowSessionId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("PrizeEvent_escrow_session_id_fkey");
+
                     b.HasOne("Repositories.Entities.Event", "Event")
                         .WithMany("PrizeEvents")
                         .HasForeignKey("EventId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("PrizeEvent_event_id_fkey");
 
                     b.Navigation("Event");
                 });
@@ -2050,8 +2906,9 @@ namespace Repositories.Migrations
             modelBuilder.Entity("Repositories.Entities.RefreshToken", b =>
                 {
                     b.HasOne("Repositories.Entities.Account", "Account")
-                        .WithOne("RefreshToken")
-                        .HasForeignKey("Repositories.Entities.RefreshToken", "AccountId")
+                        .WithMany("RefreshTokens")
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("RefreshToken_account_id_fkey");
 
@@ -2064,28 +2921,33 @@ namespace Repositories.Migrations
                         .WithOne("Scoreboard")
                         .HasForeignKey("Repositories.Entities.Scoreboard", "PostId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .IsRequired()
+                        .HasConstraintName("Scoreboard_post_id_fkey");
 
                     b.Navigation("Post");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Transaction", b =>
                 {
-                    b.HasOne("Repositories.Entities.Account", "Account")
+                    b.HasOne("Repositories.Entities.Account", null)
                         .WithMany("Transactions")
-                        .HasForeignKey("AccountId")
-                        .IsRequired()
-                        .HasConstraintName("Transaction_account_id_fkey");
+                        .HasForeignKey("AccountId");
 
                     b.HasOne("Repositories.Entities.Payment", "Payment")
                         .WithOne("Transaction")
                         .HasForeignKey("Repositories.Entities.Transaction", "PaymentId")
-                        .IsRequired()
+                        .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("Transaction_payment_id_fkey");
 
-                    b.Navigation("Account");
+                    b.HasOne("Repositories.Entities.Wallet", "Wallet")
+                        .WithMany("Transactions")
+                        .HasForeignKey("WalletId")
+                        .IsRequired()
+                        .HasConstraintName("Transaction_wallet_id_fkey");
 
                     b.Navigation("Payment");
+
+                    b.Navigation("Wallet");
                 });
 
             modelBuilder.Entity("Repositories.Entities.TryOnHistory", b =>
@@ -2137,6 +2999,18 @@ namespace Repositories.Migrations
                     b.Navigation("ReportType");
                 });
 
+            modelBuilder.Entity("Repositories.Entities.Wallet", b =>
+                {
+                    b.HasOne("Repositories.Entities.Account", "Account")
+                        .WithOne("Wallet")
+                        .HasForeignKey("Repositories.Entities.Wallet", "AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("Wallet_account_id_fkey");
+
+                    b.Navigation("Account");
+                });
+
             modelBuilder.Entity("Repositories.Entities.Wardrobe", b =>
                 {
                     b.HasOne("Repositories.Entities.Account", "Account")
@@ -2152,11 +3026,13 @@ namespace Repositories.Migrations
                 {
                     b.Navigation("AccountModels");
 
+                    b.Navigation("AccountSubscriptions");
+
                     b.Navigation("Avatars");
 
                     b.Navigation("Comments");
 
-                    b.Navigation("EventWinner");
+                    b.Navigation("EventWinners");
 
                     b.Navigation("Events");
 
@@ -2186,7 +3062,13 @@ namespace Repositories.Migrations
 
                     b.Navigation("Reactions");
 
-                    b.Navigation("RefreshToken");
+                    b.Navigation("ReceivedEscrows");
+
+                    b.Navigation("RefreshTokens");
+
+                    b.Navigation("SavedPosts");
+
+                    b.Navigation("SentEscrows");
 
                     b.Navigation("Transactions");
 
@@ -2196,11 +3078,25 @@ namespace Repositories.Migrations
 
                     b.Navigation("UserReports");
 
+                    b.Navigation("Wallet")
+                        .IsRequired();
+
                     b.Navigation("Wardrobe");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.Comment", b =>
+                {
+                    b.Navigation("Reactions");
+
+                    b.Navigation("Replies");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Event", b =>
                 {
+                    b.Navigation("EventExperts");
+
+                    b.Navigation("Images");
+
                     b.Navigation("Posts");
 
                     b.Navigation("PrizeEvents");
@@ -2208,7 +3104,12 @@ namespace Repositories.Migrations
 
             modelBuilder.Entity("Repositories.Entities.ExpertProfile", b =>
                 {
-                    b.Navigation("ExpertFile");
+                    b.Navigation("ExpertRequests");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.Feature", b =>
+                {
+                    b.Navigation("PackageFeatures");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Group", b =>
@@ -2236,9 +3137,20 @@ namespace Repositories.Migrations
                     b.Navigation("PinnedMessages");
                 });
 
+            modelBuilder.Entity("Repositories.Entities.Order", b =>
+                {
+                    b.Navigation("EscrowSession");
+
+                    b.Navigation("OrderDetails");
+                });
+
             modelBuilder.Entity("Repositories.Entities.Package", b =>
                 {
+                    b.Navigation("PackageFeatures");
+
                     b.Navigation("Payments");
+
+                    b.Navigation("Subscriptions");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Payment", b =>
@@ -2250,11 +3162,15 @@ namespace Repositories.Migrations
                 {
                     b.Navigation("Comments");
 
+                    b.Navigation("ExpertRatings");
+
                     b.Navigation("Images");
 
                     b.Navigation("PostVector");
 
                     b.Navigation("Reactions");
+
+                    b.Navigation("Saves");
 
                     b.Navigation("Scoreboard");
 
@@ -2263,13 +3179,17 @@ namespace Repositories.Migrations
 
             modelBuilder.Entity("Repositories.Entities.PrizeEvent", b =>
                 {
-                    b.Navigation("EventWinner")
-                        .IsRequired();
+                    b.Navigation("EventWinners");
                 });
 
             modelBuilder.Entity("Repositories.Entities.ReportType", b =>
                 {
                     b.Navigation("UserReports");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.Wallet", b =>
+                {
+                    b.Navigation("Transactions");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Wardrobe", b =>

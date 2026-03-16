@@ -1,14 +1,14 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Services.Implements.ExpertsService.ExpertFileImp;
+using Services.Implements.ExpertsService.ExpertRequestImp;
 
 namespace WebAPIs.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/expert-file")]
     [ApiController]
     public class ExpertFileController : ControllerBase
     {
-        private readonly IExpertFileService service;
-        public ExpertFileController(IExpertFileService service)
+        private readonly IExpertRequestService service;
+        public ExpertFileController(IExpertRequestService service)
         {
             this.service = service;
         }

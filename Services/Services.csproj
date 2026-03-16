@@ -16,6 +16,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.9" />
     <PackageReference Include="Microsoft.AspNetCore.Http.Features" Version="5.0.17" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Core" Version="2.3.9" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.10" />
     <PackageReference Include="Microsoft.AspNetCore.SignalR.Core" Version="1.2.9" />
     <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.2" />
     <PackageReference Include="RabbitMQ.Client" Version="6.8.1" />

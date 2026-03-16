@@ -15,7 +15,7 @@ namespace Repositories.Repos.ExpertProfileRepos
         public async Task<IEnumerable<ExpertProfile>> GetAllAsync()
         {
             return await _db.ExpertProfiles
-                .Include(p => p.ExpertFile)
+                .Include(p => p.ExpertRequests)
                 .ToListAsync();
         }
 
@@ -24,7 +24,7 @@ namespace Repositories.Repos.ExpertProfileRepos
         {
             return await _db.ExpertProfiles
                 .Include(p => p.Account)
-                .Include(p => p.ExpertFile)
+                .Include(p => p.ExpertRequests)
                 .FirstOrDefaultAsync(p => p.ExpertProfileId == id);
         }
 

@@ -1,0 +1,21 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Repositories.Entities
+{
+    public partial class Wallet
+    {
+        public int WalletId { get; set; }
+        public int AccountId { get; set; }
+        public decimal Balance { get; set; }
+        public decimal LockedBalance { get; set; }
+        public string? Currency { get; set; }
+        public DateTime UpdatedAt { get; set; }
+
+        public virtual Account Account { get; set; } = null!;
+        public virtual ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();
+    }
+}

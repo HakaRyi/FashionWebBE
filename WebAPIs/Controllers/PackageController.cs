@@ -1,18 +1,18 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Services.Implements.PackageCoinImp;
+using Services.Implements.PackageImp;
 using Services.Request.PackageReq;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
 namespace WebAPIs.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/package")]
     [ApiController]
     public class PackageController : ControllerBase
     {
-        private readonly IPackageCoinService _packageCoinService;
-        public PackageController(IPackageCoinService packageCoinService)
+        private readonly IPackageService _packageCoinService;
+        public PackageController(IPackageService packageCoinService)
         {
             _packageCoinService = packageCoinService;
         }
