@@ -1,12 +1,12 @@
 ﻿namespace Repositories.Entities;
 
-public partial class Group
+public partial class  Group
 {
     public int GroupId { get; set; }
 
     public string? Name { get; set; }
 
-    public bool? IsGroup { get; set; }
+    public bool? IsGroup { get; set; } = true; // true cho group, false cho 1-1 chat
 
     public int? CreateBy { get; set; }
 

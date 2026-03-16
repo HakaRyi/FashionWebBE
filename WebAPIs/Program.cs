@@ -61,6 +61,10 @@ using Services.Implements.ModelImp;
 using Repositories.Repos.ModelRepos;
 using Repositories.Repos.TryOn;
 using WebAPIs.Services;
+using Repositories.Repos.ChatRepos;
+using Repo;
+using Services.Implements.ChatImp;
+using Repositories.Repos.GroupRepos;
 
 
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
@@ -139,6 +143,9 @@ builder.Services.AddScoped<IEventExpertRepository, EventExpertRepository>();
 builder.Services.AddScoped<IExpertRatingRepository, ExpertRatingRepository>();
 builder.Services.AddScoped<IScoreboardRepository, ScoreboardRepository>();
 builder.Services.AddScoped<IEventWinnerRepository, EventWinnerRepository>();
+builder.Services.AddScoped<IChatRepository, ChatRepository>();
+builder.Services.AddScoped<IGroupRepository, GroupRepository>();
+builder.Services.AddScoped<IPhotoRepository, PhotoRepository>();
 
 
 
@@ -153,6 +160,8 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IAiService, AiService>();
 builder.Services.AddScoped<IModelService, ModelService>();
 builder.Services.AddScoped<ITryOnHistoryService, TryOnHistoryService>();
+builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IGroupService, GroupService>();
 //builder.Services.AddScoped<IFileService, LocalFileService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IWalletService, WalletService>();

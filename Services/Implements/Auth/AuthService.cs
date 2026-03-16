@@ -4,6 +4,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using Repositories.Entities;
 using Repositories.Repos.AccountRepos;
+using Repositories.Repos.WalletRepos;
 using Repositories.Repos.WardrobeRepos;
 using Services.Helpers;
 using Services.Request.AccountReq;
@@ -24,6 +25,7 @@ namespace Services.Implements.Auth
         private readonly EmailService _emailService;
         private readonly IAccountRepository _accountRepository;
         private readonly IHttpContextAccessor _httpContextAccessor;
+        private readonly IWalletRepository _walletRepository;
 
         public AuthService(
             UserManager<Account> userManager,
@@ -32,7 +34,8 @@ namespace Services.Implements.Auth
             IAccountRepository accountRepository,
             IConfiguration configuration,
             EmailService emailService,
-            IHttpContextAccessor httpContextAccessor)
+            IHttpContextAccessor httpContextAccessor,
+            IWalletRepository walletRepository)
         {
             _userManager = userManager;
             _roleManager = roleManager;
@@ -41,6 +44,7 @@ namespace Services.Implements.Auth
             _configuration = configuration;
             _emailService = emailService;
             _httpContextAccessor = httpContextAccessor;
+            _walletRepository = walletRepository;
         }
 
         #region Helper Methods
@@ -98,7 +102,14 @@ namespace Services.Implements.Auth
             }
 
             await _userManager.AddToRoleAsync(newAccount, "User");
-
+            await _walletRepository.CreateWalletAsync(new Wallet
+            {
+                AccountId = newAccount.Id,
+                Balance = 0,
+                LockedBalance = 0,
+                UpdatedAt = DateTime.UtcNow,
+                Currency = "VND"
+            });
             try
             {
                 await _emailService.SendVerificationEmail(request.Email, verificationCode);
