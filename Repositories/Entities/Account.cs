@@ -46,6 +46,8 @@ public partial class Account : IdentityUser<int>
 
     public virtual ICollection<Post> Posts { get; set; } = new List<Post>();
 
+    public ICollection<PostSave> SavedPosts { get; set; } = new List<PostSave>();
+
     public virtual ICollection<Reaction> Reactions { get; set; } = new List<Reaction>();
 
     public virtual RefreshToken? RefreshToken { get; set; }

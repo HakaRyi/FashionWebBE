@@ -1,22 +1,24 @@
-﻿using Repositories.Entities;
-using Services.Request.CommentReq;
-using Services.Response.CommentResp;
+﻿using Repositories.Dto.Social.Comment;
+using Repositories.Dto.Social.Post;
 
 namespace Services.Implements.SocialImp
 {
     public interface ISocialService
     {
-        // ===== LIKE =====
-        Task<bool> ToggleLikeAsync(int userId, int postId);
-        Task<bool> IsLikedAsync(int userId, int postId);
-        Task<int> GetLikeCountAsync(int postId);
+        Task<PagedCommentsResponseDto> GetCommentsAsync(int userId, int postId, int skip, int take);
 
-        // ===== COMMENT =====
-        Task<int> CreateCommentAsync(CommentRequest request, int userId, int postId);
-        Task<int> UpdateCommentAsync(int commentId, int userId, CommentRequest request);
-        Task<bool> DeleteCommentAsync(int commentId, int userId);
-        Task<Comment?> GetCommentByIdAsync(int commentId);
-        Task<List<CommentResponse>> GetCommentsByPostIdAsync(int postId);
-        Task<int> GetCommentCountAsync(int postId);
+        Task<CommentRepliesResponseDto> GetRepliesAsync(int userId, int parentCommentId, int skip, int take);
+
+        Task<CommentDto> CreateCommentAsync(int userId, int postId, CreateCommentRequestDto dto);
+
+        Task<CreateReplyResultDto> ReplyCommentAsync(int userId, int parentCommentId, CreateReplyDto dto);
+
+        Task UpdateCommentAsync(int commentId, int userId, CommentRequest request);
+
+        Task DeleteCommentAsync(int commentId, int userId);
+
+        Task<PostReactionResultDto> TogglePostReactionAsync(int userId, int postId);
+
+        Task<CommentReactionResultDto> ToggleCommentReactionAsync(int userId, int commentId);
     }
 }

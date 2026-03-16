@@ -4,15 +4,13 @@
     {
         public const string Draft = "Draft";
         public const string Verifying = "Verifying";
-        public const string PendingAdmin = "PendingAdmin";
         public const string Published = "Published";
-        public const string Rejected = "Rejected";
+        public const string Rejected = "Rejected";      // AI reject hc admin khóa bài
 
         public static readonly List<string> AllStatuses = new()
         {
             Draft,
             Verifying,
-            PendingAdmin,
             Published,
             Rejected
         };
@@ -21,5 +19,7 @@
         {
             return AllStatuses.Contains(status);
         }
+
+        // 1 bài chỉ public khi post.Status == PostStatus.Published && post.Visibility == PostVisibility.Visible
     }
 }

@@ -1,87 +1,37 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Repositories.Constants;
 using Repositories.Data;
-using Repositories.Dto.Response;
+using Repositories.Dto.Common;
+using Repositories.Dto.Social.Post;
 using Repositories.Entities;
 
 namespace Repositories.Repos.PostRepos
 {
     public class PostRepository : IPostRepository
     {
-        private readonly FashionDbContext _context;
+        private readonly FashionDbContext _db;
 
-        public PostRepository(FashionDbContext context)
+        public PostRepository(FashionDbContext db)
         {
-            _context = context;
+            _db = db;
         }
 
         public async Task<Post?> GetByIdAsync(int postId)
         {
-            return await _context.Posts
-                .AsNoTracking()
-                .Include(p => p.Images)
-                .Include(p => p.Account)
-                    .ThenInclude(a => a.Avatars)
-                .Include(p => p.Event)
-                .Include(p => p.Comments)
+            return await _db.Posts
                 .FirstOrDefaultAsync(p => p.PostId == postId);
         }
 
-        public async Task<List<Post>> GetAllPublishedAsync()
-        {
-            return await _context.Posts
-                .AsNoTracking()
-                .Include(p => p.Images)
-                .Include(p => p.Account)
-                    .ThenInclude(a => a.Avatars)
-                .Include(p => p.Event)
-                .Where(p => p.Status == PostStatus.Published)
-                .OrderByDescending(p => p.CreatedAt)
-                .ToListAsync();
-        }
-
-        public async Task<List<Post>> GetAllByUserAsync(int userId)
-        {
-            return await _context.Posts
-                .AsNoTracking()
-                .Include(p => p.Images)
-                .Include(p => p.Account)
-                    .ThenInclude(a => a.Avatars)
-                .Include(p => p.Event)
-                .Where(p => p.AccountId == userId)
-                .OrderByDescending(p => p.CreatedAt)
-                .ToListAsync();
-        }
-
-        public async Task<List<Post>> GetFeedByCursorAsync(DateTime? cursor, int pageSize)
-        {
-            var query = _context.Posts
-                .AsNoTracking()
-                .Include(p => p.Images)
-                .Include(p => p.Account)
-                    .ThenInclude(a => a.Avatars)
-                .Include(p => p.Event)
-                .Where(p => p.Status == PostStatus.Published);
-
-            if (cursor.HasValue)
-            {
-                query = query.Where(p => p.CreatedAt < cursor.Value);
-            }
-
-            return await query
-                .OrderByDescending(p => p.CreatedAt)
-                .Take(pageSize)
-                .ToListAsync();
-        }
-
-        public async Task<List<PostResponse>> GetFeedWithSocialAsync(
-            int userId,
+        public async Task<List<PostFeedDto>> GetFeedWithSocialAsync(
+            int viewerId,
             DateTime? cursor,
             int pageSize)
         {
-            var query = _context.Posts
+            var query = _db.Posts
                 .AsNoTracking()
-                .Where(p => p.Status == PostStatus.Published);
+                .Where(p =>
+                    p.Status == PostStatus.Published &&
+                    p.Visibility == PostVisibility.Visible);
 
             if (cursor.HasValue)
             {
@@ -91,163 +41,304 @@ namespace Repositories.Repos.PostRepos
             return await query
                 .OrderByDescending(p => p.CreatedAt)
                 .Take(pageSize)
-                .Select(p => new PostResponse
+                .Select(p => new PostFeedDto
                 {
                     PostId = p.PostId,
-
-                    // USER
-                    UserName = p.Account.UserName,
+                    AccountId = p.AccountId,
+                    UserName = p.Account.UserName!,
 
                     AvatarUrl = p.Account.Avatars
                         .OrderByDescending(a => a.CreatedAt)
                         .Select(a => a.ImageUrl)
                         .FirstOrDefault(),
 
-                    // EVENT
-                    EventId = p.EventId,
-                    EventName = p.Event.Title,
-
-                    // POST
                     Title = p.Tittle,
                     Content = p.Content,
 
-                    ImageUrls = p.Images
+                    Images = p.Images
                         .OrderBy(i => i.CreatedAt)
                         .Select(i => i.ImageUrl)
                         .ToList(),
 
-                    IsExpertPost = p.IsExpertPost,
+                    LikeCount = p.LikeCount ?? 0,
+                    CommentCount = p.CommentCount ?? 0,
+                    ShareCount = p.ShareCount ?? 0,
+
+                    CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
                     Status = p.Status,
+                    Visibility = p.Visibility,
 
-                    Score = p.Score,
-                    ShareCount = p.ShareCount,
+                    IsLiked = _db.Reactions.Any(r =>
+                        r.PostId == p.PostId &&
+                        r.AccountId == viewerId),
 
-                    CreatedAt = p.CreatedAt,
-                    UpdatedAt = p.UpdatedAt,
-
-                    // SOCIAL
-                    LikeCount = _context.Reactions
-                        .Count(r => r.PostId == p.PostId),
-
-                    CommentCount = _context.Comments
-                        .Count(c => c.PostId == p.PostId),
-
-                    IsLiked = _context.Reactions
-                        .Any(r => r.PostId == p.PostId && r.AccountId == userId)
+                    IsSaved = _db.PostSaves.Any(s =>
+                        s.PostId == p.PostId &&
+                        s.AccountId == viewerId)
                 })
                 .ToListAsync();
         }
 
-        public async Task<List<PostResponse>> GetPostsByUserAsync(int userId, int pageSize)
+        public async Task<PostDetailDto?> GetPostDetailAsync(
+            int postId,
+            int viewerId)
         {
-            return await _context.Posts
+            return await _db.Posts
                 .AsNoTracking()
-                .Where(p => p.AccountId == userId && p.Status == PostStatus.Published)
+                .Where(p =>
+                    p.PostId == postId &&
+                    (
+                        p.AccountId == viewerId ||
+                        (
+                            p.Status == PostStatus.Published &&
+                            p.Visibility == PostVisibility.Visible
+                        )
+                    ))
+                .Select(p => new PostDetailDto
+                {
+                    PostId = p.PostId,
+                    AccountId = p.AccountId,
+                    UserName = p.Account.UserName!,
+
+                    AvatarUrl = p.Account.Avatars
+                        .OrderByDescending(a => a.CreatedAt)
+                        .Select(a => a.ImageUrl)
+                        .FirstOrDefault(),
+
+                    Title = p.Tittle,
+                    Content = p.Content,
+
+                    Images = p.Images
+                        .OrderBy(i => i.CreatedAt)
+                        .Select(i => i.ImageUrl)
+                        .ToList(),
+
+                    LikeCount = p.LikeCount ?? 0,
+                    CommentCount = p.CommentCount ?? 0,
+                    ShareCount = p.ShareCount ?? 0,
+
+                    IsLiked = _db.Reactions.Any(r =>
+                        r.PostId == p.PostId &&
+                        r.AccountId == viewerId),
+
+                    IsSaved = _db.PostSaves.Any(s =>
+                        s.PostId == p.PostId &&
+                        s.AccountId == viewerId),
+
+                    CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
+
+                    Comments = new List<Dto.Social.Comment.CommentDto>()
+                })
+                .FirstOrDefaultAsync();
+        }
+
+        public async Task<PagedResultDto<MyPostDto>> GetMyPostsPagedAsync(
+            int ownerId,
+            int page,
+            int pageSize)
+        {
+            var query = _db.Posts
+                .AsNoTracking()
+                .Where(p => p.AccountId == ownerId);
+
+            var total = await query.CountAsync();
+
+            var items = await query
                 .OrderByDescending(p => p.CreatedAt)
+                .Skip((page - 1) * pageSize)
                 .Take(pageSize)
-                .Select(p => new PostResponse
+                .Select(p => new MyPostDto
                 {
                     PostId = p.PostId,
-
-                    UserName = p.Account.UserName,
+                    AccountId = p.AccountId,
+                    UserName = p.Account.UserName!,
 
                     AvatarUrl = p.Account.Avatars
                         .OrderByDescending(a => a.CreatedAt)
                         .Select(a => a.ImageUrl)
                         .FirstOrDefault(),
 
-                    EventId = p.EventId,
-                    EventName = p.Event.Title,
-
                     Title = p.Tittle,
                     Content = p.Content,
 
-                    ImageUrls = p.Images
+                    Images = p.Images
                         .OrderBy(i => i.CreatedAt)
                         .Select(i => i.ImageUrl)
                         .ToList(),
 
-                    IsExpertPost = p.IsExpertPost,
+                    LikeCount = p.LikeCount ?? 0,
+                    CommentCount = p.CommentCount ?? 0,
+                    ShareCount = p.ShareCount ?? 0,
+
+                    CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
+
                     Status = p.Status,
+                    Visibility = p.Visibility,
 
-                    Score = p.Score,
-                    ShareCount = p.ShareCount,
+                    IsLiked = _db.Reactions.Any(r =>
+                        r.PostId == p.PostId &&
+                        r.AccountId == ownerId),
 
-                    LikeCount = _context.Reactions.Count(r => r.PostId == p.PostId),
-                    CommentCount = _context.Comments.Count(c => c.PostId == p.PostId),
+                    IsSaved = _db.PostSaves.Any(s =>
+                        s.PostId == p.PostId &&
+                        s.AccountId == ownerId),
 
-                    CreatedAt = p.CreatedAt,
-                    UpdatedAt = p.UpdatedAt
+                    IsOwner = true,
+                    CanEdit = p.Status != PostStatus.Verifying
+                           && p.Status != PostStatus.Rejected,
+                    CanDelete = true,
+                    CanHide = p.Visibility == PostVisibility.Visible
+                           && p.Status != PostStatus.Rejected,
+                    CanUnhide = p.Visibility == PostVisibility.Hidden
+                             && p.Status != PostStatus.Rejected,
+                    IsPubliclyVisible = p.Status == PostStatus.Published
+                                     && p.Visibility == PostVisibility.Visible
                 })
                 .ToListAsync();
+
+            return new PagedResultDto<MyPostDto>
+            {
+                Items = items,
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = total,
+                HasMore = (page * pageSize) < total
+            };
         }
 
-        public async Task<List<PostResponse>> GetTrendingPostsAsync(int limit)
+        public async Task<PagedResultDto<PostFeedDto>> GetUserPublicPostsPagedAsync(
+            int ownerId,
+            int? viewerId,
+            int page,
+            int pageSize)
         {
-            return await _context.Posts
+            var query = _db.Posts
                 .AsNoTracking()
-                .Where(p => p.Status == PostStatus.Published)
-                .Select(p => new
-                {
-                    Post = p,
-                    LikeCount = _context.Reactions.Count(r => r.PostId == p.PostId),
-                    CommentCount = _context.Comments.Count(c => c.PostId == p.PostId)
-                })
-                .OrderByDescending(x =>
-                    (x.LikeCount * 2) +
-                    (x.CommentCount * 3) +
-                    (x.Post.ShareCount * 5))
-                .Take(limit)
-                .Select(x => new PostResponse
-                {
-                    PostId = x.Post.PostId,
+                .Where(p =>
+                    p.AccountId == ownerId &&
+                    p.Status == PostStatus.Published &&
+                    p.Visibility == PostVisibility.Visible);
 
-                    UserName = x.Post.Account.UserName,
+            var total = await query.CountAsync();
 
-                    AvatarUrl = x.Post.Account.Avatars
+            var items = await query
+                .OrderByDescending(p => p.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(p => new PostFeedDto
+                {
+                    PostId = p.PostId,
+                    AccountId = p.AccountId,
+                    UserName = p.Account.UserName!,
+
+                    AvatarUrl = p.Account.Avatars
                         .OrderByDescending(a => a.CreatedAt)
                         .Select(a => a.ImageUrl)
                         .FirstOrDefault(),
 
-                    EventId = x.Post.EventId,
-                    EventName = x.Post.Event.Title,
+                    Title = p.Tittle,
+                    Content = p.Content,
 
-                    Title = x.Post.Tittle,
-                    Content = x.Post.Content,
-
-                    ImageUrls = x.Post.Images
+                    Images = p.Images
                         .OrderBy(i => i.CreatedAt)
                         .Select(i => i.ImageUrl)
                         .ToList(),
 
-                    IsExpertPost = x.Post.IsExpertPost,
-                    Status = x.Post.Status,
+                    LikeCount = p.LikeCount ?? 0,
+                    CommentCount = p.CommentCount ?? 0,
+                    ShareCount = p.ShareCount ?? 0,
 
-                    Score = x.Post.Score,
-                    ShareCount = x.Post.ShareCount,
+                    CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
 
-                    LikeCount = x.LikeCount,
-                    CommentCount = x.CommentCount,
+                    Status = p.Status,
+                    Visibility = p.Visibility,
 
-                    CreatedAt = x.Post.CreatedAt,
-                    UpdatedAt = x.Post.UpdatedAt
+                    IsLiked = viewerId.HasValue && _db.Reactions.Any(r =>
+                        r.PostId == p.PostId &&
+                        r.AccountId == viewerId.Value),
+
+                    IsSaved = viewerId.HasValue && _db.PostSaves.Any(s =>
+                        s.PostId == p.PostId &&
+                        s.AccountId == viewerId.Value)
+                })
+                .ToListAsync();
+
+            return new PagedResultDto<PostFeedDto>
+            {
+                Items = items,
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = total,
+                HasMore = (page * pageSize) < total
+            };
+        }
+
+        public async Task<List<PostFeedDto>> GetTrendingPostsAsync(
+            int limit,
+            int viewerId)
+        {
+            return await _db.Posts
+                .AsNoTracking()
+                .Where(p =>
+                    p.Status == PostStatus.Published &&
+                    p.Visibility == PostVisibility.Visible)
+                .OrderByDescending(p =>
+                    (p.LikeCount ?? 0) * 2 +
+                    (p.CommentCount ?? 0) * 3 +
+                    (p.ShareCount ?? 0) * 5)
+                .Take(limit)
+                .Select(p => new PostFeedDto
+                {
+                    PostId = p.PostId,
+                    AccountId = p.AccountId,
+                    UserName = p.Account.UserName!,
+
+                    AvatarUrl = p.Account.Avatars
+                        .OrderByDescending(a => a.CreatedAt)
+                        .Select(a => a.ImageUrl)
+                        .FirstOrDefault(),
+
+                    Title = p.Tittle,
+                    Content = p.Content,
+
+                    Images = p.Images
+                        .OrderBy(i => i.CreatedAt)
+                        .Select(i => i.ImageUrl)
+                        .ToList(),
+
+                    LikeCount = p.LikeCount ?? 0,
+                    CommentCount = p.CommentCount ?? 0,
+                    ShareCount = p.ShareCount ?? 0,
+
+                    CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
+
+                    Status = p.Status,
+                    Visibility = p.Visibility,
+
+                    IsLiked = _db.Reactions.Any(r =>
+                        r.PostId == p.PostId &&
+                        r.AccountId == viewerId),
+
+                    IsSaved = _db.PostSaves.Any(s =>
+                        s.PostId == p.PostId &&
+                        s.AccountId == viewerId)
                 })
                 .ToListAsync();
         }
 
         public async Task AddAsync(Post post)
         {
-            await _context.Posts.AddAsync(post);
+            await _db.Posts.AddAsync(post);
         }
 
         public void Update(Post post)
         {
-            _context.Posts.Update(post);
+            _db.Posts.Update(post);
         }
 
         public void Delete(Post post)
         {
-            _context.Posts.Remove(post);
+            _db.Posts.Remove(post);
         }
     }
 }

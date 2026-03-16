@@ -8,7 +8,7 @@ using Repositories.Constants;
 using Repositories.Repos.PostRepos;
 using Repositories.UnitOfWork;
 using Services.RabbitMQ;
-using Services.Utils;
+using Services.Utils.AIDectection;
 using System.Text;
 using System.Text.Json;
 
@@ -20,8 +20,8 @@ namespace Services.Implements.BackgroundServices
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILogger<PostProcessingWorker> _logger;
 
-        private IConnection _connection;
-        private IModel _channel;
+        private IConnection? _connection;
+        private IModel? _channel;
 
         public PostProcessingWorker(
             IConfiguration config,
@@ -61,9 +61,12 @@ namespace Services.Implements.BackgroundServices
 
         protected override Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            if (_channel == null)
+                throw new InvalidOperationException("RabbitMQ channel is not initialized.");
+
             var consumer = new AsyncEventingBasicConsumer(_channel);
 
-            consumer.Received += async (model, ea) =>
+            consumer.Received += async (_, ea) =>
             {
                 try
                 {
@@ -72,17 +75,22 @@ namespace Services.Implements.BackgroundServices
 
                     var message = JsonSerializer.Deserialize<PostImageMessage>(json);
 
-                    if (message != null)
+                    if (message == null)
                     {
-                        await ProcessPostAsync(message);
+                        _logger.LogWarning("Received null/invalid PostImageMessage payload.");
+                        _channel.BasicAck(ea.DeliveryTag, false);
+                        return;
                     }
+
+                    await ProcessPostAsync(message, stoppingToken);
 
                     _channel.BasicAck(ea.DeliveryTag, false);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Error processing message");
-                    _channel.BasicNack(ea.DeliveryTag, false, true);
+                    _logger.LogError(ex,
+                        "Error processing post_image_queue message. Message will be retried, post remains Verifying.");
+                    _channel?.BasicNack(ea.DeliveryTag, false, true);
                 }
             };
 
@@ -94,7 +102,9 @@ namespace Services.Implements.BackgroundServices
             return Task.CompletedTask;
         }
 
-        private async Task ProcessPostAsync(PostImageMessage message)
+        private async Task ProcessPostAsync(
+            PostImageMessage message,
+            CancellationToken cancellationToken)
         {
             using var scope = _scopeFactory.CreateScope();
 
@@ -105,22 +115,56 @@ namespace Services.Implements.BackgroundServices
             var post = await postRepo.GetByIdAsync(message.PostId);
 
             if (post == null)
+            {
+                _logger.LogWarning("Post {PostId} not found during processing.", message.PostId);
                 return;
+            }
+
+            if (post.Status != PostStatus.Verifying)
+            {
+                _logger.LogInformation(
+                    "Skipping Post {PostId} because current status is {Status}, not Verifying.",
+                    post.PostId,
+                    post.Status);
+                return;
+            }
+
+            if (message.ImageUrls == null || message.ImageUrls.Count == 0)
+            {
+                post.Status = PostStatus.Rejected;
+                post.UpdatedAt = DateTime.UtcNow;
+
+                postRepo.Update(post);
+                await unitOfWork.SaveChangesAsync();
+
+                _logger.LogWarning(
+                    "Post {PostId} rejected because message contains no images.",
+                    post.PostId);
+                return;
+            }
 
             bool hasFashionItem = false;
 
             foreach (var url in message.ImageUrls)
             {
-                if (await aiService.DetectFashionItemsAsync(url))
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Nếu AI lỗi kỹ thuật thì exception sẽ văng ra ngoài,
+                // message bị retry và post vẫn giữ Verifying.
+                var detected = await aiService.DetectFashionItemsAsync(url);
+
+                if (detected)
                 {
                     hasFashionItem = true;
                     break;
                 }
             }
 
+            // Chỉ khi AI xử lý thành công toàn bộ mà không có exception
+            // mới quyết định Published / Rejected.
             post.Status = hasFashionItem
                 ? PostStatus.Published
-                : PostStatus.PendingAdmin;
+                : PostStatus.Rejected;
 
             post.UpdatedAt = DateTime.UtcNow;
 
@@ -135,8 +179,15 @@ namespace Services.Implements.BackgroundServices
 
         public override void Dispose()
         {
-            _channel?.Close();
-            _connection?.Close();
+            try
+            {
+                _channel?.Close();
+                _connection?.Close();
+            }
+            catch
+            {
+            }
+
             base.Dispose();
         }
     }

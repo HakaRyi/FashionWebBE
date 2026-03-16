@@ -1,4 +1,6 @@
-﻿namespace Repositories.Entities;
+﻿using Repositories.Constants;
+
+namespace Repositories.Entities;
 
 public partial class Post
 {
@@ -18,11 +20,15 @@ public partial class Post
 
     public bool? IsExpertPost { get; set; }
 
-    public string? Status { get; set; }
+    public string? Status { get; set; } = PostStatus.Draft;
+
+    public string Visibility { get; set; } = PostVisibility.Visible;
 
     public double? Score { get; set; }
 
     public int? LikeCount { get; set; }
+
+    public int? CommentCount { get; set; }
 
     public int? ShareCount { get; set; }
 
@@ -39,6 +45,8 @@ public partial class Post
     public virtual Scoreboard? Scoreboard { get; set; }
 
     public virtual ICollection<Reaction> Reactions { get; set; } = new List<Reaction>();
+
+    public ICollection<PostSave> Saves { get; set; } = new List<PostSave>();
 
     public virtual ICollection<UserReport> UserReports { get; set; } = new List<UserReport>();
 }

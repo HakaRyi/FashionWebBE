@@ -1,19 +1,53 @@
-﻿using Repositories.Dto.Response;
-using Services.Request.PostReq;
+﻿using Microsoft.AspNetCore.Http;
+using Repositories.Dto.Common;
+using Repositories.Dto.Social.Post;
 
 namespace Services.Implements.PostImp
 {
     public interface IPostService
     {
-        Task<PostResponse> CreatePostAsync(int accountId, CreatePostRequest request);
-        Task<List<PostResponse>> GetAllPostAsync();
-        Task<PostResponse?> GetPostByIdAsync(int postId);
-        Task<string> AdminCheckTheStatusPost(CheckPostRequest request, int id);
-        Task<List<PostResponse>> GetAllMyPostAsync(int userId);
-        Task<List<PostResponse>> GetFeedAsync(int userId, DateTime? cursor, int pageSize);
-        Task<List<PostResponse>> GetPostsByUserAsync(int userId, int pageSize);
-        Task<List<PostResponse>> GetTrendingPostsAsync(int limit);
-        Task<PostResponse> UpdatePostAsync(int postId, int accountId, UpdatePostRequest request);
-        Task DeletePostAsync(int postId);
+        Task<int> CreatePostAsync(
+            int accountId,
+            CreatePostDto dto,
+            List<IFormFile>? files);
+
+        Task UpdatePostAsync(
+            int postId,
+            int accountId,
+            UpdatePostDto dto);
+
+        Task DeletePostAsync(int postId, int accountId);
+
+        Task<List<PostFeedDto>> GetFeedAsync(
+            int userId,
+            DateTime? cursor,
+            int pageSize);
+
+        Task<PostDetailDto?> GetPostDetailAsync(
+            int postId,
+            int userId);
+
+        Task<PagedResultDto<MyPostDto>> GetMyPostsAsync(
+            int ownerId,
+            int page,
+            int pageSize);
+
+        Task<PagedResultDto<PostFeedDto>> GetUserPostsAsync(
+            int ownerId,
+            int? viewerId,
+            int page,
+            int pageSize);
+
+        Task<List<PostFeedDto>> GetTrendingPostsAsync(
+            int userId,
+            int limit);
+
+        Task<PostVisibilityResponseDto> HidePostAsync(
+            int postId,
+            int accountId);
+
+        Task<PostVisibilityResponseDto> UnhidePostAsync(
+            int postId,
+            int accountId);
     }
 }

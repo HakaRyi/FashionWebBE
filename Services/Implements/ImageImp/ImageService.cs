@@ -1,4 +1,4 @@
-﻿using Repositories.Dto.Response;
+﻿using Repositories.Dto.Social;
 using Repositories.Entities;
 using Repositories.Repos.ImageRepos;
 using Repositories.UnitOfWork;
