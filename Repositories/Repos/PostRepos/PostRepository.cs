@@ -15,6 +15,16 @@ namespace Repositories.Repos.PostRepos
             _context = context;
         }
 
+        public async Task<List<Post>> GetAllPostAsync()
+        {
+            return await _context.Posts
+                .Include(p => p.Images)
+                .Include(p => p.Account).ThenInclude(a => a.Avatars)
+                .Include(p => p.Event)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
+        }
+
         public async Task<Post?> GetByIdAsync(int postId)
         {
             return await _context.Posts
@@ -65,6 +75,17 @@ namespace Repositories.Repos.PostRepos
         public void Delete(Post post)
         {
             _context.Posts.Remove(post);
+        }
+
+        public async Task<List<Post>> GetAllPendingAdminPostAsync()
+        {
+            return await _context.Posts
+                .Include(p => p.Images)
+                .Include(p => p.Account).ThenInclude(a => a.Avatars)
+                .Include(p => p.Event)
+                .Where(p => p.Status == PostStatus.PendingAdmin)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
         }
     }
 }

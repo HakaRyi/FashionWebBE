@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Services.Implements.NotificationImp;
 using Services.Implements.PostImp;
+using Services.Request.NotificationReq;
 using Services.Request.PostReq;
 using System.Security.Claims;
 
@@ -11,10 +13,12 @@ namespace WebAPIs.Controllers
     public class PostController : ControllerBase
     {
         private readonly IPostService _postService;
+        private readonly INotificationService _notificationService;
 
-        public PostController(IPostService postService)
+        public PostController(IPostService postService, INotificationService notificationService)
         {
             _postService = postService;
+            _notificationService = notificationService;
         }
 
         [HttpPost]
@@ -125,5 +129,39 @@ namespace WebAPIs.Controllers
 
             return Ok(new { message = result });
         }
+
+        [HttpPut("admin/post-status/{id:int}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> AdminUpdatePostStatus([FromBody] string status, int id)
+        {
+            if (id <= 0)
+                return BadRequest(new { message = "Invalid post id." });
+
+            var result = await _postService.UpdatePostStatus(id, status);
+
+            if (result == 0)
+                return NotFound(new { message = result });
+
+            var post = await _postService.GetPostByIdAsync(id);
+            var adminIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            int adminId = int.TryParse(adminIdString, out int parsedId) ? parsedId : 0;
+
+            string title = status == "Published" ? "Bài viết đã được duyệt" : "Bài viết đã bị từ chối";
+            string content = $"Bài viết '{post.Title}' của bạn đã được chuyển sang trạng thái: {status}.";
+
+            SendNotificationRequest notificationRequest = new SendNotificationRequest
+            {
+                SenderId = adminId,
+                TargetUserId = post.AccountId,
+                Title = title,
+                Content = content,
+                Type = "PostStatusUpdate"
+            };
+
+            await _notificationService.SendNotificationAsync(notificationRequest);
+
+            return Ok(new { message = result });
+        }
+
     }
 }

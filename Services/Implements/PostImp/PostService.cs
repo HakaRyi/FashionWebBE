@@ -196,7 +196,7 @@ namespace Services.Implements.PostImp
         // ==============================
         public async Task<List<PostResponse>> GetAllPostAsync()
         {
-            var posts = await _postRepo.GetAllPublishedAsync();
+            var posts = await _postRepo.GetAllPostAsync();
             return posts.Select(MapToResponse).ToList();
         }
 
@@ -287,8 +287,40 @@ namespace Services.Implements.PostImp
                 AvatarUrl = post.Account?.Avatars?
                         .OrderByDescending(a => a.CreatedAt)
                         .FirstOrDefault()?.ImageUrl,
-                UserName = post.Account?.UserName
+                UserName = post.Account?.UserName,
+                AccountId = post.AccountId
             };
+        }
+        // ==============================
+        // ADMIN MODERATION
+        // ==============================
+        public async Task<List<PostResponse>> GetAllPendingAdminAsync()
+        {
+            List<Post> posts = await _postRepo.GetAllPendingAdminPostAsync();
+            return posts.Select(MapToResponse).ToList();
+        }
+
+        public async Task<int> UpdatePostStatus(int postId, string status)
+        {
+            try
+            {
+                Post post = await _postRepo.GetByIdAsync(postId);
+                if (post != null)
+                {
+                    post.Status = status;
+                    post.UpdatedAt = DateTime.UtcNow;
+                    var result = await _unitOfWork.SaveChangesAsync();
+                    return result;
+                }
+                else
+                {
+                    throw new KeyNotFoundException("Post not found");
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error updating post status: {ex.Message}");
+            }
         }
     }
 }

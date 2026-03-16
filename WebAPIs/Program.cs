@@ -11,13 +11,16 @@ using Repositories.Repos.ExpertFileRepos;
 using Repositories.Repos.ExpertProfileRepos;
 using Repositories.Repos.FollowRepos;
 using Repositories.Repos.ImageRepos;
-using Repositories.Repos.OutfitRepos;
 using Repositories.Repos.ItemRespos;
+using Repositories.Repos.ModelRepos;
+using Repositories.Repos.NotificationRepos;
+using Repositories.Repos.OutfitRepos;
 using Repositories.Repos.PackageCoinRepos;
 using Repositories.Repos.Payments;
 using Repositories.Repos.PostRepos;
 using Repositories.Repos.SocialRepos;
 using Repositories.Repos.TransactionRepos;
+using Repositories.Repos.TryOn;
 using Repositories.Repos.UserReportRepos;
 using Repositories.Repos.WardrobeRepos;
 using Repositories.UnitOfWork;
@@ -32,6 +35,8 @@ using Services.Implements.ExpertsService.ExpertFileImp;
 using Services.Implements.Follow;
 using Services.Implements.ImageImp;
 using Services.Implements.Items;
+using Services.Implements.ModelImp;
+using Services.Implements.NotificationImp;
 using Services.Implements.OutfitImp;
 using Services.Implements.PackageCoinImp;
 using Services.Implements.PaymentService;
@@ -47,10 +52,9 @@ using Services.Utils;
 using Services.Utils.AIDectection;
 using Services.Utils.CloundStorage;
 using Services.Utils.File;
+using Services.Utils.SignalR;
 using System.Text;
-using Services.Implements.ModelImp;
-using Repositories.Repos.ModelRepos;
-using Repositories.Repos.TryOn;
+using Microsoft.AspNetCore.SignalR;
 
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -128,6 +132,7 @@ builder.Services.AddScoped<IEventRepository, EventRepository>();
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IModelRepository, ModelRepository>();
 builder.Services.AddScoped<ITryOnHistoryRepository, TryOnHistoryRepository>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 
 
 
@@ -142,6 +147,7 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IAiService, AiService>();
 builder.Services.AddScoped<IModelService, ModelService>();
 builder.Services.AddScoped<ITryOnHistoryService, TryOnHistoryService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 //builder.Services.AddScoped<IFileService, LocalFileService>();
 builder.Services.AddScoped<IFileService>(sp =>
 {
@@ -188,6 +194,19 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(secretKey),
         ClockSkew = TimeSpan.Zero
     };
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/notificationHub"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 
 //-------------------------------------SWAGGER---------------------------------------//
@@ -228,6 +247,8 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod()
               .AllowAnyHeader());
 });
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
 
 var app = builder.Build();
 if (app.Environment.IsDevelopment())
@@ -236,6 +257,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 app.UseCors("AllowAll");
+app.MapHub<NotificationHub>("/notificationHub");
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
