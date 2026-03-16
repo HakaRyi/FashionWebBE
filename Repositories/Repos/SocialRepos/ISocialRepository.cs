@@ -4,18 +4,21 @@ namespace Repositories.Repos.SocialRepos
 {
     public interface ISocialRepository
     {
-        Task<int> CreateReact(Reaction reaction);
-        Task<bool> CheckIsLikedByUser(int userId, int postId);
-        Task<bool> CheckIsSharedByUser(int userId, int postId);
-        Task<List<Reaction>> GetAllReactionByPostId(int postId);
-        Task<Reaction> GetById(int reactId);
-        Task<Reaction> GetReactByAccIdAndPostId(int accId, int postId);
-        Task<int> UpdateReact(Reaction reaction);
-        Task<int> Comment(Comment comment);
-        Task<int> UpdateComment(Comment comment);
-        Task<bool> Delete(Comment comment);
-        Task<Comment> GetCommentById(int id);
-        Task<List<Comment>> GetAllCommentByPostId(int postId);
-        Task<bool> RemoveReaction(int reactId);
+        // ===== LIKE =====
+        Task<bool> IsLikedAsync(int userId, int postId);
+        Task<Reaction?> GetReactionAsync(int userId, int postId);
+        Task AddReactionAsync(Reaction reaction);
+        Task RemoveReactionAsync(Reaction reaction);
+        Task<int> CountReactionAsync(int postId);
+
+        // ===== COMMENT =====
+        Task AddCommentAsync(Comment comment);
+        Task UpdateCommentAsync(Comment comment);
+        Task DeleteCommentAsync(Comment comment);
+        Task<Comment?> GetCommentByIdAsync(int id);
+        Task<List<Comment>> GetCommentsByPostIdAsync(int postId);
+        Task<int> CountCommentAsync(int postId);
+
+        Task SaveChangesAsync();
     }
 }

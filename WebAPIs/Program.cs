@@ -42,6 +42,7 @@ using Services.Implements.ImageImp;
 using Services.Implements.Items;
 using Services.Implements.OutfitImp;
 using Services.Implements.PackageImp;
+using Repositories.Repos.OutfitRepos;
 using Services.Implements.PaymentService;
 using Services.Implements.PostImp;
 using Services.Implements.SocialImp;
@@ -65,6 +66,10 @@ using Repositories.Repos.ChatRepos;
 using Repo;
 using Services.Implements.ChatImp;
 using Repositories.Repos.GroupRepos;
+using Repositories.Repos.ReactionRepos;
+using Repositories.Repos.CommentReactionRepos;
+using Repositories.Repos.CommentRepos;
+using Repositories.Repos.PostSaveRepos;
 
 
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
@@ -127,6 +132,18 @@ builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IWardrobeRepository, WardrobeRepository>();
 builder.Services.AddScoped<IFollowRepository, FollowRepository>();
 builder.Services.AddScoped<IPostRepository, PostRepository>();
+
+builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddScoped<ICloudStorageService, CloudStorageService>();
+builder.Services.AddScoped<IAIDetectionService, AIDetectionService>();
+builder.Services.AddScoped<IAccountService, AccountService>();
+//builder.Services.AddScoped<IExpertFileService, ExpertFileService>();
+builder.Services.AddScoped<IUserReportService, UserReportService>();
+//builder.Services.AddScoped<IPackageCoinService, PackageCoinService>();
+builder.Services.AddScoped<ITransactionService, TransactionService>();
+builder.Services.AddScoped<ISocialService, SocialService>();
+builder.Services.AddScoped<IImageService, ImageService>();
+builder.Services.AddScoped<IItemRepository, ItemRepository>();
 builder.Services.AddScoped<IOutfitRepository, OutfitRepository>();
 builder.Services.AddScoped<IItemRepository, ItemRepository>();
 builder.Services.AddScoped<IEventRepository, EventRepository>();
@@ -149,6 +166,13 @@ builder.Services.AddScoped<IPhotoRepository, PhotoRepository>();
 
 
 
+builder.Services.AddScoped<IReactionRepository, ReactionRepository>();
+builder.Services.AddScoped<ICommentReactionRepository, CommentReactionRepository>();
+builder.Services.AddScoped<ICommentRepository, CommentRepository>();
+builder.Services.AddScoped<IPostSaveRepository, PostSaveRepository>();
+builder.Services.AddScoped<IUserReportRepository, UserReportRepository>();
+
+
 // Service Layer
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IFollowService, FollowService>();
@@ -162,11 +186,14 @@ builder.Services.AddScoped<IModelService, ModelService>();
 builder.Services.AddScoped<ITryOnHistoryService, TryOnHistoryService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IGroupService, GroupService>();
+builder.Services.AddScoped<IPostSaveService, PostSaveService>();
+builder.Services.AddScoped<IUserReportService, UserReportService>();
+
 //builder.Services.AddScoped<IFileService, LocalFileService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IWalletService, WalletService>();
 builder.Services.AddScoped<IPostService, PostService>();
-builder.Services.AddScoped<ICloudStorageService, CloundStorageService>();
+builder.Services.AddScoped<ICloudStorageService, CloudStorageService>();
 builder.Services.AddScoped<IAIDetectionService, AIDetectionService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IExpertRequestService, ExpertRequestService>();

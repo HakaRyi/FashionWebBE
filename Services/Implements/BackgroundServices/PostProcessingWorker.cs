@@ -1,13 +1,14 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Repositories.Constants;
 using Repositories.Repos.PostRepos;
 using Repositories.UnitOfWork;
 using Services.RabbitMQ;
-using Services.Utils;
+using Services.Utils.AIDectection;
 using System.Text;
 using System.Text.Json;
 
@@ -17,14 +18,20 @@ namespace Services.Implements.BackgroundServices
     {
         private readonly IConfiguration _config;
         private readonly IServiceScopeFactory _scopeFactory;
-        private IConnection _connection;
-        private IModel _channel;
-        //private readonly IUnitOfWork _unitOfWork;
+        private readonly ILogger<PostProcessingWorker> _logger;
 
-        public PostProcessingWorker(IConfiguration config, IServiceScopeFactory scopeFactory)
+        private IConnection? _connection;
+        private IModel? _channel;
+
+        public PostProcessingWorker(
+            IConfiguration config,
+            IServiceScopeFactory scopeFactory,
+            ILogger<PostProcessingWorker> logger)
         {
             _config = config;
             _scopeFactory = scopeFactory;
+            _logger = logger;
+
             InitializeRabbitMQ();
         }
 
@@ -35,75 +42,152 @@ namespace Services.Implements.BackgroundServices
                 HostName = _config["RabbitMQSettings:HostName"],
                 UserName = _config["RabbitMQSettings:UserName"],
                 Password = _config["RabbitMQSettings:Password"],
-                DispatchConsumersAsync = true
+                DispatchConsumersAsync = true,
+                AutomaticRecoveryEnabled = true
             };
+
             _connection = factory.CreateConnection();
             _channel = _connection.CreateModel();
-            _channel.QueueDeclare(queue: "post_image_queue", durable: true, exclusive: false, autoDelete: false, arguments: null);
-            _channel.BasicQos(prefetchSize: 0, prefetchCount: 1, global: false);
+
+            _channel.QueueDeclare(
+                queue: "post_image_queue",
+                durable: true,
+                exclusive: false,
+                autoDelete: false,
+                arguments: null);
+
+            _channel.BasicQos(0, 1, false);
         }
 
         protected override Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            if (_channel == null)
+                throw new InvalidOperationException("RabbitMQ channel is not initialized.");
+
             var consumer = new AsyncEventingBasicConsumer(_channel);
 
-            consumer.Received += async (model, ea) =>
+            consumer.Received += async (_, ea) =>
             {
-                var body = ea.Body.ToArray();
-                var messageJson = Encoding.UTF8.GetString(body);
-                var message = JsonSerializer.Deserialize<PostImageMessage>(messageJson);
-
-                if (message != null)
-                {
-                    await ProcessPostAsync(message);
-                }
-
-                _channel.BasicAck(deliveryTag: ea.DeliveryTag, multiple: false);
-            };
-
-            _channel.BasicConsume(queue: "post_image_queue", autoAck: false, consumer: consumer);
-            return Task.CompletedTask;
-        }
-
-        private async Task ProcessPostAsync(PostImageMessage message)
-        {
-            using (var scope = _scopeFactory.CreateScope())
-            {
-                var postRepo = scope.ServiceProvider.GetRequiredService<IPostRepository>();
-                var aiService = scope.ServiceProvider.GetRequiredService<IAIDetectionService>();
-
                 try
                 {
-                    var post = await postRepo.GetByIdAsync(message.PostId);
-                    if (post == null) return;
+                    var body = ea.Body.ToArray();
+                    var json = Encoding.UTF8.GetString(body);
 
-                    bool hasFashionItem = false;
+                    var message = JsonSerializer.Deserialize<PostImageMessage>(json);
 
-                    foreach (var url in message.ImageUrls)
+                    if (message == null)
                     {
-                        if (!hasFashionItem)
-                        {
-                            if (await aiService.DetectFashionItemsAsync(url)) hasFashionItem = true;
-                        }
+                        _logger.LogWarning("Received null/invalid PostImageMessage payload.");
+                        _channel.BasicAck(ea.DeliveryTag, false);
+                        return;
                     }
 
-                    post.Status = hasFashionItem ? PostStatus.Published : PostStatus.PendingAdmin;
-                    post.UpdatedAt = DateTime.UtcNow;
+                    await ProcessPostAsync(message, stoppingToken);
 
-                    using var _ = postRepo.Update(post);
-                    Console.WriteLine($"Processed Post {post.PostId}: {post.Status}");
+                    _channel.BasicAck(ea.DeliveryTag, false);
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Error processing Post {message.PostId}: {ex.Message}");
+                    _logger.LogError(ex,
+                        "Error processing post_image_queue message. Message will be retried, post remains Verifying.");
+                    _channel?.BasicNack(ea.DeliveryTag, false, true);
+                }
+            };
+
+            _channel.BasicConsume(
+                queue: "post_image_queue",
+                autoAck: false,
+                consumer: consumer);
+
+            return Task.CompletedTask;
+        }
+
+        private async Task ProcessPostAsync(
+            PostImageMessage message,
+            CancellationToken cancellationToken)
+        {
+            using var scope = _scopeFactory.CreateScope();
+
+            var postRepo = scope.ServiceProvider.GetRequiredService<IPostRepository>();
+            var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+            var aiService = scope.ServiceProvider.GetRequiredService<IAIDetectionService>();
+
+            var post = await postRepo.GetByIdAsync(message.PostId);
+
+            if (post == null)
+            {
+                _logger.LogWarning("Post {PostId} not found during processing.", message.PostId);
+                return;
+            }
+
+            if (post.Status != PostStatus.Verifying)
+            {
+                _logger.LogInformation(
+                    "Skipping Post {PostId} because current status is {Status}, not Verifying.",
+                    post.PostId,
+                    post.Status);
+                return;
+            }
+
+            if (message.ImageUrls == null || message.ImageUrls.Count == 0)
+            {
+                post.Status = PostStatus.Rejected;
+                post.UpdatedAt = DateTime.UtcNow;
+
+                postRepo.Update(post);
+                await unitOfWork.SaveChangesAsync();
+
+                _logger.LogWarning(
+                    "Post {PostId} rejected because message contains no images.",
+                    post.PostId);
+                return;
+            }
+
+            bool hasFashionItem = false;
+
+            foreach (var url in message.ImageUrls)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Nếu AI lỗi kỹ thuật thì exception sẽ văng ra ngoài,
+                // message bị retry và post vẫn giữ Verifying.
+                var detected = await aiService.DetectFashionItemsAsync(url);
+
+                if (detected)
+                {
+                    hasFashionItem = true;
+                    break;
                 }
             }
+
+            // Chỉ khi AI xử lý thành công toàn bộ mà không có exception
+            // mới quyết định Published / Rejected.
+            post.Status = hasFashionItem
+                ? PostStatus.Published
+                : PostStatus.Rejected;
+
+            post.UpdatedAt = DateTime.UtcNow;
+
+            postRepo.Update(post);
+            await unitOfWork.SaveChangesAsync();
+
+            _logger.LogInformation(
+                "Processed Post {PostId} -> {Status}",
+                post.PostId,
+                post.Status);
         }
 
         public override void Dispose()
         {
-            _channel.Close();
-            _connection.Close();
+            try
+            {
+                _channel?.Close();
+                _connection?.Close();
+            }
+            catch
+            {
+            }
+
             base.Dispose();
         }
     }
