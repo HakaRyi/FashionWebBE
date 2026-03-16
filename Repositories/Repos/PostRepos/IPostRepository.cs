@@ -8,6 +8,7 @@ namespace Repositories.Repos.PostRepos
     {
         Task<Post?> GetByIdAsync(int postId);
 
+
         Task<List<PostFeedDto>> GetFeedWithSocialAsync(
             int viewerId,
             DateTime? cursor,
@@ -31,6 +32,13 @@ namespace Repositories.Repos.PostRepos
         Task<List<PostFeedDto>> GetTrendingPostsAsync(
             int limit,
             int viewerId);
+
+
+        Task<List<Post>> GetAllPublishedAsync();
+        Task<List<Post>> GetAllPostAsync();
+        Task<List<Post>> GetAllByUserAsync(int userId);
+        Task<IEnumerable<Post>> GetPostsByEventIdAsync(int eventId);
+        Task<List<Post>> GetAllPendingAdminPostAsync();
 
         Task AddAsync(Post post);
 

@@ -313,6 +313,7 @@ namespace Repositories.Migrations
                     notification_id = table.Column<int>(type: "integer", nullable: false)
                         .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     sender_id = table.Column<int>(type: "integer", nullable: false),
+                    target_user_id = table.Column<int>(type: "integer", nullable: true),
                     title = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
                     content = table.Column<string>(type: "text", nullable: true),
                     image_url = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true),

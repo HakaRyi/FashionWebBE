@@ -1,10 +1,15 @@
-﻿namespace Repositories.Entities;
+﻿using System.ComponentModel.DataAnnotations.Schema;
+
+namespace Repositories.Entities;
 
 public partial class Notification
 {
     public int NotificationId { get; set; }
 
     public int SenderId { get; set; }
+
+    [Column("target_user_id")]
+    public int? TargetUserId { get; set; }
 
     public string? Title { get; set; }
 

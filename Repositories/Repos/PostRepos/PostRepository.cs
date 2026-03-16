@@ -16,6 +16,16 @@ namespace Repositories.Repos.PostRepos
             _db = db;
         }
 
+        public async Task<List<Post>> GetAllPostAsync()
+        {
+            return await _db.Posts
+                .Include(p => p.Images)
+                .Include(p => p.Account).ThenInclude(a => a.Avatars)
+                .Include(p => p.Event)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
+        }
+
         public async Task<Post?> GetByIdAsync(int postId)
         {
             return await _db.Posts
@@ -340,5 +350,43 @@ namespace Repositories.Repos.PostRepos
         {
             _db.Posts.Remove(post);
         }
+
+        public async Task<List<Post>> GetAllPendingAdminPostAsync()
+        {
+            return await _db.Posts
+                .Include(p => p.Images)
+                .Include(p => p.Account).ThenInclude(a => a.Avatars)
+                .Include(p => p.Event)
+                .Where(p => p.Status == PostStatus.PendingAdmin)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<List<Post>> GetAllPublishedAsync()
+        {
+            return await _db.Posts
+                .Include(p => p.Images)
+                .Include(p => p.Account).ThenInclude(a => a.Avatars)
+                .Include(p => p.Event)
+                .Where(p => p.Status == PostStatus.Published)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<List<Post>> GetAllByUserAsync(int userId)
+        {
+            return await _db.Posts
+                .Include(p => p.Images)
+                .Include(p => p.Account).ThenInclude(a => a.Avatars)
+                .Include(p => p.Event)
+                .Where(p => p.AccountId == userId)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Post>> GetPostsByEventIdAsync(int eventId)
+        => await _db.Posts.Where(p => p.EventId == eventId)
+                          .OrderByDescending(p => p.Score)
+                          .ToListAsync();
     }
 }

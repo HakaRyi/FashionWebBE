@@ -13,7 +13,7 @@ using Repositories.Data;
 namespace Repositories.Migrations
 {
     [DbContext(typeof(FashionDbContext))]
-    [Migration("20260316162116_InitialCreate_AfterMerge")]
+    [Migration("20260316195857_InitialCreate_AfterMerge")]
     partial class InitialCreate_AfterMerge
     {
         /// <inheritdoc />
@@ -1314,6 +1314,10 @@ namespace Repositories.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("status");
+
+                    b.Property<int?>("TargetUserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("target_user_id");
 
                     b.Property<string>("Title")
                         .HasMaxLength(255)
