@@ -15,31 +15,34 @@ namespace Repositories.Repos.TransactionRepos
         public async Task<Transaction?> GetById(int id)
         {
             return await _db.Transactions
-                .Include(t => t.Account)
+                .Include(t => t.Wallet)
+                    .ThenInclude(w => w.Account)
                 .FirstOrDefaultAsync(tr => tr.TransactionId == id);
         }
 
         public async Task<List<Transaction>> GetTransactions()
         {
             return await _db.Transactions
-                .Include(t => t.Account)
+                .Include(t => t.Wallet)
+                    .ThenInclude(w => w.Account)
+                .OrderByDescending(t => t.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task AddAsync(Transaction transaction)
+        {
+            await _db.Transactions.AddAsync(transaction);
+        }
+
+        public async Task<List<Transaction>> GetHistoryByWalletIdAsync(int walletId)
+            => await _db.Transactions
+                .Where(t => t.WalletId == walletId)
                 .OrderByDescending(t => t.CreatedAt)
                 .ToListAsync();
 
-        }
-
-        public async Task AddAsync(Transaction transaction) => await _db.Transactions.AddAsync(transaction);
-
-        public async Task<IEnumerable<Transaction>> GetHistoryByAccountIdAsync(int accountId)
-            => await _db.Transactions.Where(t => t.AccountId == accountId).OrderByDescending(t => t.CreatedAt).ToListAsync();
-
-        public async Task<int> GetCurrentBalanceAsync(int accountId)
-        {
-            var lastTransaction = await _db.Transactions
-                .Where(t => t.AccountId == accountId && t.Status == "Success")
-                .OrderByDescending(t => t.CreatedAt)
-                .FirstOrDefaultAsync();
-            return lastTransaction?.BalanceAfter ?? 0;
-        }
+        public async Task<IEnumerable<Transaction>> GetByWalletIdAsync(int walletId) =>
+        await _db.Transactions.Where(t => t.WalletId == walletId).ToListAsync();
     }
 }
+
+    

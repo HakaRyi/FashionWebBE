@@ -10,7 +10,7 @@ public partial class Post
 
     public int? EventId { get; set; }
 
-    public string? Tittle { get; set; }
+    public string? Title { get; set; }
 
     public string? Content { get; set; }
 
@@ -44,9 +44,13 @@ public partial class Post
 
     public virtual Scoreboard? Scoreboard { get; set; }
 
+    public ICollection<PostSave> Saves { get; set; } = new List<PostSave>();
+
     public virtual ICollection<Reaction> Reactions { get; set; } = new List<Reaction>();
 
     public ICollection<PostSave> Saves { get; set; } = new List<PostSave>();
 
     public virtual ICollection<UserReport> UserReports { get; set; } = new List<UserReport>();
+
+    public virtual ICollection<ExpertRating> ExpertRatings { get; set; } = new List<ExpertRating>();
 }

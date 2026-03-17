@@ -20,15 +20,27 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
     public virtual DbSet<Account> Accounts { get; set; }
 
+    public virtual DbSet<AccountSubscription> AccountSubscriptions { get; set; }
+
     public virtual DbSet<Category> Categories { get; set; }
 
     public virtual DbSet<Comment> Comments { get; set; }
 
+    public virtual DbSet<CommentReaction> CommentReactions { get; set; }
+
     public virtual DbSet<Event> Events { get; set; }
 
-    public virtual DbSet<ExpertFile> ExpertFiles { get; set; }
+    public virtual DbSet<ExpertRating> ExpertRatings { get; set; }
+
+    public virtual DbSet<EventExpert> EventExperts { get; set; }
+
+    public virtual DbSet<ExpertRequest> ExpertRequests { get; set; }
 
     public virtual DbSet<ExpertProfile> ExpertProfiles { get; set; }
+
+    public virtual DbSet<EscrowSession> EscrowSessions { get; set; }
+
+    public virtual DbSet<Feature> Features { get; set; }
 
     public virtual DbSet<Group> Groups { get; set; }
 
@@ -44,9 +56,15 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
     public virtual DbSet<Notification> Notifications { get; set; }
 
+    public virtual DbSet<Order> Orders { get; set; }
+
+    public virtual DbSet<OrderDetail> OrderDetails { get; set; }
+
     public virtual DbSet<Outfit> Outfits { get; set; }
 
     public virtual DbSet<Package> Packages { get; set; }
+
+    public virtual DbSet<PackageFeature> PackageFeatures { get; set; }
 
     public virtual DbSet<Payment> Payments { get; set; }
 
@@ -56,7 +74,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
     public virtual DbSet<Post> Posts { get; set; }
 
-    public DbSet<PostSave> PostSaves { get; set; }
+    public virtual DbSet<PostSave> PostSaves { get; set; }
 
     public virtual DbSet<PostVector> PostVectors { get; set; }
 
@@ -75,6 +93,8 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
     public virtual DbSet<UserReport> UserReports { get; set; }
 
     public virtual DbSet<Wardrobe> Wardrobes { get; set; }
+
+    public virtual DbSet<Wallet> Wallets { get; set; }
 
     public virtual DbSet<Follow> Follows { get; set; }
 
@@ -195,6 +215,57 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.HasIndex(e => e.NormalizedEmail)
                 .HasDatabaseName("EmailIndex")
                 .IsUnique();
+
+            entity.HasOne(a => a.Wallet)
+                .WithOne(w => w.Account)
+                .HasForeignKey<Wallet>(w => w.AccountId);
+
+            entity.HasMany(a => a.SentEscrows)
+                .WithOne(e => e.Sender)
+                .HasForeignKey(e => e.SenderId)
+                .OnDelete(DeleteBehavior.ClientSetNull);
+
+            entity.HasMany(a => a.ReceivedEscrows)
+                .WithOne(e => e.Receiver)
+                .HasForeignKey(e => e.ReceiverId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasMany(a => a.SavedPosts)
+                .WithOne(ps => ps.Account)
+                .HasForeignKey(ps => ps.AccountId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AccountSubscription>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+            entity.ToTable("AccountSubscription", "public");
+
+            entity.Property(e => e.Id).HasColumnName("id");
+            entity.Property(e => e.AccountId).HasColumnName("account_id");
+            entity.Property(e => e.PackageId).HasColumnName("package_id");
+
+            entity.Property(e => e.StartDate)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("start_date");
+
+            entity.Property(e => e.EndDate)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("end_date");
+
+            entity.Property(e => e.IsActive)
+                .HasDefaultValue(true)
+                .HasColumnName("is_active");
+
+            entity.HasOne(d => d.Account)
+                .WithMany(p => p.AccountSubscriptions)
+                .HasForeignKey(d => d.AccountId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.Package)
+                .WithMany(p => p.Subscriptions)
+                .HasForeignKey(d => d.PackageId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<IdentityRole<int>>(entity =>
@@ -215,7 +286,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.ImageUrl).HasColumnName("img_url").HasMaxLength(500);
             entity.Property(e => e.Status).HasColumnName("status").HasMaxLength(30);
             entity.Property(e => e.CreatedAt)
-                .HasColumnName("created_at")
+                .HasColumnName("create_at")
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnType("timestamp without time zone");
 
@@ -351,6 +422,134 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                   .HasConstraintName("comment_parent_comment_fkey");
         });
 
+
+        modelBuilder.Entity<CommentReaction>(entity =>
+        {
+            entity.HasKey(e => e.CommentReactionId)
+                  .HasName("comment_reaction_pkey");
+
+            entity.ToTable("CommentReaction", "public");
+
+            entity.Property(e => e.CommentReactionId)
+                  .HasColumnName("comment_reaction_id");
+
+            entity.Property(e => e.CommentId)
+                  .IsRequired()
+                  .HasColumnName("comment_id");
+
+            entity.Property(e => e.AccountId)
+                  .IsRequired()
+                  .HasColumnName("account_id");
+
+            entity.Property(e => e.CreatedAt)
+                  .HasColumnType("timestamp without time zone")
+                  .HasDefaultValueSql("NOW()")
+                  .HasColumnName("created_at");
+
+            entity.HasIndex(e => new { e.AccountId, e.CommentId })
+                  .IsUnique()
+                  .HasDatabaseName("ux_comment_reaction_account_comment");
+
+            entity.HasIndex(e => e.CommentId)
+                  .HasDatabaseName("ix_comment_reaction_comment_id");
+
+            entity.HasIndex(e => e.AccountId)
+                  .HasDatabaseName("ix_comment_reaction_account_id");
+
+            entity.HasOne(d => d.Comment)
+                  .WithMany(p => p.Reactions)
+                  .HasForeignKey(d => d.CommentId)
+                  .OnDelete(DeleteBehavior.Cascade)
+                  .HasConstraintName("comment_reaction_comment_id_fkey");
+
+            entity.HasOne(d => d.Account)
+                  .WithMany()
+                  .HasForeignKey(d => d.AccountId)
+                  .OnDelete(DeleteBehavior.Cascade)
+                  .HasConstraintName("comment_reaction_account_id_fkey");
+        });
+
+        modelBuilder.Entity<EscrowSession>(entity =>
+        {
+            entity.HasKey(e => e.EscrowSessionId).HasName("EscrowSession_pkey");
+
+            entity.ToTable("EscrowSession", "public");
+
+            entity.Property(e => e.EscrowSessionId).HasColumnName("escrow_session_id");
+
+            entity.Property(e => e.Amount)
+                .HasColumnType("decimal(18,2)")
+                .HasColumnName("amount");
+
+            entity.Property(e => e.ServiceFee)
+                .HasColumnType("decimal(18,2)")
+                .HasDefaultValue(0m)
+                .HasColumnName("service_fee");
+
+            entity.Property(e => e.Status)
+                .HasMaxLength(30)
+                .IsRequired()
+                .HasColumnName("status");
+
+            entity.Property(e => e.Description)
+                .HasMaxLength(500)
+                .HasColumnName("description");
+
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("created_at");
+
+            entity.Property(e => e.ResolvedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("resolved_at");
+
+            entity.Property(e => e.SenderId).HasColumnName("sender_id");
+            entity.Property(e => e.ReceiverId).HasColumnName("receiver_id");
+            entity.Property(e => e.OrderId).HasColumnName("order_id");
+            entity.Property(e => e.EventId).HasColumnName("event_id");
+
+            entity.HasOne(d => d.Sender)
+                .WithMany(p => p.SentEscrows)
+                .HasForeignKey(d => d.SenderId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("EscrowSession_sender_id_fkey");
+
+            entity.HasOne(d => d.Receiver)
+                .WithMany(p => p.ReceivedEscrows)
+                .HasForeignKey(d => d.ReceiverId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("EscrowSession_receiver_id_fkey");
+
+            entity.HasOne(d => d.Order)
+                .WithOne(p => p.EscrowSession)
+                .HasForeignKey<EscrowSession>(d => d.OrderId)
+                .OnDelete(DeleteBehavior.SetNull);
+            entity.HasIndex(e => e.AccountId)
+                  .HasDatabaseName("ix_comment_account_id");
+
+            entity.HasIndex(e => e.ParentCommentId)
+                  .HasDatabaseName("ix_comment_parent_comment_id");
+
+            entity.HasOne(d => d.Post)
+                  .WithMany(p => p.Comments)
+                  .HasForeignKey(d => d.PostId)
+                  .OnDelete(DeleteBehavior.Cascade)
+                  .HasConstraintName("comment_post_id_fkey");
+
+            entity.HasOne(d => d.Account)
+                  .WithMany(p => p.Comments)
+                  .HasForeignKey(d => d.AccountId)
+                  .OnDelete(DeleteBehavior.Cascade)
+                  .HasConstraintName("comment_account_id_fkey");
+
+            entity.HasOne(d => d.ParentComment)
+                  .WithMany(p => p.Replies)
+                  .HasForeignKey(d => d.ParentCommentId)
+                  .OnDelete(DeleteBehavior.Restrict)
+                  .HasConstraintName("comment_parent_comment_fkey");
+        });
+
         modelBuilder.Entity<Event>(entity =>
         {
             entity.HasKey(e => e.EventId).HasName("Events_pkey");
@@ -358,64 +557,221 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.ToTable("Events", "public");
 
             entity.Property(e => e.EventId).HasColumnName("event_id");
-            entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("created_at");
+
             entity.Property(e => e.CreatorId).HasColumnName("creator_id");
+            entity.Property(e => e.Title).HasMaxLength(255).HasColumnName("title");
             entity.Property(e => e.Description).HasColumnName("description");
-            entity.Property(e => e.EndTime)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("end_time");
+
+            entity.Property(e => e.ExpertWeight).HasColumnName("expert_weight").HasDefaultValue(0.0);
+            entity.Property(e => e.UserWeight).HasColumnName("user_weight").HasDefaultValue(0.0);
+            entity.Property(e => e.PointPerLike).HasColumnName("point_per_like").HasDefaultValue(1.0);
+            entity.Property(e => e.PointPerShare).HasColumnName("point_per_share").HasDefaultValue(2.0);
+
             entity.Property(e => e.StartTime)
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("start_time");
+            entity.Property(e => e.EndTime)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("end_time");
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
             entity.Property(e => e.Status)
                 .HasMaxLength(30)
                 .HasColumnName("status");
-            entity.Property(e => e.Title)
-                .HasMaxLength(255)
-                .HasColumnName("title");
 
-            entity.HasOne(d => d.Creator).WithMany(p => p.Events)
+            entity.HasOne(d => d.Creator)
+                .WithMany(p => p.Events)
                 .HasForeignKey(d => d.CreatorId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("Events_creator_id_fkey");
         });
 
-        modelBuilder.Entity<ExpertFile>(entity =>
+        modelBuilder.Entity<EventExpert>(entity =>
+        {
+            entity.ToTable("EventExpert", "public");
+            entity.HasKey(e => e.EventExpertId).HasName("EventExpert_pkey");
+
+            entity.Property(e => e.EventExpertId).HasColumnName("event_expert_id");
+            entity.Property(e => e.EventId).HasColumnName("event_id");
+            entity.Property(e => e.ExpertId).HasColumnName("expert_id");
+
+            entity.HasIndex(e => new { e.EventId, e.ExpertId })
+                .IsUnique()
+                .HasDatabaseName("IX_EventExpert_Event_Expert");
+
+            entity.Property(e => e.JoinedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("joined_at");
+
+            entity.Property(e => e.Status)
+                .HasMaxLength(30)
+                .HasColumnName("status");
+
+            entity.HasOne(d => d.Event)
+                .WithMany(p => p.EventExperts)
+                .HasForeignKey(d => d.EventId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("EventExpert_event_id_fkey");
+
+            entity.HasOne(d => d.Expert)
+                .WithMany()
+                .HasForeignKey(d => d.ExpertId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("EventExpert_expert_id_fkey");
+        });
+
+        modelBuilder.Entity<ExpertRating>(entity =>
+        {
+            entity.ToTable("ExpertRating", "public");
+            entity.HasKey(e => e.ExpertRatingId).HasName("ExpertRating_pkey");
+
+            entity.Property(e => e.ExpertRatingId).HasColumnName("expert_rating_id");
+            entity.Property(e => e.PostId).HasColumnName("post_id");
+            entity.Property(e => e.ExpertId).HasColumnName("expert_id");
+
+            entity.HasIndex(e => new { e.PostId, e.ExpertId })
+                .IsUnique()
+                .HasDatabaseName("IX_ExpertRating_Post_Expert");
+
+            entity.Property(e => e.Score)
+                .IsRequired()
+                .HasColumnName("score")
+                .HasDefaultValue(0.0);
+
+            entity.Property(e => e.Reason)
+                .HasMaxLength(1000)
+                .HasColumnName("reason");
+
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("created_at");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.Post)
+                .WithMany(p => p.ExpertRatings)
+                .HasForeignKey(d => d.PostId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("ExpertRating_post_id_fkey");
+
+            entity.HasOne(d => d.Expert)
+                .WithMany()
+                .HasForeignKey(d => d.ExpertId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("ExpertRating_expert_id_fkey");
+        });
+
+        modelBuilder.Entity<EventWinner>(entity =>
+        {
+            entity.HasKey(e => e.EventWinnerId).HasName("EventWinner_pkey");
+
+            entity.ToTable("EventWinner", "public");
+
+            entity.Property(e => e.EventWinnerId).HasColumnName("event_winner_id");
+            entity.Property(e => e.AccountId).HasColumnName("account_id");
+            entity.Property(e => e.PrizeEventId).HasColumnName("prize_event_id");
+
+            entity.Property(e => e.WinningScore).HasColumnName("winning_score");
+            entity.Property(e => e.FinalRank).HasColumnName("final_rank");
+
+            entity.Property(e => e.ExpertFeedback)
+                .HasMaxLength(1000)
+                .HasColumnName("expert_feedback");
+
+            entity.Property(e => e.Status)
+                .HasMaxLength(30)
+                .IsRequired()
+                .HasColumnName("status");
+
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("created_at");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.Account)
+                .WithMany(p => p.EventWinners)
+                .HasForeignKey(d => d.AccountId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("EventWinner_account_id_fkey");
+
+            entity.HasOne(d => d.PrizeEvent)
+                .WithMany(p => p.EventWinners)
+                .HasForeignKey(d => d.PrizeEventId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("EventWinner_prize_event_id_fkey");
+        });
+
+        modelBuilder.Entity<ExpertRequest>(entity =>
         {
             entity.HasKey(e => e.ExpertFileId).HasName("Expert_File_pkey");
-
             entity.ToTable("Expert_File", "public");
 
-            entity.HasIndex(e => e.ExpertProfileId, "Expert_File_expert_profile_id_key").IsUnique();
+            entity.HasIndex(e => e.ExpertProfileId, "Expert_File_expert_profile_id_idx");
 
             entity.Property(e => e.ExpertFileId).HasColumnName("expert_file_id");
             entity.Property(e => e.ExpertProfileId).HasColumnName("expert_profile_id");
 
+            entity.Property(e => e.ExpertiseField)
+                .HasMaxLength(200)
+                .HasColumnName("expertise_field");
+
+            entity.Property(e => e.StyleAesthetic)
+                .HasMaxLength(200)
+                .HasColumnName("style_aesthetic");
+
+            entity.Property(e => e.YearsOfExperience)
+                .HasColumnName("years_of_experience");
+
+            entity.Property(e => e.Bio)
+                .HasColumnName("bio");
+
             entity.Property(e => e.CvUrl)
-          .HasMaxLength(500)
-          .HasColumnName("cv_url");
+                .HasMaxLength(500)
+                .HasColumnName("cv_url");
+
             entity.Property(e => e.CertificateUrl)
                 .HasMaxLength(500)
                 .HasColumnName("certificate_url");
+
             entity.Property(e => e.LicenseUrl)
                 .HasMaxLength(500)
                 .HasColumnName("license_url");
+
             entity.Property(e => e.IdentityProofUrl)
-              .HasMaxLength(500)
-              .HasColumnName("identity_proof_url");
-            entity.Property(e => e.RatingAvg).HasColumnName("rating_avg");
+                .HasMaxLength(500)
+                .HasColumnName("identity_proof_url");
+
             entity.Property(e => e.Status)
                 .HasMaxLength(30)
                 .HasColumnName("status");
+
+            entity.Property(e => e.Reason)
+                .HasMaxLength(1000)
+                .HasColumnName("reason");
+
             entity.Property(e => e.CreatedAt)
                 .HasColumnType("timestamp with time zone")
                 .HasColumnName("created_at");
 
-            entity.HasOne(d => d.ExpertProfile).WithOne(p => p.ExpertFile)
-                .HasForeignKey<ExpertFile>(d => d.ExpertProfileId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
+            entity.Property(e => e.ProcessedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("processed_at");
+
+            entity.HasOne(d => d.ExpertProfile)
+                .WithMany(p => p.ExpertRequests)
+                .HasForeignKey(d => d.ExpertProfileId)
+                .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("Expert_File_expert_profile_id_fkey");
         });
 
@@ -442,6 +798,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.Verified)
                 .HasDefaultValue(false)
                 .HasColumnName("verified");
+            entity.Property(e => e.RatingAvg).HasColumnName("rating_avg");
             entity.Property(e => e.CreatedAt)
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at");
@@ -453,6 +810,65 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasForeignKey<ExpertProfile>(d => d.AccountId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("Expert_Profile_account_id_fkey");
+        });
+
+        modelBuilder.Entity<Feature>(entity =>
+        {
+            entity.HasKey(e => e.FeatureId).HasName("Feature_pkey");
+
+            entity.ToTable("Feature", "public");
+
+            entity.Property(e => e.FeatureId)
+                .HasColumnName("feature_id");
+
+            entity.Property(e => e.FeatureCode)
+                .IsRequired()
+                .HasMaxLength(50)
+                .HasColumnName("feature_code");
+
+            entity.HasIndex(e => e.FeatureCode)
+                .IsUnique()
+                .HasDatabaseName("UQ_Feature_FeatureCode");
+
+            entity.Property(e => e.Name)
+                .IsRequired()
+                .HasMaxLength(100)
+                .HasColumnName("name");
+
+            entity.Property(e => e.Description)
+                .HasMaxLength(500)
+                .HasColumnName("description");
+
+            entity.HasMany(d => d.PackageFeatures)
+                .WithOne(p => p.Feature)
+                .HasForeignKey(p => p.FeatureId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_PackageFeature_Feature");
+        });
+
+        modelBuilder.Entity<Follow>(entity =>
+        {
+            entity.HasKey(e => new { e.UserId, e.FollowerId }).HasName("Follow_pkey");
+
+            entity.ToTable("Follow", "public");
+
+            entity.Property(e => e.UserId).HasColumnName("user_id");
+            entity.Property(e => e.FollowerId).HasColumnName("follower_id");
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.User).WithMany(p => p.FollowUserNavigations)
+                .HasForeignKey(d => d.UserId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("Follow_user_id_fkey");
+
+            entity.HasOne(d => d.Follower).WithMany(p => p.FollowFollowerNavigations)
+                .HasForeignKey(d => d.FollowerId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("Follow_follower_id_fkey");
+
         });
 
         modelBuilder.Entity<Group>(entity =>
@@ -504,6 +920,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.PostId).HasColumnName("post_id");
             entity.Property(e => e.ItemId).HasColumnName("item_id");
             entity.Property(e => e.AccountAvatarId).HasColumnName("account_avatar_id");
+            entity.Property(e => e.EventId).HasColumnName("event_id");
 
             entity.Property(e => e.ImageUrl).HasMaxLength(500).HasColumnName("image_url");
             entity.Property(e => e.OwnerType).HasMaxLength(50).HasColumnName("owner_type");
@@ -519,6 +936,10 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
             entity.HasOne(d => d.Account).WithMany(p => p.Avatars)
                 .HasForeignKey(d => d.AccountAvatarId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.Event).WithMany(p => p.Images)
+                .HasForeignKey(d => d.EventId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
@@ -676,6 +1097,104 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasConstraintName("Notification_sender_id_fkey");
         });
 
+        modelBuilder.Entity<Order>(entity =>
+        {
+            entity.HasKey(e => e.OrderId).HasName("Order_pkey");
+
+            entity.ToTable("Order", "public");
+
+            entity.Property(e => e.OrderId).HasColumnName("order_id");
+            entity.Property(e => e.BuyerId).HasColumnName("buyer_id");
+            entity.Property(e => e.SellerId).HasColumnName("seller_id");
+
+            entity.Property(e => e.SubTotal)
+                .HasColumnType("decimal(18,2)")
+                .HasColumnName("sub_total");
+
+            entity.Property(e => e.ServiceFee)
+                .HasColumnType("decimal(18,2)")
+                .HasDefaultValue(0m)
+                .HasColumnName("service_fee");
+
+            entity.Property(e => e.TotalAmount)
+                .HasColumnType("decimal(18,2)")
+                .HasColumnName("total_amount");
+
+            entity.Property(e => e.Status)
+                .HasMaxLength(30)
+                .IsRequired()
+                .HasColumnName("status");
+
+            entity.Property(e => e.Note)
+                .HasMaxLength(500)
+                .HasColumnName("note");
+
+            entity.Property(e => e.ShippingAddress).HasMaxLength(255).HasColumnName("shipping_address");
+            entity.Property(e => e.ReceiverName).HasMaxLength(100).HasColumnName("receiver_name");
+            entity.Property(e => e.ReceiverPhone).HasMaxLength(20).HasColumnName("receiver_phone");
+
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("created_at");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.Buyer)
+                .WithMany()
+                .HasForeignKey(d => d.BuyerId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("Order_buyer_id_fkey");
+
+            entity.HasOne(d => d.Seller)
+                .WithMany()
+                .HasForeignKey(d => d.SellerId)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("Order_seller_id_fkey");
+
+            entity.HasMany(d => d.OrderDetails)
+                .WithOne(p => p.Order)
+                .HasForeignKey(p => p.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+        });
+
+        modelBuilder.Entity<OrderDetail>(entity =>
+        {
+            entity.HasKey(e => e.OrderDetailId).HasName("OrderDetail_pkey");
+
+            entity.ToTable("OrderDetail", "public");
+
+            entity.Property(e => e.OrderDetailId).HasColumnName("order_detail_id");
+            entity.Property(e => e.OrderId).HasColumnName("order_id");
+            entity.Property(e => e.OutfitId).HasColumnName("outfit_id");
+            entity.Property(e => e.ProductId).HasColumnName("product_id");
+
+            entity.Property(e => e.Quantity)
+                .IsRequired()
+                .HasDefaultValue(1)
+                .HasColumnName("quantity");
+
+            entity.Property(e => e.UnitPrice)
+                .HasColumnType("decimal(18,2)")
+                .IsRequired()
+                .HasColumnName("unit_price");
+
+            entity.HasOne(d => d.Order)
+                .WithMany(p => p.OrderDetails)
+                .HasForeignKey(d => d.OrderId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("OrderDetail_order_id_fkey");
+
+            entity.HasOne(d => d.Outfit)
+                .WithMany()
+                .HasForeignKey(d => d.OutfitId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("OrderDetail_outfit_id_fkey");
+        });
+
         modelBuilder.Entity<Outfit>(entity =>
         {
             entity.HasKey(e => e.OutfitId).HasName("Outfit_pkey");
@@ -708,22 +1227,82 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
             entity.Property(e => e.PackageId).HasColumnName("package_id");
             entity.Property(e => e.AccountId).HasColumnName("account_id");
-            entity.Property(e => e.CoinAmount).HasColumnName("coin_amount");
-            entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("created_at");
-            entity.Property(e => e.IsActive)
-                .HasDefaultValue(true)
-                .HasColumnName("is_active");
+
             entity.Property(e => e.Name)
                 .HasMaxLength(100)
                 .HasColumnName("name");
-            entity.Property(e => e.PriceVnd).HasColumnName("price_vnd");
 
-            entity.HasOne(d => d.Account).WithMany(p => p.Packages)
+            entity.Property(e => e.Description)
+                .HasMaxLength(500)
+                .HasColumnName("description");
+
+            entity.Property(e => e.Price)
+                .HasColumnType("decimal(18,2)")
+                .HasColumnName("price");
+
+            entity.Property(e => e.DurationDays)
+                .HasColumnName("duration_days");
+
+            entity.Property(e => e.IsActive)
+                .HasDefaultValue(true)
+                .HasColumnName("is_active");
+
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.Account)
+                .WithMany(p => p.Packages)
                 .HasForeignKey(d => d.AccountId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("Package_account_id_fkey");
+                .HasConstraintName("FK_Package_Account");
+
+            entity.HasMany(e => e.Payments)
+                .WithOne(p => p.Package)
+                .HasForeignKey(p => p.PackageId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasMany(e => e.Subscriptions)
+                .WithOne(s => s.Package)
+                .HasForeignKey(s => s.PackageId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.PackageFeatures)
+                .WithOne(pf => pf.Package)
+                .HasForeignKey(pf => pf.PackageId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PackageFeature>(entity =>
+        {
+            entity.HasKey(pf => new { pf.PackageId, pf.FeatureId })
+                  .HasName("PackageFeature_pkey");
+
+            entity.ToTable("PackageFeature", "public");
+
+            entity.Property(pf => pf.PackageId)
+                .HasColumnName("package_id");
+
+            entity.Property(pf => pf.FeatureId)
+                .HasColumnName("feature_id");
+
+            entity.Property(pf => pf.Value)
+                .IsRequired()
+                .HasMaxLength(255)
+                .HasColumnName("value");
+
+            entity.HasOne(pf => pf.Package)
+                .WithMany(p => p.PackageFeatures)
+                .HasForeignKey(pf => pf.PackageId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_PackageFeature_Package");
+
+            entity.HasOne(pf => pf.Feature)
+                .WithMany(f => f.PackageFeatures)
+                .HasForeignKey(pf => pf.FeatureId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("FK_PackageFeature_Feature");
         });
 
         modelBuilder.Entity<Payment>(entity =>
@@ -734,6 +1313,9 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
             entity.Property(e => e.PaymentId).HasColumnName("payment_id");
             entity.Property(e => e.AccountId).HasColumnName("account_id");
+            entity.Property(e => e.Amount)
+                .HasColumnType("numeric(18,2)")
+                .HasColumnName("amount");
             entity.Property(e => e.CreatedAt)
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at");
@@ -915,6 +1497,41 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        modelBuilder.Entity<PostSave>(entity =>
+        {
+            entity.ToTable("PostSaves", "public");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .HasColumnName("id");
+
+            entity.Property(e => e.PostId)
+                .HasColumnName("post_id");
+
+            entity.Property(e => e.AccountId)
+                .HasColumnName("account_id");
+
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("created_at");
+
+            entity.HasIndex(e => new { e.AccountId, e.PostId })
+                .IsUnique()
+                .HasDatabaseName("ix_postsaves_account_post");
+
+            entity.HasOne(d => d.Post)
+                .WithMany(p => p.Saves)
+                .HasForeignKey(d => d.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.Account)
+                .WithMany(a => a.SavedPosts)
+                .HasForeignKey(d => d.AccountId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+
         modelBuilder.Entity<PostVector>(entity =>
         {
             entity.HasKey(e => e.PostId).HasName("Post_Vector_pkey");
@@ -933,6 +1550,42 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasForeignKey<PostVector>(d => d.PostId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("Post_Vector_post_id_fkey");
+        });
+
+        modelBuilder.Entity<PrizeEvent>(entity =>
+        {
+            entity.HasKey(e => e.PrizeEventId).HasName("PrizeEvent_pkey");
+
+            entity.ToTable("PrizeEvent", "public");
+
+            entity.Property(e => e.PrizeEventId).HasColumnName("prize_event_id");
+            entity.Property(e => e.EventId).HasColumnName("event_id");
+            entity.Property(e => e.EscrowSessionId).HasColumnName("escrow_session_id");
+
+            entity.Property(e => e.Ranked)
+                .IsRequired()
+                .HasColumnName("ranked");
+
+            entity.Property(e => e.RewardAmount)
+                .HasColumnType("decimal(18,2)")
+                .IsRequired()
+                .HasColumnName("reward_amount");
+
+            entity.Property(e => e.Status)
+                .HasMaxLength(30)
+                .HasColumnName("status");
+
+            entity.HasOne(d => d.Event)
+                .WithMany(p => p.PrizeEvents)
+                .HasForeignKey(d => d.EventId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("PrizeEvent_event_id_fkey");
+
+            entity.HasOne<EscrowSession>()
+                .WithMany()
+                .HasForeignKey(d => d.EscrowSessionId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("PrizeEvent_escrow_session_id_fkey");
         });
 
         modelBuilder.Entity<Reaction>(entity =>
@@ -1030,39 +1683,41 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
         modelBuilder.Entity<RefreshToken>(entity =>
         {
             entity.HasKey(e => e.RefreshTokenId).HasName("RefreshToken_pkey");
-
             entity.ToTable("RefreshToken", "public");
 
-            entity.HasIndex(e => e.AccountId, "RefreshToken_account_id_key").IsUnique();
-
-            entity.HasIndex(e => e.DeviceInfo, "RefreshToken_device_info_key");
-
-            entity.HasIndex(e => e.IpAddress, "RefreshToken_ip_address_key");
+            entity.HasIndex(e => e.AccountId, "RefreshToken_account_id_idx");
 
             entity.HasIndex(e => e.Token, "RefreshToken_token_key").IsUnique();
 
             entity.Property(e => e.RefreshTokenId).HasColumnName("refresh_token_id");
             entity.Property(e => e.AccountId).HasColumnName("account_id");
+
             entity.Property(e => e.CreatedAt)
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at");
+
             entity.Property(e => e.DeviceInfo)
                 .HasMaxLength(500)
                 .HasColumnName("device_info");
+
             entity.Property(e => e.ExpiryDate)
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("expiry_date");
+
             entity.Property(e => e.IpAddress)
                 .HasMaxLength(500)
                 .HasColumnName("ip_address");
+
             entity.Property(e => e.IsAvailable).HasColumnName("isAvailable");
+
             entity.Property(e => e.Token)
                 .HasMaxLength(500)
                 .HasColumnName("token");
 
-            entity.HasOne(d => d.Account).WithOne(p => p.RefreshToken)
-                .HasForeignKey<RefreshToken>(d => d.AccountId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
+            entity.HasOne(d => d.Account)
+                .WithMany(p => p.RefreshTokens)
+                .HasForeignKey(d => d.AccountId)
+                .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("RefreshToken_account_id_fkey");
         });
 
@@ -1090,39 +1745,55 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
         modelBuilder.Entity<Transaction>(entity =>
         {
             entity.HasKey(e => e.TransactionId).HasName("Transaction_pkey");
-
             entity.ToTable("Transaction", "public");
 
             entity.HasIndex(e => e.PaymentId, "Transaction_payment_id_key").IsUnique();
 
             entity.Property(e => e.TransactionId).HasColumnName("transaction_id");
-            entity.Property(e => e.AccountId).HasColumnName("account_id");
-            entity.Property(e => e.AmountCoin).HasColumnName("amount_coin");
-            entity.Property(e => e.BalanceAfter).HasColumnName("balance_after");
+            entity.Property(e => e.WalletId).HasColumnName("wallet_id");
+
+            entity.Property(e => e.Amount)
+                .HasColumnType("decimal(18,2)")
+                .HasColumnName("amount");
+
+            entity.Property(e => e.BalanceBefore)
+                .HasColumnType("decimal(18,2)")
+                .HasColumnName("balance_before");
+
+            entity.Property(e => e.BalanceAfter)
+                .HasColumnType("decimal(18,2)")
+                .HasColumnName("balance_after");
+
             entity.Property(e => e.CreatedAt)
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at");
+
             entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.PaymentId).HasColumnName("payment_id");
             entity.Property(e => e.ReferenceId).HasColumnName("reference_id");
+
             entity.Property(e => e.ReferenceType)
-                .HasMaxLength(30)
+                .HasMaxLength(50)
                 .HasColumnName("reference_type");
+
             entity.Property(e => e.Status)
                 .HasMaxLength(30)
                 .HasColumnName("status");
+
             entity.Property(e => e.Type)
                 .HasMaxLength(30)
                 .HasColumnName("type");
 
-            entity.HasOne(d => d.Account).WithMany(p => p.Transactions)
-                .HasForeignKey(d => d.AccountId)
+            entity.HasOne(d => d.Wallet)
+                .WithMany(p => p.Transactions)
+                .HasForeignKey(d => d.WalletId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("Transaction_account_id_fkey");
+                .HasConstraintName("Transaction_wallet_id_fkey");
 
-            entity.HasOne(d => d.Payment).WithOne(p => p.Transaction)
+            entity.HasOne(d => d.Payment)
+                .WithOne(p => p.Transaction)
                 .HasForeignKey<Transaction>(d => d.PaymentId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
+                .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("Transaction_payment_id_fkey");
         });
 
@@ -1208,6 +1879,44 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasConstraintName("User_Report_report_type_id_fkey");
         });
 
+        modelBuilder.Entity<Wallet>(entity =>
+        {
+            entity.HasKey(e => e.WalletId).HasName("Wallet_pkey");
+
+            entity.ToTable("Wallet", "public");
+
+            entity.HasIndex(e => e.AccountId, "Wallet_account_id_key").IsUnique();
+
+            entity.Property(e => e.WalletId).HasColumnName("wallet_id");
+            entity.Property(e => e.AccountId).HasColumnName("account_id");
+
+            entity.Property(e => e.Balance)
+                .HasColumnType("decimal(18,2)")
+                .HasDefaultValue(0m)
+                .HasColumnName("balance");
+
+            entity.Property(e => e.LockedBalance)
+                .HasColumnType("decimal(18,2)")
+                .HasDefaultValue(0m)
+                .HasColumnName("locked_balance");
+
+            entity.Property(e => e.Currency)
+                .HasMaxLength(10)
+                .HasDefaultValue("VND")
+                .HasColumnName("currency");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("updated_at");
+
+            entity.HasOne(d => d.Account)
+                .WithOne(p => p.Wallet)
+                .HasForeignKey<Wallet>(d => d.AccountId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("Wallet_account_id_fkey");
+        });
+
         modelBuilder.Entity<Wardrobe>(entity =>
         {
             entity.HasKey(e => e.WardrobeId).HasName("Wardrobe_pkey");
@@ -1230,31 +1939,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("Wardrobe_account_id_fkey");
         });
-        modelBuilder.Entity<Follow>(entity =>
-        {
-            entity.HasKey(e => new { e.UserId, e.FollowerId }).HasName("Follow_pkey");
 
-            entity.ToTable("Follow", "public");
-
-            entity.Property(e => e.UserId).HasColumnName("user_id");
-            entity.Property(e => e.FollowerId).HasColumnName("follower_id");
-            entity.Property(e => e.CreatedAt)
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("created_at");
-
-            entity.HasOne(d => d.User).WithMany(p => p.FollowUserNavigations)
-                .HasForeignKey(d => d.UserId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("Follow_user_id_fkey");
-
-            // Thiết lập mối quan hệ với bảng Account (Người nhấn follow)
-            entity.HasOne(d => d.Follower).WithMany(p => p.FollowFollowerNavigations)
-                .HasForeignKey(d => d.FollowerId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("Follow_follower_id_fkey");
-
-        });
         modelBuilder.Entity<TryOnHistory>(entity => {
             entity.ToTable("TryOnHistory", "public");
             entity.HasKey(e => e.TryOnId);
@@ -1266,32 +1951,40 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
             entity.HasOne(d => d.Account).WithMany(p => p.TryOnHistories).HasForeignKey(d => d.AccountId);
         });
-        modelBuilder.Entity<PrizeEvent>(entity => {
-            entity.ToTable("PrizeEvent", "public");
-            entity.HasKey(e => e.PrizeEventId);
-            entity.Property(e => e.PrizeEventId).HasColumnName("prize_event_id");
-            entity.Property(e => e.EventId).HasColumnName("event_id");
-            entity.Property(e => e.Ranked).HasColumnName("ranked").HasMaxLength(50);
-            entity.Property(e => e.RewardCoin).HasColumnName("reward_coin");
-            entity.Property(e => e.CreatedAt).HasColumnName("create_at").HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-            entity.HasOne(d => d.Event).WithMany(p => p.PrizeEvents).HasForeignKey(d => d.EventId);
-        });
-        modelBuilder.Entity<EventWinner>(entity => {
-            entity.ToTable("TheEventWinner", "public");
-            entity.HasKey(e => e.EventWinnerId);
-            entity.HasIndex(e => e.AccountId).IsUnique();
-            entity.HasIndex(e => e.PrizeEventId).IsUnique();
-
-            entity.HasOne(d => d.Account).WithOne(p => p.EventWinner).HasForeignKey<EventWinner>(d => d.AccountId);
-            entity.HasOne(d => d.PrizeEvent).WithOne(p => p.EventWinner).HasForeignKey<EventWinner>(d => d.PrizeEventId);
-        });
-        modelBuilder.Entity<Scoreboard>(entity => {
+        modelBuilder.Entity<Scoreboard>(entity =>
+        {
             entity.ToTable("Scoreboard", "public");
-            entity.HasKey(e => e.ScoreboardId);
+            entity.HasKey(e => e.ScoreboardId).HasName("Scoreboard_pkey");
+
             entity.HasIndex(e => e.PostId).IsUnique();
 
-            entity.HasOne(d => d.Post).WithOne(p => p.Scoreboard).HasForeignKey<Scoreboard>(d => d.PostId);
+            entity.Property(e => e.ScoreboardId).HasColumnName("scoreboard_id");
+            entity.Property(e => e.PostId).HasColumnName("post_id");
+
+            entity.Property(e => e.FinalLikeCount).HasDefaultValue(0).HasColumnName("final_like_count");
+            entity.Property(e => e.FinalShareCount).HasDefaultValue(0).HasColumnName("final_share_count");
+
+            entity.Property(e => e.ExpertScore).HasDefaultValue(0.0).HasColumnName("expert_score");
+            entity.Property(e => e.ExpertReason)
+                .HasMaxLength(1000)
+                .HasColumnName("expert_reason");
+            entity.Property(e => e.CommunityScore).HasDefaultValue(0.0).HasColumnName("community_score");
+            entity.Property(e => e.FinalScore).HasDefaultValue(0.0).HasColumnName("final_score");
+
+            entity.Property(e => e.CreatedAt)
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("created_at");
+
+            entity.Property(e => e.Status)
+                .HasMaxLength(50)
+                .HasColumnName("status");
+
+            entity.HasOne(d => d.Post)
+                .WithOne(p => p.Scoreboard)
+                .HasForeignKey<Scoreboard>(d => d.PostId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("Scoreboard_post_id_fkey");
         });
 
         OnModelCreatingPartial(modelBuilder);

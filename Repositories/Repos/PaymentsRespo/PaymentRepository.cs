@@ -20,10 +20,19 @@ namespace Repositories.Repos.Payments
         public async Task<Payment?> GetByOrderCodeAsync(string orderCode)
             => await _db.Payments.Include(p => p.Package).FirstOrDefaultAsync(p => p.OrderCode == orderCode);
 
-        public async Task AddPaymentAsync(Payment payment) => await _db.Payments.AddAsync(payment);
+        public async Task AddAsync(Payment payment) => await _db.Payments.AddAsync(payment);
 
-        public void UpdatePayment(Payment payment) => _db.Payments.Update(payment);
+        public void Update(Payment payment) => _db.Payments.Update(payment);
 
         public async Task<bool> SaveChangesAsync() => (await _db.SaveChangesAsync()) > 0;
+
+        public async Task<Payment?> GetPaymentWithWalletAsync(string orderCode)
+        {
+            return await _db.Payments
+                .Include(p => p.Package)
+                .Include(p => p.Account)
+                    .ThenInclude(a => a.Wallet)
+                .FirstOrDefaultAsync(p => p.OrderCode == orderCode);
+        }
     }
 }

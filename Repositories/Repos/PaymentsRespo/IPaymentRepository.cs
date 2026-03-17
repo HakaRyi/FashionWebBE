@@ -11,8 +11,9 @@ namespace Repositories.Repos.Payments
     {
         Task<IEnumerable<Package>> GetActivePackagesAsync();
         Task<Payment?> GetByOrderCodeAsync(string orderCode);
-        Task AddPaymentAsync(Payment payment);
-        void UpdatePayment(Payment payment);
         Task<bool> SaveChangesAsync();
+        Task<Payment?> GetPaymentWithWalletAsync(string orderCode);
+        Task AddAsync(Payment payment);
+        void Update(Payment payment);
     }
 }

@@ -1,0 +1,29 @@
+﻿using Repositories.Data;
+using Repositories.Entities;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Repositories.Repos.TryOn
+{
+    public class TryOnHistoryRepository : ITryOnHistoryRepository
+    {
+        private readonly FashionDbContext _context;
+        public TryOnHistoryRepository(FashionDbContext context)
+        {
+            _context = context;
+        }
+        public async Task<int> CreateTryOnHistoryAsync(TryOnHistory tryOnHistory)
+        {
+            var result = await _context.TryOnHistories.AddAsync(tryOnHistory);
+            return await _context.SaveChangesAsync();
+        }
+
+        public Task<List<TryOnHistory>> GetTryOnHistoryByAccountIdAsync(int accountId)
+        {
+            return Task.FromResult(_context.TryOnHistories.Where(t => t.AccountId == accountId).ToList());
+        }
+    }
+}

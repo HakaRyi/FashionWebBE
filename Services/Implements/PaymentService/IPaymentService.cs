@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Services.Request.PaymentReq;
+using Services.Response.PaymentResp;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,8 +10,10 @@ namespace Services.Implements.PaymentService
 {
     public interface IPaymentService
     {
-        //Task<IEnumerable<PackageDto>> GetPackagesAsync();
-        Task<string> CreatePaymentAsync(int accountId, int packageId);
+        Task<PaymentResponse?> CreatePackagePaymentAsync(PaymentRequest request);
+
+        Task<PaymentResponse?> CreateTopUpPaymentAsync(decimal amount);
+
         Task<bool> ProcessPaymentCallbackAsync(string orderCode, bool isSuccess);
     }
 }

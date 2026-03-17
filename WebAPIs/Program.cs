@@ -6,18 +6,27 @@ using Microsoft.OpenApi.Models;
 using Repositories.Data;
 using Repositories.Entities;
 using Repositories.Repos.AccountRepos;
+using Repositories.Repos.AccountSubscriptionRepos;
+using Repositories.Repos.EscrowSessionRepos;
+using Repositories.Repos.EventExpertRepos;
 using Repositories.Repos.Events;
-using Repositories.Repos.ExpertFileRepos;
+using Repositories.Repos.EventWinnerRepos;
+using Repositories.Repos.ExpertRequestRepos;
 using Repositories.Repos.ExpertProfileRepos;
+using Repositories.Repos.ExpertRatingRepos;
 using Repositories.Repos.FollowRepos;
 using Repositories.Repos.ImageRepos;
 using Repositories.Repos.ItemRespos;
-using Repositories.Repos.PackageCoinRepos;
+using Repositories.Repos.OutfitRepos;
+using Repositories.Repos.PackageRepos;
 using Repositories.Repos.Payments;
 using Repositories.Repos.PostRepos;
+using Repositories.Repos.PrizeEventRepos;
+using Repositories.Repos.ScoreboardRepos;
 using Repositories.Repos.SocialRepos;
 using Repositories.Repos.TransactionRepos;
 using Repositories.Repos.UserReportRepos;
+using Repositories.Repos.WalletRepos;
 using Repositories.Repos.WardrobeRepos;
 using Repositories.UnitOfWork;
 using Services.AI;
@@ -27,19 +36,21 @@ using Services.Implements.Auth;
 using Services.Implements.BackgroundServices;
 using Services.Implements.Events;
 using Services.Implements.Experts;
-using Services.Implements.ExpertsService.ExpertFileImp;
+using Services.Implements.ExpertsService.ExpertRequestImp;
 using Services.Implements.Follow;
 using Services.Implements.ImageImp;
 using Services.Implements.Items;
 using Services.Implements.OutfitImp;
 using Repositories.Repos.OutfitRepos;
 using Services.Implements.PackageCoinImp;
+using Services.Implements.PackageImp;
 using Services.Implements.PaymentService;
 using Services.Implements.PostImp;
 using Services.Implements.SocialImp;
 using Services.Implements.TransactionImp;
 using Services.Implements.TryOn;
 using Services.Implements.UserReportImp;
+using Services.Implements.WalletImp;
 using Services.Implements.Wardrobe;
 using Services.Mappers;
 using Services.RabbitMQ;
@@ -54,6 +65,9 @@ using Repositories.Repos.ReactionRepos;
 using Repositories.Repos.CommentReactionRepos;
 using Repositories.Repos.CommentRepos;
 using Repositories.Repos.PostSaveRepos;
+using Repositories.Repos.TryOn;
+using WebAPIs.Services;
+
 
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -107,9 +121,9 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IImageRepository, ImageRepository>();
 builder.Services.AddScoped<ISocialRepository, SocialRepository>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
-builder.Services.AddScoped<IPackageCoinRepository, PackageCoinRepository>();
+builder.Services.AddScoped<IPackageRepository, PackageRepository>();
 builder.Services.AddScoped<IUserReportRepository, UserReportRepository>();
-builder.Services.AddScoped<IExpertFileRepository, ExpertFileRepository>();
+builder.Services.AddScoped<IExpertRequestRepository, ExpertRequestRepository>();
 builder.Services.AddScoped<IExpertProfileRepository, ExpertProfileRepository>();
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IWardrobeRepository, WardrobeRepository>();
@@ -136,6 +150,19 @@ builder.Services.AddScoped<ICommentReactionRepository, CommentReactionRepository
 builder.Services.AddScoped<ICommentRepository, CommentRepository>();
 builder.Services.AddScoped<IPostSaveRepository, PostSaveRepository>();
 builder.Services.AddScoped<IUserReportRepository, UserReportRepository>();
+builder.Services.AddScoped<ITryOnHistoryRepository, TryOnHistoryRepository>();
+
+
+builder.Services.AddScoped<IWalletRepository, WalletRepository>();
+builder.Services.AddScoped<IPrizeEventRepository, PrizeEventRepository>();
+builder.Services.AddScoped<IEscrowSessionRepository, EscrowSessionRepository>();
+builder.Services.AddScoped<IAccountSubscriptionRepository, AccountSubscriptionRepository>();
+builder.Services.AddScoped<IEventExpertRepository, EventExpertRepository>();
+builder.Services.AddScoped<IExpertRatingRepository, ExpertRatingRepository>();
+builder.Services.AddScoped<IScoreboardRepository, ScoreboardRepository>();
+builder.Services.AddScoped<IEventWinnerRepository, EventWinnerRepository>();
+
+
 
 // Service Layer
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -149,7 +176,20 @@ builder.Services.AddScoped<IAiService, AiService>();
 builder.Services.AddScoped<IModelService, ModelService>();
 builder.Services.AddScoped<IPostSaveService, PostSaveService>();
 builder.Services.AddScoped<IUserReportService, UserReportService>();
+builder.Services.AddScoped<ITryOnHistoryService, TryOnHistoryService>();
 //builder.Services.AddScoped<IFileService, LocalFileService>();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<IWalletService, WalletService>();
+builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddScoped<ICloudStorageService, CloundStorageService>();
+builder.Services.AddScoped<IAIDetectionService, AIDetectionService>();
+builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<IExpertRequestService, ExpertRequestService>();
+builder.Services.AddScoped<IUserReportService, UserReportService>();
+builder.Services.AddScoped<IPackageService, PackageService>();
+builder.Services.AddScoped<ITransactionService, TransactionService>();
+builder.Services.AddScoped<ISocialService, SocialService>();
+builder.Services.AddScoped<IImageService, ImageService>();
 builder.Services.AddScoped<IFileService>(sp =>
 {
     var env = sp.GetRequiredService<IWebHostEnvironment>();
