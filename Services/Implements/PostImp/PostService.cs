@@ -48,7 +48,7 @@ namespace Services.Implements.PostImp
             var post = new Post
             {
                 AccountId = accountId,
-                Tittle = dto.Title?.Trim(),
+                Title = dto.Title?.Trim(),
                 Content = dto.Content?.Trim(),
                 EventId = dto.EventId,
                 CreatedAt = now,
@@ -99,22 +99,51 @@ namespace Services.Implements.PostImp
             if (post.Status == PostStatus.Verifying)
                 throw new Exception("Post is being verified and cannot be updated.");
 
-            if (post.Status == PostStatus.Rejected)
-                throw new Exception("Rejected post cannot be updated.");
+            if (post.Status == PostStatus.BlockedByAdmin)
+                throw new Exception("Blocked post cannot be updated.");
+
+            var changed = false;
 
             if (!string.IsNullOrWhiteSpace(dto.Title))
-                post.Tittle = dto.Title.Trim();
+            {
+                post.Title = dto.Title.Trim();
+                changed = true;
+            }
 
             if (!string.IsNullOrWhiteSpace(dto.Content))
+            {
                 post.Content = dto.Content.Trim();
+                changed = true;
+            }
+
+            if (!changed)
+                throw new Exception("No changes detected.");
 
             post.UpdatedAt = DateTime.UtcNow;
+
+            if (post.Status == PostStatus.AIRejected)
+            {
+                var images = await _imageRepo.GetPostImagesAsync(postId);
+
+                post.Status = images.Any()
+                    ? PostStatus.Verifying
+                    : PostStatus.Published;
+
+                if (images.Any())
+                {
+                    await SendModeration(
+                        post.PostId,
+                        images.Select(i => i.ImageUrl).ToList());
+                }
+            }
 
             _postRepo.Update(post);
             await _uow.SaveChangesAsync();
         }
 
-        public async Task DeletePostAsync(int postId, int accountId)
+        public async Task DeletePostAsync(
+            int postId,
+            int accountId)
         {
             var post = await _postRepo.GetByIdAsync(postId)
                 ?? throw new Exception("Post not found");
@@ -202,8 +231,8 @@ namespace Services.Implements.PostImp
             if (post.AccountId != accountId)
                 throw new UnauthorizedAccessException();
 
-            if (post.Status == PostStatus.Rejected)
-                throw new Exception("Rejected post cannot be hidden.");
+            if (post.Status != PostStatus.Published)
+                throw new Exception("Only published posts can be hidden.");
 
             if (post.Visibility == PostVisibility.Hidden)
             {
@@ -212,8 +241,7 @@ namespace Services.Implements.PostImp
                     PostId = post.PostId,
                     Status = post.Status,
                     Visibility = post.Visibility,
-                    IsPubliclyVisible = post.Status == PostStatus.Published
-                                     && post.Visibility == PostVisibility.Visible,
+                    IsPubliclyVisible = false,
                     Message = "Post is already hidden."
                 };
             }
@@ -244,8 +272,8 @@ namespace Services.Implements.PostImp
             if (post.AccountId != accountId)
                 throw new UnauthorizedAccessException();
 
-            if (post.Status == PostStatus.Rejected)
-                throw new Exception("Rejected post cannot be unhidden.");
+            if (post.Status != PostStatus.Published)
+                throw new Exception("Only published posts can be made visible.");
 
             if (post.Visibility == PostVisibility.Visible)
             {
@@ -254,8 +282,7 @@ namespace Services.Implements.PostImp
                     PostId = post.PostId,
                     Status = post.Status,
                     Visibility = post.Visibility,
-                    IsPubliclyVisible = post.Status == PostStatus.Published
-                                     && post.Visibility == PostVisibility.Visible,
+                    IsPubliclyVisible = true,
                     Message = "Post is already visible."
                 };
             }
@@ -271,10 +298,40 @@ namespace Services.Implements.PostImp
                 PostId = post.PostId,
                 Status = post.Status,
                 Visibility = post.Visibility,
-                IsPubliclyVisible = post.Status == PostStatus.Published
-                                 && post.Visibility == PostVisibility.Visible,
+                IsPubliclyVisible = true,
                 Message = "Post visible successfully."
             };
+        }
+
+        public Task<PagedResultDto<AdminReviewPostDto>> GetAIRejectedPostsAsync(
+            int page,
+            int pageSize)
+        {
+            if (page <= 0) page = 1;
+            if (pageSize <= 0) pageSize = 10;
+            if (pageSize > 50) pageSize = 50;
+
+            return _postRepo.GetAIRejectedPostsPagedAsync(page, pageSize);
+        }
+
+        public async Task ReviewAIRejectedPostAsync(
+            int postId,
+            bool approve)
+        {
+            var post = await _postRepo.GetByIdAsync(postId)
+                ?? throw new Exception("Post not found");
+
+            if (post.Status != PostStatus.AIRejected)
+                throw new Exception("Only AI rejected posts can be reviewed.");
+
+            post.Status = approve
+                ? PostStatus.Published
+                : PostStatus.BlockedByAdmin;
+
+            post.UpdatedAt = DateTime.UtcNow;
+
+            _postRepo.Update(post);
+            await _uow.SaveChangesAsync();
         }
 
         private async Task<List<string>> UploadImages(

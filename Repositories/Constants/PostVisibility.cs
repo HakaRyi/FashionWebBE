@@ -2,7 +2,7 @@
 {
     public static class PostVisibility
     {
-        // user muốn ẩn bài của họ
+        // cho user ẩn bài của họ
         public const string Visible = "Visible";
         public const string Hidden = "Hidden";
 

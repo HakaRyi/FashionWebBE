@@ -26,8 +26,6 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
     public virtual DbSet<Comment> Comments { get; set; }
 
-    public virtual DbSet<CommentReaction> CommentReactions { get; set; }
-
     public virtual DbSet<Event> Events { get; set; }
 
     public virtual DbSet<ExpertRating> ExpertRatings { get; set; }
@@ -471,83 +469,74 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
         modelBuilder.Entity<EscrowSession>(entity =>
         {
-            entity.HasKey(e => e.EscrowSessionId).HasName("EscrowSession_pkey");
+            entity.HasKey(e => e.EscrowSessionId)
+                  .HasName("EscrowSession_pkey");
 
             entity.ToTable("EscrowSession", "public");
 
-            entity.Property(e => e.EscrowSessionId).HasColumnName("escrow_session_id");
+            entity.Property(e => e.EscrowSessionId)
+                  .HasColumnName("escrow_session_id");
 
             entity.Property(e => e.Amount)
-                .HasColumnType("decimal(18,2)")
-                .HasColumnName("amount");
+                  .HasColumnType("decimal(18,2)")
+                  .HasColumnName("amount");
 
             entity.Property(e => e.ServiceFee)
-                .HasColumnType("decimal(18,2)")
-                .HasDefaultValue(0m)
-                .HasColumnName("service_fee");
+                  .HasColumnType("decimal(18,2)")
+                  .HasDefaultValue(0m)
+                  .HasColumnName("service_fee");
 
             entity.Property(e => e.Status)
-                .HasMaxLength(30)
-                .IsRequired()
-                .HasColumnName("status");
+                  .HasMaxLength(30)
+                  .IsRequired()
+                  .HasColumnName("status");
 
             entity.Property(e => e.Description)
-                .HasMaxLength(500)
-                .HasColumnName("description");
+                  .HasMaxLength(500)
+                  .HasColumnName("description");
 
             entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
-                .HasColumnName("created_at");
+                  .HasColumnType("timestamp without time zone")
+                  .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                  .HasColumnName("created_at");
 
             entity.Property(e => e.ResolvedAt)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("resolved_at");
+                  .HasColumnType("timestamp without time zone")
+                  .HasColumnName("resolved_at");
 
-            entity.Property(e => e.SenderId).HasColumnName("sender_id");
-            entity.Property(e => e.ReceiverId).HasColumnName("receiver_id");
-            entity.Property(e => e.OrderId).HasColumnName("order_id");
-            entity.Property(e => e.EventId).HasColumnName("event_id");
+            entity.Property(e => e.SenderId)
+                  .HasColumnName("sender_id");
+
+            entity.Property(e => e.ReceiverId)
+                  .HasColumnName("receiver_id");
+
+            entity.Property(e => e.OrderId)
+                  .HasColumnName("order_id");
+
+            entity.Property(e => e.EventId)
+                  .HasColumnName("event_id");
 
             entity.HasOne(d => d.Sender)
-                .WithMany(p => p.SentEscrows)
-                .HasForeignKey(d => d.SenderId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("EscrowSession_sender_id_fkey");
+                  .WithMany(p => p.SentEscrows)
+                  .HasForeignKey(d => d.SenderId)
+                  .OnDelete(DeleteBehavior.ClientSetNull)
+                  .HasConstraintName("EscrowSession_sender_id_fkey");
 
             entity.HasOne(d => d.Receiver)
-                .WithMany(p => p.ReceivedEscrows)
-                .HasForeignKey(d => d.ReceiverId)
-                .OnDelete(DeleteBehavior.SetNull)
-                .HasConstraintName("EscrowSession_receiver_id_fkey");
+                  .WithMany(p => p.ReceivedEscrows)
+                  .HasForeignKey(d => d.ReceiverId)
+                  .OnDelete(DeleteBehavior.SetNull)
+                  .HasConstraintName("EscrowSession_receiver_id_fkey");
 
             entity.HasOne(d => d.Order)
-                .WithOne(p => p.EscrowSession)
-                .HasForeignKey<EscrowSession>(d => d.OrderId)
-                .OnDelete(DeleteBehavior.SetNull);
-            entity.HasIndex(e => e.AccountId)
-                  .HasDatabaseName("ix_comment_account_id");
+                  .WithOne(p => p.EscrowSession)
+                  .HasForeignKey<EscrowSession>(d => d.OrderId)
+                  .OnDelete(DeleteBehavior.SetNull);
 
-            entity.HasIndex(e => e.ParentCommentId)
-                  .HasDatabaseName("ix_comment_parent_comment_id");
-
-            entity.HasOne(d => d.Post)
-                  .WithMany(p => p.Comments)
-                  .HasForeignKey(d => d.PostId)
-                  .OnDelete(DeleteBehavior.Cascade)
-                  .HasConstraintName("comment_post_id_fkey");
-
-            entity.HasOne(d => d.Account)
-                  .WithMany(p => p.Comments)
-                  .HasForeignKey(d => d.AccountId)
-                  .OnDelete(DeleteBehavior.Cascade)
-                  .HasConstraintName("comment_account_id_fkey");
-
-            entity.HasOne(d => d.ParentComment)
-                  .WithMany(p => p.Replies)
-                  .HasForeignKey(d => d.ParentCommentId)
-                  .OnDelete(DeleteBehavior.Restrict)
-                  .HasConstraintName("comment_parent_comment_fkey");
+            entity.HasOne(d => d.Event)
+                  .WithMany()
+                  .HasForeignKey(d => d.EventId)
+                  .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<Event>(entity =>
@@ -1403,8 +1392,8 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.EventId)
                   .HasColumnName("event_id");
 
-            entity.Property(e => e.Tittle)
-                  .HasColumnName("tittle");
+            entity.Property(e => e.Title)
+                  .HasColumnName("title");
 
             entity.Property(e => e.Content)
                   .HasColumnName("content");

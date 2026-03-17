@@ -85,7 +85,7 @@ namespace Repositories.Repos.Report
                     ReportedByUserName = x.Account.UserName ?? "",
                     PostOwnerAccountId = x.Post.AccountId,
                     PostOwnerUserName = x.Post.Account.UserName ?? "",
-                    PostTitle = x.Post.Tittle,
+                    PostTitle = x.Post.Title,
                     PostContent = x.Post.Content,
                     PostStatus = x.Post.Status,
                     PostVisibility = x.Post.Visibility,

@@ -52,7 +52,7 @@ namespace Repositories.Repos.PostRepos
                         .Select(a => a.ImageUrl)
                         .FirstOrDefault(),
 
-                    Title = p.Tittle,
+                    Title = p.Title,
                     Content = p.Content,
 
                     Images = p.Images
@@ -105,7 +105,7 @@ namespace Repositories.Repos.PostRepos
                         .Select(a => a.ImageUrl)
                         .FirstOrDefault(),
 
-                    Title = p.Tittle,
+                    Title = p.Title,
                     Content = p.Content,
 
                     Images = p.Images
@@ -127,7 +127,7 @@ namespace Repositories.Repos.PostRepos
 
                     CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
 
-                    Comments = new List<Dto.Social.Comment.CommentDto>()
+                    Comments = new List<Repositories.Dto.Social.Comment.CommentDto>()
                 })
                 .FirstOrDefaultAsync();
         }
@@ -158,7 +158,7 @@ namespace Repositories.Repos.PostRepos
                         .Select(a => a.ImageUrl)
                         .FirstOrDefault(),
 
-                    Title = p.Tittle,
+                    Title = p.Title,
                     Content = p.Content,
 
                     Images = p.Images
@@ -184,13 +184,18 @@ namespace Repositories.Repos.PostRepos
                         s.AccountId == ownerId),
 
                     IsOwner = true,
+
                     CanEdit = p.Status != PostStatus.Verifying
-                           && p.Status != PostStatus.Rejected,
+                           && p.Status != PostStatus.BlockedByAdmin,
+
                     CanDelete = true,
-                    CanHide = p.Visibility == PostVisibility.Visible
-                           && p.Status != PostStatus.Rejected,
-                    CanUnhide = p.Visibility == PostVisibility.Hidden
-                             && p.Status != PostStatus.Rejected,
+
+                    CanHide = p.Status == PostStatus.Published
+                           && p.Visibility == PostVisibility.Visible,
+
+                    CanUnhide = p.Status == PostStatus.Published
+                             && p.Visibility == PostVisibility.Hidden,
+
                     IsPubliclyVisible = p.Status == PostStatus.Published
                                      && p.Visibility == PostVisibility.Visible
                 })
@@ -236,7 +241,7 @@ namespace Repositories.Repos.PostRepos
                         .Select(a => a.ImageUrl)
                         .FirstOrDefault(),
 
-                    Title = p.Tittle,
+                    Title = p.Title,
                     Content = p.Content,
 
                     Images = p.Images
@@ -298,7 +303,7 @@ namespace Repositories.Repos.PostRepos
                         .Select(a => a.ImageUrl)
                         .FirstOrDefault(),
 
-                    Title = p.Tittle,
+                    Title = p.Title,
                     Content = p.Content,
 
                     Images = p.Images
@@ -324,6 +329,52 @@ namespace Repositories.Repos.PostRepos
                         s.AccountId == viewerId)
                 })
                 .ToListAsync();
+        }
+
+        public async Task<PagedResultDto<AdminReviewPostDto>> GetAIRejectedPostsPagedAsync(
+            int page,
+            int pageSize)
+        {
+            var query = _db.Posts
+                .AsNoTracking()
+                .Where(p => p.Status == PostStatus.AIRejected);
+
+            var total = await query.CountAsync();
+
+            var items = await query
+                .OrderByDescending(p => p.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(p => new AdminReviewPostDto
+                {
+                    PostId = p.PostId,
+                    AccountId = p.AccountId,
+                    UserName = p.Account.UserName!,
+                    AvatarUrl = p.Account.Avatars
+                        .OrderByDescending(a => a.CreatedAt)
+                        .Select(a => a.ImageUrl)
+                        .FirstOrDefault(),
+                    Title = p.Title,
+                    Content = p.Content,
+                    Images = p.Images
+                        .OrderBy(i => i.CreatedAt)
+                        .Select(i => i.ImageUrl)
+                        .ToList(),
+                    Status = p.Status,
+                    Visibility = p.Visibility,
+                    CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
+                    UpdatedAt = p.UpdatedAt
+                })
+                .ToListAsync();
+
+            return new PagedResultDto<AdminReviewPostDto>
+            {
+                Items = items,
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = total,
+                HasMore = (page * pageSize) < total
+            };
         }
 
         public async Task AddAsync(Post post)

@@ -64,7 +64,7 @@ namespace Repositories.Repos.PostSaveRepos
                         .Select(a => a.ImageUrl)
                         .FirstOrDefault(),
 
-                    Title = x.Post.Tittle,
+                    Title = x.Post.Title,
                     Content = x.Post.Content,
 
                     Images = x.Post.Images

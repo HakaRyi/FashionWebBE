@@ -20,5 +20,4 @@ namespace Repositories.Entities
 
         public Account Account { get; set; } = null!;
     }
-
 }

@@ -22,7 +22,7 @@ namespace Services.Utils.Mapper
                     .Select(a => a.ImageUrl)
                     .FirstOrDefault(),
 
-                Title = post.Tittle,
+                Title = post.Title,
                 Content = post.Content,
 
                 Images = post.Images
@@ -57,7 +57,7 @@ namespace Services.Utils.Mapper
                     .Select(a => a.ImageUrl)
                     .FirstOrDefault(),
 
-                Title = post.Tittle,
+                Title = post.Title,
                 Content = post.Content,
 
                 Images = post.Images

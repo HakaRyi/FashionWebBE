@@ -176,7 +176,7 @@ namespace Services.Implements.Report
 
             if (newStatus == ReportStatus.Resolved && report.Post != null)
             {
-                report.Post.Status = PostStatus.Rejected;
+                report.Post.Status = PostStatus.BlockedByAdmin;
                 report.Post.UpdatedAt = DateTime.UtcNow;
             }
 

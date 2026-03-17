@@ -20,10 +20,7 @@ namespace Repositories.Repos.Report
 
         Task<AdminReportDetailDto?> GetAdminReportDetailAsync(int userReportId);
 
-        Task<PagedResultDto<AdminReportListItemDto>> GetAdminReportsAsync(
-            string? status,
-            int pageNumber,
-            int pageSize);
+        Task<PagedResultDto<AdminReportListItemDto>> GetAdminReportsAsync(string? status, int pageNumber, int pageSize);
 
         void Update(UserReport report);
     }

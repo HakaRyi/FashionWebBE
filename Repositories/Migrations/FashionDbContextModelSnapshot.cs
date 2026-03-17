@@ -560,45 +560,6 @@ namespace Repositories.Migrations
                     b.ToTable("EscrowSession", "public");
                 });
 
-            modelBuilder.Entity("Repositories.Entities.CommentReaction", b =>
-                {
-                    b.Property<int>("CommentReactionId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("comment_reaction_id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("CommentReactionId"));
-
-                    b.Property<int>("AccountId")
-                        .HasColumnType("integer")
-                        .HasColumnName("account_id");
-
-                    b.Property<int>("CommentId")
-                        .HasColumnType("integer")
-                        .HasColumnName("comment_id");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("NOW()");
-
-                    b.HasKey("CommentReactionId")
-                        .HasName("comment_reaction_pkey");
-
-                    b.HasIndex("AccountId")
-                        .HasDatabaseName("ix_comment_reaction_account_id");
-
-                    b.HasIndex("CommentId")
-                        .HasDatabaseName("ix_comment_reaction_comment_id");
-
-                    b.HasIndex("AccountId", "CommentId")
-                        .IsUnique()
-                        .HasDatabaseName("ux_comment_reaction_account_comment");
-
-                    b.ToTable("CommentReaction", "public");
-                });
-
             modelBuilder.Entity("Repositories.Entities.Event", b =>
                 {
                     b.Property<int>("EventId")
@@ -1300,7 +1261,7 @@ namespace Repositories.Migrations
                     b.Property<DateTime?>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp without time zone")
-                        .HasColumnName("created_at")
+                        .HasColumnName("create_at")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<string>("ImageUrl")
@@ -1917,8 +1878,6 @@ namespace Repositories.Migrations
                         .HasColumnName("post_id");
 
                     b.HasKey("ReactionId")
-                        .HasName("Reaction_pkey");
-                    b.HasKey("ReactionId")
                         .HasName("reaction_pkey");
 
                     b.HasIndex("AccountId")
@@ -2521,27 +2480,6 @@ namespace Repositories.Migrations
                     b.Navigation("Receiver");
 
                     b.Navigation("Sender");
-                });
-
-            modelBuilder.Entity("Repositories.Entities.CommentReaction", b =>
-                {
-                    b.HasOne("Repositories.Entities.Account", "Account")
-                        .WithMany()
-                        .HasForeignKey("AccountId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("comment_reaction_account_id_fkey");
-
-                    b.HasOne("Repositories.Entities.Comment", "Comment")
-                        .WithMany("Reactions")
-                        .HasForeignKey("CommentId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("comment_reaction_comment_id_fkey");
-
-                    b.Navigation("Account");
-
-                    b.Navigation("Comment");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Event", b =>
@@ -3175,8 +3113,6 @@ namespace Repositories.Migrations
                     b.Navigation("SavedPosts");
 
                     b.Navigation("SentEscrows");
-
-                    b.Navigation("SavedPosts");
 
                     b.Navigation("Transactions");
 
