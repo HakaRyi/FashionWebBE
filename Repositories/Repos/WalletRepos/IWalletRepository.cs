@@ -13,5 +13,6 @@ namespace Repositories.Repos.WalletRepos
         Task UpdateBalanceAsync(int walletId, decimal balance, decimal lockedBalance);
         Task<IEnumerable<Transaction>> GetTransactionHistoryAsync(int walletId);
         void Update(Wallet wallet);
+        Task CreateWalletAsync(Wallet wallet);
     }
 }

@@ -1312,6 +1312,10 @@ namespace Repositories.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("status");
 
+                    b.Property<int?>("TargetUserId")
+                        .HasColumnType("integer")
+                        .HasColumnName("target_user_id");
+
                     b.Property<string>("Title")
                         .HasMaxLength(255)
                         .HasColumnType("character varying(255)")

@@ -1,0 +1,26 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace Services.Response.MessageResp
+{
+    public class MessageResponse
+    {
+        public int MessageId { get; set; }
+        public string GroupName { get; set; }
+        public string SenderName { get; set; }
+        public string Content { get; set; } = string.Empty;
+        public List<string>? Photos { get; set; } = new List<string>();
+        public DateTime? SentAt { get; set; }
+        public List<MessageReactionResponse>? Reactions { get; set; } = new List<MessageReactionResponse>();
+        public int? ReplyToMessageId { get; set; }
+    }
+    public class MessageReactionResponse
+    {
+        public int ReactionId { get; set; }
+        public int? AccountId { get; set; }
+        public string ReactionType { get; set; } = string.Empty;
+    }
+}

@@ -4,6 +4,7 @@
     {
         public const string Draft = "Draft";
         public const string Verifying = "Verifying";
+        public const string PendingAdmin = "PendingAdmin";
         public const string Published = "Published";
         public const string AIRejected = "AIRejected";
         public const string BlockedByAdmin = "BlockedByAdmin";
@@ -12,6 +13,7 @@
         {
             Draft,
             Verifying,
+            PendingAdmin,
             Published,
             AIRejected,
             BlockedByAdmin

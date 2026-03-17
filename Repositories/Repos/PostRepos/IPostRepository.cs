@@ -20,6 +20,13 @@ namespace Repositories.Repos.PostRepos
 
         Task<PagedResultDto<AdminReviewPostDto>> GetAIRejectedPostsPagedAsync(int page, int pageSize);
 
+
+        Task<List<Post>> GetAllPublishedAsync();
+        Task<List<Post>> GetAllPostAsync();
+        Task<List<Post>> GetAllByUserAsync(int userId);
+        Task<IEnumerable<Post>> GetPostsByEventIdAsync(int eventId);
+        Task<List<Post>> GetAllPendingAdminPostAsync();
+
         Task AddAsync(Post post);
 
         void Update(Post post);

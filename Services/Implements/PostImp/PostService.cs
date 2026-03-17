@@ -7,6 +7,8 @@ using Repositories.Repos.ImageRepos;
 using Repositories.Repos.PostRepos;
 using Repositories.UnitOfWork;
 using Services.RabbitMQ;
+using Services.Request.PostReq;
+using Services.Response.PostResp;
 using Services.Utils;
 
 namespace Services.Implements.PostImp
@@ -84,7 +86,53 @@ namespace Services.Implements.PostImp
 
             return post.PostId;
         }
+        public async Task<PostResponse> CreatePostAsync2(int accountId, CreatePostRequest request)
+        {
+            ValidatePostContent(request.Content, request.Images);
+            var now = DateTime.UtcNow;
 
+            List<string> imageUrls = new List<string>();
+            if (request.Images != null && request.Images.Any())
+            {
+                var uploadTasks = request.Images.Select(f => _storage.UploadImageAsync(f));
+                imageUrls = (await Task.WhenAll(uploadTasks)).ToList();
+            }
+
+            var initialStatus = imageUrls.Any() ? PostStatus.Verifying : PostStatus.Published;
+
+            var post = new Post
+            {
+                AccountId = accountId,
+                Content = request.Content?.Trim(),
+                EventId = request.EventId,
+                CreatedAt = now,
+                UpdatedAt = now,
+                Status = initialStatus,
+                LikeCount = 0,
+                ShareCount = 0,
+                Score = 0,
+                IsExpertPost = false,
+                Images = imageUrls.Select(url => new Image
+                {
+                    ImageUrl = url,
+                    OwnerType = "Post",
+                    CreatedAt = now
+                }).ToList()
+            };
+
+            await _postRepo.AddAsync(post);
+            await _uow.SaveChangesAsync();
+
+            if (imageUrls.Any())
+            {
+                await _producer.SendMessage(new PostImageMessage
+                {
+                    PostId = post.PostId,
+                    ImageUrls = imageUrls
+                });
+            }
+            return MapToResponse(post);
+        }
         public async Task UpdatePostAsync(
             int postId,
             int accountId,
@@ -162,6 +210,91 @@ namespace Services.Implements.PostImp
             _postRepo.Delete(post);
 
             await _uow.SaveChangesAsync();
+        }
+        // ==============================
+        // ADMIN MODERATION
+        // ==============================
+        public async Task<string> AdminCheckTheStatusPost(CheckPostRequest request, int id)
+        {
+            if (string.IsNullOrWhiteSpace(request.Status))
+                return "Status is required.";
+
+            var newStatus = request.Status.Trim();
+
+            if (!PostStatus.IsValid(newStatus))
+                return "Invalid status.";
+
+            var post = await _postRepo.GetByIdAsync(id);
+            if (post == null)
+                return "Post not found.";
+
+            if (post.Status != PostStatus.PendingAdmin &&
+                post.Status != PostStatus.Verifying)
+                return "This post is not waiting for moderation.";
+
+            if (post.Status == newStatus)
+                return "Status is already set.";
+
+            post.Status = newStatus;
+            post.UpdatedAt = DateTime.UtcNow;
+
+            await _uow.SaveChangesAsync();
+
+            return "Post moderation updated successfully.";
+        }
+
+
+        // ==============================
+        // GET METHODS
+        // ==============================
+        public async Task<List<PostResponse>> GetAllPostAsync()
+        {
+            var posts = await _postRepo.GetAllPostAsync();
+            return posts.Select(MapToResponse).ToList();
+        }
+
+        public async Task<List<PostResponse>> GetAllMyPostAsync(int userId)
+        {
+            var posts = await _postRepo.GetAllByUserAsync(userId);
+            return posts.Select(MapToResponse).ToList();
+        }
+
+        public async Task<PostResponse?> GetPostByIdAsync(int postId)
+        {
+            var post = await _postRepo.GetByIdAsync(postId);
+            return post == null ? null : MapToResponse(post);
+        }
+
+        // ==============================
+        // PRIVATE HELPERS
+        // ==============================
+
+        private async Task HandleImageUploadAndModeration(Post post, IEnumerable<IFormFile> files)
+        {
+            // Upload song song
+            var uploadTasks = files.Select(f => _storage.UploadImageAsync(f));
+            var imageUrls = (await Task.WhenAll(uploadTasks)).ToList();
+
+            var imageEntities = imageUrls.Select(url => new Image
+            {
+                ImageUrl = url,
+                PostId = post.PostId,
+                OwnerType = "Post",
+                CreatedAt = DateTime.UtcNow
+            }).ToList();
+
+            await _imageRepo.AddRangeAsync(imageEntities);
+
+            post.Status = PostStatus.Verifying;
+            post.UpdatedAt = DateTime.UtcNow;
+
+            await _uow.SaveChangesAsync();
+
+            _producer.SendMessage(new PostImageMessage
+            {
+                PostId = post.PostId,
+                ImageUrls = imageUrls
+            });
         }
 
         public Task<List<PostFeedDto>> GetFeedAsync(

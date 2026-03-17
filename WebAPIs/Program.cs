@@ -22,6 +22,9 @@ using Repositories.Repos.ItemRespos;
 using Repositories.Repos.ModelRepos;
 using Repositories.Repos.OutfitRepos;
 using Repositories.Repos.PackageRepos;
+using Repositories.Repos.ModelRepos;
+using Repositories.Repos.NotificationRepos;
+using Repositories.Repos.OutfitRepos;
 using Repositories.Repos.Payments;
 using Repositories.Repos.PostRepos;
 using Repositories.Repos.PostSaveRepos;
@@ -63,6 +66,7 @@ using Services.Utils;
 using Services.Utils.AIDectection;
 using Services.Utils.CloundStorage;
 using Services.Utils.File;
+using Services.Utils.SignalR;
 using System.Text;
 using WebAPIs.Services;
 
@@ -240,6 +244,19 @@ builder.Services.AddAuthentication(options =>
 
         ClockSkew = TimeSpan.Zero
     };
+    options.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/notificationHub"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
+    };
 });
 
 #endregion
@@ -291,6 +308,8 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod()
               .AllowAnyHeader());
 });
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
 
 #endregion
 

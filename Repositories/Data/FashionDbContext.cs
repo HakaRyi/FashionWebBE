@@ -78,8 +78,6 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
     public virtual DbSet<Reaction> Reactions { get; set; }
 
-    public virtual DbSet<CommentReaction> CommentReactions { get; set; }
-
     public virtual DbSet<RefreshToken> RefreshTokens { get; set; }
 
     public virtual DbSet<ReportType> ReportTypes { get; set; }
@@ -1501,9 +1499,6 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.AccountId)
                 .HasColumnName("account_id");
 
-            entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("created_at");
 
             entity.HasIndex(e => new { e.AccountId, e.PostId })
                 .IsUnique()
@@ -1519,7 +1514,6 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasForeignKey(d => d.AccountId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
-
 
         modelBuilder.Entity<PostVector>(entity =>
         {
