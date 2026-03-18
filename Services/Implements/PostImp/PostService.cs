@@ -641,8 +641,8 @@ namespace Services.Implements.PostImp
             var post = await _postRepo.GetByIdAsync(postId);
             post.Status = PostStatus.Deleted;
             post.UpdatedAt = DateTime.UtcNow;
-            await _postRepo.Update(post);
-            await _unitOfWork.SaveChangesAsync();
+            _postRepo.Update(post);
+            await _uow.SaveChangesAsync();
         }
 
         public async Task SetPostBannedStatus(int postId)
@@ -650,8 +650,8 @@ namespace Services.Implements.PostImp
             var post = await _postRepo.GetByIdAsync(postId);
             post.Status = PostStatus.Banned;
             post.UpdatedAt = DateTime.UtcNow;
-            await _postRepo.Update(post);
-            await _unitOfWork.SaveChangesAsync();
+            _postRepo.Update(post);
+            await _uow.SaveChangesAsync();
         }
     }
 }
