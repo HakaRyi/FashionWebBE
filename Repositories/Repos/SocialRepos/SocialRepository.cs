@@ -7,100 +7,89 @@ namespace Repositories.Repos.SocialRepos
     public class SocialRepository : ISocialRepository
     {
         private readonly FashionDbContext _db;
+
         public SocialRepository(FashionDbContext db)
         {
             _db = db;
         }
 
-        public async Task<bool> CheckIsLikedByUser(int userId, int postId)
+        // ================= LIKE =================
+
+        public async Task<bool> IsLikedAsync(int userId, int postId)
         {
-            return await _db.Reactions.AnyAsync(r => r.AccountId == userId && r.PostId == postId);
+            return await _db.Reactions
+                .AnyAsync(r => r.AccountId == userId && r.PostId == postId);
         }
 
-        public Task<bool> CheckIsSharedByUser(int userId, int postId)
+        public async Task<Reaction?> GetReactionAsync(int userId, int postId)
         {
-            throw new NotImplementedException();
+            return await _db.Reactions
+                .FirstOrDefaultAsync(r => r.AccountId == userId && r.PostId == postId);
         }
 
-        public async Task<int> Comment(Comment comment)
+        public async Task AddReactionAsync(Reaction reaction)
         {
-            _db.Comments.Add(comment);
-            return await _db.SaveChangesAsync();
+            await _db.Reactions.AddAsync(reaction);
         }
 
-        public async Task<int> CreateReact(Reaction reaction)
+        public Task RemoveReactionAsync(Reaction reaction)
         {
-            _db.Reactions.Add(reaction);
-            return await _db.SaveChangesAsync();
+            _db.Reactions.Remove(reaction);
+            return Task.CompletedTask;
         }
 
-        public async Task<bool> Delete(Comment comment)
+        public async Task<int> CountReactionAsync(int postId)
+        {
+            return await _db.Reactions
+                .CountAsync(r => r.PostId == postId);
+        }
+
+        // ================= COMMENT =================
+
+        public async Task AddCommentAsync(Comment comment)
+        {
+            await _db.Comments.AddAsync(comment);
+        }
+
+        public Task UpdateCommentAsync(Comment comment)
+        {
+            _db.Comments.Update(comment);
+            return Task.CompletedTask;
+        }
+
+        public Task DeleteCommentAsync(Comment comment)
         {
             _db.Comments.Remove(comment);
-            return await _db.SaveChangesAsync() > 0;
+            return Task.CompletedTask;
         }
 
-        public async Task<List<Comment>> GetAllCommentByPostId(int postId)
+        public async Task<Comment?> GetCommentByIdAsync(int id)
         {
             return await _db.Comments
-                .Include(c => c.Account)
-                .Include(c => c.Post)
-                .Where(c => c.PostId == postId)
-                .OrderByDescending(r => r.CreatedAt)
-                .ToListAsync();
-        }
-
-        public async Task<List<Reaction>> GetAllReactionByPostId(int postId)
-        {
-            return await _db.Reactions
-                .Include(r => r.Account)
-                .Include(r => r.Post)
-                .Where(r => r.PostId == postId)
-                .OrderByDescending(r => r.CreatedAt)
-                .ToListAsync();
-        }
-
-        public async Task<Reaction> GetById(int reactId)
-        {
-            return await _db.Reactions
-                .Include(r => r.Account)
-                .Include(r => r.Post)
-                .FirstOrDefaultAsync(r => r.ReactionId == reactId);
-        }
-
-        public async Task<Comment> GetCommentById(int id)
-        {
-            return await _db.Comments
-                .Include(c => c.Account)
-                .Include(c => c.Post)
+                .Include(c => c.Account) // cần để hiển thị avatar/name
                 .FirstOrDefaultAsync(c => c.CommentId == id);
         }
 
-        public async Task<Reaction> GetReactByAccIdAndPostId(int accId, int postId)
+        public async Task<List<Comment>> GetCommentsByPostIdAsync(int postId)
         {
-            return await _db.Reactions
-                 .Include(r => r.Account)
-                 .Include(r => r.Post)
-                 .FirstOrDefaultAsync(r => r.AccountId == accId && r.PostId == postId);
+            return await _db.Comments
+                .Include(c => c.Account)
+                .Where(c => c.PostId == postId)
+                .OrderByDescending(c => c.CreatedAt)
+                .ToListAsync();
         }
 
-        public async Task<bool> RemoveReaction(int reactId)
+        public async Task<int> CountCommentAsync(int postId)
         {
-            var reaction = await _db.Reactions.FindAsync(reactId);
-            _db.Reactions.Remove(reaction);
-            return await _db.SaveChangesAsync() > 0;
+            return await _db.Comments
+                .CountAsync(c => c.PostId == postId);
         }
 
-        public async Task<int> UpdateComment(Comment comment)
-        {
-            _db.Comments.Update(comment);
-            return await _db.SaveChangesAsync();
-        }
+        // ================= SAVE =================
 
-        public async Task<int> UpdateReact(Reaction reaction)
+        public async Task SaveChangesAsync()
         {
-            _db.Reactions.Update(reaction);
-            return await _db.SaveChangesAsync();
+            await _db.SaveChangesAsync();
         }
     }
 }

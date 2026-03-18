@@ -1,4 +1,6 @@
-﻿namespace Repositories.Entities;
+﻿using Repositories.Constants;
+
+namespace Repositories.Entities;
 
 public partial class Post
 {
@@ -18,7 +20,9 @@ public partial class Post
 
     public bool? IsExpertPost { get; set; }
 
-    public string? Status { get; set; }
+    public string? Status { get; set; } = PostStatus.Draft;
+
+    public string Visibility { get; set; } = PostVisibility.Visible;
 
     public double? Score { get; set; }
 

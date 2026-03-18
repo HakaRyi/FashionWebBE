@@ -1,8 +1,10 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Repositories.Repos.AccountRepos;
 using Repositories.Repos.ExpertProfileRepos;
 using Repositories.Repos.ImageRepos;
+using Services.Implements.Auth;
 using Services.Request.AccountReq;
 using Services.Response.AccountRep;
 
@@ -14,17 +16,20 @@ namespace Services.Implements.AccountService
         private readonly IExpertProfileRepository _expertProfileRepository;
         private readonly UserManager<Repositories.Entities.Account> _userManager;
         private readonly IImageRepository _imageRepository;
+        private readonly ICurrentUserService _currentUserService;
 
         public AccountService(
             IAccountRepository accountRepository,
             IExpertProfileRepository expertProfileRepository,
             IImageRepository imageRepository,
-            UserManager<Repositories.Entities.Account> userManager)
+            UserManager<Repositories.Entities.Account> userManager,
+            ICurrentUserService currentUserService)
         {
             _accountRepository = accountRepository;
             _expertProfileRepository = expertProfileRepository;
             _userManager = userManager;
             _imageRepository = imageRepository;
+            _currentUserService = currentUserService;
 
         }
 
@@ -44,6 +49,31 @@ namespace Services.Implements.AccountService
             var account = await _userManager.FindByIdAsync(accountId.ToString());
             if (account == null) return null;
 
+            var roles = await _userManager.GetRolesAsync(account);
+            var avatar = await _imageRepository.GetNewestAvatarAsync(account.Id);
+            return new AccountResponse
+            {
+                Id = account.Id,
+                Username = account.UserName,
+                Email = account.Email,
+                Avatar = avatar?.ImageUrl ?? null,
+                Role = roles.FirstOrDefault() ?? "User",
+                CreatedAt = account.CreatedAt,
+                Status = account.Status,
+                FollowerCount = account.CountFollower,
+                FollowingCount = account.CountFollowing,
+                PostCount = account.CountPost,
+                Description = account.Description
+
+            };
+        }
+
+        public async Task<AccountResponse?> GetAccountByMe()
+        {
+            var accountId =  _currentUserService.GetUserId();
+            if (accountId == null) return null;
+            var account = await _userManager.FindByIdAsync(accountId.ToString());
+            if (account == null) return null;
             var roles = await _userManager.GetRolesAsync(account);
             var avatar = await _imageRepository.GetNewestAvatarAsync(account.Id);
             return new AccountResponse

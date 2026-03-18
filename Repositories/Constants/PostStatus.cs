@@ -25,5 +25,7 @@
         {
             return AllStatuses.Contains(status);
         }
+
+        // 1 bài chỉ public khi post.Status == PostStatus.Published && post.Visibility == PostVisibility.Visible
     }
 }

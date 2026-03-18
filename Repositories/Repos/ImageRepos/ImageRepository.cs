@@ -16,12 +16,14 @@ namespace Repositories.Repos.ImageRepos
         public async Task<Image?> GetByIdAsync(int id)
         {
             return await _db.Images
+                .AsNoTracking()
                 .FirstOrDefaultAsync(i => i.ImageId == id);
         }
 
         public async Task<Image?> GetNewestAvatarAsync(int userId)
         {
             return await _db.Images
+                .AsNoTracking()
                 .Where(i => i.AccountAvatarId == userId)
                 .OrderByDescending(i => i.CreatedAt)
                 .FirstOrDefaultAsync();
@@ -30,15 +32,27 @@ namespace Repositories.Repos.ImageRepos
         public async Task<List<Image>> GetAllMyAvatarAsync(int userId)
         {
             return await _db.Images
+                .AsNoTracking()
                 .Where(i => i.AccountAvatarId == userId)
                 .OrderByDescending(i => i.CreatedAt)
                 .ToListAsync();
         }
 
-        public async Task<List<Image>> GetAllAvatarAsync()
+        public async Task<List<Image>> GetPostImagesAsync(int postId)
         {
             return await _db.Images
-                .Where(i => i.OwnerType == "Avatar")
+                .AsNoTracking()
+                .Where(i => i.PostId == postId)
+                .OrderBy(i => i.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<List<Image>> GetItemImagesAsync(int itemId)
+        {
+            return await _db.Images
+                .AsNoTracking()
+                .Where(i => i.ItemId == itemId)
+                .OrderBy(i => i.CreatedAt)
                 .ToListAsync();
         }
 
