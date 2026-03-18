@@ -9,16 +9,16 @@ namespace WebAPIs.Controllers
     [ApiController]
     [Authorize]
     [Route("api")]
-    public class CommentsController : ControllerBase
+    public class CommentController : ControllerBase
     {
         private readonly ISocialService _socialService;
 
-        public CommentsController(ISocialService socialService)
+        public CommentController(ISocialService socialService)
         {
             _socialService = socialService;
         }
 
-        [HttpGet("posts/{postId:int}/comments")]
+        [HttpGet("post/{postId:int}/comment")]
         public async Task<IActionResult> GetComments(
             int postId,
             [FromQuery] int skip = 0,
@@ -31,7 +31,7 @@ namespace WebAPIs.Controllers
             return Ok(response);
         }
 
-        [HttpPost("posts/{postId:int}/comments")]
+        [HttpPost("post/{postId:int}/comment")]
         public async Task<IActionResult> CreateComment(
             int postId,
             [FromBody] CreateCommentRequestDto request)
@@ -43,7 +43,7 @@ namespace WebAPIs.Controllers
             return Ok(comment);
         }
 
-        [HttpGet("comments/{commentId:int}/replies")]
+        [HttpGet("comment/{commentId:int}/replies")]
         public async Task<IActionResult> GetReplies(
             int commentId,
             [FromQuery] int skip = 0,
@@ -56,7 +56,7 @@ namespace WebAPIs.Controllers
             return Ok(response);
         }
 
-        [HttpPost("comments/{commentId:int}/replies")]
+        [HttpPost("comment/{commentId:int}/replies")]
         public async Task<IActionResult> ReplyComment(
             int commentId,
             [FromBody] CreateReplyDto request)
@@ -68,7 +68,7 @@ namespace WebAPIs.Controllers
             return Ok(response);
         }
 
-        [HttpPut("comments/{commentId:int}")]
+        [HttpPut("comment/{commentId:int}")]
         public async Task<IActionResult> UpdateComment(
             int commentId,
             [FromBody] CommentRequest request)
@@ -80,7 +80,7 @@ namespace WebAPIs.Controllers
             return NoContent();
         }
 
-        [HttpDelete("comments/{commentId:int}")]
+        [HttpDelete("comment/{commentId:int}")]
         public async Task<IActionResult> DeleteComment(int commentId)
         {
             var userId = User.GetUserId();

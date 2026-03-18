@@ -8,16 +8,16 @@ namespace WebAPIs.Controllers
     [ApiController]
     [Authorize]
     [Route("api")]
-    public class ReactionsController : ControllerBase
+    public class ReactionController : ControllerBase
     {
         private readonly ISocialService _socialService;
 
-        public ReactionsController(ISocialService socialService)
+        public ReactionController(ISocialService socialService)
         {
             _socialService = socialService;
         }
 
-        [HttpPost("posts/{postId:int}/like")]
+        [HttpPost("post/{postId:int}/like")]
         public async Task<IActionResult> TogglePostLike(int postId)
         {
             var userId = User.GetUserId();
@@ -28,7 +28,7 @@ namespace WebAPIs.Controllers
             return Ok(result);
         }
 
-        [HttpPost("comments/{commentId:int}/like")]
+        [HttpPost("comment/{commentId:int}/like")]
         public async Task<IActionResult> ToggleCommentLike(int commentId)
         {
             var userId = User.GetUserId();

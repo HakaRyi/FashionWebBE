@@ -1,167 +1,147 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Services.Implements.NotificationImp;
+using Repositories.Dto.Social.Post;
 using Services.Implements.PostImp;
-using Services.Request.NotificationReq;
-using Services.Request.PostReq;
-using System.Security.Claims;
+using Services.Utils;
 
 namespace WebAPIs.Controllers
 {
-    [Route("api/[controller]")]
     [ApiController]
+    [Route("api/post")]
     public class PostController : ControllerBase
     {
         private readonly IPostService _postService;
-        private readonly INotificationService _notificationService;
 
-        public PostController(IPostService postService, INotificationService notificationService)
+        public PostController(IPostService postService)
         {
             _postService = postService;
-            _notificationService = notificationService;
         }
 
         [HttpPost]
         [Authorize]
-        public async Task<IActionResult> CreatePost([FromForm] CreatePostRequest request)
+        public async Task<IActionResult> CreatePost([FromForm] CreatePostDto request)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
+            var userId = User.GetUserId();
 
-            var accountIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            var createdPost = await _postService.CreatePostAsync(userId, request);
 
-            if (accountIdClaim == null || !int.TryParse(accountIdClaim.Value, out int accountId))
-                return Unauthorized();
-
-            try
-            {
-                var result = await _postService.CreatePostAsync(accountId, request);
-
-                return CreatedAtAction(
-                    nameof(GetPostsById),
-                    new { id = result.PostId },
-                    result);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
+            return Created($"/api/post/{createdPost.PostId}", createdPost);
         }
 
-        [HttpPut("{id}")]
-        public async Task<IActionResult> UpdatePost(int id, [FromForm] UpdatePostRequest request)
-        {
-            try
-            {
-                var accountId = int.Parse(User.FindFirst("AccountId")?.Value!);
-
-                var result = await _postService.UpdatePostAsync(id, accountId, request);
-
-                return Ok(result);
-            }
-            catch (KeyNotFoundException ex)
-            {
-                return NotFound(new { message = ex.Message });
-            }
-            catch (UnauthorizedAccessException ex)
-            {
-                return StatusCode(403, new { message = ex.Message });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = ex.Message });
-            }
-        }
-
-        [HttpGet]
-        public async Task<IActionResult> GetAllPosts()
-        {
-            var result = await _postService.GetAllPostAsync();
-            return Ok(result);
-        }
-
-        [HttpGet("my")]
+        [HttpPut("{postId:int}")]
         [Authorize]
-        public async Task<IActionResult> GetAllMyPosts()
+        public async Task<IActionResult> UpdatePost(
+            int postId,
+            [FromBody] UpdatePostDto request)
         {
-            var accountIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            var userId = User.GetUserId();
 
-            if (accountIdClaim == null || !int.TryParse(accountIdClaim.Value, out int userId))
-                return Unauthorized();
+            await _postService.UpdatePostAsync(postId, userId, request);
 
-            var result = await _postService.GetAllMyPostAsync(userId);
-            return Ok(result);
+            return NoContent();
         }
 
-        [HttpGet("{id:int}")]
-        public async Task<IActionResult> GetPostsById(int id)
+        [HttpDelete("{postId:int}")]
+        [Authorize]
+        public async Task<IActionResult> DeletePost(int postId)
         {
-            if (id <= 0)
-                return BadRequest(new { message = "Invalid post id." });
+            var userId = User.GetUserId();
 
-            var result = await _postService.GetPostByIdAsync(id);
+            await _postService.DeletePostAsync(postId, userId);
 
-            if (result == null)
-                return NotFound(new { message = "Post not found." });
-
-            return Ok(result);
+            return NoContent();
         }
 
-        [HttpPut("admin/{id:int}")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> AdminCheckTheStatusPost(
-            [FromBody] CheckPostRequest request,
-            int id)
+        [HttpPatch("{postId:int}/hide")]
+        [Authorize]
+        public async Task<IActionResult> HidePost(int postId)
         {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
+            var userId = User.GetUserId();
 
-            if (id <= 0)
-                return BadRequest(new { message = "Invalid post id." });
+            var response = await _postService.HidePostAsync(postId, userId);
 
-            var result = await _postService.AdminCheckTheStatusPost(request, id);
-
-            if (result == "Post not found.")
-                return NotFound(new { message = result });
-
-            if (result.Contains("Invalid") || result.Contains("not"))
-                return BadRequest(new { message = result });
-
-            return Ok(new { message = result });
+            return Ok(response);
         }
 
-        [HttpPut("admin/post-status/{id:int}")]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> AdminUpdatePostStatus([FromBody] string status, int id)
+        [HttpPatch("{postId:int}/unhide")]
+        [Authorize]
+        public async Task<IActionResult> UnhidePost(int postId)
         {
-            if (id <= 0)
-                return BadRequest(new { message = "Invalid post id." });
+            var userId = User.GetUserId();
 
-            var result = await _postService.UpdatePostStatus(id, status);
+            var response = await _postService.UnhidePostAsync(postId, userId);
 
-            if (result == 0)
-                return NotFound(new { message = result });
+            return Ok(response);
+        }
 
-            var post = await _postService.GetPostByIdAsync(id);
-            var adminIdString = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            int adminId = int.TryParse(adminIdString, out int parsedId) ? parsedId : 0;
+        [HttpGet("{postId:int}")]
+        [Authorize]
+        public async Task<IActionResult> GetPostDetail(int postId)
+        {
+            var userId = User.GetUserId();
 
-            string title = status == "Published" ? "Bài viết đã được duyệt" : "Bài viết đã bị từ chối";
-            string content = $"Bài viết '{post.Title}' của bạn đã được chuyển sang trạng thái: {status}.";
+            var post = await _postService.GetPostDetailAsync(postId, userId);
 
-            SendNotificationRequest notificationRequest = new SendNotificationRequest
+            if (post == null)
+                return NotFound();
+
+            return Ok(post);
+        }
+
+        [HttpGet("feed")]
+        [Authorize]
+        public async Task<IActionResult> GetFeed(
+            [FromQuery] DateTime? cursor,
+            [FromQuery] int pageSize = 10)
+        {
+            var userId = User.GetUserId();
+
+            var posts = await _postService.GetFeedAsync(userId, cursor, pageSize);
+
+            return Ok(posts);
+        }
+
+        [HttpGet("trending")]
+        [Authorize]
+        public async Task<IActionResult> GetTrending([FromQuery] int limit = 10)
+        {
+            var userId = User.GetUserId();
+
+            var posts = await _postService.GetTrendingPostsAsync(userId, limit);
+
+            return Ok(posts);
+        }
+
+        [HttpGet("me")]
+        [Authorize]
+        public async Task<IActionResult> GetMyPosts(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
+        {
+            var userId = User.GetUserId();
+
+            var posts = await _postService.GetMyPostsAsync(userId, page, pageSize);
+
+            return Ok(posts);
+        }
+
+        [HttpGet("user/{userId:int}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetUserPosts(
+            int userId,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
+        {
+            int? viewerId = null;
+
+            if (User.Identity?.IsAuthenticated == true)
             {
-                SenderId = adminId,
-                TargetUserId = post.AccountId,
-                Title = title,
-                Content = content,
-                Type = "PostStatusUpdate"
-            };
+                viewerId = User.GetUserId();
+            }
 
-            await _notificationService.SendNotificationAsync(notificationRequest);
+            var posts = await _postService.GetUserPostsAsync(userId, viewerId, page, pageSize);
 
-            return Ok(new { message = result });
+            return Ok(posts);
         }
-
     }
 }

@@ -131,18 +131,12 @@ namespace Services.Implements.BackgroundServices
                 return;
             }
 
+            // Đây là lỗi bất thường của hệ thống/queue, không reject oan.
+            // Throw để message retry, post vẫn giữ Verifying.
             if (message.ImageUrls == null || message.ImageUrls.Count == 0)
             {
-                post.Status = PostStatus.AIRejected;
-                post.UpdatedAt = DateTime.UtcNow;
-
-                postRepo.Update(post);
-                await unitOfWork.SaveChangesAsync();
-
-                _logger.LogWarning(
-                    "Post {PostId} moved to AIRejected because message contains no images.",
-                    post.PostId);
-                return;
+                throw new InvalidOperationException(
+                    $"PostImageMessage for Post {message.PostId} contains no images.");
             }
 
             bool hasFashionItem = false;
@@ -151,7 +145,8 @@ namespace Services.Implements.BackgroundServices
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // AI lỗi kỹ thuật exception văng ra ngoài, message sẽ retry, post vẫn giữ Verifying
+                // Nếu AI lỗi kỹ thuật thì service phải throw ra ngoài
+                // để worker nack + retry
                 var detected = await aiService.DetectFashionItemsAsync(url);
 
                 if (detected)
@@ -161,10 +156,12 @@ namespace Services.Implements.BackgroundServices
                 }
             }
 
-            // AI xử lý thành công toàn bộ -> quyết định Published / AIRejected
+            // Với AI bool hiện tại:
+            // true  -> Published
+            // false -> Rejected
             post.Status = hasFashionItem
                 ? PostStatus.Published
-                : PostStatus.AIRejected;
+                : PostStatus.Rejected;
 
             post.UpdatedAt = DateTime.UtcNow;
 

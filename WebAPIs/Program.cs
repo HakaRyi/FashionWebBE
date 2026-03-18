@@ -69,6 +69,7 @@ using Services.Utils.File;
 using Services.Utils.SignalR;
 using System.Text;
 using WebAPIs.Services;
+using Microsoft.AspNetCore.SignalR;
 
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);

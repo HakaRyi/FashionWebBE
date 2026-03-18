@@ -7,7 +7,7 @@ namespace WebAPIs.Controllers
 {
     [ApiController]
     [Authorize]
-    [Route("api/posts")]
+    [Route("api/post")]
     public class PostSaveController : ControllerBase
     {
         private readonly IPostSaveService _postSaveService;

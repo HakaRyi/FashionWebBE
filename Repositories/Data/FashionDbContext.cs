@@ -26,6 +26,8 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
     public virtual DbSet<Comment> Comments { get; set; }
 
+    public virtual DbSet<CommentReaction> CommentReactions { get; set; }
+
     public virtual DbSet<Event> Events { get; set; }
 
     public virtual DbSet<ExpertRating> ExpertRatings { get; set; }
@@ -103,8 +105,6 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
     public virtual DbSet<Scoreboard> Scoreboards { get; set; }
 
     public virtual DbSet<Model> Models { get; set; }
-
- 
 
     public static string GetConnectionString(string connectionStringName)
     {

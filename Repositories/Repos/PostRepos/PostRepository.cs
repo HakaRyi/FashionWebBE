@@ -29,13 +29,13 @@ namespace Repositories.Repos.PostRepos
         public async Task<Post?> GetByIdAsync(int postId)
         {
             return await _db.Posts
+                .Include(p => p.Images)
+                .Include(p => p.Account).ThenInclude(a => a.Avatars)
+                .Include(p => p.Event)
                 .FirstOrDefaultAsync(p => p.PostId == postId);
         }
 
-        public async Task<List<PostFeedDto>> GetFeedWithSocialAsync(
-            int viewerId,
-            DateTime? cursor,
-            int pageSize)
+        public async Task<List<PostFeedDto>> GetFeedWithSocialAsync(int viewerId, DateTime? cursor, int pageSize)
         {
             var query = _db.Posts
                 .AsNoTracking()
@@ -89,9 +89,7 @@ namespace Repositories.Repos.PostRepos
                 .ToListAsync();
         }
 
-        public async Task<PostDetailDto?> GetPostDetailAsync(
-            int postId,
-            int viewerId)
+        public async Task<PostDetailDto?> GetPostDetailAsync(int postId, int viewerId)
         {
             return await _db.Posts
                 .AsNoTracking()
@@ -142,10 +140,7 @@ namespace Repositories.Repos.PostRepos
                 .FirstOrDefaultAsync();
         }
 
-        public async Task<PagedResultDto<MyPostDto>> GetMyPostsPagedAsync(
-            int ownerId,
-            int page,
-            int pageSize)
+        public async Task<PagedResultDto<MyPostDto>> GetMyPostsPagedAsync(int ownerId, int page, int pageSize)
         {
             var query = _db.Posts
                 .AsNoTracking()
@@ -195,8 +190,10 @@ namespace Repositories.Repos.PostRepos
 
                     IsOwner = true,
 
+                    // user ko được sửa khi đang Verifying hoặc PendingAdmin
+                    // Rejected / Published thì được sửa, sửa xong sẽ về Verifying lại
                     CanEdit = p.Status != PostStatus.Verifying
-                           && p.Status != PostStatus.BlockedByAdmin,
+                           && p.Status != PostStatus.PendingAdmin,
 
                     CanDelete = true,
 
@@ -221,11 +218,7 @@ namespace Repositories.Repos.PostRepos
             };
         }
 
-        public async Task<PagedResultDto<PostFeedDto>> GetUserPublicPostsPagedAsync(
-            int ownerId,
-            int? viewerId,
-            int page,
-            int pageSize)
+        public async Task<PagedResultDto<PostFeedDto>> GetUserPublicPostsPagedAsync(int ownerId, int? viewerId, int page, int pageSize)
         {
             var query = _db.Posts
                 .AsNoTracking()
@@ -288,9 +281,7 @@ namespace Repositories.Repos.PostRepos
             };
         }
 
-        public async Task<List<PostFeedDto>> GetTrendingPostsAsync(
-            int limit,
-            int viewerId)
+        public async Task<List<PostFeedDto>> GetTrendingPostsAsync(int limit, int viewerId)
         {
             return await _db.Posts
                 .AsNoTracking()
@@ -341,18 +332,60 @@ namespace Repositories.Repos.PostRepos
                 .ToListAsync();
         }
 
-        public async Task<PagedResultDto<AdminReviewPostDto>> GetAIRejectedPostsPagedAsync(
-            int page,
-            int pageSize)
+        public async Task<PagedResultDto<AdminReviewPostDto>> GetPendingAdminPostsPagedAsync(int page, int pageSize)
         {
             var query = _db.Posts
                 .AsNoTracking()
-                .Where(p => p.Status == PostStatus.AIRejected);
+                .Where(p => p.Status == PostStatus.PendingAdmin);
 
             var total = await query.CountAsync();
 
             var items = await query
                 .OrderByDescending(p => p.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(p => new AdminReviewPostDto
+                {
+                    PostId = p.PostId,
+                    AccountId = p.AccountId,
+                    UserName = p.Account.UserName!,
+                    AvatarUrl = p.Account.Avatars
+                        .OrderByDescending(a => a.CreatedAt)
+                        .Select(a => a.ImageUrl)
+                        .FirstOrDefault(),
+                    Title = p.Title,
+                    Content = p.Content,
+                    Images = p.Images
+                        .OrderBy(i => i.CreatedAt)
+                        .Select(i => i.ImageUrl)
+                        .ToList(),
+                    Status = p.Status,
+                    Visibility = p.Visibility,
+                    CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
+                    UpdatedAt = p.UpdatedAt
+                })
+                .ToListAsync();
+
+            return new PagedResultDto<AdminReviewPostDto>
+            {
+                Items = items,
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = total,
+                HasMore = (page * pageSize) < total
+            };
+        }
+
+        public async Task<PagedResultDto<AdminReviewPostDto>> GetRejectedPostsPagedAsync(int page, int pageSize)
+        {
+            var query = _db.Posts
+                .AsNoTracking()
+                .Where(p => p.Status == PostStatus.Rejected);
+
+            var total = await query.CountAsync();
+
+            var items = await query
+                .OrderByDescending(p => p.UpdatedAt ?? p.CreatedAt)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .Select(p => new AdminReviewPostDto
@@ -436,8 +469,11 @@ namespace Repositories.Repos.PostRepos
         }
 
         public async Task<IEnumerable<Post>> GetPostsByEventIdAsync(int eventId)
-        => await _db.Posts.Where(p => p.EventId == eventId)
-                          .OrderByDescending(p => p.Score)
-                          .ToListAsync();
+        {
+            return await _db.Posts
+                .Where(p => p.EventId == eventId)
+                .OrderByDescending(p => p.Score)
+                .ToListAsync();
+        }
     }
 }

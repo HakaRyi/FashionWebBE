@@ -9,11 +9,11 @@ namespace WebAPIs.Controllers
     [ApiController]
     [Route("api/admin/reports")]
     [Authorize(Roles = "Admin")]
-    public class AdminReportsController : ControllerBase
+    public class AdminReportController : ControllerBase
     {
         private readonly IUserReportService _userReportService;
 
-        public AdminReportsController(IUserReportService userReportService)
+        public AdminReportController(IUserReportService userReportService)
         {
             _userReportService = userReportService;
         }

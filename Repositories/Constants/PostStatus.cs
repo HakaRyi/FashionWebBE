@@ -6,8 +6,7 @@
         public const string Verifying = "Verifying";
         public const string PendingAdmin = "PendingAdmin";
         public const string Published = "Published";
-        public const string AIRejected = "AIRejected";
-        public const string BlockedByAdmin = "BlockedByAdmin";
+        public const string Rejected = "Rejected";
 
         public static readonly List<string> AllStatuses = new()
         {
@@ -15,8 +14,7 @@
             Verifying,
             PendingAdmin,
             Published,
-            AIRejected,
-            BlockedByAdmin
+            Rejected
         };
 
         public static bool IsValid(string status)
@@ -25,18 +23,3 @@
         }
     }
 }
-
-
-// Owner dc sửa bài với:
-//Draft -> được sửa
-//Verifying -> không
-//Published -> được
-//AIRejected -> được sửa rồi submit lại
-//BlockedByAdmin -> không
-
-//Owner dc hide/unhide khi:
-//Published -> được
-//AIRejected -> không cần cho hide/unhide vì nó vốn không public
-//BlockedByAdmin -> không
-//Verifying -> không cần
-//Draft -> tuỳ, thường không cần
