@@ -14,5 +14,7 @@ namespace Services.Implements.PostImp
         Task<List<PostResponse>> GetAllMyPostAsync(int userId);
         Task<PostResponse> UpdatePostAsync(int postId, int accountId, UpdatePostRequest request);
         Task DeletePostAsync(int postId);
+        Task SetPostDeleteStatus(int postId);
+        Task SetPostBannedStatus(int postId);
     }
 }

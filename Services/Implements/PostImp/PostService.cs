@@ -322,5 +322,23 @@ namespace Services.Implements.PostImp
                 throw new Exception($"Error updating post status: {ex.Message}");
             }
         }
+
+        public async Task SetPostDeleteStatus(int postId)
+        {
+            var post = await _postRepo.GetByIdAsync(postId);
+            post.Status = PostStatus.Deleted;
+            post.UpdatedAt = DateTime.UtcNow;
+            await _postRepo.Update(post);
+            await _unitOfWork.SaveChangesAsync();
+        }
+
+        public async Task SetPostBannedStatus(int postId)
+        {
+            var post = await _postRepo.GetByIdAsync(postId);
+            post.Status = PostStatus.Banned;
+            post.UpdatedAt = DateTime.UtcNow;
+            await _postRepo.Update(post);
+            await _unitOfWork.SaveChangesAsync();
+        }
     }
 }
