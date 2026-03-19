@@ -21,7 +21,7 @@ namespace WebAPIs.Controllers
         }
         [HttpPost("send/{groupId}")]
         [Authorize]
-        public async Task<IActionResult> SendMessage([FromRoute] int groupId, SendMessageRequest request)
+        public async Task<IActionResult> SendMessage([FromRoute] int groupId, [FromForm] SendMessageRequest request)
         {
 
             await _service.SendMessage(groupId,request);
@@ -31,16 +31,15 @@ namespace WebAPIs.Controllers
                 message = $"the message with content {request.content} is sent by {user.Username}"
             });
         }
-        [HttpPost("recall-msg/{groupId}")]
+        [HttpPut("recall-msg/{messageId}")]
         [Authorize]
-        public async Task<IActionResult> RecallMessage([FromRoute] int groupId, SendMessageRequest request)
+        public async Task<IActionResult> RecallMessage([FromRoute] int messageId)
         {
 
-            await _service.SendMessage(groupId, request);
-            var user = await accountService.GetAccountByMe();
+            await _service.RecallMessage(messageId);
             return Ok(new
             {
-                message = $"the message with content {request.content} is sent by {user.Username}"
+                message = "recall successfully"
             });
         }
         [HttpGet("chat-history/{groupId}")]
@@ -73,7 +72,58 @@ namespace WebAPIs.Controllers
                 message = "the message with delete sucessfully"
             });
         }
+        [HttpGet("get-pinned-msg/{groupId}")]
+        [Authorize]
+        public async Task<IActionResult> GetPinnedMsgByGroupId([FromRoute] int groupId)
+        {
 
+            var result = await _service.GetPinnedMessagesByGroupId(groupId);
+            return Ok(result);
+        }
+        [HttpPost("add-message-reaction/{messageId}")]
+        [Authorize]
+        public async Task<IActionResult> AddReactMsg([FromRoute] int messageId, string type)
+        {
+
+            await _service.AddReaction(messageId,type);
+            return Ok(new
+            {
+                message = "add successfully"
+            });
+        }
+        [HttpPost("pin-msg/{messageId}/{groupId}")]
+        [Authorize]
+        public async Task<IActionResult> PinMsg([FromRoute] int messageId, int groupId)
+        {
+
+            await _service.PinMessage(messageId, groupId);
+            return Ok(new
+            {
+                message = "pin successfully"
+            });
+        }
+        [HttpDelete("unpin-msg/{pinMsgId}")]
+        [Authorize]
+        public async Task<IActionResult> UnPinMsg([FromRoute] int pinMsgId)
+        {
+
+            await _service.UnPinMessage(pinMsgId);
+            return Ok(new
+            {
+                message = "unpin successfully"
+            });
+        }
+        [HttpGet("get-reacts-by-message/{messId}")]
+        [Authorize]
+        public async Task<IActionResult> GetAllReactByMessage([FromRoute] int messId)
+        {
+           var result = await _service.GetReactorByMessId(messId);
+            if(result == null)
+            {
+                return BadRequest(result);
+            }
+            return Ok(result);
+        }
 
     }
 }

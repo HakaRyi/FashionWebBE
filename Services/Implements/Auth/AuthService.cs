@@ -26,6 +26,7 @@ namespace Services.Implements.Auth
         private readonly IAccountRepository _accountRepository;
         private readonly IHttpContextAccessor _httpContextAccessor;
         private readonly IWalletRepository _walletRepository;
+        private readonly ICurrentUserService _currentUserService;
 
         public AuthService(
             UserManager<Account> userManager,
@@ -35,7 +36,8 @@ namespace Services.Implements.Auth
             IConfiguration configuration,
             EmailService emailService,
             IHttpContextAccessor httpContextAccessor,
-            IWalletRepository walletRepository)
+            IWalletRepository walletRepository,
+            ICurrentUserService currentUserService)
         {
             _userManager = userManager;
             _roleManager = roleManager;
@@ -45,6 +47,7 @@ namespace Services.Implements.Auth
             _emailService = emailService;
             _httpContextAccessor = httpContextAccessor;
             _walletRepository = walletRepository;
+            _currentUserService = currentUserService;
         }
 
         #region Helper Methods
@@ -157,7 +160,7 @@ namespace Services.Implements.Auth
             {
                 return new AuthResponse { Success = false, Message = "Email hoặc mật khẩu không chính xác." };
             }
-
+            user.IsOnline = "Online";
             if (user.Status != "Active")
                 return new AuthResponse { Success = false, Message = "Tài khoản chưa được xác thực email." };
 
@@ -201,6 +204,23 @@ namespace Services.Implements.Auth
                 RefreshToken = refreshTokenString,
                 Message = "Đăng nhập thành công."
             };
+        }
+        public async Task<AuthResponse> LogoutAsync()
+        {
+            var accountIdClaim = _currentUserService.GetUserId()??0;
+            if(accountIdClaim==0) return new AuthResponse { Success = false, Message = "Không tìm thấy thông tin tài khoản." };
+            var user = await _userManager.FindByIdAsync((accountIdClaim).ToString());
+            if (user == null)
+                return new AuthResponse { Success = false, Message = "Tài khoản không tồn tại." };
+            user.IsOnline = "Offline";
+            await _userManager.UpdateAsync(user);
+            var refreshToken = await _accountRepository.GetRefreshTokenByAccountIdAsync(accountIdClaim);
+            if (refreshToken != null)
+            {
+                refreshToken.IsAvailable = false;
+                await _accountRepository.UpdateRefreshTokenAsync(refreshToken);
+            }
+            return new AuthResponse { Success = true, Message = "Đăng xuất thành công." };
         }
 
         private async Task<string> GenerateAccessToken(Account user)

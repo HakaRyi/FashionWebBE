@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Threading.Tasks;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Services.Implements.Auth;
 using Services.Request.AccountReq;
 
@@ -60,10 +62,12 @@ namespace WebAPIs.Controllers
         }
 
         [HttpPost("logout")]
-        public IActionResult Logout()
+        [Authorize]
+        public async Task<IActionResult> Logout()
         {
             Response.Cookies.Delete("accessToken");
             Response.Cookies.Delete("refreshToken");
+            await _authService.LogoutAsync();
 
             return Ok(new { message = "Đăng xuất thành công" });
         }

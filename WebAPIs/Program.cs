@@ -155,6 +155,29 @@ builder.Services.AddScoped<IScoreboardRepository, ScoreboardRepository>();
 builder.Services.AddScoped<ISocialRepository, SocialRepository>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<ITryOnHistoryRepository, TryOnHistoryRepository>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+
+
+builder.Services.AddScoped<IWalletRepository, WalletRepository>();
+builder.Services.AddScoped<IPrizeEventRepository, PrizeEventRepository>();
+builder.Services.AddScoped<IEscrowSessionRepository, EscrowSessionRepository>();
+builder.Services.AddScoped<IAccountSubscriptionRepository, AccountSubscriptionRepository>();
+builder.Services.AddScoped<IEventExpertRepository, EventExpertRepository>();
+builder.Services.AddScoped<IExpertRatingRepository, ExpertRatingRepository>();
+builder.Services.AddScoped<IScoreboardRepository, ScoreboardRepository>();
+builder.Services.AddScoped<IEventWinnerRepository, EventWinnerRepository>();
+builder.Services.AddScoped<IChatRepository, ChatRepository>();
+builder.Services.AddScoped<IGroupRepository, GroupRepository>();
+builder.Services.AddScoped<IPhotoRepository, PhotoRepository>();
+builder.Services.AddScoped<IPinMessageRepository, PinMessageRepository>();
+
+
+
+builder.Services.AddScoped<IReactionRepository, ReactionRepository>();
+builder.Services.AddScoped<ICommentReactionRepository, CommentReactionRepository>();
+builder.Services.AddScoped<ICommentRepository, CommentRepository>();
+builder.Services.AddScoped<IPostSaveRepository, PostSaveRepository>();
+
 builder.Services.AddScoped<IUserReportRepository, UserReportRepository>();
 builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<IWardrobeRepository, WardrobeRepository>();
@@ -219,6 +242,7 @@ builder.Services.AddScoped<EmailService>();
 
 builder.Services.AddScoped<IRabbitMQProducer, RabbitMQProducer>();
 builder.Services.AddHostedService<PostProcessingWorker>();
+builder.Services.AddHostedService<ChatConsumerWorker>();
 
 #endregion
 
@@ -262,7 +286,7 @@ builder.Services.AddAuthentication(options =>
         {
             var accessToken = context.Request.Query["access_token"];
             var path = context.HttpContext.Request.Path;
-            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/notificationHub"))
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/notificationHub") || path.StartsWithSegments("/chatHub"))
             {
                 context.Token = accessToken;
             }
@@ -339,6 +363,19 @@ if (app.Environment.IsDevelopment())
 
 app.UseCors("AllowAll");
 app.MapHub<NotificationHub>("/notificationHub");
+
+app.MapHub<NotificationHub>("/notificationHub");
+app.MapHub<ChatHub>("/chatHub");
+
+// Configure the HTTP request pipeline.
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+//app.UseHttpsRedirection();
+
 
 app.UseAuthentication();
 app.UseAuthorization();

@@ -16,6 +16,9 @@ namespace Services.RabbitMQ
 
         public Task SendMessage<T>(T message)
         {
+            string queueName = message is ChatMessageQueueDto
+                               ? "chat_messages"
+                               : "post_image_queue";
             var factory = new ConnectionFactory
             {
                 HostName = _config["RabbitMQSettings:HostName"],
@@ -26,7 +29,7 @@ namespace Services.RabbitMQ
             using var connection = factory.CreateConnection();
             using var channel = connection.CreateModel();
 
-            channel.QueueDeclare(queue: "post_image_queue", durable: true, exclusive: false, autoDelete: false, arguments: null);
+            channel.QueueDeclare(queue: queueName, durable: true, exclusive: false, autoDelete: false, arguments: null);
 
             var json = JsonSerializer.Serialize(message);
             var body = Encoding.UTF8.GetBytes(json);
@@ -34,7 +37,7 @@ namespace Services.RabbitMQ
             var properties = channel.CreateBasicProperties();
             properties.Persistent = true;
 
-            channel.BasicPublish(exchange: "", routingKey: "post_image_queue", basicProperties: properties, body: body);
+            channel.BasicPublish(exchange: "", routingKey:queueName, basicProperties: properties, body: body);
             return Task.CompletedTask;
         }
     }

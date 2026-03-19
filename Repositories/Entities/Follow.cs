@@ -8,7 +8,6 @@
 
         public DateTime? CreatedAt { get; set; }
 
-        // Navigation properties
         public virtual Account User { get; set; } = null!;
         public virtual Account Follower { get; set; } = null!;
     }

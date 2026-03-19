@@ -23,4 +23,19 @@ namespace Services.Response.MessageResp
         public int? AccountId { get; set; }
         public string ReactionType { get; set; } = string.Empty;
     }
+    public class PinMessageResponse
+    {
+        public int PinnedMsgId { get; set; }
+
+        public int? GroupId { get; set; }
+
+        public int? AccountPinnedId { get; set; }
+        public string? AccountPinnedName { get; set; }
+
+        public int? MessageId { get; set; }
+        public string? MessageContent { get; set; }
+        public List<string>? MessagePhotos { get; set; } = new List<string>();
+
+        public DateTime? PinnedAt { get; set; }
+    }
 }

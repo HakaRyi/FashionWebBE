@@ -13,6 +13,7 @@ using Repositories.UnitOfWork;
 using Services.Implements.Auth;
 using Services.Request.GroupReq;
 using Services.Response.GroupResp;
+using Services.Utils;
 
 namespace Services.Implements.ChatImp
 {
@@ -22,12 +23,18 @@ namespace Services.Implements.ChatImp
         private readonly IGroupRepository _groupRepository;
         private readonly ICurrentUserService _currentUserService;
         private readonly IAccountRepository _accountRepository;
-        public GroupService(IUnitOfWork unitOfWork, IGroupRepository groupRepository, ICurrentUserService currentUserService, IAccountRepository accountRepository)
+        private readonly ICloudStorageService _storage;
+        public GroupService(IUnitOfWork unitOfWork, 
+            IGroupRepository groupRepository, 
+            ICurrentUserService currentUserService, 
+            IAccountRepository accountRepository,
+            ICloudStorageService storageService)
         {
             _unitOfWork = unitOfWork;
             _groupRepository = groupRepository;
             _currentUserService = currentUserService;
             _accountRepository = accountRepository;
+            _storage = storageService;
         }
 
         public async Task CreateGroup(GroupRequest request)
@@ -44,6 +51,16 @@ namespace Services.Implements.ChatImp
                     new GroupUser { AccountId = currentUserId, JoinedAt = DateTime.Now }
                 }
             };
+            if (request.Avatar != null)
+            {
+                var avatarUrl = await _storage.UploadImageAsync(request.Avatar);
+                group.Images.Add(new Image
+                {
+                    ImageUrl = avatarUrl,
+                    OwnerType = "Group",
+                    CreatedAt = DateTime.Now
+                });
+            }
             await _groupRepository.CreateGroup(group);
             await _unitOfWork.CommitAsync();
 
@@ -158,6 +175,17 @@ namespace Services.Implements.ChatImp
                 throw new Exception("Group not found");
             }
             groupExingting.Name = request.Name;
+            if (request.Avatar != null)
+            {
+                var avatarUrl = await _storage.UploadImageAsync(request.Avatar);
+                // Thêm ảnh mới vào bảng Image cho Group
+                groupExingting.Images.Add(new Image
+                {
+                    ImageUrl = avatarUrl,
+                    OwnerType = "Group",
+                    CreatedAt = DateTime.Now
+                });
+            }
             await _groupRepository.UpdateGroup(groupExingting);
             await _unitOfWork.CommitAsync();
         }
@@ -167,15 +195,32 @@ namespace Services.Implements.ChatImp
             var currentUserId = _currentUserService.GetUserId()??0;
             if (currentUserId == 0) throw new Exception("User not authenticated");
             var groups = await _groupRepository.GetGroupsByAccountId(currentUserId);
-            return groups.Select(group => new GroupResponse
-            {
-                GroupId = group.GroupId,
-                Name = group.Name,
-                IsGroup = group.IsGroup,
-                CreateBy = group.GroupUsers
-                        .FirstOrDefault(gu => gu.AccountId == group.CreateBy)?
-                        .Account?.UserName ?? "Unknown",
-                CreatedAt = group.CreatedAt
+            return groups.Select(group => {
+                var response = new GroupResponse
+                {
+                    GroupId = group.GroupId,
+                    IsGroup = group.IsGroup,
+                    CreatedAt = group.CreatedAt
+                };
+
+                if (group.IsGroup == false) 
+                {
+                    var otherUser = group.GroupUsers.FirstOrDefault(gu => gu.AccountId != currentUserId)?.Account;
+                    response.Name = otherUser?.UserName ?? "Người dùng hệ thống";
+                    response.IsOnline = otherUser?.IsOnline;
+                    response.Avatar = otherUser?.Avatars
+                        .OrderByDescending(img => img.CreatedAt)
+                        .FirstOrDefault()?.ImageUrl;
+                }
+                else 
+                {
+                    response.Name = group.Name;
+                    response.IsOnline = "Online";
+                    response.Avatar = group.Images?
+                        .OrderByDescending(img => img.CreatedAt)
+                        .FirstOrDefault()?.ImageUrl ?? "https://cdn-icons-png.flaticon.com/512/8377/8377384.png";
+                }
+                return response;
             }).ToList();
         }
     }

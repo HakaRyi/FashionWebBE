@@ -25,7 +25,7 @@ namespace WebAPIs.Controllers
         }
         [HttpPost("create-group")]
         [Authorize]
-        public async Task<IActionResult> CreateGroup(GroupRequest request)
+        public async Task<IActionResult> CreateGroup([FromForm] GroupRequest request)
         {
             await _groupService.CreateGroup(request);
             return Ok(new
