@@ -1,12 +1,15 @@
 ﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Repo;
 using Repositories.Data;
 using Repositories.Entities;
 using Repositories.Repos.AccountRepos;
 using Repositories.Repos.AccountSubscriptionRepos;
+using Repositories.Repos.ChatRepos;
 using Repositories.Repos.CommentReactionRepos;
 using Repositories.Repos.CommentRepos;
 using Repositories.Repos.EscrowSessionRepos;
@@ -17,14 +20,15 @@ using Repositories.Repos.ExpertProfileRepos;
 using Repositories.Repos.ExpertRatingRepos;
 using Repositories.Repos.ExpertRequestRepos;
 using Repositories.Repos.FollowRepos;
+using Repositories.Repos.GroupRepos;
 using Repositories.Repos.ImageRepos;
 using Repositories.Repos.ItemRespos;
 using Repositories.Repos.ModelRepos;
-using Repositories.Repos.OutfitRepos;
-using Repositories.Repos.PackageRepos;
 using Repositories.Repos.ModelRepos;
 using Repositories.Repos.NotificationRepos;
 using Repositories.Repos.OutfitRepos;
+using Repositories.Repos.OutfitRepos;
+using Repositories.Repos.PackageRepos;
 using Repositories.Repos.Payments;
 using Repositories.Repos.PostRepos;
 using Repositories.Repos.PostSaveRepos;
@@ -43,6 +47,7 @@ using Services.Helpers;
 using Services.Implements.AccountService;
 using Services.Implements.Auth;
 using Services.Implements.BackgroundServices;
+using Services.Implements.ChatImp;
 using Services.Implements.Events;
 using Services.Implements.Experts;
 using Services.Implements.ExpertsService.ExpertRequestImp;
@@ -50,6 +55,7 @@ using Services.Implements.Follow;
 using Services.Implements.ImageImp;
 using Services.Implements.Items;
 using Services.Implements.ModelImp;
+using Services.Implements.NotificationImp;
 using Services.Implements.OutfitImp;
 using Services.Implements.PackageImp;
 using Services.Implements.PaymentService;
@@ -69,7 +75,6 @@ using Services.Utils.File;
 using Services.Utils.SignalR;
 using System.Text;
 using WebAPIs.Services;
-using Microsoft.AspNetCore.SignalR;
 
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -153,6 +158,10 @@ builder.Services.AddScoped<ITryOnHistoryRepository, TryOnHistoryRepository>();
 builder.Services.AddScoped<IUserReportRepository, UserReportRepository>();
 builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<IWardrobeRepository, WardrobeRepository>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<IChatRepository, ChatRepository>();
+builder.Services.AddScoped<IGroupRepository, GroupRepository>();
+builder.Services.AddScoped<IPhotoRepository, PhotoRepository>();
 
 #endregion
 
@@ -180,7 +189,9 @@ builder.Services.AddScoped<IPostSaveService, PostSaveService>();
 builder.Services.AddScoped<ITryOnHistoryService, TryOnHistoryService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAiService, AiService>();
-
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IGroupService, GroupService>();
 #endregion
 
 #region EXTERNAL SERVICES
@@ -313,6 +324,8 @@ builder.Services.AddSignalR();
 builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
 
 #endregion
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
 
 var app = builder.Build();
 
@@ -325,6 +338,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowAll");
+app.MapHub<NotificationHub>("/notificationHub");
 
 app.UseAuthentication();
 app.UseAuthorization();
