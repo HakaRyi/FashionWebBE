@@ -53,7 +53,10 @@ namespace Repositories.Repos.GroupRepos
         {
             return await _context.Groups
                 .Include(g => g.GroupUsers)
+                    .ThenInclude(gu => gu.Account)
+                        .ThenInclude(a => a.Avatars)
                 .Include(g => g.Messages)
+                .Include(g => g.Images)
                 .FirstOrDefaultAsync(g=>g.GroupId==groupId);
         }
 
@@ -62,8 +65,10 @@ namespace Repositories.Repos.GroupRepos
             return await _context.Groups
                 .Include(g => g.GroupUsers)
                     .ThenInclude(gu => gu.Account)
+                        .ThenInclude(a => a.Avatars)
                 .Include(g => g.Messages)
-                .Where(g => g.IsGroup == true && g.GroupUsers.Any(gu=>gu.AccountId ==accountId))
+                .Include(g => g.Images)
+                .Where(g => g.GroupUsers.Any(gu=>gu.AccountId ==accountId))
                 .ToListAsync();
         }
 

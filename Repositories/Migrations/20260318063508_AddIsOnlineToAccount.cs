@@ -8,7 +8,7 @@ using Pgvector;
 namespace Repositories.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialCreate_AfterMerge : Migration
+    public partial class AddIsOnlineToAccount : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -35,6 +35,7 @@ namespace Repositories.Migrations
                     count_post = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
                     count_follower = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
                     count_following = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
+                    isOnline = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: true),
                     username = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
                     normalized_username = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
                     email = table.Column<string>(type: "character varying(255)", maxLength: 255, nullable: true),
@@ -96,7 +97,8 @@ namespace Repositories.Migrations
                     name = table.Column<string>(type: "character varying", nullable: true),
                     isGroup = table.Column<bool>(type: "boolean", nullable: true),
                     create_by = table.Column<int>(type: "integer", nullable: true),
-                    created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true)
+                    created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true),
+                    last_activity = table.Column<DateTime>(type: "timestamp without time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP")
                 },
                 constraints: table =>
                 {
@@ -1353,6 +1355,7 @@ namespace Repositories.Migrations
                     post_id = table.Column<int>(type: "integer", nullable: true),
                     item_id = table.Column<int>(type: "integer", nullable: true),
                     account_avatar_id = table.Column<int>(type: "integer", nullable: true),
+                    GroupId = table.Column<int>(type: "integer", nullable: true),
                     event_id = table.Column<int>(type: "integer", nullable: true),
                     owner_type = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: true),
                     created_at = table.Column<DateTime>(type: "timestamp without time zone", nullable: true)
@@ -1373,6 +1376,13 @@ namespace Repositories.Migrations
                         principalSchema: "public",
                         principalTable: "Events",
                         principalColumn: "event_id",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Images_Group_GroupId",
+                        column: x => x.GroupId,
+                        principalSchema: "public",
+                        principalTable: "Group",
+                        principalColumn: "group_id",
                         onDelete: ReferentialAction.Cascade);
                     table.ForeignKey(
                         name: "FK_Images_Item_item_id",
@@ -1675,6 +1685,12 @@ namespace Repositories.Migrations
                 schema: "public",
                 table: "Images",
                 column: "event_id");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Images_GroupId",
+                schema: "public",
+                table: "Images",
+                column: "GroupId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Images_item_id",

@@ -16,5 +16,7 @@ namespace Repositories.Repos.ChatRepos
         Task DeleteMessage(Message message);
         Task EditMessage(Message message);
         Task<List<Message>> GetHistoryMessages(int groupId);
+        Task AddOrUpdateReaction(MessReaction reaction);
+        Task<List<MessReaction>> GetAllReactionByMessageiD(int messageId);
     }
 }

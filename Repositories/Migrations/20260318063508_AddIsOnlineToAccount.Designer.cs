@@ -13,8 +13,8 @@ using Repositories.Data;
 namespace Repositories.Migrations
 {
     [DbContext(typeof(FashionDbContext))]
-    [Migration("20260316195857_InitialCreate_AfterMerge")]
-    partial class InitialCreate_AfterMerge
+    [Migration("20260318063508_AddIsOnlineToAccount")]
+    partial class AddIsOnlineToAccount
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -262,6 +262,11 @@ namespace Repositories.Migrations
                         .HasColumnType("integer")
                         .HasDefaultValue(3)
                         .HasColumnName("free_try_on");
+
+                    b.Property<string>("IsOnline")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("isOnline");
 
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("boolean")
@@ -999,6 +1004,12 @@ namespace Repositories.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("isGroup");
 
+                    b.Property<DateTime>("LastActivity")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("last_activity")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
                     b.Property<string>("Name")
                         .HasColumnType("character varying")
                         .HasColumnName("name");
@@ -1052,6 +1063,9 @@ namespace Repositories.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("event_id");
 
+                    b.Property<int?>("GroupId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("ImageUrl")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -1077,6 +1091,8 @@ namespace Repositories.Migrations
                     b.HasIndex("AccountAvatarId");
 
                     b.HasIndex("EventId");
+
+                    b.HasIndex("GroupId");
 
                     b.HasIndex("ItemId");
 
@@ -2635,6 +2651,11 @@ namespace Repositories.Migrations
                         .HasForeignKey("EventId")
                         .OnDelete(DeleteBehavior.Cascade);
 
+                    b.HasOne("Repositories.Entities.Group", "Group")
+                        .WithMany("Images")
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
                     b.HasOne("Repositories.Entities.Item", "Item")
                         .WithMany("Images")
                         .HasForeignKey("ItemId")
@@ -2648,6 +2669,8 @@ namespace Repositories.Migrations
                     b.Navigation("Account");
 
                     b.Navigation("Event");
+
+                    b.Navigation("Group");
 
                     b.Navigation("Item");
 
@@ -3166,6 +3189,8 @@ namespace Repositories.Migrations
             modelBuilder.Entity("Repositories.Entities.Group", b =>
                 {
                     b.Navigation("GroupUsers");
+
+                    b.Navigation("Images");
 
                     b.Navigation("Messages");
 

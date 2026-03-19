@@ -64,5 +64,29 @@ namespace Repo
                 .Include(m => m.Group)
                 .FirstOrDefaultAsync(m => m.MessageId == id) ?? new Message();
         }
+        public async Task AddOrUpdateReaction(MessReaction reaction)
+        {
+            var existing = await _context.MessReactions
+                .FirstOrDefaultAsync(r => r.MessageId == reaction.MessageId && r.AccountReactId == reaction.AccountReactId);
+
+            if (existing != null)
+            {
+                existing.Type = reaction.Type;
+                _context.MessReactions.Update(existing);
+            }
+            else
+            {
+                _context.MessReactions.Add(reaction);
+            }
+        }
+        public async Task<List<MessReaction>> GetAllReactionByMessageiD(int messageId)
+        {
+            return await _context.MessReactions
+                .Include(r => r.AccountReact)
+                .Include(r => r.Message)
+                .Where(r => r.MessageId == messageId)
+                .OrderByDescending(r=>r.MessageId)
+                .ToListAsync();
+        }
     }   
 }

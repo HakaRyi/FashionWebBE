@@ -11,6 +11,7 @@ public partial class Image
     public int? ItemId { get; set; }
 
     public int? AccountAvatarId { get; set; }
+    public int? GroupId { get; set; } 
 
     public int? EventId { get; set; }
 
@@ -25,4 +26,5 @@ public partial class Image
     public virtual Event? Event { get; set; }
 
     public virtual Account? Account { get; set; }
+    public virtual Group? Group { get; set; }
 }

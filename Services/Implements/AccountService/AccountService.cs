@@ -63,7 +63,8 @@ namespace Services.Implements.AccountService
                 FollowerCount = account.CountFollower,
                 FollowingCount = account.CountFollowing,
                 PostCount = account.CountPost,
-                Description = account.Description
+                Description = account.Description,
+                IsOnline = account.IsOnline
 
             };
         }
@@ -88,7 +89,9 @@ namespace Services.Implements.AccountService
                 FollowerCount = account.CountFollower,
                 FollowingCount = account.CountFollowing,
                 PostCount = account.CountPost,
-                Description = account.Description
+                Description = account.Description,
+                IsOnline = account.IsOnline
+
 
             };
         }
@@ -170,7 +173,8 @@ namespace Services.Implements.AccountService
                     FollowerCount = user.CountFollower,
                     FollowingCount = user.CountFollowing,
                     PostCount = user.CountPost,
-                    Description = user.Description
+                    Description = user.Description,
+                    IsOnline = user.IsOnline
                 });
             }
             return responses;

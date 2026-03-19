@@ -173,6 +173,7 @@ builder.Services.AddScoped<IEventWinnerRepository, EventWinnerRepository>();
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<IGroupRepository, GroupRepository>();
 builder.Services.AddScoped<IPhotoRepository, PhotoRepository>();
+builder.Services.AddScoped<IPinMessageRepository, PinMessageRepository>();
 
 
 
@@ -230,6 +231,7 @@ builder.Services.AddHttpClient<IAIDetectionService, AIDetectionService>(client =
 });
 builder.Services.AddScoped<IRabbitMQProducer, RabbitMQProducer>();
 builder.Services.AddHostedService<PostProcessingWorker>();
+builder.Services.AddHostedService<ChatConsumerWorker>();
 
 builder.Services.AddSingleton<FashionMapper>();
 
@@ -265,7 +267,7 @@ builder.Services.AddAuthentication(options =>
         {
             var accessToken = context.Request.Query["access_token"];
             var path = context.HttpContext.Request.Path;
-            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/notificationHub"))
+            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/notificationHub") || path.StartsWithSegments("/chatHub"))
             {
                 context.Token = accessToken;
             }
@@ -323,6 +325,7 @@ if (app.Environment.IsDevelopment())
 }
 app.UseCors("AllowAll");
 app.MapHub<NotificationHub>("/notificationHub");
+app.MapHub<ChatHub>("/chatHub");
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

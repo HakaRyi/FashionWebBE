@@ -177,6 +177,9 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.Status)
                 .HasMaxLength(30)
                 .HasColumnName("status");
+            entity.Property(e => e.IsOnline)
+                .HasMaxLength(30)
+                .HasColumnName("isOnline");
 
             entity.Property(e => e.VerificationCode)
                 .HasMaxLength(100)
@@ -867,6 +870,10 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.Name)
                 .HasColumnType("character varying")
                 .HasColumnName("name");
+            entity.Property(e => e.LastActivity)
+                .HasColumnType("timestamp without time zone")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("last_activity");
         });
 
         modelBuilder.Entity<GroupUser>(entity =>
@@ -921,6 +928,9 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
             entity.HasOne(d => d.Event).WithMany(p => p.Images)
                 .HasForeignKey(d => d.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+            entity.HasOne(d => d.Group).WithMany(p => p.Images)
+                .HasForeignKey(d => d.GroupId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
