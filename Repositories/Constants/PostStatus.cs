@@ -7,6 +7,8 @@
         public const string PendingAdmin = "PendingAdmin";
         public const string Published = "Published";
         public const string Rejected = "Rejected";
+        public const string Deleted = "Deleted";
+        public const string Banned = "Banned";
 
         public static readonly List<string> AllStatuses = new()
         {
@@ -14,7 +16,9 @@
             Verifying,
             PendingAdmin,
             Published,
-            Rejected
+            Rejected,
+            Deleted,
+            Banned,
         };
 
         public static bool IsValid(string status)

@@ -405,5 +405,195 @@ namespace Services.Implements.PostImp
             if (string.IsNullOrWhiteSpace(content) && !images.Any())
                 throw new Exception("Post must contain content or images.");
         }
+
+        private void UpdateBasicInfo(Post post, UpdatePostRequest request)
+        {
+            if (!string.IsNullOrWhiteSpace(request.Tittle))
+                post.Title = request.Tittle.Trim();
+
+            if (!string.IsNullOrWhiteSpace(request.Content))
+                post.Content = request.Content.Trim();
+
+            if (request.IsExpertPost.HasValue)
+                post.IsExpertPost = request.IsExpertPost.Value;
+
+            post.UpdatedAt = DateTime.UtcNow;
+        }
+
+        private void ValidatePostContent(string? content, IEnumerable<IFormFile>? images)
+        {
+            if (string.IsNullOrWhiteSpace(content)
+                && (images == null || !images.Any()))
+
+            {
+                throw new Exception("Post must contain content or images.");
+            }
+        }
+
+        
+        // ==============================
+        // ADMIN MODERATION
+        // ==============================
+        public async Task<List<PostResponse>> GetAllPendingAdminAsync()
+        {
+            List<Post> posts = await _postRepo.GetAllPendingAdminPostAsync();
+            return posts.Select(MapToResponse).ToList();
+        }
+
+        public async Task<int> UpdatePostStatus(int postId, string status)
+        {
+            try
+            {
+                Post post = await _postRepo.GetByIdAsync(postId);
+                if (post != null)
+                {
+                    post.Status = status;
+                    post.UpdatedAt = DateTime.UtcNow;
+                    var result = await _uow.SaveChangesAsync();
+                    return result;
+                }
+                else
+                {
+                    throw new KeyNotFoundException("Post not found");
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Error updating post status: {ex.Message}");
+            }
+        }
+
+        public async Task<PostResponse> CreatePostAsync(int accountId, CreatePostRequest request)
+        {
+            ValidatePostContent(request.Content, request.Images);
+
+            //if (request.EventId.HasValue)
+            //{
+            //    var eventExists = await _eventRepo.ExistsAsync(request.EventId.Value);
+            //    if (!eventExists) throw new KeyNotFoundException("Event không tồn tại.");
+            //}
+
+            var now = DateTime.UtcNow;
+
+            List<string> imageUrls = new List<string>();
+            if (request.Images != null && request.Images.Any())
+            {
+                var uploadTasks = request.Images.Select(f => _storage.UploadImageAsync(f));
+                imageUrls = (await Task.WhenAll(uploadTasks)).ToList();
+            }
+
+            var initialStatus = imageUrls.Any() ? PostStatus.Verifying : PostStatus.Published;
+
+            var post = new Post
+            {
+                AccountId = accountId,
+                Content = request.Content?.Trim(),
+                EventId = request.EventId,
+                CreatedAt = now,
+                UpdatedAt = now,
+                Status = initialStatus,
+                LikeCount = 0,
+                ShareCount = 0,
+                Score = 0,
+                IsExpertPost = false,
+
+                Images = imageUrls.Select(url => new Image
+                {
+                    ImageUrl = url,
+                    OwnerType = "Post",
+                    CreatedAt = now
+                }).ToList()
+            };
+
+            await _postRepo.AddAsync(post);
+            await _uow.SaveChangesAsync();
+
+            if (imageUrls.Any())
+            {
+                await _producer.SendMessage(new PostImageMessage
+                {
+                    PostId = post.PostId,
+                    ImageUrls = imageUrls
+                });
+            }
+            return MapToResponse(post);
+        }
+
+        public async Task<PostResponse> UpdatePostAsync(int postId, int accountId, UpdatePostRequest request)
+        {
+            var post = await _postRepo.GetByIdAsync(postId);
+            if (post == null) throw new KeyNotFoundException("Bài viết không tồn tại");
+
+            if (post.AccountId != accountId) throw new UnauthorizedAccessException("Không chính chủ");
+
+            post.Content = request.Content?.Trim();
+            post.IsExpertPost = request.IsPublish;
+            post.UpdatedAt = DateTime.UtcNow;
+
+            if (request.Images != null && request.Images.Any())
+            {
+                var oldImages = post.Images.ToList();
+                _imageRepo.DeleteRange(oldImages);
+
+                var uploadTasks = request.Images.Select(img => _storage.UploadImageAsync(img));
+                var newImageUrls = (await Task.WhenAll(uploadTasks)).ToList();
+
+                var newImageEntities = newImageUrls.Select(url => new Image
+                {
+                    ImageUrl = url,
+                    PostId = post.PostId,
+                    OwnerType = "Post",
+                    CreatedAt = DateTime.UtcNow
+                }).ToList();
+
+                await _imageRepo.AddRangeAsync(newImageEntities);
+
+                post.Status = PostStatus.Verifying;
+
+                await _uow.SaveChangesAsync();
+
+                await _producer.SendMessage(new PostImageMessage
+                {
+                    PostId = post.PostId,
+                    ImageUrls = newImageUrls
+                });
+            }
+            else
+            {
+                await _uow.SaveChangesAsync();
+            }
+
+            var updatedPost = await _postRepo.GetByIdAsync(postId);
+            return MapToResponse(updatedPost);
+        }
+
+
+        public async Task DeletePostAsync(int postId)
+        {
+            var post = await _postRepo.GetByIdAsync(postId)
+                ?? throw new Exception("Post not found");
+
+            _postRepo.Delete(post);
+            await _uow.SaveChangesAsync();
+        }
+
+        public async Task SetPostDeleteStatus(int postId)
+        {
+            var post = await _postRepo.GetByIdAsync(postId);
+            post.Status = PostStatus.Deleted;
+            post.UpdatedAt = DateTime.UtcNow;
+            _postRepo.Update(post);
+            await _uow.SaveChangesAsync();
+        }
+
+        public async Task SetPostBannedStatus(int postId)
+        {
+            var post = await _postRepo.GetByIdAsync(postId);
+            post.Status = PostStatus.Banned;
+            post.UpdatedAt = DateTime.UtcNow;
+            _postRepo.Update(post);
+            await _uow.SaveChangesAsync();
+        }
+
     }
 }

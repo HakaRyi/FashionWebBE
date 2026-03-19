@@ -151,7 +151,6 @@ namespace Services.Implements.AccountService
 
         public async Task<List<AccountResponse>> GetListAccount()
         {
-            // Lấy list user từ UserManager
             var users = await _userManager.Users.OrderByDescending(u => u.CreatedAt).ToListAsync();
             var responses = new List<AccountResponse>();
 
@@ -185,13 +184,10 @@ namespace Services.Implements.AccountService
             var account = await _userManager.FindByIdAsync(accountId.ToString());
             if (account == null) return "User not found";
 
-            // Cập nhật các field
             account.UserName = request.Username;
-            //account.Avatar = request.Avatar;
             account.Status = request.Status;
             account.Email = request.Email;
 
-            // UserManager sẽ lo việc SaveChanges và Validate
             var result = await _userManager.UpdateAsync(account);
             return result.Succeeded ? "Update success" : string.Join(", ", result.Errors.Select(e => e.Description));
         }
