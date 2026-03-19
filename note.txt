@@ -1,0 +1,16 @@
+﻿- Create
+bắt buộc có ảnh
+create xong luôn Verifying
+- AI
+Verifying -> Published
+Verifying -> Rejected
+Verifying -> PendingAdmin
+- Admin
+PendingAdmin -> Published
+PendingAdmin -> Rejected
+- Public feed
+chỉ hiện Published + Visible
+- Update
+user sửa bài xong -> Verifying lại
+
+

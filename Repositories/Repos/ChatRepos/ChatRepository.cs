@@ -8,7 +8,7 @@ using Repositories.Data;
 using Repositories.Entities;
 using Repositories.Repos.ChatRepos;
 
-namespace Repo
+namespace Repositories.Repos.ChatRepos
 {
     public class ChatRepository : IChatRepository
     {

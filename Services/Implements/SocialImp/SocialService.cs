@@ -159,14 +159,12 @@ namespace Services.Implements.SocialImp
 
             var reply = new Comment
             {
-
                 PostId = parent.PostId,
                 AccountId = userId,
                 ParentCommentId = parent.CommentId,
                 Content = content,
                 CreatedAt = DateTime.UtcNow,
                 LikeCount = 0
-
             };
 
             await _commentRepo.AddAsync(reply);
@@ -238,10 +236,6 @@ namespace Services.Implements.SocialImp
                 post.LikeCount = (post.LikeCount ?? 0) + 1;
                 isLiked = true;
             }
-
-            //reaction.ReactionType = request.ReactionType;
-            //return await _socialRepository.UpdateReact(reaction);
-
             else
             {
                 _reactionRepo.Remove(reaction);
@@ -405,7 +399,6 @@ namespace Services.Implements.SocialImp
                 CreatedAt = reply.CreatedAt,
                 ParentCommentId = reply.ParentCommentId ?? 0
             };
-
         }
     }
 }

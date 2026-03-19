@@ -88,8 +88,10 @@ namespace Services.Implements.BackgroundServices
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex,
+                    _logger.LogError(
+                        ex,
                         "Error processing post_image_queue message. Message will be retried, post remains Verifying.");
+
                     _channel?.BasicNack(ea.DeliveryTag, false, true);
                 }
             };
@@ -129,18 +131,12 @@ namespace Services.Implements.BackgroundServices
                 return;
             }
 
+            // Đây là lỗi bất thường của hệ thống/queue, không reject oan.
+            // Throw để message retry, post vẫn giữ Verifying.
             if (message.ImageUrls == null || message.ImageUrls.Count == 0)
             {
-                post.Status = PostStatus.Rejected;
-                post.UpdatedAt = DateTime.UtcNow;
-
-                postRepo.Update(post);
-                await unitOfWork.SaveChangesAsync();
-
-                _logger.LogWarning(
-                    "Post {PostId} rejected because message contains no images.",
-                    post.PostId);
-                return;
+                throw new InvalidOperationException(
+                    $"PostImageMessage for Post {message.PostId} contains no images.");
             }
 
             bool hasFashionItem = false;
@@ -149,8 +145,8 @@ namespace Services.Implements.BackgroundServices
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                // Nếu AI lỗi kỹ thuật thì exception sẽ văng ra ngoài,
-                // message bị retry và post vẫn giữ Verifying.
+                // Nếu AI lỗi kỹ thuật thì service phải throw ra ngoài
+                // để worker nack + retry
                 var detected = await aiService.DetectFashionItemsAsync(url);
 
                 if (detected)
@@ -160,8 +156,9 @@ namespace Services.Implements.BackgroundServices
                 }
             }
 
-            // Chỉ khi AI xử lý thành công toàn bộ mà không có exception
-            // mới quyết định Published / Rejected.
+            // Với AI bool hiện tại:
+            // true  -> Published
+            // false -> Rejected
             post.Status = hasFashionItem
                 ? PostStatus.Published
                 : PostStatus.Rejected;

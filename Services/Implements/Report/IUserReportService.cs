@@ -5,24 +5,14 @@ namespace Services.Implements.Report
 {
     public interface IUserReportService
     {
-        Task<PostReportDto> ReportPostAsync(
-            int postId,
-            int accountId,
-            CreatePostReportDto request);
+        Task<PostReportDto> ReportPostAsync(int postId, int accountId, CreatePostReportDto request);
 
         Task<List<ReportTypeDto>> GetReportTypesAsync();
 
-        Task<PagedResultDto<AdminReportListItemDto>> GetAdminReportsAsync(
-            string? status,
-            int pageNumber,
-            int pageSize);
+        Task<PagedResultDto<AdminReportListItemDto>> GetAdminReportsAsync(string? status, int pageNumber, int pageSize);
 
-        Task<AdminReportDetailDto> GetAdminReportDetailAsync(
-            int userReportId);
+        Task<AdminReportDetailDto> GetAdminReportDetailAsync(int userReportId);
 
-        Task<AdminReportDetailDto> UpdateReportStatusAsync(
-            int userReportId,
-            int adminAccountId,
-            UpdateReportStatusDto request);
+        Task<AdminReportDetailDto> UpdateReportStatusAsync(int userReportId, int adminAccountId, UpdateReportStatusDto request);
     }
 }

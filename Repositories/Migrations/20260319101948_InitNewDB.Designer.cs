@@ -13,8 +13,8 @@ using Repositories.Data;
 namespace Repositories.Migrations
 {
     [DbContext(typeof(FashionDbContext))]
-    [Migration("20260318063508_AddIsOnlineToAccount")]
-    partial class AddIsOnlineToAccount
+    [Migration("20260319101948_InitNewDB")]
+    partial class InitNewDB
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

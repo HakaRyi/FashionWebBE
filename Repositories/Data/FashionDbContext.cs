@@ -106,8 +106,6 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
     public virtual DbSet<Model> Models { get; set; }
 
- 
-
     public static string GetConnectionString(string connectionStringName)
     {
         var config = new ConfigurationBuilder()
@@ -472,66 +470,74 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
         modelBuilder.Entity<EscrowSession>(entity =>
         {
-            entity.HasKey(e => e.EscrowSessionId).HasName("EscrowSession_pkey");
+            entity.HasKey(e => e.EscrowSessionId)
+                  .HasName("EscrowSession_pkey");
 
             entity.ToTable("EscrowSession", "public");
 
-            entity.Property(e => e.EscrowSessionId).HasColumnName("escrow_session_id");
+            entity.Property(e => e.EscrowSessionId)
+                  .HasColumnName("escrow_session_id");
 
             entity.Property(e => e.Amount)
-                .HasColumnType("decimal(18,2)")
-                .HasColumnName("amount");
+                  .HasColumnType("decimal(18,2)")
+                  .HasColumnName("amount");
 
             entity.Property(e => e.ServiceFee)
-                .HasColumnType("decimal(18,2)")
-                .HasDefaultValue(0m)
-                .HasColumnName("service_fee");
+                  .HasColumnType("decimal(18,2)")
+                  .HasDefaultValue(0m)
+                  .HasColumnName("service_fee");
 
             entity.Property(e => e.Status)
-                .HasMaxLength(30)
-                .IsRequired()
-                .HasColumnName("status");
+                  .HasMaxLength(30)
+                  .IsRequired()
+                  .HasColumnName("status");
 
             entity.Property(e => e.Description)
-                .HasMaxLength(500)
-                .HasColumnName("description");
+                  .HasMaxLength(500)
+                  .HasColumnName("description");
 
             entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
-                .HasColumnName("created_at");
+                  .HasColumnType("timestamp without time zone")
+                  .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                  .HasColumnName("created_at");
 
             entity.Property(e => e.ResolvedAt)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("resolved_at");
+                  .HasColumnType("timestamp without time zone")
+                  .HasColumnName("resolved_at");
 
-            entity.Property(e => e.SenderId).HasColumnName("sender_id");
-            entity.Property(e => e.ReceiverId).HasColumnName("receiver_id");
-            entity.Property(e => e.OrderId).HasColumnName("order_id");
-            entity.Property(e => e.EventId).HasColumnName("event_id");
+            entity.Property(e => e.SenderId)
+                  .HasColumnName("sender_id");
+
+            entity.Property(e => e.ReceiverId)
+                  .HasColumnName("receiver_id");
+
+            entity.Property(e => e.OrderId)
+                  .HasColumnName("order_id");
+
+            entity.Property(e => e.EventId)
+                  .HasColumnName("event_id");
 
             entity.HasOne(d => d.Sender)
-                .WithMany(p => p.SentEscrows)
-                .HasForeignKey(d => d.SenderId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("EscrowSession_sender_id_fkey");
+                  .WithMany(p => p.SentEscrows)
+                  .HasForeignKey(d => d.SenderId)
+                  .OnDelete(DeleteBehavior.ClientSetNull)
+                  .HasConstraintName("EscrowSession_sender_id_fkey");
 
             entity.HasOne(d => d.Receiver)
-                .WithMany(p => p.ReceivedEscrows)
-                .HasForeignKey(d => d.ReceiverId)
-                .OnDelete(DeleteBehavior.SetNull)
-                .HasConstraintName("EscrowSession_receiver_id_fkey");
+                  .WithMany(p => p.ReceivedEscrows)
+                  .HasForeignKey(d => d.ReceiverId)
+                  .OnDelete(DeleteBehavior.SetNull)
+                  .HasConstraintName("EscrowSession_receiver_id_fkey");
 
             entity.HasOne(d => d.Order)
-                .WithOne(p => p.EscrowSession)
-                .HasForeignKey<EscrowSession>(d => d.OrderId)
-                .OnDelete(DeleteBehavior.SetNull);
+                  .WithOne(p => p.EscrowSession)
+                  .HasForeignKey<EscrowSession>(d => d.OrderId)
+                  .OnDelete(DeleteBehavior.SetNull);
 
             entity.HasOne(d => d.Event)
-                .WithMany()
-                .HasForeignKey(d => d.EventId)
-                .OnDelete(DeleteBehavior.SetNull);
-
+                  .WithMany()
+                  .HasForeignKey(d => d.EventId)
+                  .OnDelete(DeleteBehavior.SetNull);
         });
 
         modelBuilder.Entity<Event>(entity =>
@@ -1473,6 +1479,36 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at");
 
+            entity.HasIndex(e => new { e.AccountId, e.PostId })
+                .IsUnique()
+                .HasDatabaseName("ix_postsaves_account_post");
+
+            entity.HasOne(d => d.Post)
+                .WithMany(p => p.Saves)
+                .HasForeignKey(d => d.PostId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.Account)
+                .WithMany(a => a.SavedPosts)
+                .HasForeignKey(d => d.AccountId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PostSave>(entity =>
+        {
+            entity.ToTable("PostSaves", "public");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Id)
+                .HasColumnName("id");
+
+            entity.Property(e => e.PostId)
+                .HasColumnName("post_id");
+
+            entity.Property(e => e.AccountId)
+                .HasColumnName("account_id");
+
 
             entity.HasIndex(e => new { e.AccountId, e.PostId })
                 .IsUnique()
@@ -1564,7 +1600,6 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                   .HasColumnName("account_id");
 
             entity.Property(e => e.CreatedAt)
-
                   .HasColumnType("timestamp without time zone")
                   .HasDefaultValueSql("NOW()")
                   .HasColumnName("created_at");

@@ -29,9 +29,11 @@
         public virtual Account Creator { get; set; } = null!;
 
         public virtual ICollection<Post> Posts { get; set; } = new List<Post>();
+
         public virtual ICollection<PrizeEvent> PrizeEvents { get; set; } = new List<PrizeEvent>();
+
         public virtual ICollection<EventExpert> EventExperts { get; set; } = new List<EventExpert>();
+
         public virtual ICollection<Image> Images { get; set; } = new List<Image>();
     }
 }
-

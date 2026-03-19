@@ -8,7 +8,7 @@ using Pgvector;
 namespace Repositories.Migrations
 {
     /// <inheritdoc />
-    public partial class AddIsOnlineToAccount : Migration
+    public partial class InitNewDB : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
