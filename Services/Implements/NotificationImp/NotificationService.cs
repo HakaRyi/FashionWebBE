@@ -4,11 +4,6 @@ using Repositories.Repos.NotificationRepos;
 using Services.Request.NotificationReq;
 using Services.Response.NotificationResp;
 using Services.Utils.SignalR;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Services.Implements.NotificationImp
 {
@@ -17,7 +12,9 @@ namespace Services.Implements.NotificationImp
         private readonly INotificationRepository _repository;
         private readonly IHubContext<NotificationHub> _hubContext;
 
-        public NotificationService(INotificationRepository repository, IHubContext<NotificationHub> hubContext)
+        public NotificationService(
+            INotificationRepository repository,
+            IHubContext<NotificationHub> hubContext)
         {
             _repository = repository;
             _hubContext = hubContext;
@@ -40,7 +37,17 @@ namespace Services.Implements.NotificationImp
 
             if (request.TargetUserId.HasValue)
             {
-                await _hubContext.Clients.User(request.TargetUserId.Value.ToString()).SendAsync("ReceiveNotification", notification);
+                await _hubContext.Clients
+                    .User(request.TargetUserId.Value.ToString())
+                    .SendAsync("ReceiveNotification", new
+                    {
+                        notification.NotificationId,
+                        notification.Title,
+                        notification.Content,
+                        notification.Type,
+                        notification.Status,
+                        notification.CreatedAt
+                    });
             }
         }
 
@@ -55,8 +62,15 @@ namespace Services.Implements.NotificationImp
                 Content = n.Content,
                 Type = n.Type,
                 Status = n.Status,
-                CreatedAt = (DateTime)n.CreatedAt
+                CreatedAt = n.CreatedAt ?? DateTime.UtcNow
             }).ToList();
+        }
+
+        public async Task SendWalletUpdatedAsync(int userId, object payload)
+        {
+            await _hubContext.Clients
+                .User(userId.ToString())
+                .SendAsync("WalletBalanceUpdated", payload);
         }
     }
 }
