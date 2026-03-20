@@ -1,4 +1,5 @@
-﻿using Services.Request.PaymentReq;
+﻿using Microsoft.AspNetCore.Http;
+using Services.Request.PaymentReq;
 using Services.Response.PaymentResp;
 using System;
 using System.Collections.Generic;
@@ -15,5 +16,12 @@ namespace Services.Implements.PaymentService
         Task<PaymentResponse?> CreateTopUpPaymentAsync(decimal amount);
 
         Task<bool> ProcessPaymentCallbackAsync(string orderCode, bool isSuccess);
+
+        Task<object> CreateOrderAsync(CreateOrderRequest request);
+        Task HandleCallbackAsync(ZaloCallbackRequest request);
+
+        Task<object> CreateVnPayOrderAsync(CreateOrderRequest request, string ipAddress);
+
+        Task<bool> ProcessPaymentReturn(IQueryCollection vnpayData);
     }
 }

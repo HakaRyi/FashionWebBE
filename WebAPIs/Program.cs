@@ -57,6 +57,7 @@ using Services.Implements.Follow;
 using Services.Implements.ImageImp;
 using Services.Implements.Items;
 using Services.Implements.ModelImp;
+using Services.Implements.NotificationImp;
 using Services.Implements.OutfitImp;
 using Services.Implements.PackageImp;
 using Services.Implements.PaymentService;
@@ -187,6 +188,8 @@ builder.Services.AddScoped<IPinMessageRepository, PinMessageRepository>();
 builder.Services.AddScoped<IPhotoRepository, PhotoRepository>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 
+
+
 #endregion
 
 #region SERVICES
@@ -215,6 +218,10 @@ builder.Services.AddScoped<ITryOnHistoryService, TryOnHistoryService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAiService, AiService>();
 builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IGroupService, GroupService>();
+
 #endregion
 
 #region EXTERNAL SERVICES
@@ -348,6 +355,8 @@ builder.Services.AddSignalR();
 builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
 
 #endregion
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
 
 var app = builder.Build();
 
@@ -360,6 +369,11 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowAll");
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.Add("ngrok-skip-browser-warning", "true");
+    await next();
+});
 
 app.MapHub<NotificationHub>("/notificationHub");
 app.MapHub<ChatHub>("/chatHub");
