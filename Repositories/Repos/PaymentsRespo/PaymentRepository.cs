@@ -34,5 +34,22 @@ namespace Repositories.Repos.Payments
                     .ThenInclude(a => a.Wallet)
                 .FirstOrDefaultAsync(p => p.OrderCode == orderCode);
         }
+
+        public async Task CreatePaymentAsync(Payment payment)
+        {
+            await _db.Payments.AddAsync(payment);
+            await _db.SaveChangesAsync();
+        }
+
+        public async Task UpdatePaymentAsync(Payment payment)
+        {
+            _db.Payments.Update(payment);
+            await _db.SaveChangesAsync();
+        }
+
+        public Task SaveTransaction(string appTransId, double amount)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

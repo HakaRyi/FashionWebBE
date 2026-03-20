@@ -4,7 +4,6 @@ using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
-using Repo;
 using Repositories.Data;
 using Repositories.Entities;
 using Repositories.Repos.AccountRepos;
@@ -362,7 +361,11 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowAll");
-app.MapHub<NotificationHub>("/notificationHub");
+app.Use(async (context, next) =>
+{
+    context.Response.Headers.Add("ngrok-skip-browser-warning", "true");
+    await next();
+});
 
 app.MapHub<NotificationHub>("/notificationHub");
 app.MapHub<ChatHub>("/chatHub");

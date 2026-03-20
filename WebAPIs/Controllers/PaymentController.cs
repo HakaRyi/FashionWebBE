@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Services.AI;
 using Services.Implements.PaymentService;
 using Services.Request.PaymentReq;
+using Services.Utils;
 
 namespace WebAPI.Controllers
 {
@@ -87,6 +89,57 @@ namespace WebAPI.Controllers
             }
 
             return Redirect($"https://your-frontend-domain.com/payment-failed?order={orderCode}");
+        }
+
+        [HttpPost("create-order")]
+        public async Task<IActionResult> CreateOrder([FromBody] CreateOrderRequest request)
+        {
+            var userId = User.GetUserId();
+            request.AccountId = userId;
+            var result = await _paymentService.CreateOrderAsync(request);
+            return Ok(result);
+        }
+
+        [HttpPost("callback")]
+        public async Task<IActionResult> Callback([FromBody] ZaloCallbackRequest request)
+        {
+            await _paymentService.HandleCallbackAsync(request);
+            return Ok(new { return_code = 1 });
+        }
+
+        [HttpPost("create-order-vnpay")]
+        [Authorize]
+        public async Task<IActionResult> CreateOrderVnPay([FromBody] CreateOrderRequest request)
+        {
+            var accountIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value
+                              ?? User.FindFirst("Id")?.Value
+                              ?? User.FindFirst("AccountId")?.Value;
+
+            if (!int.TryParse(accountIdClaim, out int accountId))
+            {
+                return Unauthorized(new { message = "Unauthorized" });
+            }
+
+            request.AccountId = accountId;
+
+            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+
+            var result = await _paymentService.CreateVnPayOrderAsync(request, ipAddress);
+            return Ok(result);
+        }
+
+        [AllowAnonymous]
+        [HttpGet("vnpay-return")]
+        public async Task<IActionResult> VnPayReturn()
+        {
+            var isSuccess = await _paymentService.ProcessPaymentReturn(Request.Query);
+            string status = isSuccess ? "00" : "99";
+
+            return Content($@"
+            <html><head><script>
+                window.location.href = 'fashionmobile://payment-result?status={status}';
+            </script></head>
+            <body><h3>Đang quay lại ứng dụng...</h3></body></html>", "text/html");
         }
     }
 }
