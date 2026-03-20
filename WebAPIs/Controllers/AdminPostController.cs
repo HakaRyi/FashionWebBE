@@ -1,7 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Repositories.Dto.Social.Post;
+using Services.Implements.AdminImp;
 using Services.Implements.PostImp;
+using Services.Request.AdminReq;
 using Services.Request.PostReq;
 
 namespace WebAPIs.Controllers
@@ -12,10 +14,12 @@ namespace WebAPIs.Controllers
     public class AdminPostController : ControllerBase
     {
         private readonly IPostService _postService;
+        private readonly IDashboardService _dashboardService;
 
-        public AdminPostController(IPostService postService)
+        public AdminPostController(IPostService postService, IDashboardService dashboardService)
         {
             _postService = postService;
+            _dashboardService = dashboardService;
         }
 
         [HttpGet("pending-admin")]

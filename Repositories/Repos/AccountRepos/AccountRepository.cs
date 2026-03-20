@@ -51,5 +51,14 @@ namespace Repositories.Repos.AccountRepos
             return await _db.Accounts
                 .FirstOrDefaultAsync(a => a.Id == userId);
         }
+
+        public async Task<List<Account>> GetAll()
+        {
+            return await _db.Accounts
+                .Include(a=>a.Avatars)
+                .Where(p => p.Status!="" && _db.UserRoles.Any(ur => ur.UserId == p.Id && ur.RoleId == 2))
+                .OrderByDescending(a => a.CreatedAt)
+                .ToListAsync();
+        }
     }
 }

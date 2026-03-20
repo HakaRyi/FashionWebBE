@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Repositories.Entities;
 using Repositories.Repos.AccountRepos;
 using Repositories.Repos.ChatRepos;
@@ -15,6 +17,7 @@ using Services.RabbitMQ;
 using Services.Response.MessageResp;
 using Services.Response.MessReactResp;
 using Services.Utils;
+using Services.Utils.SignalR;
 
 namespace Services.Implements.ChatImp
 {
@@ -29,6 +32,7 @@ namespace Services.Implements.ChatImp
         private readonly IPinMessageRepository _pinMessageRepository;
         private readonly ICloudStorageService _storage;
         private readonly IRabbitMQProducer _rabbitMQProducer;
+        private readonly IHubContext<ChatHub> _hubContext;
         public ChatService(IUnitOfWork unitOfWork, IChatRepository chatrepo, 
             IGroupRepository groupRepository,
             ICurrentUserService userService,
@@ -36,7 +40,9 @@ namespace Services.Implements.ChatImp
             IPhotoRepository photoRepository,
             IPinMessageRepository pinMessageRepository,
             ICloudStorageService storage,
-            IRabbitMQProducer rabbitMQProducer)
+            IRabbitMQProducer rabbitMQProducer,
+            IHubContext<ChatHub> hubContext
+            )
         {
             _unitOfWork = unitOfWork;
             _chatrepo = chatrepo;
@@ -47,6 +53,7 @@ namespace Services.Implements.ChatImp
             _pinMessageRepository = pinMessageRepository;
             _storage = storage;
             _rabbitMQProducer = rabbitMQProducer;
+            _hubContext = hubContext;
         }
 
         public async Task DeleteMessage(int messageId)
@@ -185,6 +192,8 @@ namespace Services.Implements.ChatImp
             };
             await _chatrepo.AddOrUpdateReaction(reaction);
             await _unitOfWork.CommitAsync();
+            var message = await _chatrepo.GetMessageById(messageId);
+            await _hubContext.Clients.Group(message.GroupId.ToString()).SendAsync("ReactionUpdated", messageId, type);
         }
 
         public async Task PinMessage(int messageId, int groupId)

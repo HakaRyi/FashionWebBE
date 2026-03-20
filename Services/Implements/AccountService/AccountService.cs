@@ -151,7 +151,8 @@ namespace Services.Implements.AccountService
 
         public async Task<List<AccountResponse>> GetListAccount()
         {
-            var users = await _userManager.Users.OrderByDescending(u => u.CreatedAt).ToListAsync();
+            //var users = await _userManager.Users.OrderByDescending(u => u.CreatedAt).ToListAsync();
+            var users = await _accountRepository.GetAll();
             var responses = new List<AccountResponse>();
 
             foreach (var user in users)

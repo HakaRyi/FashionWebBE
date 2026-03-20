@@ -5,6 +5,7 @@ namespace Repositories.Repos.AccountRepos
     public interface IAccountRepository
     {
         Task<List<Account>> GetFashionExperts();
+        Task<List<Account>> GetAll();
         Task<Account> GetAccountById(int userId);
         Task AddRefreshTokenAsync(RefreshToken refreshToken);
         Task<RefreshToken?> GetRefreshTokenByAccountIdAsync(int accountId);

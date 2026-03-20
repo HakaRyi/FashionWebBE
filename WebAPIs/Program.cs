@@ -1,5 +1,7 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -7,6 +9,8 @@ using Repositories.Data;
 using Repositories.Entities;
 using Repositories.Repos.AccountRepos;
 using Repositories.Repos.AccountSubscriptionRepos;
+using Repositories.Repos.AdminRepos;
+using Repositories.Repos.ChatRepos;
 using Repositories.Repos.CommentReactionRepos;
 using Repositories.Repos.CommentRepos;
 using Repositories.Repos.EscrowSessionRepos;
@@ -17,14 +21,15 @@ using Repositories.Repos.ExpertProfileRepos;
 using Repositories.Repos.ExpertRatingRepos;
 using Repositories.Repos.ExpertRequestRepos;
 using Repositories.Repos.FollowRepos;
+using Repositories.Repos.GroupRepos;
 using Repositories.Repos.ImageRepos;
 using Repositories.Repos.ItemRespos;
 using Repositories.Repos.ModelRepos;
-using Repositories.Repos.OutfitRepos;
-using Repositories.Repos.PackageRepos;
 using Repositories.Repos.ModelRepos;
 using Repositories.Repos.NotificationRepos;
 using Repositories.Repos.OutfitRepos;
+using Repositories.Repos.OutfitRepos;
+using Repositories.Repos.PackageRepos;
 using Repositories.Repos.Payments;
 using Repositories.Repos.PostRepos;
 using Repositories.Repos.PostSaveRepos;
@@ -41,8 +46,10 @@ using Repositories.UnitOfWork;
 using Services.AI;
 using Services.Helpers;
 using Services.Implements.AccountService;
+using Services.Implements.AdminImp;
 using Services.Implements.Auth;
 using Services.Implements.BackgroundServices;
+using Services.Implements.ChatImp;
 using Services.Implements.Events;
 using Services.Implements.Experts;
 using Services.Implements.ExpertsService.ExpertRequestImp;
@@ -67,11 +74,7 @@ using Services.Utils.AIDectection;
 using Services.Utils.CloundStorage;
 using Services.Utils.File;
 using Services.Utils.SignalR;
-using System.Text;
 using WebAPIs.Services;
-using Microsoft.AspNetCore.SignalR;
-using Repositories.Repos.ChatRepos;
-using Repositories.Repos.GroupRepos;
 
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -178,11 +181,17 @@ builder.Services.AddScoped<IPostSaveRepository, PostSaveRepository>();
 builder.Services.AddScoped<IUserReportRepository, UserReportRepository>();
 builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<IWardrobeRepository, WardrobeRepository>();
+builder.Services.AddScoped<IChatRepository, ChatRepository>();
+builder.Services.AddScoped<IGroupRepository, GroupRepository>();
+builder.Services.AddScoped<IPinMessageRepository, PinMessageRepository>();
+builder.Services.AddScoped<IPhotoRepository, PhotoRepository>();
+builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 
 #endregion
 
 #region SERVICES
-
+builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IGroupService, GroupService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IFollowService, FollowService>();
@@ -205,7 +214,7 @@ builder.Services.AddScoped<IPostSaveService, PostSaveService>();
 builder.Services.AddScoped<ITryOnHistoryService, TryOnHistoryService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAiService, AiService>();
-
+builder.Services.AddScoped<IDashboardService, DashboardService>();
 #endregion
 
 #region EXTERNAL SERVICES
