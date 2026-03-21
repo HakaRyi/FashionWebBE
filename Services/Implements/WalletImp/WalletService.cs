@@ -4,8 +4,11 @@ using Repositories.Repos.TransactionRepos;
 using Repositories.Repos.Payments;
 using Repositories.UnitOfWork;
 using Services.Implements.Auth;
-using Services.Response.WalletResp;
+using Services.Implements.NotificationImp;
+using Services.Request.NotificationReq;
 using Services.Request.WalletReq;
+using Services.Response.TransactionResp;
+using Services.Response.WalletResp;
 
 namespace Services.Implements.WalletImp
 {
@@ -16,19 +19,22 @@ namespace Services.Implements.WalletImp
         private readonly ITransactionRepository _transactionRepo;
         private readonly IPaymentRepository _paymentRepo;
         private readonly ICurrentUserService _currentUserService;
+        private readonly INotificationService _notificationService;
 
         public WalletService(
             IUnitOfWork unitOfWork,
             IWalletRepository walletRepo,
             ITransactionRepository transactionRepo,
             IPaymentRepository paymentRepo,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            INotificationService notificationService)
         {
             _unitOfWork = unitOfWork;
             _walletRepo = walletRepo;
             _transactionRepo = transactionRepo;
             _paymentRepo = paymentRepo;
             _currentUserService = currentUserService;
+            _notificationService = notificationService;
         }
 
         public async Task<WalletResponse> GetMyWalletAsync()
@@ -39,7 +45,6 @@ namespace Services.Implements.WalletImp
             if (wallet == null)
                 throw new Exception("Không tìm thấy ví người dùng.");
 
-            // Mapping từ Entity sang DTO tại Service
             return new WalletResponse
             {
                 WalletId = wallet.WalletId,
@@ -49,13 +54,34 @@ namespace Services.Implements.WalletImp
             };
         }
 
-        public async Task<IEnumerable<Transaction>> GetMyTransactionHistoryAsync()
+        public async Task<List<TransactionHistoryResponse>> GetMyTransactionHistoryAsync()
         {
             int accountId = _currentUserService.GetRequiredUserId();
             var wallet = await _walletRepo.GetByAccountIdAsync(accountId);
-            if (wallet == null) throw new Exception("Ví không tồn tại.");
 
-            return await _transactionRepo.GetByWalletIdAsync(wallet.WalletId);
+            if (wallet == null)
+                throw new Exception("Ví không tồn tại.");
+
+            var transactions = await _transactionRepo.GetByWalletIdAsync(wallet.WalletId);
+
+            return transactions
+                .OrderByDescending(t => t.CreatedAt)
+                .Select(t => new TransactionHistoryResponse
+                {
+                    TransactionId = t.TransactionId,
+                    WalletId = t.WalletId,
+                    PaymentId = t.PaymentId,
+                    Amount = t.Amount,
+                    BalanceBefore = t.BalanceBefore,
+                    BalanceAfter = t.BalanceAfter,
+                    Type = t.Type,
+                    ReferenceType = t.ReferenceType,
+                    ReferenceId = t.ReferenceId,
+                    Description = t.Description,
+                    CreatedAt = t.CreatedAt,
+                    Status = t.Status
+                })
+                .ToList();
         }
 
         public async Task<bool> ProcessTopUpAsync(TopUpRequest request)
@@ -66,28 +92,28 @@ namespace Services.Implements.WalletImp
             try
             {
                 var wallet = await _walletRepo.GetByAccountIdAsync(accountId);
-                if (wallet == null) throw new Exception("Ví không tồn tại.");
+                if (wallet == null)
+                    throw new Exception("Ví không tồn tại.");
 
-                // 1. Mapping DTO sang Entity Payment
                 var payment = new Payment
                 {
                     AccountId = accountId,
                     OrderCode = request.OrderCode,
                     Provider = request.Provider,
+                    Amount = request.Amount,
                     Status = "Completed",
-                    CreatedAt = DateTime.Now,
-                    PaidAt = DateTime.Now
+                    CreatedAt = DateTime.UtcNow,
+                    PaidAt = DateTime.UtcNow
                 };
-                await _paymentRepo.AddAsync(payment);
-                await _unitOfWork.SaveChangesAsync(); // Để lấy PaymentId
 
-                // 2. Cập nhật số dư ví
+                await _paymentRepo.AddAsync(payment);
+                await _unitOfWork.SaveChangesAsync();
+
                 decimal balanceBefore = wallet.Balance;
                 wallet.Balance += request.Amount;
-                wallet.UpdatedAt = DateTime.Now;
+                wallet.UpdatedAt = DateTime.UtcNow;
                 _walletRepo.Update(wallet);
 
-                // 3. Tạo Transaction log (Ghi vết biến động số dư)
                 var trans = new Transaction
                 {
                     WalletId = wallet.WalletId,
@@ -95,21 +121,39 @@ namespace Services.Implements.WalletImp
                     Amount = request.Amount,
                     BalanceBefore = balanceBefore,
                     BalanceAfter = wallet.Balance,
-                    Type = "Deposit",
-                    ReferenceType = "Payment",
+                    Type = "Credit",
+                    ReferenceType = "TopUp",
                     ReferenceId = payment.PaymentId,
                     Description = $"Nạp tiền qua {request.Provider}",
                     Status = "Success",
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.UtcNow
                 };
-                await _transactionRepo.AddAsync(trans);
 
-                await _unitOfWork.CommitAsync();
+                await _transactionRepo.AddAsync(trans);
+                await _unitOfWork.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                await _notificationService.SendNotificationAsync(new SendNotificationRequest
+                {
+                    SenderId = accountId,
+                    TargetUserId = accountId,
+                    Title = "Nạp ví thành công",
+                    Content = $"Bạn đã nạp thành công {request.Amount:N0} VND vào ví.",
+                    Type = "WalletTopUp"
+                });
+
+                await _notificationService.SendWalletUpdatedAsync(accountId, new
+                {
+                    WalletId = wallet.WalletId,
+                    Balance = wallet.Balance,
+                    UpdatedAt = wallet.UpdatedAt
+                });
+
                 return true;
             }
             catch (Exception ex)
             {
-                await _unitOfWork.RollbackAsync();
+                await transaction.RollbackAsync();
                 throw new Exception($"Lỗi nạp tiền: {ex.Message}");
             }
         }

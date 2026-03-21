@@ -25,9 +25,7 @@ using Repositories.Repos.GroupRepos;
 using Repositories.Repos.ImageRepos;
 using Repositories.Repos.ItemRespos;
 using Repositories.Repos.ModelRepos;
-using Repositories.Repos.ModelRepos;
 using Repositories.Repos.NotificationRepos;
-using Repositories.Repos.OutfitRepos;
 using Repositories.Repos.OutfitRepos;
 using Repositories.Repos.PackageRepos;
 using Repositories.Repos.Payments;
@@ -118,7 +116,6 @@ builder.Services.AddIdentity<Account, IdentityRole<int>>(options =>
     options.Lockout.MaxFailedAccessAttempts = 5;
 
     options.User.RequireUniqueEmail = true;
-
     options.SignIn.RequireConfirmedEmail = true;
 })
 .AddEntityFrameworkStores<FashionDbContext>()
@@ -132,6 +129,7 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IAccountSubscriptionRepository, AccountSubscriptionRepository>();
+builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<ICommentRepository, CommentRepository>();
 builder.Services.AddScoped<ICommentReactionRepository, CommentReactionRepository>();
 builder.Services.AddScoped<IEscrowSessionRepository, EscrowSessionRepository>();
@@ -142,12 +140,16 @@ builder.Services.AddScoped<IExpertProfileRepository, ExpertProfileRepository>();
 builder.Services.AddScoped<IExpertRatingRepository, ExpertRatingRepository>();
 builder.Services.AddScoped<IExpertRequestRepository, ExpertRequestRepository>();
 builder.Services.AddScoped<IFollowRepository, FollowRepository>();
+builder.Services.AddScoped<IGroupRepository, GroupRepository>();
 builder.Services.AddScoped<IImageRepository, ImageRepository>();
 builder.Services.AddScoped<IItemRepository, ItemRepository>();
 builder.Services.AddScoped<IModelRepository, ModelRepository>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IOutfitRepository, OutfitRepository>();
 builder.Services.AddScoped<IPackageRepository, PackageRepository>();
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+builder.Services.AddScoped<IPhotoRepository, PhotoRepository>();
+builder.Services.AddScoped<IPinMessageRepository, PinMessageRepository>();
 builder.Services.AddScoped<IPostRepository, PostRepository>();
 builder.Services.AddScoped<IPostSaveRepository, PostSaveRepository>();
 builder.Services.AddScoped<IPrizeEventRepository, PrizeEventRepository>();
@@ -156,37 +158,16 @@ builder.Services.AddScoped<IScoreboardRepository, ScoreboardRepository>();
 builder.Services.AddScoped<ISocialRepository, SocialRepository>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<ITryOnHistoryRepository, TryOnHistoryRepository>();
-builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
-
-
-builder.Services.AddScoped<IWalletRepository, WalletRepository>();
-builder.Services.AddScoped<IPrizeEventRepository, PrizeEventRepository>();
-builder.Services.AddScoped<IEscrowSessionRepository, EscrowSessionRepository>();
-builder.Services.AddScoped<IAccountSubscriptionRepository, AccountSubscriptionRepository>();
-builder.Services.AddScoped<IEventExpertRepository, EventExpertRepository>();
-builder.Services.AddScoped<IExpertRatingRepository, ExpertRatingRepository>();
-builder.Services.AddScoped<IScoreboardRepository, ScoreboardRepository>();
-builder.Services.AddScoped<IEventWinnerRepository, EventWinnerRepository>();
-builder.Services.AddScoped<IChatRepository, ChatRepository>();
-builder.Services.AddScoped<IGroupRepository, GroupRepository>();
-builder.Services.AddScoped<IPhotoRepository, PhotoRepository>();
-builder.Services.AddScoped<IPinMessageRepository, PinMessageRepository>();
-
-
-
-builder.Services.AddScoped<IReactionRepository, ReactionRepository>();
-builder.Services.AddScoped<ICommentReactionRepository, CommentReactionRepository>();
-builder.Services.AddScoped<ICommentRepository, CommentRepository>();
-builder.Services.AddScoped<IPostSaveRepository, PostSaveRepository>();
-
 builder.Services.AddScoped<IUserReportRepository, UserReportRepository>();
 builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<IWardrobeRepository, WardrobeRepository>();
+
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<IGroupRepository, GroupRepository>();
 builder.Services.AddScoped<IPinMessageRepository, PinMessageRepository>();
 builder.Services.AddScoped<IPhotoRepository, PhotoRepository>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
+
 
 
 
@@ -259,6 +240,13 @@ builder.Services.AddSingleton<FashionMapper>();
 
 #endregion
 
+#region SIGNALR
+
+builder.Services.AddSignalR();
+builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
+
+#endregion
+
 #region JWT AUTHENTICATION
 
 var jwtSettings = builder.Configuration.GetSection("Jwt");
@@ -279,24 +267,26 @@ builder.Services.AddAuthentication(options =>
         ValidateAudience = true,
         ValidateLifetime = true,
         ValidateIssuerSigningKey = true,
-
         ValidIssuer = jwtSettings["Issuer"],
         ValidAudience = jwtSettings["Audience"],
-
         IssuerSigningKey = new SymmetricSecurityKey(secretKey),
-
         ClockSkew = TimeSpan.Zero
     };
+
     options.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
         {
             var accessToken = context.Request.Query["access_token"];
             var path = context.HttpContext.Request.Path;
-            if (!string.IsNullOrEmpty(accessToken) && path.StartsWithSegments("/notificationHub") || path.StartsWithSegments("/chatHub"))
+
+            if (!string.IsNullOrEmpty(accessToken) &&
+                (path.StartsWithSegments("/notificationHub") ||
+                 path.StartsWithSegments("/chatHub")))
             {
                 context.Token = accessToken;
             }
+
             return Task.CompletedTask;
         }
     };
@@ -335,7 +325,7 @@ builder.Services.AddSwaggerGen(c =>
                     Type = ReferenceType.SecurityScheme
                 }
             },
-            new string[]{}
+            Array.Empty<string>()
         }
     });
 });
@@ -346,17 +336,25 @@ builder.Services.AddSwaggerGen(c =>
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll",
-        b => b.AllowAnyOrigin()
+    options.AddPolicy("AllowAll", policy =>
+    {
+        policy.AllowAnyOrigin()
               .AllowAnyMethod()
-              .AllowAnyHeader());
+              .AllowAnyHeader();
+    });
 });
-builder.Services.AddSignalR();
-builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
+//builder.Services.AddCors(options =>
+//{
+//    options.AddPolicy("AllowFrontend", policy =>
+//    {
+//        policy.WithOrigins("http://localhost:5500")
+//              .AllowAnyHeader()
+//              .AllowAnyMethod()
+//              .AllowCredentials();
+//    });
+//});
 
 #endregion
-builder.Services.AddSignalR();
-builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
 
 var app = builder.Build();
 
@@ -369,28 +367,21 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowAll");
+//app.UseCors("AllowFrontend");
+
 app.Use(async (context, next) =>
 {
     context.Response.Headers.Add("ngrok-skip-browser-warning", "true");
     await next();
 });
 
-app.MapHub<NotificationHub>("/notificationHub");
-app.MapHub<ChatHub>("/chatHub");
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
-//app.UseHttpsRedirection();
-
+// app.UseHttpsRedirection();
 
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapHub<NotificationHub>("/notificationHub");
+app.MapHub<ChatHub>("/chatHub");
 app.MapControllers();
 
 #endregion
