@@ -105,7 +105,10 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
     public virtual DbSet<Model> Models { get; set; }
 
- 
+    public virtual DbSet<SystemSetting> SystemSettings { get; set; }
+
+
+
 
     public static string GetConnectionString(string connectionStringName)
     {
@@ -540,9 +543,15 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.CreatorId).HasColumnName("creator_id");
             entity.Property(e => e.Title).HasMaxLength(255).HasColumnName("title");
             entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.MinExpertsToStart)
+                .HasColumnName("min_experts_to_start");
 
             entity.Property(e => e.ExpertWeight).HasColumnName("expert_weight").HasDefaultValue(0.0);
             entity.Property(e => e.UserWeight).HasColumnName("user_weight").HasDefaultValue(0.0);
+            entity.Property(e => e.AppliedFee)
+                .HasColumnType("decimal(18,2)")
+                .HasColumnName("applied_fee")
+                .HasDefaultValue(0.0m);
             entity.Property(e => e.PointPerLike).HasColumnName("point_per_like").HasDefaultValue(1.0);
             entity.Property(e => e.PointPerShare).HasColumnName("point_per_share").HasDefaultValue(2.0);
 
@@ -1580,6 +1589,35 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.TypeName)
                 .HasMaxLength(100)
                 .HasColumnName("type_name");
+        });
+
+        modelBuilder.Entity<SystemSetting>(entity =>
+        {
+            entity.HasKey(e => e.SettingKey).HasName("SystemSettings_pkey");
+
+            entity.ToTable("SystemSettings", "public");
+
+            entity.Property(e => e.SettingKey)
+                .HasMaxLength(50)
+                .HasColumnName("setting_key");
+
+            entity.Property(e => e.SettingValue)
+                .IsRequired()
+                .HasMaxLength(255)
+                .HasColumnName("setting_value");
+
+            entity.Property(e => e.DataType)
+                .HasMaxLength(20)
+                .HasColumnName("data_type");
+
+            entity.Property(e => e.Description)
+                .HasMaxLength(500)
+                .HasColumnName("description");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("updated_at")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
         });
 
         modelBuilder.Entity<Transaction>(entity =>

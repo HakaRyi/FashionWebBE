@@ -11,9 +11,10 @@ namespace Repositories.Repos.Events
     {
         Task<Event?> GetByIdAsync(int id);
         Task<IEnumerable<Event>> GetAllByCreatorIdAsync(int creatorId);
+        Task<IEnumerable<Event>> GetAnalyticsDataAsync(int creatorId, DateTime startDate);
         Task AddAsync(Event @event);
         void Update(Event @event);
         void Delete(Event @event);
-        Task<bool> SaveChangesAsync();
+        Task<IEnumerable<Event>> GetAllAsync();
     }
 }

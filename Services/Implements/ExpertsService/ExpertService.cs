@@ -157,9 +157,30 @@ namespace Services.Implements.Experts
             return await ProcessApplicationAsync(fileId, status, feedback);
         }
 
-        public async Task<IEnumerable<ExpertProfile>> GetAllExpertsAsync()
+        public async Task<IEnumerable<ExpertManagementDto>> GetAllExpertsAsync()
         {
-            return await _profileRepo.GetAllAsync();
+            var profiles = await _profileRepo.GetAllAsync();
+
+            return profiles.Select(p => new ExpertManagementDto
+            {
+                ExpertProfileId = p.ExpertProfileId,
+                AccountId = p.AccountId,
+                UserName = p.Account?.UserName,
+                ExpertiseField = p.ExpertiseField,
+                Bio = p.Bio,
+                StyleAesthetic = p.StyleAesthetic,
+                YearsOfExperience = p.YearsOfExperience,
+                Verified = p.Verified,
+                CreatedAt = p.CreatedAt,
+                ExpertFile = p.ExpertRequests.OrderByDescending(r => r.CreatedAt).Select(r => new ExpertFileDto
+                {
+                    ExpertFileId = r.ExpertFileId,
+                    Status = r.Status,
+                    CertificateUrl = r.CertificateUrl,
+                    LicenseUrl = r.LicenseUrl,
+                    Reason = r.Reason
+                }).FirstOrDefault()
+            });
         }
 
         public async Task<IEnumerable<Repositories.Entities.ExpertRequest>> GetPendingApplicationsAsync()
@@ -186,6 +207,47 @@ namespace Services.Implements.Experts
         {
             await _profileRepo.DeleteAsync(profileId);
             return await _unitOfWork.SaveChangesAsync() > 0;
+        }
+
+        public async Task<IEnumerable<ExpertManagementDto>> GetActiveExpertsForUserAsync()
+        {
+            var profiles = await _profileRepo.GetAllAsync();
+
+            return profiles
+                .Where(p => p.Verified == true && p.Account?.Status == "Active")
+                .Select(p => new ExpertManagementDto
+                {
+                    ExpertProfileId = p.ExpertProfileId,
+                    AccountId = p.AccountId,
+                    UserName = p.Account?.UserName,
+                    ExpertiseField = p.ExpertiseField,
+                    Bio = p.Bio,
+                    StyleAesthetic = p.StyleAesthetic,
+                    YearsOfExperience = p.YearsOfExperience,
+                    RatingAvg = p.RatingAvg,
+                    Verified = p.Verified
+                });
+        }
+
+        public async Task<ExpertManagementDto?> GetExpertPublicProfileAsync(int profileId)
+        {
+            var p = await _profileRepo.GetExpertDetailByIdAsync(profileId);
+
+            if (p == null) return null;
+
+            return new ExpertManagementDto
+            {
+                ExpertProfileId = p.ExpertProfileId,
+                AccountId = p.AccountId,
+                UserName = p.Account?.UserName,
+                ExpertiseField = p.ExpertiseField,
+                Bio = p.Bio,
+                StyleAesthetic = p.StyleAesthetic,
+                YearsOfExperience = p.YearsOfExperience,
+                RatingAvg = p.RatingAvg,
+                Verified = p.Verified,
+                CreatedAt = p.CreatedAt
+            };
         }
 
         #endregion

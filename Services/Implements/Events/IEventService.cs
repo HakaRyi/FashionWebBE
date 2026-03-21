@@ -1,6 +1,7 @@
 ﻿using Repositories.Entities;
 using Services.Request.EventReq;
 using Services.Request.ExpertRatingReq;
+using Services.Response.DashboardResp;
 using Services.Response.EventResp;
 using System;
 using System.Collections.Generic;
@@ -12,10 +13,22 @@ namespace Services.Implements.Events
 {
     public interface IEventService
     {
-        Task<Event?> GetEventDetailsAsync(int eventId);
         Task<IEnumerable<Event>> GetExpertEventsAsync(int expertId);
-        Task<Event> CreateEventAndLockFundsAsync(CreateEventRequest dto);
+        Task<Event> CreateEventAsync(CreateEventRequest dto);
         Task SubmitExpertRatingAsync(ExpertRatingRequest dto);
         Task FinalizeEventAndDistributePrizesAsync(int eventId);
+
+        // Expert
+        Task<IEnumerable<Event>> GetMyCreatedEventsAsync();
+        Task<IEnumerable<Event>> GetEventsInvitedToRateAsync();
+        Task ActivateEventWithEscrowAsync(int eventId);
+        Task<AnalyticsDashboardResponse> GetAnalyticsAsync(string period);
+
+        // User / Public
+        Task<IEnumerable<EventListDto>> GetAllEventsForUserAsync();
+
+        // Common
+        Task<EventDetailDto?> GetEventDetailsAsync(int eventId);
+        Task<IEnumerable<Post>> GetPostsByEventIdAsync(int eventId);
     }
 }

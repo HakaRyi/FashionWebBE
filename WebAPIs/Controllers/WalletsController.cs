@@ -32,4 +32,18 @@ public class WalletsController : ControllerBase
         var success = await _walletService.ProcessTopUpAsync(request);
         return Ok(new { message = "Giao dịch thành công!" });
     }
+
+    [HttpGet("dashboard")]
+    public async Task<IActionResult> GetDashboard()
+    {
+        try
+        {
+            var data = await _walletService.GetWalletDashboardAsync();
+            return Ok(data);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
+    }
 }

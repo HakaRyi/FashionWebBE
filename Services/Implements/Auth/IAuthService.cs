@@ -8,5 +8,6 @@ namespace Services.Implements.Auth
         Task<AuthResponse> LoginAsync(LoginRequest request);
         Task<AuthResponse> RegisterAsync(RegisterRequest request);
         Task<AuthResponse> VerifyAccountAsync(string email, string code);
+        Task<AuthResponse> RefreshTokenAsync(string refreshToken);
     }
 }

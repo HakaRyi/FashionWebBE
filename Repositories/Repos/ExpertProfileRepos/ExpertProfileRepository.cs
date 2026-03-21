@@ -15,6 +15,7 @@ namespace Repositories.Repos.ExpertProfileRepos
         public async Task<IEnumerable<ExpertProfile>> GetAllAsync()
         {
             return await _db.ExpertProfiles
+                .Include(p => p.Account)
                 .Include(p => p.ExpertRequests)
                 .ToListAsync();
         }
@@ -32,6 +33,22 @@ namespace Repositories.Repos.ExpertProfileRepos
         {
             return await _db.ExpertProfiles
                 .FirstOrDefaultAsync(p => p.AccountId == accountId);
+        }
+
+        public async Task<IEnumerable<ExpertProfile>> GetAllActiveExpertsAsync()
+        {
+            return await _db.ExpertProfiles
+                .Include(p => p.Account)
+                .Where(p => p.Verified == true && p.Account.Status == "Active")
+                .ToListAsync();
+        }
+
+        public async Task<ExpertProfile?> GetExpertDetailByIdAsync(int id)
+        {
+            return await _db.ExpertProfiles
+                .Include(p => p.Account)
+                .Include(p => p.ExpertRequests)
+                .FirstOrDefaultAsync(p => p.ExpertProfileId == id && p.Account.Status == "Active");
         }
 
         public async Task AddAsync(ExpertProfile profile)

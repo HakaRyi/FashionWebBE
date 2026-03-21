@@ -96,5 +96,31 @@ namespace WebAPIs.Controllers
 
             return Ok(new { message = result.Message });
         }
+
+        [HttpPost("refresh")]
+        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenRequest request)
+        {
+            if (string.IsNullOrEmpty(request.RefreshToken))
+                return BadRequest(new { message = "Refresh Token không được để trống." });
+
+            var result = await _authService.RefreshTokenAsync(request.RefreshToken);
+
+            if (!result.Success)
+                return Unauthorized(new { message = result.Message });
+
+            SetTokenCookie("accessToken", result.AccessToken);
+            SetTokenCookie("refreshToken", result.RefreshToken);
+
+            return Ok(new
+            {
+                accessToken = result.AccessToken,
+                refreshToken = result.RefreshToken
+            });
+        }
+
+        public class RefreshTokenRequest
+        {
+            public string RefreshToken { get; set; } = null!;
+        }
     }
 }

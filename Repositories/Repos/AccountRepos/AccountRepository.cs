@@ -46,10 +46,17 @@ namespace Repositories.Repos.AccountRepos
             return await _db.SaveChangesAsync();
         }
 
-        public async Task<Account> GetAccountById(int userId)
+        public async Task<Account?> GetAccountById(int userId)
         {
             return await _db.Accounts
                 .FirstOrDefaultAsync(a => a.Id == userId);
+        }
+
+        public async Task<RefreshToken?> GetRefreshTokenByTokenAsync(string token)
+        {
+            return await _db.RefreshTokens
+                .Include(rt => rt.Account)
+                .FirstOrDefaultAsync(x => x.Token == token);
         }
     }
 }

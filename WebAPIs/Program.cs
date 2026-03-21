@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using Quartz;
+using Quartz.Impl.Matchers;
 using Repositories.Data;
 using Repositories.Entities;
 using Repositories.Repos.AccountRepos;
@@ -11,9 +13,9 @@ using Repositories.Repos.EscrowSessionRepos;
 using Repositories.Repos.EventExpertRepos;
 using Repositories.Repos.Events;
 using Repositories.Repos.EventWinnerRepos;
-using Repositories.Repos.ExpertRequestRepos;
 using Repositories.Repos.ExpertProfileRepos;
 using Repositories.Repos.ExpertRatingRepos;
+using Repositories.Repos.ExpertRequestRepos;
 using Repositories.Repos.FollowRepos;
 using Repositories.Repos.ImageRepos;
 using Repositories.Repos.ItemRespos;
@@ -24,6 +26,7 @@ using Repositories.Repos.PostRepos;
 using Repositories.Repos.PrizeEventRepos;
 using Repositories.Repos.ScoreboardRepos;
 using Repositories.Repos.SocialRepos;
+using Repositories.Repos.SystemSettingRepos;
 using Repositories.Repos.TransactionRepos;
 using Repositories.Repos.UserReportRepos;
 using Repositories.Repos.WalletRepos;
@@ -34,6 +37,7 @@ using Services.Helpers;
 using Services.Implements.AccountService;
 using Services.Implements.Auth;
 using Services.Implements.BackgroundServices;
+using Services.Implements.EventExpertSer;
 using Services.Implements.Events;
 using Services.Implements.Experts;
 using Services.Implements.ExpertsService.ExpertRequestImp;
@@ -57,6 +61,7 @@ using Services.Utils.AIDectection;
 using Services.Utils.CloundStorage;
 using Services.Utils.File;
 using System.Text;
+using WebAPIs.Endpoints;
 using WebAPIs.Services;
 
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
@@ -86,6 +91,37 @@ builder.Services.AddDbContext<FashionDbContext>(options =>
     //options.UseQueryTrackingBehavior(QueryTrackingBehavior.NoTracking);
 });
 
+//background service
+var quartzConfig = builder.Configuration.GetSection("Quartz");
+
+builder.Services.AddQuartz(q =>
+{
+    q.SchedulerId = quartzConfig["SchedulerId"] ?? "AUTO";
+    q.SchedulerName = quartzConfig["SchedulerName"] ?? "FashionShop-Scheduler";
+
+    q.UsePersistentStore(s =>
+    {
+        s.UsePostgres(postgres =>
+        {
+            postgres.ConnectionString = builder.Configuration.GetConnectionString("QuartzDb")
+                ?? throw new InvalidOperationException("ConnectionString 'QuartzDb' không tìm thấy!");
+        });
+
+        s.UseNewtonsoftJsonSerializer();
+
+        s.UseClustering();
+    });
+});
+
+// 2. Chạy Quartz dưới dạng Hosted Service
+builder.Services.AddQuartzHostedService(opt =>
+{
+    opt.WaitForJobsToComplete = bool.Parse(quartzConfig["WaitForJobsToComplete"] ?? "true");
+});
+
+
+
+//identity
 builder.Services.AddIdentity<Account, IdentityRole<int>>(options =>
 {
     options.Password.RequireDigit = false;
@@ -131,6 +167,7 @@ builder.Services.AddScoped<IEventExpertRepository, EventExpertRepository>();
 builder.Services.AddScoped<IExpertRatingRepository, ExpertRatingRepository>();
 builder.Services.AddScoped<IScoreboardRepository, ScoreboardRepository>();
 builder.Services.AddScoped<IEventWinnerRepository, EventWinnerRepository>();
+builder.Services.AddScoped<ISystemSettingRepository, SystemSettingRepository>();
 
 
 // Service Layer
@@ -154,6 +191,7 @@ builder.Services.AddScoped<IUserReportService, UserReportService>();
 builder.Services.AddScoped<IPackageService, PackageService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<ISocialService, SocialService>();
+builder.Services.AddScoped<IEventExpertService, EventExpertService>();
 builder.Services.AddScoped<IImageService, ImageService>();
 builder.Services.AddScoped<IFileService>(sp =>
 {
@@ -277,5 +315,7 @@ using (var scope = app.Services.CreateScope())
         logger.LogError(ex, "Errors seeding Roles");
     }
 }
+
+app.MapQuartzEndpoints();
 
 app.Run();

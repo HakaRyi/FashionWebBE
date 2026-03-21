@@ -18,14 +18,13 @@ namespace Repositories.Repos.PrizeEventRepos
             await _context.PrizeEvents.AddRangeAsync(prizes);
 
         public async Task<IEnumerable<PrizeEvent>> GetByEventIdAsync(int eventId) =>
-            await _context.PrizeEvents.Where(p => p.EventId == eventId).ToListAsync();
+            await _context.PrizeEvents
+                .Where(p => p.EventId == eventId && p.Status == "Active")
+                .ToListAsync();
 
         public async Task<PrizeEvent?> GetByIdAsync(int prizeId) =>
             await _context.PrizeEvents.FindAsync(prizeId);
 
-        public void Update(PrizeEvent prize)
-        {
-            _context.PrizeEvents.Update(prize);
-        }
+        public void Update(PrizeEvent prize) => _context.PrizeEvents.Update(prize);
     }
 }

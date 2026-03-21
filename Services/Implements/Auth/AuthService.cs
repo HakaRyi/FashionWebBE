@@ -227,5 +227,46 @@ namespace Services.Implements.Auth
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
+
+        public async Task<AuthResponse> RefreshTokenAsync(string refreshTokenString)
+        {
+            // 1. Tìm token trong DB thông qua Repository
+            var storedToken = await _accountRepository.GetRefreshTokenByTokenAsync(refreshTokenString);
+
+            if (storedToken == null)
+                return new AuthResponse { Success = false, Message = "Refresh token không tồn tại." };
+
+            if (!storedToken.IsAvailable == true)
+                return new AuthResponse { Success = false, Message = "Refresh token đã bị vô hiệu hóa." };
+
+            if (storedToken.ExpiryDate < DateTime.UtcNow)
+                return new AuthResponse { Success = false, Message = "Refresh token đã hết hạn." };
+
+            // 2. Lấy thông tin User sở hữu token này
+            var user = await _userManager.FindByIdAsync(storedToken.AccountId.ToString());
+            if (user == null)
+                return new AuthResponse { Success = false, Message = "Không tìm thấy người dùng." };
+
+            // 3. Tạo Access Token mới và Refresh Token mới (Rotation)
+            var newAccessToken = await GenerateAccessToken(user);
+            var newRefreshTokenString = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+
+            // 4. Cập nhật lại Token cũ trong DB thành Token mới
+            storedToken.Token = newRefreshTokenString;
+            storedToken.ExpiryDate = DateTime.UtcNow.AddDays(7);
+            storedToken.CreatedAt = DateTime.UtcNow;
+            storedToken.IpAddress = GetClientIpAddress();
+            storedToken.DeviceInfo = GetClientDeviceInfo();
+
+            await _accountRepository.UpdateRefreshTokenAsync(storedToken);
+
+            return new AuthResponse
+            {
+                Success = true,
+                AccessToken = newAccessToken,
+                RefreshToken = newRefreshTokenString,
+                Message = "Làm mới token thành công."
+            };
+        }
     }
 }
