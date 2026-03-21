@@ -11,9 +11,10 @@ namespace Repositories.Data
         {
             var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole<int>>>();
             var userManager = serviceProvider.GetRequiredService<UserManager<Account>>();
+            var context = serviceProvider.GetRequiredService<FashionDbContext>();
 
+            // --- 1. Seed Roles ---
             string[] roles = { "Admin", "User", "Expert", "Vendor" };
-
             foreach (var roleName in roles)
             {
                 if (!await roleManager.RoleExistsAsync(roleName))
@@ -22,27 +23,75 @@ namespace Repositories.Data
                 }
             }
 
-            var adminEmail = configuration["AdminSettings:Email"];
-            var adminPassword = configuration["AdminSettings:Password"];
-            var adminUsername = configuration["AdminSettings:Username"];
+            // --- 2. Seed Admin User ---
+            var adminEmail = configuration["AdminSettings:Email"] ?? "admin@fashion.com";
+            var adminPassword = configuration["AdminSettings:Password"] ?? "Admin@123";
+            var adminUsername = configuration["AdminSettings:Username"] ?? "admin";
 
             var adminUser = await userManager.FindByEmailAsync(adminEmail);
 
             if (adminUser == null)
             {
-                var user = new Account
+                adminUser = new Account
                 {
                     UserName = adminUsername,
                     Email = adminEmail,
                     EmailConfirmed = true,
                     Status = "Active",
+                    CreatedAt = DateTime.Now
                 };
 
-                var result = await userManager.CreateAsync(user, adminPassword);
+                var result = await userManager.CreateAsync(adminUser, adminPassword);
                 if (result.Succeeded)
                 {
-                    await userManager.AddToRoleAsync(user, "Admin");
+                    await userManager.AddToRoleAsync(adminUser, "Admin");
                 }
+            }
+
+            if (adminUser != null)
+            {
+                var adminWallet = context.Wallets.FirstOrDefault(w => w.AccountId == adminUser.Id);
+
+                if (adminWallet == null)
+                {
+                    adminWallet = new Wallet
+                    {
+                        AccountId = adminUser.Id,
+                        Balance = 0,
+                        LockedBalance = 0,
+                        Currency = "VND",
+                        UpdatedAt = DateTime.Now
+                    };
+                    context.Wallets.Add(adminWallet);
+                    await context.SaveChangesAsync();
+                }
+
+                var settings = new List<SystemSetting>
+        {
+            new SystemSetting
+            {
+                SettingKey = "SystemAdminAccountId",
+                SettingValue = adminUser.Id.ToString(),
+                DataType = "Int",
+                Description = "ID của tài khoản Admin nhận phí hệ thống"
+            },
+            new SystemSetting
+            {
+                SettingKey = "EventCreationFee",
+                SettingValue = "10000",
+                DataType = "Decimal",
+                Description = "Phí Expert phải trả khi tạo sự kiện thành công"
+            }
+        };
+
+                foreach (var setting in settings)
+                {
+                    if (!context.SystemSettings.Any(s => s.SettingKey == setting.SettingKey))
+                    {
+                        context.SystemSettings.Add(setting);
+                    }
+                }
+                await context.SaveChangesAsync();
             }
         }
     }

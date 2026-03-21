@@ -14,11 +14,17 @@
 
         public double UserWeight { get; set; }
 
+        public decimal AppliedFee { get; set; }
+
         public double PointPerLike { get; set; } = 1;
+
 
         public double PointPerShare { get; set; } = 2;
 
+        public int MinExpertsToStart { get; set; }
+
         public DateTime? StartTime { get; set; }
+
 
         public DateTime? EndTime { get; set; }
 

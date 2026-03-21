@@ -111,6 +111,44 @@ namespace WebAPIs.Controllers
             return NotFound();
         }
 
+        [HttpGet("active-list")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetActiveExperts()
+        {
+            try
+            {
+                var experts = await _expertService.GetActiveExpertsForUserAsync();
+                return Ok(experts);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Lỗi hệ thống: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// Xem chi tiết hồ sơ công khai của một chuyên gia
+        /// </summary>
+        [HttpGet("details/{profileId}")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetExpertPublicDetails(int profileId)
+        {
+            try
+            {
+                var profile = await _expertService.GetExpertPublicProfileAsync(profileId);
+
+                if (profile == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy chuyên gia hoặc tài khoản này đã bị khóa." });
+                }
+
+                return Ok(profile);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Lỗi hệ thống: {ex.Message}");
+            }
+        }
         #endregion
     }
 }

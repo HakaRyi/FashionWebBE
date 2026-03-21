@@ -11,5 +11,6 @@ namespace Repositories.Repos.AccountRepos
         Task<RefreshToken?> GetRefreshTokenByAccountIdAsync(int accountId);
         Task UpdateRefreshTokenAsync(RefreshToken token);
         Task<int> UpdateAccount(Account account);
+        Task<RefreshToken?> GetRefreshTokenByTokenAsync(string token);
     }
 }

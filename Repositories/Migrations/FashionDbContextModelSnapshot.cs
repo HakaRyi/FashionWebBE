@@ -574,6 +574,12 @@ namespace Repositories.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("EventId"));
 
+                    b.Property<decimal>("AppliedFee")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,2)")
+                        .HasDefaultValue(0.0m)
+                        .HasColumnName("applied_fee");
+
                     b.Property<DateTime?>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp without time zone")
@@ -597,6 +603,10 @@ namespace Repositories.Migrations
                         .HasColumnType("double precision")
                         .HasDefaultValue(0.0)
                         .HasColumnName("expert_weight");
+
+                    b.Property<int>("MinExpertsToStart")
+                        .HasColumnType("integer")
+                        .HasColumnName("min_experts_to_start");
 
                     b.Property<double>("PointPerLike")
                         .ValueGeneratedOnAdd()
@@ -2062,6 +2072,41 @@ namespace Repositories.Migrations
                         .IsUnique();
 
                     b.ToTable("Scoreboard", "public");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.SystemSetting", b =>
+                {
+                    b.Property<string>("SettingKey")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("setting_key");
+
+                    b.Property<string>("DataType")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("data_type");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("description");
+
+                    b.Property<string>("SettingValue")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("setting_value");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("SettingKey")
+                        .HasName("SystemSettings_pkey");
+
+                    b.ToTable("SystemSettings", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Transaction", b =>

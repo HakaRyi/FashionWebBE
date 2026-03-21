@@ -41,5 +41,20 @@ namespace WebAPIs.Controllers
             var result = await _walletService.GetMyTransactionHistoryAsync();
             return Ok(result);
         }
+
+
+        [HttpGet("dashboard")]
+        public async Task<IActionResult> GetDashboard()
+        {
+            try
+            {
+                var data = await _walletService.GetWalletDashboardAsync();
+                return Ok(data);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 }

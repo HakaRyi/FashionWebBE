@@ -9,5 +9,6 @@ namespace Services.Implements.WalletImp
         Task<WalletResponse> GetMyWalletAsync();
         Task<List<TransactionHistoryResponse>> GetMyTransactionHistoryAsync();
         Task<bool> ProcessTopUpAsync(TopUpRequest request);
+        Task<WalletDashboardResponse> GetWalletDashboardAsync();
     }
 }

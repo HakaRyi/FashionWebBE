@@ -46,6 +46,7 @@ namespace Services.Implements.ChatImp
                 Name = request.Name,
                 IsGroup = true,
                 CreateBy = currentUserId,
+                CreatedAt = DateTime.UtcNow,
                 GroupUsers = new List<GroupUser>
                 {
                     new GroupUser { AccountId = currentUserId, JoinedAt = DateTime.Now }

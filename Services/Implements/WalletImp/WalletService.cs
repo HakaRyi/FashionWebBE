@@ -157,5 +157,52 @@ namespace Services.Implements.WalletImp
                 throw new Exception($"Lỗi nạp tiền: {ex.Message}");
             }
         }
+
+        public async Task<WalletDashboardResponse> GetWalletDashboardAsync()
+        {
+            int accountId = _currentUserService.GetRequiredUserId();
+            var wallet = await _walletRepo.GetByAccountIdAsync(accountId);
+            if (wallet == null) throw new Exception("Ví không tồn tại.");
+
+            var transactions = await _transactionRepo.GetByWalletIdAsync(wallet.WalletId);
+
+            var response = new WalletDashboardResponse();
+
+            // 1. Map Stats (Dữ liệu cho WalletStats.js)
+            response.Stats = new List<StatCardDto>
+    {
+        new StatCardDto {
+            Label = "Số dư khả dụng",
+            Value = wallet.Balance.ToString("N0"),
+            Sub = "Coins",
+            Icon = "Wallet"
+        },
+        new StatCardDto {
+            Label = "Số dư đóng băng",
+            Value = wallet.LockedBalance.ToString("N0"),
+            Sub = "Coins",
+            Icon = "Lock"
+        },
+        new StatCardDto {
+            Label = "Tổng chi tiêu",
+            Value = transactions.Where(t => t.Type == "Expense").Sum(t => t.Amount).ToString("N0"),
+            Sub = "Coins",
+            Icon = "ArrowUpRight"
+        }
+    };
+
+            // 2. Map Transactions (Dữ liệu cho WalletTransactionTable.js)
+            response.Transactions = transactions.Select(t => new TransactionDto
+            {
+                Id = $"GD{t.TransactionId:D5}",
+                Detail = t.Description,
+                Date = t.CreatedAt.ToString("dd/MM/yyyy HH:mm"),
+                Amount = t.Amount,
+                Type = t.Type?.ToLower() == "deposit" ? "deposit" : "expense",
+                Status = t.Status // FE sẽ dùng .toLowerCase() để map class CSS
+            }).ToList();
+
+            return response;
+        }
     }
 }
