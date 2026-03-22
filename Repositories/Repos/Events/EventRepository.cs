@@ -40,7 +40,6 @@ namespace Repositories.Repos.Events
                 .ToListAsync();
         }
 
-
         public async Task AddAsync(Event @event)
         {
             await _db.Events.AddAsync(@event);
@@ -50,12 +49,45 @@ namespace Repositories.Repos.Events
 
         public void Delete(Event @event) => _db.Events.Remove(@event);
 
-        public async Task<IEnumerable<Event>> GetAllAsync()
-            => await _db.Events
-                .Include(e => e.Creator) // Load để có CreatorName ngoài danh sách
+        public async Task<IEnumerable<Event>> GetAllAsync(string[]? statuses = null)
+        {
+            var query = _db.Events
+                .Include(e => e.Creator)
                 .Include(e => e.Images)
-                .Include(e => e.Posts)   // Để tính ParticipantCount
+                .Include(e => e.Posts)
+                .Include(e => e.PrizeEvents)
+                .AsQueryable();
+
+            if (statuses != null && statuses.Length > 0)
+            {
+                query = query.Where(e => statuses.Contains(e.Status));
+            }
+
+            return await query
+                .OrderByDescending(e => e.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Event>> GetPublicEventsAsync()
+        {
+            var publicStatuses = new[] { "Inviting", "Active", "Completed" };
+            return await _db.Events
+                .Include(e => e.Creator)
+                .Include(e => e.Posts)
+                .Where(e => publicStatuses.Contains(e.Status))
                 .OrderByDescending(e => e.StartTime)
                 .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Event>> GetExpertRelatedEventsAsync(int expertId)
+        {
+            return await _db.Events
+                .Include(e => e.Creator)
+                .Include(e => e.Posts)
+                .Include(e => e.EventExperts)
+                .Where(e => e.CreatorId == expertId || e.EventExperts.Any(ee => ee.ExpertId == expertId))
+                .OrderByDescending(e => e.CreatedAt)
+                .ToListAsync();
+        }
     }
 }

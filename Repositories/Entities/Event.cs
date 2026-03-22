@@ -27,6 +27,7 @@ public partial class Event
     public DateTime? EndTime { get; set; }
 
     public DateTime? CreatedAt { get; set; }
+    public string? Note { get; set; }
 
     public string? Status { get; set; }
 

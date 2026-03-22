@@ -36,5 +36,11 @@ namespace Repositories.Repos.SystemSettingRepos
             var val = await GetStringValueAsync(key, defaultValue.ToString());
             return int.TryParse(val, out int result) ? result : defaultValue;
         }
+
+        public async Task<double> GetDoubleValueAsync(string key, double defaultValue)
+        {
+            var val = await GetStringValueAsync(key, defaultValue.ToString());
+            return double.TryParse(val, out double result) ? result : defaultValue;
+        }
     }
 }

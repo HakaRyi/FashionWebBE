@@ -37,6 +37,12 @@ namespace Services.Implements.PostImp
             _context = context;
         }
 
+        public async Task<List<PostResponse>> GetPostsByEventIdAsync(int eventId)
+        {
+            var posts = await _postRepo.GetPostsByEventIdAsync(eventId);
+            return posts.Select(MapToResponse).ToList();
+        }
+
         // ==============================
         // CREATE POST
         // ==============================

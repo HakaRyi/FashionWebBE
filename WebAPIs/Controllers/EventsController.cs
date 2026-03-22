@@ -4,21 +4,21 @@ using Services.Implements.Auth;
 using Services.Implements.Events;
 using Services.Request.EventReq;
 using Services.Request.ExpertRatingReq;
+using Services.Response.DashboardResp;
+using Services.Response.EventResp;
 
 namespace WebAPIs.Controllers
 {
     [ApiController]
     [Route("api/events")]
-    [Authorize] // Mặc định yêu cầu đăng nhập cho toàn bộ Controller
+    //[Authorize]
     public class EventsController : ControllerBase
     {
         private readonly IEventService _eventService;
-        private readonly ICurrentUserService _currentUserService;
 
-        public EventsController(IEventService eventService, ICurrentUserService currentUserService)
+        public EventsController(IEventService eventService)
         {
             _eventService = eventService;
-            _currentUserService = currentUserService;
         }
 
         /// <summary>
@@ -69,29 +69,6 @@ namespace WebAPIs.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách các sự kiện do Expert hiện tại tạo
-        /// </summary>
-        [HttpGet("my-events")]
-        public async Task<IActionResult> GetMyEvents()
-        {
-            int currentUserId = _currentUserService.GetRequiredUserId();
-            var events = await _eventService.GetExpertEventsAsync(currentUserId);
-            return Ok(events);
-        }
-
-        /// <summary>
-        /// Xem chi tiết một sự kiện
-        /// </summary>
-        [HttpGet("{id}")]
-        [AllowAnonymous]
-        public async Task<IActionResult> GetDetails(int id)
-        {
-            var ev = await _eventService.GetEventDetailsAsync(id);
-            if (ev == null) return NotFound(new { message = "Không tìm thấy sự kiện." });
-            return Ok(ev);
-        }
-
-        /// <summary>
         /// Chuyên gia chấm điểm cho bài thi trong sự kiện
         /// </summary>
         [HttpPost("submit-rating")]
@@ -126,16 +103,6 @@ namespace WebAPIs.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách các lời mời chấm điểm sự kiện cho Expert hiện tại
-        /// </summary>
-        [HttpGet("expert/invitations")]
-        public async Task<IActionResult> GetInvitations()
-        {
-            var events = await _eventService.GetEventsInvitedToRateAsync();
-            return Ok(events);
-        }
-
-        /// <summary>
         /// Danh sách sự kiện công khai cho người dùng tham gia
         /// </summary>
         [HttpGet("public/all")]
@@ -146,22 +113,185 @@ namespace WebAPIs.Controllers
             return Ok(events);
         }
 
-        /// <summary>
-        /// Lấy các bài post tham gia trong một sự kiện
-        /// </summary>
-        [HttpGet("{id}/posts")]
-        [AllowAnonymous]
-        public async Task<IActionResult> GetEventPosts(int id)
-        {
-            var posts = await _eventService.GetPostsByEventIdAsync(id);
-            return Ok(posts);
-        }
-
         [HttpGet("expert-dashboard")]
         public async Task<IActionResult> GetDashboard([FromQuery] string period = "30d")
         {
             var result = await _eventService.GetAnalyticsAsync(period);
             return Ok(result);
         }
+
+        /// <summary>
+        /// Kích hoạt sự kiện sớm hơn dự kiến (Chỉ dành cho Host)
+        /// </summary>
+        /// <param name="id">ID của sự kiện</param>
+        [HttpPost("{id}/manual-start")]
+        public async Task<IActionResult> ManualStart(int id)
+        {
+            try
+            {
+                await _eventService.ManualStartEventAsync(id);
+
+                return Ok(new
+                {
+                    Message = "Sự kiện đã được kích hoạt thành công sớm hơn dự kiến.",
+                    ActivatedAt = DateTime.Now
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        #region --- Queries (Lấy dữ liệu) ---
+
+        /// <summary>
+        /// Dành cho User: Xem các sự kiện công khai (Inviting, Active, Completed)
+        /// </summary>
+        [HttpGet("public")]
+        //[AllowAnonymous]
+        public async Task<IActionResult> GetAllForUser()
+        {
+            var result = await _eventService.GetAllEventsForUserAsync();
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Dành cho Expert: Xem sự kiện do mình tạo hoặc được mời chấm điểm
+        /// </summary>
+        [HttpGet("all-related-events-")]
+        //[Authorize(Roles = "Expert")]
+        public async Task<IActionResult> GetAllForExpert()
+        {
+            var result = await _eventService.GetAllEventsForExpertAsync();
+            return Ok(result);
+        }
+
+        /// <summary>
+        /// Dành cho Admin: Quản lý toàn bộ sự kiện trong hệ thống
+        /// </summary>
+        [HttpGet("all")]
+        //[Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetAllForAdmin()
+        {
+            var result = await _eventService.GetAllEventsForAdminAsync();
+            return Ok(result);
+        }
+
+        #endregion
+
+        #region --- Management (Duyệt/Từ chối) ---
+
+        /// <summary>
+        /// Admin phê duyệt sự kiện để chuyển sang trạng thái mời Expert (Inviting)
+        /// </summary>
+        [HttpPost("{id}/approve")]
+        //[Authorize(Roles = "Admin")]
+        public async Task<IActionResult> ApproveEvent(int id)
+        {
+            try
+            {
+                await _eventService.ApproveEventAsync(id);
+                return Ok(new { message = "Sự kiện đã được phê duyệt thành công." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Admin từ chối sự kiện và hoàn tiền cho người tạo
+        /// </summary>
+        [HttpPost("{id}/reject")]
+        //[Authorize(Roles = "Admin")]
+        public async Task<IActionResult> RejectEvent(int id, [FromBody] RejectEventRequest request)
+        {
+            try
+            {
+                await _eventService.RejectEventAsync(id, request.Reason);
+                return Ok(new { message = "Đã từ chối sự kiện và hoàn trả lại tiền cho chủ sự kiện." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        #endregion
+
+        #region --- Dashboard & Analytics ---
+
+        /// <summary>
+        /// Lấy dữ liệu phân tích Dashboard (Dành cho Expert/Admin)
+        /// </summary>
+        /// <param name="period">7days, 30days, 90days</param>
+        [HttpGet("analytics")]
+        public async Task<IActionResult> GetAnalytics([FromQuery] string period = "30days")
+        {
+            var result = await _eventService.GetAnalyticsAsync(period);
+            return Ok(result);
+        }
+
+        #endregion
+
+        #region --- General Queries (User & Guest) ---
+
+        /// <summary>
+        /// Lấy chi tiết một sự kiện cụ thể
+        /// </summary>
+        [HttpGet("{id}")]
+        public async Task<IActionResult> GetEventDetails(int id)
+        {
+            var detail = await _eventService.GetEventDetailsAsync(id);
+            if (detail == null) return NotFound(new { message = "Không tìm thấy sự kiện." });
+            return Ok(detail);
+        }
+
+        #endregion
+
+        #region --- Expert Specific ---
+
+        /// <summary>
+        /// Lấy danh sách các sự kiện liên quan đến Expert (Tạo hoặc được mời)
+        /// </summary>
+        [HttpGet("expert/all")]
+        public async Task<IActionResult> GetExpertRelatedEvents()
+        {
+            var events = await _eventService.GetAllEventsForExpertAsync();
+            return Ok(events);
+        }
+
+        /// <summary>
+        /// Lấy danh sách sự kiện do chính Expert này tạo ra
+        /// </summary>
+        [HttpGet("expert/my-created")]
+        public async Task<IActionResult> GetMyCreatedEvents()
+        {
+            var events = await _eventService.GetMyCreatedEventsAsync();
+            return Ok(events);
+        }
+
+        #endregion
+
+        #region --- Admin Specific ---
+
+        /// <summary>
+        /// Lấy TẤT CẢ sự kiện trong hệ thống (Chỉ dành cho Admin)
+        /// </summary>
+        [HttpGet("admin/all")]
+        // [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetAllEventsForAdmin()
+        {
+            var events = await _eventService.GetAllEventsForAdminAsync();
+            return Ok(events);
+        }
+
+        #endregion
     }
 }
+
+    public class RejectEventRequest
+    {
+        public string Reason { get; set; } = null!;
+    }

@@ -47,9 +47,14 @@ namespace Repositories.Repos.PostRepos
         }
 
         public async Task<IEnumerable<Post>> GetPostsByEventIdAsync(int eventId)
-        => await _context.Posts.Where(p => p.EventId == eventId)
-                          .OrderByDescending(p => p.Score)
-                          .ToListAsync();
+        {
+            return await _context.Posts
+                .Include(p => p.Account)
+                .Include(p => p.Images)
+                .Include(p => p.ExpertRatings)
+                .Where(p => p.EventId == eventId && p.Status == "Active")
+                .ToListAsync();
+        }
 
         public async Task AddAsync(Post post)
         {

@@ -20,6 +20,7 @@ using Services.Request.ExpertRatingReq;
 using Services.Request.PrizeReq;
 using Services.Response.DashboardResp;
 using Services.Response.EventResp;
+using Services.Response.PostResp;
 using Services.Utils.File;
 
 namespace Services.Implements.Events
@@ -101,11 +102,13 @@ namespace Services.Implements.Events
                 var eventData = MapToEvent(dto, creatorId, imageUrl);
                 eventData.AppliedFee = currentFee;
 
+                eventData.Status = "Pending_Review";
+
                 await _eventRepo.AddAsync(eventData);
                 await _unitOfWork.SaveChangesAsync();
 
                 await CreatePrizesAsync(eventData.EventId, dto.Prizes);
-                await SetupExpertPanelAsync(eventData.EventId, creatorId, dto.InvitedExpertIds);
+                await SetupExpertPanelAsync(eventData.EventId, creatorId, dto.InvitedExpertIds, isDraft: true);
 
                 decimal totalToLock = totalPrize + currentFee;
                 wallet.Balance -= totalToLock;
@@ -128,7 +131,7 @@ namespace Services.Implements.Events
         public async Task ActivateEventWithEscrowAsync(int eventId)
         {
             var ev = await _eventRepo.GetByIdAsync(eventId);
-            if (ev == null || ev.Status != "Pending_Payment") return;
+            if (ev == null || ev.Status != "Inviting") return;
 
             var experts = await _eventExpertRepo.GetByEventIdAsync(eventId);
             int acceptedCount = experts.Count(e => e.Status == "Accepted");
@@ -137,37 +140,29 @@ namespace Services.Implements.Events
             try
             {
                 var wallet = await _walletRepo.GetByAccountIdAsync(ev.CreatorId);
+                var prizesData = await _prizeRepo.GetByEventIdAsync(eventId);
+                decimal totalPrizeAmount = prizesData.Sum(p => p.RewardAmount);
 
-                // TRƯỜNG HỢP 1: Không đủ Expert -> Hủy và Hoàn trả toàn bộ tiền đã khóa
+                // TRƯỜNG HỢP 1: Thất bại - Không đủ Expert tham gia
                 if (acceptedCount < ev.MinExpertsToStart)
                 {
-                    var prizes = await _prizeRepo.GetByEventIdAsync(eventId);
-                    decimal totalToRefund = prizes.Sum(p => p.RewardAmount) + ev.AppliedFee;
-
+                    decimal totalToRefund = totalPrizeAmount + ev.AppliedFee;
                     wallet.LockedBalance -= totalToRefund;
                     wallet.Balance += totalToRefund;
 
                     ev.Status = "Cancelled_NotEnoughExperts";
                     _eventRepo.Update(ev);
                     _walletRepo.Update(wallet);
-
-                    await _unitOfWork.SaveChangesAsync();
-                    await _unitOfWork.CommitAsync();
-                    return;
                 }
+                // TRƯỜNG HỢP 2: Thành công - Kích hoạt và Ký quỹ
+                else
+                {
+                    await CollectSystemFeeAsync(wallet, ev);
+                    await ProcessEscrowFromLockedAsync(eventId, ev.CreatorId, totalPrizeAmount, wallet);
 
-                // TRƯỜNG HỢP 2: Đủ điều kiện -> Kích hoạt
-                var prizesData = await _prizeRepo.GetByEventIdAsync(eventId);
-                decimal totalPrizeAmount = prizesData.Sum(p => p.RewardAmount);
-
-                // A. Thu phí hệ thống (Từ Locked sang ví Admin)
-                await CollectSystemFeeAsync(wallet, ev);
-
-                // B. Chuyển tiền giải thưởng vào Escrow (Từ Locked sang Escrow)
-                await ProcessEscrowFromLockedAsync(eventId, ev.CreatorId, totalPrizeAmount, wallet);
-
-                ev.Status = "Active";
-                _eventRepo.Update(ev);
+                    ev.Status = "Active";
+                    _eventRepo.Update(ev);
+                }
 
                 await _unitOfWork.SaveChangesAsync();
                 await _unitOfWork.CommitAsync();
@@ -235,6 +230,82 @@ namespace Services.Implements.Events
                 CreatedAt = DateTime.Now
             });
         }
+
+        public async Task ManualStartEventAsync(int eventId)
+        {
+            var ev = await _eventRepo.GetByIdAsync(eventId);
+            if (ev == null) throw new Exception("Sự kiện không tồn tại.");
+
+            // 1. Kiểm tra trạng thái
+            if (ev.Status != "Inviting")
+                throw new Exception("Sự kiện chưa được duyệt hoặc đã bắt đầu/kết thúc.");
+
+            // 2. CHECK GIỚI HẠN THỜI GIAN (Ví dụ: tối đa 24 tiếng)
+            double maxEarlyHours = await _settingRepo.GetDoubleValueAsync("MaxEarlyStartHours", 24.0);
+            DateTime now = DateTime.Now;
+
+            // Nếu hiện tại cách giờ bắt đầu dự kiến > 24 tiếng -> Chặn
+            if ((ev.StartTime.Value - now).TotalHours > maxEarlyHours)
+            {
+                throw new Exception($"Bạn chỉ có thể bắt đầu sớm tối đa {maxEarlyHours} tiếng so với lịch dự kiến.");
+            }
+
+            if (now >= ev.StartTime)
+            {
+                throw new Exception("Đã đến giờ bắt đầu dự kiến, vui lòng đợi hệ thống tự động kích hoạt trong giây lát.");
+            }
+
+            // 3. Kiểm tra số lượng Expert hiện tại
+            var experts = await _eventExpertRepo.GetByEventIdAsync(eventId);
+            int acceptedCount = experts.Count(e => e.Status == "Accepted");
+
+            if (acceptedCount < ev.MinExpertsToStart)
+                throw new Exception($"Chưa đủ số lượng chuyên gia tối thiểu ({ev.MinExpertsToStart}).");
+
+            using var transaction = await _unitOfWork.BeginTransactionAsync();
+            try
+            {
+                var wallet = await _walletRepo.GetByAccountIdAsync(ev.CreatorId);
+                var prizesData = await _prizeRepo.GetByEventIdAsync(eventId);
+                decimal totalPrizeAmount = prizesData.Sum(p => p.RewardAmount);
+
+                // 1. Thu phí hệ thống & Chuyển tiền vào Escrow (Ký quỹ)
+                await CollectSystemFeeAsync(wallet, ev);
+                await ProcessEscrowFromLockedAsync(eventId, ev.CreatorId, totalPrizeAmount, wallet);
+
+                var originalDuration = ev.EndTime.Value - ev.StartTime.Value;
+
+                // 2. Cập nhật thông tin Event: Chuyển sang Active và cập nhật StartTime thực tế
+                ev.Status = "Active";
+                ev.StartTime = DateTime.Now; // ĐIỂM QUAN TRỌNG: Cập nhật lại thời gian bắt đầu thực tế
+                _eventRepo.Update(ev);
+
+                // 3. Xử lý các Expert chưa phản hồi (Pending) -> Chuyển thành Closed
+                foreach (var exp in experts.Where(e => e.Status == "Pending"))
+                {
+                    exp.Status = "Closed_InvitationExpired";
+                    _eventExpertRepo.Update(exp);
+                }
+
+                await _unitOfWork.SaveChangesAsync();
+
+                // 4. HỦY BACKGROUND JOB ĐÃ LẬP LỊCH TRƯỚC ĐÓ
+                var scheduler = await _schedulerFactory.GetScheduler();
+                var jobKey = new JobKey($"Job_Activate_{ev.EventId}", "EventGroup");
+                if (await scheduler.CheckExists(jobKey))
+                {
+                    await scheduler.DeleteJob(jobKey);
+                }
+
+                await _unitOfWork.CommitAsync();
+
+            }
+            catch (Exception ex)
+            {
+                await _unitOfWork.RollbackAsync();
+                throw new Exception($"Lỗi khi bắt đầu sự kiện thủ công: {ex.Message}");
+            }
+        }
         #endregion
 
         #region Helpers
@@ -253,7 +324,7 @@ namespace Services.Implements.Events
                 EndTime = dto.EndTime,
                 CreatedAt = DateTime.Now,
                 MinExpertsToStart = dto.MinExpertsRequired,
-                Status = "Pending_Payment"
+                Status = "Pending_Review"
             };
 
             if (!string.IsNullOrEmpty(imageUrl))
@@ -313,10 +384,17 @@ namespace Services.Implements.Events
             await _prizeRepo.AddRangeAsync(prizes);
         }
 
-        private async Task SetupExpertPanelAsync(int eventId, int creatorId, List<int>? invitedIds)
+        private async Task SetupExpertPanelAsync(int eventId, int creatorId, List<int>? invitedIds, bool isDraft)
         {
+            var status = isDraft ? "Awaiting_Review" : "Pending";
+
             var expertPanel = new List<EventExpert> {
-                new EventExpert { EventId = eventId, ExpertId = creatorId, JoinedAt = DateTime.Now, Status = "Accepted" }
+                new EventExpert {
+                    EventId = eventId,
+                    ExpertId = creatorId,
+                    JoinedAt = DateTime.Now,
+                    Status = "Accepted"
+                }
             };
 
             if (invitedIds != null)
@@ -326,7 +404,7 @@ namespace Services.Implements.Events
                     EventId = eventId,
                     ExpertId = id,
                     JoinedAt = DateTime.Now,
-                    Status = "Pending"
+                    Status = status
                 }));
             }
             await _eventExpertRepo.AddRangeAsync(expertPanel);
@@ -552,64 +630,226 @@ namespace Services.Implements.Events
         }
         #endregion
 
+        #region Admin Workflow
+        public async Task ApproveEventAsync(int eventId)
+        {
+            var ev = await _eventRepo.GetByIdAsync(eventId);
+            if (ev == null || ev.Status != "Pending_Review")
+                throw new Exception("Sự kiện không tồn tại hoặc đã được xử lý.");
+
+            using var transaction = await _unitOfWork.BeginTransactionAsync();
+            try
+            {
+                ev.Status = "Inviting";
+                _eventRepo.Update(ev);
+
+                var experts = await _eventExpertRepo.GetByEventIdAsync(eventId);
+                foreach (var exp in experts.Where(e => e.Status == "Awaiting_Review"))
+                {
+                    exp.Status = "Pending";
+                    _eventExpertRepo.Update(exp);
+                }
+
+                await _unitOfWork.SaveChangesAsync();
+                await _unitOfWork.CommitAsync();
+
+                await ScheduleEventActivation(ev);
+            }
+            catch (Exception)
+            {
+                await _unitOfWork.RollbackAsync();
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Admin từ chối sự kiện: Hoàn tiền từ LockedBalance về Balance và cập nhật trạng thái
+        /// </summary>
+        public async Task RejectEventAsync(int eventId, string reason)
+        {
+            // 1. Lấy thông tin sự kiện và kiểm tra điều kiện
+            // Cần Include PrizeEvents để tính tổng tiền giải thưởng
+            var ev = await _eventRepo.GetByIdAsync(eventId);
+
+            if (ev == null)
+                throw new KeyNotFoundException("Không tìm thấy sự kiện.");
+
+            if (ev.Status != "Pending_Review")
+                throw new InvalidOperationException("Chỉ có thể từ chối sự kiện đang ở trạng thái 'Chờ duyệt'.");
+
+            if (string.IsNullOrWhiteSpace(reason))
+                throw new ArgumentException("Vui lòng cung cấp lý do từ chối.");
+
+            // 2. Bắt đầu Transaction để đảm bảo an toàn tài chính
+            using var transaction = await _unitOfWork.BeginTransactionAsync();
+            try
+            {
+                // 3. Tính toán số tiền cần hoàn lại
+                // Refund = Phí áp dụng + Tổng các giải thưởng đã nạp
+                decimal totalPrizePool = ev.PrizeEvents?.Sum(p => p.RewardAmount) ?? 0;
+                decimal totalToRefund = totalPrizePool + ev.AppliedFee;
+
+                // 4. Cập nhật Ví của Creator
+                var wallet = await _walletRepo.GetByAccountIdAsync(ev.CreatorId);
+                if (wallet == null)
+                    throw new Exception("Không tìm thấy ví của người tạo sự kiện.");
+
+                if (wallet.LockedBalance < totalToRefund)
+                    throw new Exception("Số dư bị khóa không đủ để thực hiện hoàn tiền (Lỗi logic dữ liệu).");
+
+                // Chuyển tiền từ 'Bị khóa' về lại 'Số dư khả dụng'
+                wallet.LockedBalance -= totalToRefund;
+                wallet.Balance += totalToRefund;
+
+                // 5. Cập nhật trạng thái sự kiện
+                ev.Status = "Rejected";
+                ev.Note = reason;
+
+                // 6. Lưu thay đổi
+                _eventRepo.Update(ev);
+                _walletRepo.Update(wallet);
+
+                // Lưu xuống DB
+                await _unitOfWork.SaveChangesAsync();
+
+                // Xác nhận hoàn tất giao dịch
+                await _unitOfWork.CommitAsync();
+
+                // TODO: Gửi Notification cho Creator ở đây (nếu có hệ thống thông báo)
+            }
+            catch (Exception ex)
+            {
+                // Nếu có bất kỳ lỗi nào, rollback lại toàn bộ để tránh mất tiền
+                await _unitOfWork.RollbackAsync();
+                throw new Exception($"Lỗi khi từ chối sự kiện: {ex.Message}");
+            }
+        }
+
+        #endregion
+
         #region Logic Truy vấn (Get Methods)
+        public async Task<IEnumerable<PostReviewDto>> GetPostsForReviewAsync(int eventId)
+        {
+            int currentExpertId = _currentUserService.GetRequiredUserId();
+
+            // Đảm bảo PostRepo.GetPostsByEventIdAsync đã .Include(p => p.ExpertRatings)
+            var posts = await _postRepo.GetPostsByEventIdAsync(eventId);
+
+            return posts.Select(p => {
+                // Tìm bản ghi chấm điểm của Expert hiện tại
+                var myRating = p.ExpertRatings?.FirstOrDefault(r => r.ExpertId == currentExpertId);
+
+                return new PostReviewDto
+                {
+                    PostId = p.PostId,
+                    Title = p.Title ?? "Untitled",
+                    Content = p.Content,
+                    ImageUrl = p.Images.OrderBy(i => i.ImageId).FirstOrDefault()?.ImageUrl,
+                    AuthorName = p.Account?.UserName,
+
+                    // Thông tin chấm điểm
+                    CurrentScore = myRating?.Score,
+                    MyReason = myRating?.Reason,
+                    IsGraded = myRating != null,
+
+                    // Thông số khác
+                    LikeCount = p.LikeCount ?? 0,
+                    ShareCount = p.ShareCount ?? 0,
+                    SubmittedAt = p.CreatedAt ?? DateTime.Now
+                };
+            }).ToList();
+        }
+
+        public async Task<AnalyticsDashboardResponse> GetAnalyticsAsync(string period)
+        {
+            int creatorId = _currentUserService.GetRequiredUserId();
+
+            // 1. Xác định mốc thời gian (Period)
+            DateTime startDate = period.ToLower() switch
+            {
+                "7days" => DateTime.Now.AddDays(-7),
+                "30days" => DateTime.Now.AddDays(-30),
+                "90days" => DateTime.Now.AddDays(-90),
+                _ => DateTime.Now.AddDays(-30)
+            };
+
+            // Lấy dữ liệu từ Repo (Đảm bảo Repo đã Include Posts và PrizeEvents)
+            var events = await _eventRepo.GetAnalyticsDataAsync(creatorId, startDate);
+            var eventList = events.ToList();
+
+            var response = new AnalyticsDashboardResponse();
+
+            // 2. Xử lý StatCards (Tổng hợp số liệu)
+            int totalEvents = eventList.Count;
+            int totalParticipants = eventList.Sum(e => e.Posts.Count);
+            decimal totalPrizes = eventList.Sum(e => e.PrizeEvents.Sum(p => p.RewardAmount));
+
+            response.Stats = new List<StatCardDto>
+    {
+        new StatCardDto {
+            Label = "Tổng sự kiện",
+            Value = totalEvents.ToString(),
+            Change = "+12%", // Phần trăm này thường so sánh với kỳ trước (logic nâng cao)
+            IsUp = true
+        },
+        new StatCardDto {
+            Label = "Người tham gia",
+            Value = totalParticipants.ToString(),
+            Change = "+5.4%",
+            IsUp = true
+        },
+        new StatCardDto {
+            Label = "Ngân sách giải thưởng",
+            Value = totalPrizes.ToString("N0") + " VNĐ",
+            Change = "-2.1%",
+            IsUp = false
+        }
+    };
+
+            // 3. Xử lý TopEvents (Sắp xếp theo số lượng bài tham gia nhiều nhất)
+            response.TopEvents = eventList
+                .OrderByDescending(e => e.Posts.Count)
+                .Take(5)
+                .Select(e => new TopEventDto
+                {
+                    Id = e.EventId,
+                    Title = e.Title,
+                    Views = (e.Posts.Count * 1.5).ToString("N0"), // Giả định view dựa trên post
+                    Progress = e.Status == "Completed" ? 100 : 75 // Giả định tiến độ dựa trên trạng thái
+                }).ToList();
+
+            // 4. Xử lý ChartData (Gom nhóm theo ngày để vẽ biểu đồ tăng trưởng)
+            response.ChartData = eventList
+                .GroupBy(e => e.CreatedAt?.ToString("dd/MM"))
+                .Select(g => new ChartDataDto
+                {
+                    Name = g.Key ?? "N/A",
+                    Value = g.Count() // Số lượng sự kiện tạo mới mỗi ngày
+                })
+                .OrderBy(g => g.Name)
+                .ToList();
+
+            return response;
+        }
 
         /// <summary>
         /// Expert xem danh sách các sự kiện do chính họ tạo ra (Tất cả trạng thái)
         /// </summary>
-        public async Task<IEnumerable<Event>> GetMyCreatedEventsAsync()
+        public async Task<IEnumerable<EventListDto>> GetMyCreatedEventsAsync()
         {
             int expertId = _currentUserService.GetRequiredUserId();
-            return await _eventRepo.GetAllByCreatorIdAsync(expertId);
+
+            var events = await _eventRepo.GetAllByCreatorIdAsync(expertId);
+
+            return events.Select(MapToEventListDto);
         }
 
         /// <summary>
-        /// Expert xem danh sách các sự kiện mà họ được mời tham gia Hội đồng chấm điểm
-        /// </summary>
-        public async Task<IEnumerable<Event>> GetEventsInvitedToRateAsync()
-        {
-            int currentExpertId = _currentUserService.GetRequiredUserId();
-
-            var eventIds = await _eventExpertRepo.GetEventIdsByExpertIdAsync(currentExpertId);
-
-            var events = new List<Event>();
-            foreach (var id in eventIds)
-            {
-                var ev = await _eventRepo.GetByIdAsync(id);
-                if (ev != null) events.Add(ev);
-            }
-            return events;
-        }
-
-        /// <summary>
-        /// User xem tất cả sự kiện (Hiện tại, Quá khứ, Tương lai)
-        /// Đối với User, chúng ta nên lọc chỉ hiện những Event có status là Active hoặc Completed, Draft thì không hiện.
-        /// </summary>
-        public async Task<IEnumerable<EventListDto>> GetAllEventsForUserAsync()
-        {
-            var allEvents = await _eventRepo.GetAllAsync();
-
-            return allEvents
-                .Where(e => e.Status != "Draft") // Admin mới thấy Draft
-                .Select(e => new EventListDto
-                {
-                    EventId = e.EventId,
-                    Title = e.Title,
-                    Description = e.Description,
-                    Status = e.Status,
-                    StartTime = e.StartTime,
-                    EndTime = e.EndTime,
-                    CreatorName = e.Creator?.UserName,
-                    ParticipantCount = e.Posts?.Count ?? 0
-                });
-        }
-
-        /// <summary>
-        /// Lấy chi tiết một Event kèm theo các Prize liên quan
+        /// Lấy chi tiết một Event kèm theo các Prize và Expert liên quan
         /// </summary>
         public async Task<EventDetailDto?> GetEventDetailsAsync(int eventId)
         {
-            var e = await _eventRepo.GetByIdAsync(eventId); // Đảm bảo Repo đã .Include PrizeEvents và EventExperts
+            var e = await _eventRepo.GetByIdAsync(eventId);
             if (e == null) return null;
 
             return new EventDetailDto
@@ -640,98 +880,104 @@ namespace Services.Implements.Events
                 {
                     ExpertId = ex.ExpertId,
                     FullName = ex.Expert?.UserName,
-                    // Nếu có Include ExpertProfile thì lấy thêm trường chuyên môn
+                    Status = ex.Status,
                 }).ToList()
             };
         }
 
         /// <summary>
-        /// Lấy danh sách bài post tham gia trong một Event để Expert thực hiện chấm điểm
+        /// DÀNH CHO USER: Chỉ thấy sự kiện đang mời, đang chạy hoặc đã xong
         /// </summary>
-        public async Task<IEnumerable<Post>> GetPostsByEventIdAsync(int eventId)
+        public async Task<IEnumerable<EventListDto>> GetAllEventsForUserAsync()
         {
-            return await _postRepo.GetPostsByEventIdAsync(eventId);
+            // Lọc ngay tại SQL thông qua statuses parameter
+            var publicStatuses = new[] { "Inviting", "Active", "Completed" };
+            var events = await _eventRepo.GetAllAsync(publicStatuses);
+
+            return events.Select(MapToEventListDto);
         }
 
-        public async Task<IEnumerable<Event>> GetExpertEventsAsync(int expertId) => await _eventRepo.GetAllByCreatorIdAsync(expertId);
-
-        public async Task<AnalyticsDashboardResponse> GetAnalyticsAsync(string period)
+        /// <summary>
+        /// DÀNH CHO EXPERT: Thấy tổng hợp (Tạo HOẶC Mời)
+        /// </summary>
+        public async Task<IEnumerable<EventListDto>> GetAllEventsForExpertAsync()
         {
-            int creatorId = _currentUserService.GetRequiredUserId();
-            DateTime startDate = period == "90d" ? DateTime.UtcNow.AddDays(-90) : DateTime.UtcNow.AddDays(-30);
+            int currentExpertId = _currentUserService.GetRequiredUserId();
+            var events = await _eventRepo.GetExpertRelatedEventsAsync(currentExpertId);
 
-            // 1. Lấy dữ liệu từ Repo (Ép kiểu về List để tránh lỗi Count/IEnumerable)
-            var eventsResult = await _eventRepo.GetAnalyticsDataAsync(creatorId, startDate);
-            var events = eventsResult.ToList();
-            var allPosts = events.SelectMany(e => e.Posts).ToList();
+            return events.Select(MapToEventListDto);
+        }
 
-            // 2. Tính toán Stats
-            var totalEvents = events.Count;
+        /// <summary>
+        /// DÀNH CHO ADMIN: Thấy TẤT CẢ trạng thái
+        /// </summary>
+        public async Task<IEnumerable<EventAdminListDto>> GetAllEventsForAdminAsync()
+        {
+            // statuses = null để lấy tất cả
+            var events = await _eventRepo.GetAllAsync();
 
-            // FIX: Ép kiểu long/int rõ ràng để tránh lỗi Inference ở hàm Sum
-            int totalReach = allPosts.Sum(p => (p.LikeCount ?? 0) + (p.CommentCount ?? 0) + (p.ShareCount ?? 0));
-            var activeAttendees = allPosts.Select(p => p.AccountId).Distinct().Count();
-
-            // FIX: Tương tự cho interactions
-            int totalInteractions = allPosts.Sum(p =>
-                (p.Scoreboard?.FinalLikeCount ?? 0) + (p.Scoreboard?.FinalShareCount ?? 0));
-
-            double engagementRate = totalReach > 0
-                ? (double)totalInteractions / totalReach * 100
-                : 0;
-
-            // 3. Xử lý Top Events (Dùng dấu ngoặc nhọn để định nghĩa Delegate rõ ràng)
-            var topEvents = events
-                .OrderByDescending(e => e.Posts.Count)
-                .Take(3)
-                .Select(e => {
-                    int eventReach = e.Posts.Sum(p => (p.LikeCount ?? 0) + (p.CommentCount ?? 0) + (p.ShareCount ?? 0));
-                    return new TopEventDto
-                    {
-                        Id = e.EventId,
-                        Title = e.Title,
-                        Views = eventReach >= 1000 ? $"{(eventReach / 1000.0):F1}K" : eventReach.ToString(),
-                        Progress = CalculateProgress(e)
-                    };
-                }).ToList();
-
-            // 4. Chart Data (FIX: Nullable DateTime và OrderBy)
-            var chartData = allPosts
-                .Where(p => p.CreatedAt.HasValue)
-                .GroupBy(p => p.CreatedAt!.Value.ToString("MMM dd"))
-                .Select(g => new ChartDataDto
-                {
-                    Name = g.Key,
-                    Value = g.Count()
-                })
-                .ToList();
-
-            return new AnalyticsDashboardResponse
+            return events.Select(e => new EventAdminListDto
             {
-                Stats = MapToStats(totalReach, activeAttendees, engagementRate, totalEvents),
-                TopEvents = topEvents,
-                ChartData = chartData
+                EventId = e.EventId,
+                Title = e.Title,
+                Status = e.Status,
+                Note = e.Note,
+                CreatorId = e.CreatorId,
+                CreatorName = e.Creator?.UserName,
+                CreatorEmail = e.Creator?.Email,
+                AppliedFee = e.AppliedFee,
+                TotalPrizePool = e.PrizeEvents?.Sum(p => p.RewardAmount) ?? 0,
+                MinExperts = e.MinExpertsToStart,
+                CurrentAcceptedExperts = e.EventExperts?.Count(ee => ee.Status == "Accepted") ?? 0,
+                StartTime = e.StartTime,
+                EndTime = e.EndTime,
+                CreatedAt = e.CreatedAt,
+                ParticipantCount = e.Posts?.Count ?? 0,
+                ThumbnailUrl = e.Images?.FirstOrDefault()?.ImageUrl
+            });
+        }
+
+        private EventListDto MapToEventListDto(Event e)
+        {
+            // Lấy UserId của người đang đăng nhập (nếu có)
+            int? currentUserId = _currentUserService.GetUserId();
+
+            return new EventListDto
+            {
+                EventId = e.EventId,
+                Title = e.Title,
+                Description = e.Description,
+                Status = e.Status,
+                StartTime = e.StartTime,
+                EndTime = e.EndTime,
+                CreatedAt = e.CreatedAt,
+                CreatorName = e.Creator?.UserName,
+
+                // 1. Đếm số lượng bài tham gia
+                ParticipantCount = e.Posts?.Count ?? 0,
+
+                // 2. Lấy ảnh đầu tiên làm thumbnail
+                ThumbnailUrl = e.Images?.OrderBy(i => i.ImageId).FirstOrDefault()?.ImageUrl,
+
+                // 3. Tính toán giải thưởng rõ ràng
+                TotalPrizePool = e.PrizeEvents?.Sum(p => p.RewardAmount) ?? 0,
+                Prizes = e.PrizeEvents?
+                    .OrderBy(p => p.Ranked)
+                    .Select(p => new PrizeBriefDto
+                    {
+                        Ranked = p.Ranked,
+                        RewardAmount = p.RewardAmount
+                    }).ToList() ?? new List<PrizeBriefDto>(),
+
+                // 4. Kiểm tra trạng thái cá nhân hóa
+                IsJoined = currentUserId.HasValue && e.Posts.Any(p => p.AccountId == currentUserId.Value),
+
+                MyExpertStatus = currentUserId.HasValue
+                    ? e.EventExperts?.FirstOrDefault(ee => ee.ExpertId == currentUserId.Value)?.Status
+                    : null
             };
         }
 
-        private List<StatCardDto> MapToStats(int reach, int attendees, double rate, int events)
-        {
-            return new List<StatCardDto>
-    {
-        new() { Label = "Total Reach", Value = reach >= 1000 ? $"{(reach/1000.0):F1}K" : reach.ToString(), Change = "+12%", IsUp = true },
-        new() { Label = "Active Attendees", Value = attendees.ToString(), Change = "+5%", IsUp = true },
-        new() { Label = "Engagement Rate", Value = $"{rate:F1}%", Change = "-2.1%", IsUp = false },
-        new() { Label = "Total Events", Value = events.ToString(), Change = "+2", IsUp = true }
-    };
-        }
-
-        private int CalculateProgress(Event e)
-        {
-            // Ví dụ: tính % hoàn thành dựa trên mục tiêu 50 bài post mỗi event
-            int goal = 50;
-            int current = e.Posts.Count;
-            return Math.Min((current * 100) / goal, 100);
-        }
         #endregion
     }
 }

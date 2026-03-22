@@ -565,6 +565,9 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at")
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.Note)
+                .HasMaxLength(500)
+                .HasColumnName("note");
 
             entity.Property(e => e.Status)
                 .HasMaxLength(30)
