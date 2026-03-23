@@ -49,5 +49,11 @@ namespace Repositories.Repos.WalletRepos
             _context.Wallets.Add(wallet);
             await _context.SaveChangesAsync();
         }
+
+        public async Task UpdateWalletAsync(Wallet wallet)
+        {
+            _context.Wallets.Update(wallet);
+            await _context.SaveChangesAsync();
+        }
     }
 }

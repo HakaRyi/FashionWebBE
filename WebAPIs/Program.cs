@@ -24,6 +24,7 @@ using Repositories.Repos.ImageRepos;
 using Repositories.Repos.ItemRespos;
 using Repositories.Repos.ModelRepos;
 using Repositories.Repos.NotificationRepos;
+using Repositories.Repos.OrderRepos;
 using Repositories.Repos.OutfitRepos;
 using Repositories.Repos.PackageRepos;
 using Repositories.Repos.Payments;
@@ -53,6 +54,7 @@ using Services.Implements.ImageImp;
 using Services.Implements.Items;
 using Services.Implements.ModelImp;
 using Services.Implements.NotificationImp;
+using Services.Implements.OrderImp;
 using Services.Implements.OutfitImp;
 using Services.Implements.PackageImp;
 using Services.Implements.PaymentService;
@@ -159,6 +161,7 @@ builder.Services.AddScoped<ITryOnHistoryRepository, TryOnHistoryRepository>();
 builder.Services.AddScoped<IUserReportRepository, UserReportRepository>();
 builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<IWardrobeRepository, WardrobeRepository>();
+builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 
 #endregion
 
@@ -189,6 +192,7 @@ builder.Services.AddScoped<IAiService, AiService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IGroupService, GroupService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
 
 #endregion
 
@@ -315,6 +319,8 @@ builder.Services.AddSwaggerGen(c =>
             Array.Empty<string>()
         }
     });
+
+    c.CustomSchemaIds(type => type.FullName);
 });
 
 #endregion
@@ -369,6 +375,7 @@ app.UseAuthorization();
 
 app.MapHub<NotificationHub>("/notificationHub");
 app.MapHub<ChatHub>("/chatHub");
+app.MapHub<OrderHub>("/orderHub");
 app.MapControllers();
 
 #endregion

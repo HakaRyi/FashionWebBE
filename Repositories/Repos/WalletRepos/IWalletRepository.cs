@@ -14,5 +14,6 @@ namespace Repositories.Repos.WalletRepos
         Task<IEnumerable<Transaction>> GetTransactionHistoryAsync(int walletId);
         void Update(Wallet wallet);
         Task CreateWalletAsync(Wallet wallet);
+        Task UpdateWalletAsync(Wallet wallet);
     }
 }

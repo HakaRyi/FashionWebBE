@@ -1,5 +1,6 @@
 ﻿using Repositories.Repos.WardrobeRepos;
 using Services.Request.WardrobeReq;
+using Services.Response.ItemResp;
 using Services.Response.WardrobeResp;
 
 namespace Services.Implements.Wardrobe
@@ -48,6 +49,27 @@ namespace Services.Implements.Wardrobe
                 Name = w.Name,
                 CreatedAt = w.CreatedAt
             };
+        }
+
+        public async Task<List<ItemDto>> GetMyWardrobeItemsAsync(int accountId)
+        {
+            var wardrobe = await repo.GetWardrobeByAccount(accountId);
+
+            if (wardrobe == null || wardrobe.Items == null)
+            {
+                return new List<ItemDto>();
+            }
+
+            return wardrobe.Items.Select(i => new ItemDto
+            {
+                ItemId = i.ItemId,
+                ItemName = i.ItemName,
+                Description = i.Description,
+                MainColor = i.MainColor,
+                Brand = i.Brand,
+                Status = i.Status,
+                ImageUrl = i.Images.FirstOrDefault().ImageUrl,
+            }).ToList();
         }
     }
 }

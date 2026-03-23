@@ -28,5 +28,13 @@ namespace Repositories.Repos.WardrobeRepos
             return await _db.Wardrobes.FirstOrDefaultAsync(w => w.AccountId == accountId);
         }
 
+        public async Task<Wardrobe?> GetWardrobeByAccount(int accountId)
+        {
+            var result = await _db.Wardrobes
+                .Include(w => w.Items)
+                .ThenInclude(i => i.Images)
+                .FirstOrDefaultAsync(w => w.AccountId == accountId);
+            return result;
+        }
     }
 }

@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Services.Implements.Wardrobe;
 using Services.Request.WardrobeReq;
+using System.Security.Claims;
 
 namespace WebAPIs.Controllers
 {
@@ -65,6 +66,22 @@ namespace WebAPIs.Controllers
                 });
             }
 
+        }
+
+        [HttpGet("my-items")]
+        public async Task<IActionResult> GetMyWardrobeItems()
+        {
+            var accountIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                                 ?? User.FindFirst("Id")?.Value
+                                 ?? User.FindFirst("AccountId")?.Value;
+
+            if (!int.TryParse(accountIdClaim, out int accountId))
+            {
+                return Unauthorized();
+            }
+
+            var result = await _wardrobeService.GetMyWardrobeItemsAsync(accountId);
+            return Ok(result);
         }
 
 

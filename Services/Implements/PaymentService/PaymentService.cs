@@ -2,10 +2,15 @@
 using Microsoft.AspNetCore.Http;
 using Repositories.Entities;
 using Repositories.Repos.AccountSubscriptionRepos;
+using Repositories.Repos.NotificationRepos;
 using Repositories.Repos.Payments;
 using Repositories.Repos.TransactionRepos;
+using Repositories.Repos.WalletRepos;
 using Repositories.UnitOfWork;
 using Services.Implements.Auth;
+using Services.Implements.NotificationImp;
+using Services.Implements.WalletImp;
+using Services.Request.NotificationReq;
 using Services.Request.PaymentReq;
 using Services.Response.PaymentResp;
 using System.Security.Cryptography;
@@ -21,19 +26,29 @@ namespace Services.Implements.PaymentService
         private readonly IAccountSubscriptionRepository _subscriptionRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICurrentUserService _currentUserService;
+        private readonly INotificationService _notificationService;
+        private readonly IWalletService _walletService;
+        private readonly IWalletRepository _walletRepo;
 
         public PaymentService(
             IPaymentRepository paymentRepo,
             ITransactionRepository transactionRepo,
             IAccountSubscriptionRepository subscriptionRepo,
             IUnitOfWork unitOfWork,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            INotificationService notificationService,
+            IWalletService walletService,
+            IWalletRepository walletRepository
+            )
         {
             _paymentRepo = paymentRepo;
             _transactionRepo = transactionRepo;
             _subscriptionRepo = subscriptionRepo;
             _unitOfWork = unitOfWork;
             _currentUserService = currentUserService;
+            _notificationService = notificationService;
+            _walletService = walletService;
+            _walletRepo = walletRepository;
         }
 
         public async Task<object> CreateOrderAsync(CreateOrderRequest request)
@@ -44,7 +59,7 @@ namespace Services.Implements.PaymentService
             {
                 AccountId = request.AccountId,
                 Amount = request.Amount,
-                Provider = "ZALOPAY",
+                Provider = "VNPAY",
                 OrderCode = appTransId,
                 Status = "PENDING",
                 CreatedAt = DateTime.UtcNow
@@ -346,12 +361,63 @@ namespace Services.Implements.PaymentService
 
             if (vnp_ResponseCode == "00")
             {
-                payment.Status = "SUCCESS";
-                payment.PaidAt = DateTime.UtcNow;
+                using var transaction = await _unitOfWork.BeginTransactionAsync();
+                try
+                {
+                    payment.Status = "SUCCESS";
+                    payment.PaidAt = DateTime.UtcNow;
+                    await _paymentRepo.UpdatePaymentAsync(payment);
 
-                await _paymentRepo.UpdatePaymentAsync(payment);
+                    var wallet = await _walletRepo.GetByAccountIdAsync(payment.AccountId);
+                    if (wallet == null) throw new Exception("Ví không tồn tại.");
 
-                return true;
+                    decimal balanceBefore = wallet.Balance;
+                    wallet.Balance += payment.Amount;
+                    wallet.UpdatedAt = DateTime.UtcNow;
+                    _walletRepo.Update(wallet);
+
+                    var trans = new Transaction
+                    {
+                        WalletId = wallet.WalletId,
+                        PaymentId = payment.PaymentId,
+                        Amount = payment.Amount,
+                        BalanceBefore = balanceBefore,
+                        BalanceAfter = wallet.Balance,
+                        Type = "Credit",
+                        ReferenceType = "TopUp",
+                        ReferenceId = payment.PaymentId,
+                        Description = "Nạp tiền qua VNPAY",
+                        Status = "Success",
+                        CreatedAt = DateTime.UtcNow
+                    };
+
+                    await _transactionRepo.AddAsync(trans);
+                    await _unitOfWork.SaveChangesAsync();
+                    await transaction.CommitAsync();
+
+                    await _notificationService.SendNotificationAsync(new SendNotificationRequest
+                    {
+                        SenderId = payment.AccountId,
+                        TargetUserId = payment.AccountId,
+                        Title = "Nạp ví thành công",
+                        Content = $"Bạn đã nạp thành công {payment.Amount:N0} VND vào ví.",
+                        Type = "WalletTopUp"
+                    });
+
+                    await _notificationService.SendWalletUpdatedAsync(payment.AccountId, new
+                    {
+                        WalletId = wallet.WalletId,
+                        Balance = wallet.Balance,
+                        UpdatedAt = wallet.UpdatedAt
+                    });
+
+                    return true;
+                }
+                catch
+                {
+                    await transaction.RollbackAsync();
+                    return false;
+                }
             }
             else
             {
