@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Repositories.Data;
 using Repositories.Entities;
 
@@ -57,7 +51,7 @@ namespace Repositories.Repos.GroupRepos
                         .ThenInclude(a => a.Avatars)
                 .Include(g => g.Messages)
                 .Include(g => g.Images)
-                .FirstOrDefaultAsync(g=>g.GroupId==groupId);
+                .FirstOrDefaultAsync(g => g.GroupId == groupId);
         }
 
         public async Task<List<Entities.Group>> GetGroupsByAccountId(int accountId)
@@ -68,7 +62,7 @@ namespace Repositories.Repos.GroupRepos
                         .ThenInclude(a => a.Avatars)
                 .Include(g => g.Messages)
                 .Include(g => g.Images)
-                .Where(g => g.GroupUsers.Any(gu=>gu.AccountId ==accountId))
+                .Where(g => g.GroupUsers.Any(gu => gu.AccountId == accountId))
                 .ToListAsync();
         }
 

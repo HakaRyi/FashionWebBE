@@ -4,11 +4,6 @@ using Repositories.UnitOfWork;
 using Services.Request.TryOn;
 using Services.Response.TryOn;
 using Services.Utils;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Services.Implements.TryOn
 {

@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Repositories.Entities;
-using Service.DTO.Request;
+﻿using Service.DTO.Request;
 using Services.Response.MessageResp;
 using Services.Response.MessReactResp;
 
@@ -12,7 +6,7 @@ namespace Services.Implements.ChatImp
 {
     public interface IChatService
     {
-        Task SendMessage(int groupId,SendMessageRequest request);
+        Task SendMessage(int groupId, SendMessageRequest request);
         Task UpdateMessage(int messageId, EditMessageRequest request);
         Task DeleteMessage(int messageId);
         Task<List<MessageResponse>> GetHistoryMessage(int groupId);

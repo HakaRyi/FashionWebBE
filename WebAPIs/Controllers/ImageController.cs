@@ -4,7 +4,6 @@ using Services.Implements.ImageImp;
 using Services.Request.ImageReq;
 using Services.Utils;
 using Services.Utils.Validator;
-using System.Security.Claims;
 
 namespace WebAPIs.Controllers
 {

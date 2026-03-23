@@ -1,7 +1,8 @@
-﻿using Repositories.Entities;
-using Repositories.Repos.WalletRepos;
-using Repositories.Repos.TransactionRepos;
+﻿using Repositories.Constants;
+using Repositories.Entities;
 using Repositories.Repos.Payments;
+using Repositories.Repos.TransactionRepos;
+using Repositories.Repos.WalletRepos;
 using Repositories.UnitOfWork;
 using Services.Implements.Auth;
 using Services.Implements.NotificationImp;
@@ -88,7 +89,7 @@ namespace Services.Implements.WalletImp
         {
             int accountId = _currentUserService.GetRequiredUserId();
 
-            using var transaction = await _unitOfWork.BeginTransactionAsync();
+            await _unitOfWork.BeginTransactionAsync();
             try
             {
                 var wallet = await _walletRepo.GetByAccountIdAsync(accountId);
@@ -101,7 +102,7 @@ namespace Services.Implements.WalletImp
                     OrderCode = request.OrderCode,
                     Provider = request.Provider,
                     Amount = request.Amount,
-                    Status = "Completed",
+                    Status = PaymentStatus.Success,
                     CreatedAt = DateTime.UtcNow,
                     PaidAt = DateTime.UtcNow
                 };
@@ -125,13 +126,13 @@ namespace Services.Implements.WalletImp
                     ReferenceType = "TopUp",
                     ReferenceId = payment.PaymentId,
                     Description = $"Nạp tiền qua {request.Provider}",
-                    Status = "Success",
+                    Status = TransactionStatus.Success,
                     CreatedAt = DateTime.UtcNow
                 };
 
                 await _transactionRepo.AddAsync(trans);
-                await _unitOfWork.SaveChangesAsync();
-                await transaction.CommitAsync();
+
+                await _unitOfWork.CommitAsync();
 
                 await _notificationService.SendNotificationAsync(new SendNotificationRequest
                 {
@@ -153,7 +154,7 @@ namespace Services.Implements.WalletImp
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync();
+                await _unitOfWork.RollbackAsync();
                 throw new Exception($"Lỗi nạp tiền: {ex.Message}");
             }
         }

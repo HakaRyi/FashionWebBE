@@ -1,8 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Service.DTO.Request;
-using Services.AI;
 using Services.Implements.AccountService;
 using Services.Implements.ChatImp;
 
@@ -24,8 +22,8 @@ namespace WebAPIs.Controllers
         public async Task<IActionResult> SendMessage([FromRoute] int groupId, [FromForm] SendMessageRequest request)
         {
 
-            await _service.SendMessage(groupId,request);
-            var user = await accountService.GetAccountByMe() ;
+            await _service.SendMessage(groupId, request);
+            var user = await accountService.GetAccountByMe();
             return Ok(new
             {
                 message = $"the message with content {request.content} is sent by {user.Username}"
@@ -85,7 +83,7 @@ namespace WebAPIs.Controllers
         public async Task<IActionResult> AddReactMsg([FromRoute] int messageId, string type)
         {
 
-            await _service.AddReaction(messageId,type);
+            await _service.AddReaction(messageId, type);
             return Ok(new
             {
                 message = "add successfully"
@@ -117,8 +115,8 @@ namespace WebAPIs.Controllers
         [Authorize]
         public async Task<IActionResult> GetAllReactByMessage([FromRoute] int messId)
         {
-           var result = await _service.GetReactorByMessId(messId);
-            if(result == null)
+            var result = await _service.GetReactorByMessId(messId);
+            if (result == null)
             {
                 return BadRequest(result);
             }

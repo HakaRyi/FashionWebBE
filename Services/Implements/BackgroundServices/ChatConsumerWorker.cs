@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Text.Json;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.SignalR;
+﻿using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -17,6 +11,8 @@ using Repositories.UnitOfWork;
 using Services.RabbitMQ;
 using Services.Response.MessageResp;
 using Services.Utils.SignalR;
+using System.Text;
+using System.Text.Json;
 
 namespace Services.Implements.BackgroundServices
 {

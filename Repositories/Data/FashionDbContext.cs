@@ -1745,6 +1745,10 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.TransactionId).HasColumnName("transaction_id");
             entity.Property(e => e.WalletId).HasColumnName("wallet_id");
 
+            entity.Property(e => e.TransactionCode)
+                .HasMaxLength(100)
+                .HasColumnName("transaction_code");
+
             entity.Property(e => e.Amount)
                 .HasColumnType("decimal(18,2)")
                 .HasColumnName("amount");
@@ -1933,7 +1937,8 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasConstraintName("Wardrobe_account_id_fkey");
         });
 
-        modelBuilder.Entity<TryOnHistory>(entity => {
+        modelBuilder.Entity<TryOnHistory>(entity =>
+        {
             entity.ToTable("TryOnHistory", "public");
             entity.HasKey(e => e.TryOnId);
             entity.Property(e => e.TryOnId).HasColumnName("tryon_id");

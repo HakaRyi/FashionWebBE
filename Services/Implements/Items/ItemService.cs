@@ -5,15 +5,10 @@ using Services.AI;
 using Services.Mappers;
 using Services.Response.ItemResp;
 using Services.Utils.File;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Services.Implements.Items
 {
-    public class ItemService: IItemService
+    public class ItemService : IItemService
     {
         private readonly IItemRepository _itemRepo;
         private readonly IAiService _aiService;

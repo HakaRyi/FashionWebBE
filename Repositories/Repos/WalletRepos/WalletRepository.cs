@@ -1,23 +1,19 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Repositories.Data;
 using Repositories.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Repositories.Repos.WalletRepos
 {
     public class WalletRepository : IWalletRepository
     {
         private readonly FashionDbContext _context;
+
         public WalletRepository(FashionDbContext context) => _context = context;
 
         public async Task<Wallet?> GetByAccountIdAsync(int accountId)
         {
             return await _context.Wallets
-                .FirstOrDefaultAsync(w => w.AccountId == accountId);
+                .FirstOrDefaultAsync(x => x.AccountId == accountId);
         }
 
         public async Task UpdateBalanceAsync(int walletId, decimal balance, decimal lockedBalance)
@@ -48,6 +44,17 @@ namespace Repositories.Repos.WalletRepos
         {
             _context.Wallets.Add(wallet);
             await _context.SaveChangesAsync();
+        }
+
+        public IQueryable<Wallet> Query()
+        {
+            return _context.Wallets.AsQueryable();
+        }
+
+        public async Task<Wallet?> GetByIdAsync(int walletId)
+        {
+            return await _context.Wallets
+                .FirstOrDefaultAsync(x => x.WalletId == walletId);
         }
     }
 }

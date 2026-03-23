@@ -42,7 +42,21 @@ namespace Repositories.Repos.TransactionRepos
 
         public async Task<IEnumerable<Transaction>> GetByWalletIdAsync(int walletId) =>
         await _db.Transactions.Where(t => t.WalletId == walletId).ToListAsync();
+
+        public IQueryable<Transaction> Query()
+        {
+            return _db.Transactions
+                .AsNoTracking()
+                .Include(x => x.Wallet);
+        }
+
+        public async Task<Transaction?> GetByIdWithWalletAsync(int transactionId)
+        {
+            return await _db.Transactions
+                .AsNoTracking()
+                .Include(x => x.Wallet)
+                .FirstOrDefaultAsync(x => x.TransactionId == transactionId);
+        }
     }
 }
 
-    

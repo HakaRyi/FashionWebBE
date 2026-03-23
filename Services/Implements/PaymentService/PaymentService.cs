@@ -1,5 +1,5 @@
-﻿using CloudinaryDotNet;
-using Microsoft.AspNetCore.Http;
+﻿using Microsoft.AspNetCore.Http;
+using Repositories.Constants;
 using Repositories.Entities;
 using Repositories.Repos.AccountSubscriptionRepos;
 using Repositories.Repos.Payments;
@@ -46,7 +46,7 @@ namespace Services.Implements.PaymentService
                 Amount = request.Amount,
                 Provider = "ZALOPAY",
                 OrderCode = appTransId,
-                Status = "PENDING",
+                Status = PaymentStatus.Pending,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -70,12 +70,12 @@ namespace Services.Implements.PaymentService
 
             if (status == 1)
             {
-                payment.Status = "SUCCESS";
+                payment.Status = PaymentStatus.Pending;
                 payment.PaidAt = DateTime.UtcNow;
             }
             else
             {
-                payment.Status = "FAILED";
+                payment.Status = PaymentStatus.Failed;
             }
 
             await _paymentRepo.UpdatePaymentAsync(payment);
@@ -148,7 +148,7 @@ namespace Services.Implements.PaymentService
                 Amount = package.Price,
                 Provider = "VnPay",
                 OrderCode = orderCode,
-                Status = "Pending",
+                Status = PaymentStatus.Pending,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -178,7 +178,7 @@ namespace Services.Implements.PaymentService
                 Amount = amount,
                 Provider = "VnPay",
                 OrderCode = orderCode,
-                Status = "Pending",
+                Status = PaymentStatus.Pending,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -196,15 +196,15 @@ namespace Services.Implements.PaymentService
 
         public async Task<bool> ProcessPaymentCallbackAsync(string orderCode, bool isSuccess)
         {
-            using var transactionScope = await _unitOfWork.BeginTransactionAsync();
+            await _unitOfWork.BeginTransactionAsync();
             try
             {
                 var payment = await _paymentRepo.GetPaymentWithWalletAsync(orderCode);
-                if (payment == null || payment.Status != "Pending") return false;
+                if (payment == null || payment.Status != PaymentStatus.Pending) return false;
 
                 if (isSuccess)
                 {
-                    payment.Status = "Success";
+                    payment.Status = PaymentStatus.Success;
                     payment.PaidAt = DateTime.UtcNow;
 
                     var wallet = payment.Account?.Wallet;
@@ -214,7 +214,6 @@ namespace Services.Implements.PaymentService
                     wallet.Balance += payment.Amount;
                     wallet.UpdatedAt = DateTime.UtcNow;
 
-                    // 1. Tạo Transaction Log
                     var transactionEntry = new Transaction
                     {
                         WalletId = wallet.WalletId,
@@ -229,17 +228,14 @@ namespace Services.Implements.PaymentService
                             ? $"Thanh toán gói {payment.Package?.Name}"
                             : "Nạp tiền vào ví qua VnPay",
                         CreatedAt = DateTime.UtcNow,
-                        Status = "Success"
+                        Status = TransactionStatus.Success
                     };
                     await _transactionRepo.AddAsync(transactionEntry);
 
-                    // 2. Logic Gia hạn/Kích hoạt Gói hội viên
                     if (payment.PackageId.HasValue && payment.Package != null)
                     {
-                        // Kiểm tra xem khách có đang trong thời hạn gói nào không
                         var latestSub = await _subscriptionRepo.GetLatestActiveSubscriptionAsync(payment.AccountId);
 
-                        // Nếu còn hạn thì bắt đầu từ lúc hết hạn cũ, nếu không thì bắt đầu từ bây giờ
                         DateTime startDate = (latestSub != null && latestSub.EndDate > DateTime.UtcNow)
                                             ? latestSub.EndDate
                                             : DateTime.UtcNow;
@@ -257,16 +253,15 @@ namespace Services.Implements.PaymentService
                 }
                 else
                 {
-                    payment.Status = "Failed";
+                    payment.Status = PaymentStatus.Failed;
                 }
 
-                await _unitOfWork.SaveChangesAsync();
-                await transactionScope.CommitAsync();
+                await _unitOfWork.CommitAsync();
                 return true;
             }
             catch (Exception)
             {
-                await transactionScope.RollbackAsync();
+                await _unitOfWork.RollbackAsync();
                 return false;
             }
         }
@@ -287,7 +282,7 @@ namespace Services.Implements.PaymentService
                 Amount = request.Amount,
                 Provider = "VNPAY",
                 OrderCode = appTransId,
-                Status = "PENDING",
+                Status = PaymentStatus.Pending,
                 CreatedAt = DateTime.UtcNow
             };
 
@@ -346,7 +341,7 @@ namespace Services.Implements.PaymentService
 
             if (vnp_ResponseCode == "00")
             {
-                payment.Status = "SUCCESS";
+                payment.Status = PaymentStatus.Success;
                 payment.PaidAt = DateTime.UtcNow;
 
                 await _paymentRepo.UpdatePaymentAsync(payment);
@@ -355,7 +350,7 @@ namespace Services.Implements.PaymentService
             }
             else
             {
-                payment.Status = "FAILED";
+                payment.Status = PaymentStatus.Failed;
                 await _paymentRepo.UpdatePaymentAsync(payment);
                 return false;
             }
@@ -391,5 +386,4 @@ namespace Services.Implements.PaymentService
             }
         }
     }
-    
 }

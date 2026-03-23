@@ -1,5 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
-using Pgvector;
+﻿using Pgvector;
 
 
 namespace Services.AI

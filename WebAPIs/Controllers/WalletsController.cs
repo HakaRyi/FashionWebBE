@@ -2,7 +2,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Services.Implements.WalletImp;
 using Services.Request.WalletReq;
-using Services.Response.WalletResp;
 
 namespace WebAPIs.Controllers
 {

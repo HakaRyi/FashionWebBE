@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Services.Response.MessReactResp
+﻿namespace Services.Response.MessReactResp
 {
     public class MessReactResponse
     {
@@ -12,6 +6,6 @@ namespace Services.Response.MessReactResp
         public int AccountId { get; set; }
         public string AccountName { get; set; } = string.Empty;
         public string ReactType { get; set; } = string.Empty;
-        public int MessageId { get; set; }  
+        public int MessageId { get; set; }
     }
 }

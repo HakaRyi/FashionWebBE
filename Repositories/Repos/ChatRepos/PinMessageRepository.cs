@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net.NetworkInformation;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Repositories.Data;
 using Repositories.Entities;
 
@@ -23,14 +17,14 @@ namespace Repositories.Repos.ChatRepos
             _context.PinnedMessages.Add(pinnedMessage);
         }
 
- 
+
         public async Task<PinnedMessage> GetPinnedMessageAsync(int pinnedMsgId)
         {
             return await _context.PinnedMessages
-                .Include(pm=>pm.AccountPinned)
-                .Include(pm=>pm.Group)
-                .Include(pm=>pm.Message)
-                .FirstOrDefaultAsync(pm=>pm.PinnedMsgId==pinnedMsgId);
+                .Include(pm => pm.AccountPinned)
+                .Include(pm => pm.Group)
+                .Include(pm => pm.Message)
+                .FirstOrDefaultAsync(pm => pm.PinnedMsgId == pinnedMsgId);
         }
 
         public async Task<List<PinnedMessage>> GetPinnedMessagesByGroupIdAsync(int groupId)
@@ -39,7 +33,7 @@ namespace Repositories.Repos.ChatRepos
                  .Include(pm => pm.AccountPinned)
                  .Include(pm => pm.Group)
                  .Include(pm => pm.Message)
-                 .Where(pm=>pm.GroupId==groupId)
+                 .Where(pm => pm.GroupId == groupId)
                  .ToListAsync();
         }
 

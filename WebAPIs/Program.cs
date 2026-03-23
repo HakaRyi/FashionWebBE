@@ -38,6 +38,7 @@ using Repositories.Repos.TryOn;
 using Repositories.Repos.UserReportRepos;
 using Repositories.Repos.WalletRepos;
 using Repositories.Repos.WardrobeRepos;
+using Repositories.Seeders;
 using Repositories.UnitOfWork;
 using Services.AI;
 using Services.Helpers;
@@ -189,6 +190,7 @@ builder.Services.AddScoped<IAiService, AiService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IGroupService, GroupService>();
+builder.Services.AddScoped<IExpenseService, ExpenseService>();
 
 #endregion
 
@@ -344,6 +346,12 @@ builder.Services.AddCors(options =>
 #endregion
 
 var app = builder.Build();
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<FashionDbContext>();
+    await ExpenseTestDataSeeder.SeedAsync(dbContext);
+}
 
 #region MIDDLEWARE
 

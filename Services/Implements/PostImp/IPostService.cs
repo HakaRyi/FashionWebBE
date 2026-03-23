@@ -1,5 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
-using Repositories.Dto.Common;
+﻿using Repositories.Dto.Common;
 using Repositories.Dto.Social.Post;
 using Services.Request.PostReq;
 using Services.Response.PostResp;

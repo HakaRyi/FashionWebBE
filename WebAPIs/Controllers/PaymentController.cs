@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Services.AI;
 using Services.Implements.PaymentService;
 using Services.Request.PaymentReq;
 using Services.Utils;

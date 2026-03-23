@@ -11,7 +11,7 @@
         public int? ItemId { get; set; }
 
         public int? AccountAvatarId { get; set; }
-        public int? GroupId { get; set; } 
+        public int? GroupId { get; set; }
 
         public int? EventId { get; set; }
 

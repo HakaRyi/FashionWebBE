@@ -207,8 +207,8 @@ namespace Services.Implements.Auth
         }
         public async Task<AuthResponse> LogoutAsync()
         {
-            var accountIdClaim = _currentUserService.GetUserId()??0;
-            if(accountIdClaim==0) return new AuthResponse { Success = false, Message = "Không tìm thấy thông tin tài khoản." };
+            var accountIdClaim = _currentUserService.GetUserId() ?? 0;
+            if (accountIdClaim == 0) return new AuthResponse { Success = false, Message = "Không tìm thấy thông tin tài khoản." };
             var user = await _userManager.FindByIdAsync((accountIdClaim).ToString());
             if (user == null)
                 return new AuthResponse { Success = false, Message = "Tài khoản không tồn tại." };
