@@ -9,7 +9,12 @@ namespace Repositories.Repos.EscrowSessionRepos
         private readonly FashionDbContext _context;
         public EscrowSessionRepository(FashionDbContext context) => _context = context;
 
-        public async Task AddAsync(EscrowSession session) => await _context.EscrowSessions.AddAsync(session);
+        public async Task<EscrowSession> AddAsync(EscrowSession session)
+        {
+            _context.EscrowSessions.Add(session);
+            await _context.SaveChangesAsync();
+            return session;
+        }
 
         public async Task<EscrowSession?> GetByIdAsync(int sessionId) => await _context.EscrowSessions.FindAsync(sessionId);
 

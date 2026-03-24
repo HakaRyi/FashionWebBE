@@ -31,4 +31,15 @@
         public string? PrimaryImageUrl { get; set; }
         //public IFormFile? File { get; set; }
     }
+
+    public class ItemDto
+    {
+        public int ItemId { get; set; }
+        public string? ItemName { get; set; }
+        public string? Description { get; set; }
+        public string? MainColor { get; set; }
+        public string? Brand { get; set; }
+        public string? Status { get; set; }
+        public string? ImageUrl { get; set; }
+    }
 }

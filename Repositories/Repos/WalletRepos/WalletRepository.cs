@@ -46,6 +46,12 @@ namespace Repositories.Repos.WalletRepos
             await _context.SaveChangesAsync();
         }
 
+        public async Task UpdateWalletAsync(Wallet wallet)
+        {
+            _context.Wallets.Update(wallet);
+            await _context.SaveChangesAsync();
+        }
+
         public IQueryable<Wallet> Query()
         {
             return _context.Wallets.AsQueryable();
