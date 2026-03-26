@@ -39,5 +39,33 @@ namespace WebAPIs.Controllers
                 return StatusCode(500, new { message = ex.Message });
             }
         }
+
+        [HttpPost("save")]
+        public async Task<IActionResult> SaveOutfit([FromBody] SaveOutfitRequestDto request)
+        {
+            try
+            {
+                var result = await _outfitService.SaveOutfitAsync(request);
+                return Ok(new { Message = "Lưu bộ đồ thành công!", Data = result });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
+        [HttpGet("my-outfits")]
+        public async Task<IActionResult> GetMyOutfits()
+        {
+            try
+            {
+                var result = await _outfitService.GetMyOutfitsAsync();
+                return Ok(new { Message = "Lấy danh sách bộ đồ thành công!", Data = result });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { Message = "Lỗi hệ thống.", Error = ex.Message });
+            }
+        }
     }
 }

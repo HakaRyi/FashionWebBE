@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Pgvector;
+using Services.Request.ItemReq;
 using Services.Response.AiResp;
 using System;
 using System.Collections.Generic;
@@ -34,19 +35,44 @@ namespace Services.AI
             }
         }
 
-        public async Task<Vector> GetEmbeddingFromPhotoAsync(IFormFile file, string description)
+        public async Task<Vector> GetEmbeddingFromPhotoAsync(ProductUploadDto dto)
         {
+            if (dto.File == null) throw new ArgumentException("File is required");
+
             using var content = new MultipartFormDataContent();
-            using var fileStream = file.OpenReadStream();
 
+            var fileStream = dto.File.OpenReadStream();
             var streamContent = new StreamContent(fileStream);
-            streamContent.Headers.ContentType = new MediaTypeHeaderValue(file.ContentType);
+            streamContent.Headers.ContentType = new MediaTypeHeaderValue(dto.File.ContentType);
+            content.Add(streamContent, "file", dto.File.FileName);
 
-            content.Add(streamContent, "file", file.FileName);
-            content.Add(new StringContent(description ?? ""), "description");
+            void AddField(string key, string? value)
+            {
+                content.Add(new StringContent(value ?? "unknown"), key);
+            }
+
+            AddField("item", dto.ItemType ?? dto.ItemName);
+            AddField("category", dto.Category?.ToString());
+            AddField("sub_category", dto.SubCategory);
+            AddField("gender", dto.Gender);
+            AddField("main_color", dto.MainColor);
+            AddField("sub_color", dto.SubColor);
+            AddField("material", dto.Material);
+            AddField("style", dto.Style);
+            AddField("pattern", dto.Pattern);
+            AddField("sleeve_length", dto.SleeveLength);
+            AddField("length", dto.Length);
+            AddField("neckline", dto.Neckline);
+            AddField("fit", dto.Fit);
+            AddField("description", dto.Description);
 
             var response = await _httpClient.PostAsync($"{_baseUrl}/get-embedding", content);
-            response.EnsureSuccessStatusCode();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                var errorBody = await response.Content.ReadAsStringAsync();
+                throw new Exception($"❌ AI API Error: {response.StatusCode} - {errorBody}");
+            }
 
             var result = await response.Content.ReadFromJsonAsync<VectorApiResponse>();
 

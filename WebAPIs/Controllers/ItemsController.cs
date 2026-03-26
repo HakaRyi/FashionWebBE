@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Services.Implements.Items;
+using Services.Request.ItemReq;
 using Services.Response.ItemResp;
 
 namespace WebAPIs.Controllers
@@ -52,14 +53,61 @@ namespace WebAPIs.Controllers
             }
         }
 
-        [HttpGet("recommend")]
-        public async Task<ActionResult<List<ItemResponseDto>>> GetRecommendations([FromQuery] string prompt)
-        {
-            if (string.IsNullOrWhiteSpace(prompt))
-                return BadRequest("Prompt cannot be empty");
+        //[HttpGet("recommendv1")]
+        //public async Task<ActionResult<List<ItemResponseDto>>> GetRecommendations([FromQuery] string prompt)
+        //{
+        //    if (string.IsNullOrWhiteSpace(prompt))
+        //        return BadRequest("Prompt cannot be empty");
 
-            var results = await _itemService.GetRecommendationsAsync(prompt);
-            return Ok(results);
+        //    var results = await _itemService.GetRecommendationsAsync(prompt);
+        //    return Ok(results);
+        //}
+
+        /// <summary>
+        /// Gợi ý phối đồ thông minh bằng AI (Gemini + Vector Search)
+        /// Hỗ trợ cả 2 luồng: Prompt tự do và Tìm đồ phối cùng 1 Item cụ thể.
+        /// </summary>
+        [HttpPost("smart-match")]
+        public async Task<ActionResult<List<ItemResponseDto>>> GetSmartRecommendations([FromBody] SmartRecommendationRequestDto request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Prompt) && (!request.ReferenceItemId.HasValue || request.ReferenceItemId <= 0))
+            {
+                return BadRequest(new
+                {
+                    Message = "Vui lòng nhập câu lệnh (Prompt) hoặc chọn một món đồ (ReferenceItemId) để AI có thể gợi ý."
+                });
+            }
+
+            try
+            {
+                var recommendations = await _itemService.GetSmartRecommendationsAsync(request);
+
+                // Nếu không tìm thấy kết quả nào phù hợp
+                if (recommendations == null || recommendations.Count == 0)
+                {
+                    return Ok(new
+                    {
+                        Message = "Rất tiếc, không tìm thấy món đồ nào phù hợp với yêu cầu của bạn lúc này.",
+                        Data = new List<ItemResponseDto>()
+                    });
+                }
+
+                return Ok(new
+                {
+                    Message = "Lấy danh sách gợi ý thành công!",
+                    Data = recommendations
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[SmartMatch Error]: {ex.Message}");
+                return StatusCode(500, new
+                {
+                    Message = "Hệ thống AI đang gặp chút sự cố, vui lòng thử lại sau.",
+                    Error = ex.Message
+                });
+            }
         }
+
     }
 }

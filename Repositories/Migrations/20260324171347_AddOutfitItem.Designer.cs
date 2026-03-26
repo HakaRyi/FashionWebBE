@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pgvector;
@@ -12,9 +13,11 @@ using Repositories.Data;
 namespace Repositories.Migrations
 {
     [DbContext(typeof(FashionDbContext))]
-    partial class FashionDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260324171347_AddOutfitItem")]
+    partial class AddOutfitItem
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1072,11 +1075,10 @@ namespace Repositories.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("brand");
 
-                    b.Property<string>("Category")
+                    b.Property<int?>("Category")
                         .ValueGeneratedOnAdd()
-                        .HasMaxLength(70)
-                        .HasColumnType("character varying(70)")
-                        .HasDefaultValue("unknown")
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0)
                         .HasColumnName("category");
 
                     b.Property<DateTime?>("CreatedAt")
@@ -1182,25 +1184,12 @@ namespace Repositories.Migrations
                     b.HasKey("ItemId")
                         .HasName("Item_pkey");
 
-                    b.HasIndex("Category")
-                        .HasDatabaseName("IX_Item_Category");
-
-                    b.HasIndex("Gender")
-                        .HasDatabaseName("IX_Item_Gender");
-
-                    b.HasIndex("IsPublic")
-                        .HasDatabaseName("IX_Item_IsPublic");
-
                     b.HasIndex("ItemEmbedding");
 
                     NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("ItemEmbedding"), "hnsw");
                     NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("ItemEmbedding"), new[] { "vector_cosine_ops" });
 
-                    b.HasIndex("WardrobeId")
-                        .HasDatabaseName("IX_Item_WardrobeId");
-
-                    b.HasIndex("IsPublic", "Category")
-                        .HasDatabaseName("IX_Item_IsPublic_Category");
+                    b.HasIndex("WardrobeId");
 
                     b.ToTable("Item", "public");
                 });
@@ -2016,30 +2005,6 @@ namespace Repositories.Migrations
                         .IsUnique();
 
                     b.ToTable("Report_Type", "public");
-                });
-
-            modelBuilder.Entity("Repositories.Entities.SavedItem", b =>
-                {
-                    b.Property<int>("AccountId")
-                        .HasColumnType("integer")
-                        .HasColumnName("account_id");
-
-                    b.Property<int>("ItemId")
-                        .HasColumnType("integer")
-                        .HasColumnName("item_id");
-
-                    b.Property<DateTime?>("SavedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("saved_at")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.HasKey("AccountId", "ItemId")
-                        .HasName("SavedItem_pkey");
-
-                    b.HasIndex("ItemId");
-
-                    b.ToTable("SavedItem", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Scoreboard", b =>
@@ -3038,27 +3003,6 @@ namespace Repositories.Migrations
                     b.Navigation("Account");
                 });
 
-            modelBuilder.Entity("Repositories.Entities.SavedItem", b =>
-                {
-                    b.HasOne("Repositories.Entities.Account", "Account")
-                        .WithMany("SavedItems")
-                        .HasForeignKey("AccountId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("SavedItem_account_id_fkey");
-
-                    b.HasOne("Repositories.Entities.Item", "Item")
-                        .WithMany("SavedByUsers")
-                        .HasForeignKey("ItemId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("SavedItem_item_id_fkey");
-
-                    b.Navigation("Account");
-
-                    b.Navigation("Item");
-                });
-
             modelBuilder.Entity("Repositories.Entities.Scoreboard", b =>
                 {
                     b.HasOne("Repositories.Entities.Post", "Post")
@@ -3210,8 +3154,6 @@ namespace Repositories.Migrations
 
                     b.Navigation("RefreshTokens");
 
-                    b.Navigation("SavedItems");
-
                     b.Navigation("SavedPosts");
 
                     b.Navigation("SentEscrows");
@@ -3272,8 +3214,6 @@ namespace Repositories.Migrations
                     b.Navigation("Images");
 
                     b.Navigation("OutfitItems");
-
-                    b.Navigation("SavedByUsers");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Message", b =>

@@ -321,6 +321,7 @@ namespace Services.Implements.Events
                 PointPerLike = dto.PointPerLike,
                 PointPerShare = dto.PointPerShare,
                 StartTime = dto.StartTime,
+                SubmissionDeadline = dto.SubmissionDeadline,
                 EndTime = dto.EndTime,
                 CreatedAt = DateTime.Now,
                 MinExpertsToStart = dto.MinExpertsRequired,
@@ -347,6 +348,7 @@ namespace Services.Implements.Events
             // 2. Định nghĩa Job và truyền dữ liệu (EventId) vào JobDataMap
             var job = JobBuilder.Create<ActivateEventJob>()
                 .WithIdentity($"Job_Activate_{ev.EventId}", "EventGroup")
+                .WithDescription($"Kích hoạt sự kiện: {ev.Title} (ID: {ev.EventId})")
                 .UsingJobData("EventId", ev.EventId)
                 .Build();
 
@@ -356,6 +358,7 @@ namespace Services.Implements.Events
 
             var trigger = TriggerBuilder.Create()
                 .WithIdentity($"Trigger_Activate_{ev.EventId}", "EventGroup")
+                .WithDescription($"Lịch kích hoạt cho sự kiện '{ev.Title}' vào lúc {startTime}")
                 .StartAt(startTime)
                 .WithSimpleSchedule(x => x.WithMisfireHandlingInstructionFireNow())
                 .Build();
@@ -365,11 +368,21 @@ namespace Services.Implements.Events
 
         private void ValidateEventRequest(CreateEventRequest dto)
         {
+            if (dto.StartTime >= dto.SubmissionDeadline)
+            {
+                throw new Exception("Ngày bắt đầu phải trước hạn chót nộp bài.");
+            }
+
+            if (dto.SubmissionDeadline >= dto.EndTime)
+            {
+                throw new Exception("Hạn chót nộp bài phải trước ngày kết thúc sự kiện (để Expert có thời gian chấm).");
+            }
+
             if (Math.Abs(dto.ExpertWeight + dto.UserWeight - 1.0) > 0.001)
                 throw new Exception("Tổng trọng số Expert và User phải bằng 1.0.");
 
             if (dto.MinExpertsRequired < 2)
-                throw new Exception("Số lượng Expert yêu cầu tối thiểu không được dưới 2.");
+                throw new Exception("Số lượng Expert yêu cầu tối thiểu không được dưới 1.");
         }
 
         private async Task CreatePrizesAsync(int eventId, List<PrizeRequest> prizeRequests)

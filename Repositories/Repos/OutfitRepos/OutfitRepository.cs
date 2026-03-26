@@ -1,4 +1,5 @@
-﻿using Repositories.Data;
+﻿using Microsoft.EntityFrameworkCore;
+using Repositories.Data;
 using Repositories.Entities;
 using System;
 using System.Collections.Generic;
@@ -19,6 +20,27 @@ namespace Repositories.Repos.OutfitRepos
         {
             await _context.Outfits.AddAsync(outfit);
             await _context.SaveChangesAsync();
+        }
+
+        public async Task<Outfit> CreateOutfitAsync(Outfit outfit)
+        {
+            outfit.CreatedAt = DateTime.UtcNow;
+
+            await _context.Outfits.AddAsync(outfit);
+            await _context.SaveChangesAsync();
+
+            return outfit;
+        }
+
+        public async Task<List<Outfit>> GetUserOutfitsAsync(int accountId)
+        {
+            return await _context.Outfits
+                .Include(o => o.OutfitItems)
+                    .ThenInclude(oi => oi.Item)
+                        .ThenInclude(i => i.Images)
+                .Where(o => o.AccountId == accountId)
+                .OrderByDescending(o => o.CreatedAt)
+                .ToListAsync();
         }
     }
 }

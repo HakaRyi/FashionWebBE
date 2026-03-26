@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Mapster;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -179,6 +180,7 @@ builder.Services.AddScoped<IExpertService, ExpertService>();
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<IAiService, AiService>();
+builder.Services.AddScoped<IGeminiService, GeminiService>();
 //builder.Services.AddScoped<IFileService, LocalFileService>();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IWalletService, WalletService>();
@@ -210,7 +212,8 @@ builder.Services.AddHttpClient<IAIDetectionService, AIDetectionService>(client =
 builder.Services.AddScoped<IRabbitMQProducer, RabbitMQProducer>();
 builder.Services.AddHostedService<PostProcessingWorker>();
 
-builder.Services.AddSingleton<FashionMapper>();
+MapsterConfig.Configure();
+builder.Services.AddMapster();
 
 /////
 

@@ -24,9 +24,12 @@ public partial class Event
 
     public DateTime? StartTime { get; set; }
 
+    public DateTime? SubmissionDeadline { get; set; }
+
     public DateTime? EndTime { get; set; }
 
     public DateTime? CreatedAt { get; set; }
+
     public string? Note { get; set; }
 
     public string? Status { get; set; }
