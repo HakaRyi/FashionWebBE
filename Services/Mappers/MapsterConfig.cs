@@ -1,7 +1,8 @@
-﻿using Repositories.Entities;
+﻿using Mapster;
+using Repositories.Entities;
+using Services.Request.EventReq;
 using Services.Request.ItemReq;
 using Services.Response.ItemResp;
-using Mapster;
 
 
 namespace Services.Mappers
@@ -19,6 +20,13 @@ namespace Services.Mappers
                 .Ignore(dest => dest.Images)
                 .Map(dest => dest.CreatedAt, _ => DateTime.UtcNow)
                 .Map(dest => dest.Status, src => src.Status ?? ItemStatus.Active);
+
+            TypeAdapterConfig<CreateEventRequest, Event>
+                .NewConfig()
+                .Map(dest => dest.CreatedAt, src => DateTime.UtcNow)
+                .Map(dest => dest.Status, src => "Pending_Review")
+                .Map(dest => dest.MinExpertsToStart, src => src.MinExpertsRequired)
+                .Ignore(dest => dest.Images);
         }
     }
 }

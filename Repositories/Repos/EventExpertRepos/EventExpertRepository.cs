@@ -48,6 +48,13 @@ namespace Repositories.Repos.EventExpertRepos
                 .ToListAsync();
         }
 
+        public async Task<int> CountAcceptedExpertsAsync(int eventId)
+        {
+            return await _context.EventExperts
+                .Where(ee => ee.EventId == eventId && ee.Status == "Accepted")
+                .CountAsync();
+        }
+
         public void Update(EventExpert expert) => _context.EventExperts.Update(expert);
     }
 }

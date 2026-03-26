@@ -56,6 +56,23 @@ namespace Repositories.Repos.PostRepos
                 .ToListAsync();
         }
 
+        public async Task<double> GetMaxRawCommunityScoreAsync(int eventId, double pointPerLike, double pointPerShare)
+        {
+            var maxRawScore = await _context.Posts
+                .Where(p => p.EventId == eventId && p.Status != "Deleted")
+                .MaxAsync(p => (double?)((p.LikeCount ?? 0) * pointPerLike + (p.ShareCount ?? 0) * pointPerShare)) ?? 0;
+
+            return maxRawScore;
+        }
+
+        public async Task<List<Post>> GetGradedPostsByEventIdAsync(int eventId)
+        {
+            return await _context.Posts
+                .Include(p => p.Scoreboard)
+                .Where(p => p.EventId == eventId && p.Scoreboard != null)
+                .ToListAsync();
+        }
+
         public async Task AddAsync(Post post)
         {
             await _context.Posts.AddAsync(post);

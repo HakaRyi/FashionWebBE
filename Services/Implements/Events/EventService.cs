@@ -1,4 +1,5 @@
-﻿using Quartz;
+﻿using Mapster;
+using Quartz;
 using Repositories.Entities;
 using Repositories.Repos.EscrowSessionRepos;
 using Repositories.Repos.EventExpertRepos;
@@ -22,6 +23,7 @@ using Services.Response.DashboardResp;
 using Services.Response.EventResp;
 using Services.Response.PostResp;
 using Services.Utils.File;
+using System.Linq;
 
 namespace Services.Implements.Events
 {
@@ -99,10 +101,23 @@ namespace Services.Implements.Events
             {
                 string? imageUrl = dto.ImageFile != null ? await _fileService.UploadAsync(dto.ImageFile) : null;
 
-                var eventData = MapToEvent(dto, creatorId, imageUrl);
-                eventData.AppliedFee = currentFee;
+                var eventData = dto.Adapt<Event>();
 
+                eventData.CreatorId = creatorId;
+                eventData.AppliedFee = currentFee;
                 eventData.Status = "Pending_Review";
+                eventData.CreatedAt = DateTime.UtcNow;
+
+                if (dto.ImageFile != null)
+                {
+                    string uploadedUrl = await _fileService.UploadAsync(dto.ImageFile);
+                    eventData.Images.Add(new Image
+                    {
+                        ImageUrl = uploadedUrl,
+                        OwnerType = "Event_Thumbnail",
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
 
                 await _eventRepo.AddAsync(eventData);
                 await _unitOfWork.SaveChangesAsync();
@@ -162,9 +177,14 @@ namespace Services.Implements.Events
 
                     ev.Status = "Active";
                     _eventRepo.Update(ev);
+
+                    await ScheduleEventFinalization(ev);
+
                 }
 
                 await _unitOfWork.SaveChangesAsync();
+
+
                 await _unitOfWork.CommitAsync();
             }
             catch (Exception)
@@ -277,7 +297,7 @@ namespace Services.Implements.Events
 
                 // 2. Cập nhật thông tin Event: Chuyển sang Active và cập nhật StartTime thực tế
                 ev.Status = "Active";
-                ev.StartTime = DateTime.Now; // ĐIỂM QUAN TRỌNG: Cập nhật lại thời gian bắt đầu thực tế
+                ev.StartTime = DateTime.Now;
                 _eventRepo.Update(ev);
 
                 // 3. Xử lý các Expert chưa phản hồi (Pending) -> Chuyển thành Closed
@@ -297,6 +317,8 @@ namespace Services.Implements.Events
                     await scheduler.DeleteJob(jobKey);
                 }
 
+                await ScheduleEventFinalization(ev);
+
                 await _unitOfWork.CommitAsync();
 
             }
@@ -309,37 +331,6 @@ namespace Services.Implements.Events
         #endregion
 
         #region Helpers
-        private Event MapToEvent(CreateEventRequest dto, int creatorId, string? imageUrl)
-        {
-            var ev = new Event
-            {
-                Title = dto.Title,
-                Description = dto.Description,
-                CreatorId = creatorId,
-                ExpertWeight = dto.ExpertWeight,
-                UserWeight = dto.UserWeight,
-                PointPerLike = dto.PointPerLike,
-                PointPerShare = dto.PointPerShare,
-                StartTime = dto.StartTime,
-                SubmissionDeadline = dto.SubmissionDeadline,
-                EndTime = dto.EndTime,
-                CreatedAt = DateTime.Now,
-                MinExpertsToStart = dto.MinExpertsRequired,
-                Status = "Pending_Review"
-            };
-
-            if (!string.IsNullOrEmpty(imageUrl))
-            {
-                ev.Images.Add(new Image
-                {
-                    ImageUrl = imageUrl,
-                    OwnerType = "Event_Thumbnail",
-                    CreatedAt = DateTime.Now
-                });
-            }
-            return ev;
-        }
-
         private async Task ScheduleEventActivation(Event ev)
         {
             // 1. Lấy bộ lập lịch từ Factory (đã inject ở Constructor)
@@ -360,6 +351,35 @@ namespace Services.Implements.Events
                 .WithIdentity($"Trigger_Activate_{ev.EventId}", "EventGroup")
                 .WithDescription($"Lịch kích hoạt cho sự kiện '{ev.Title}' vào lúc {startTime}")
                 .StartAt(startTime)
+                .WithSimpleSchedule(x => x.WithMisfireHandlingInstructionFireNow())
+                .Build();
+
+            await scheduler.ScheduleJob(job, trigger);
+        }
+
+        private async Task ScheduleEventFinalization(Event ev)
+        {
+            if (!ev.EndTime.HasValue) return;
+
+            var scheduler = await _schedulerFactory.GetScheduler();
+
+            var job = JobBuilder.Create<FinalizeEventJob>()
+                .WithIdentity($"Job_Finalize_{ev.EventId}", "EventAwardGroup")
+                .WithDescription($"Tự động trao giải sự kiện: {ev.Title} (ID: {ev.EventId})")
+                .UsingJobData("EventId", ev.EventId)
+                .Build();
+
+            DateTime processTime = ev.EndTime.Value.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(ev.EndTime.Value, DateTimeKind.Local)
+                : ev.EndTime.Value;
+
+            DateTimeOffset endTimeOffset = new DateTimeOffset(processTime);
+
+            var trigger = TriggerBuilder.Create()
+                .WithIdentity($"Trigger_Finalize_{ev.EventId}", "EventAwardGroup")
+                .WithDescription($"Lịch trao giải sự kiện '{ev.Title}' vào {endTimeOffset:dd/MM/yyyy HH:mm}")
+                .StartAt(endTimeOffset)
+                // Misfire Instruction: Nếu Server tắt ngay lúc EndTime, khi bật lại sẽ bắn bù ngay!
                 .WithSimpleSchedule(x => x.WithMisfireHandlingInstructionFireNow())
                 .Build();
 
@@ -430,16 +450,19 @@ namespace Services.Implements.Events
             int currentExpertId = _currentUserService.GetRequiredUserId();
 
             var post = await _postRepo.GetByIdAsync(dto.PostId);
-            if (post == null || post.EventId == null) throw new Exception("Bài viết không thuộc sự kiện nào.");
+            if (post == null || post.EventId == null) throw new Exception("Bài viết không tồn tại hoặc không thuộc sự kiện nào.");
 
             var ev = await _eventRepo.GetByIdAsync(post.EventId.Value);
-            if (ev == null || ev.Status != "Active") throw new Exception("Sự kiện đã kết thúc hoặc không tồn tại.");
+            // Nên kiểm tra thêm trạng thái "Judging" (Đang chấm điểm), vì kết thúc nộp bài mới được chấm
+            if (ev == null || (ev.Status != "Active" && ev.Status != "Judging"))
+                throw new Exception("Sự kiện không trong thời gian cho phép chấm điểm.");
 
             var isMember = await _eventExpertRepo.AnyAsync(ee =>
                 ee.EventId == post.EventId && ee.ExpertId == currentExpertId && ee.Status == "Accepted");
 
             if (!isMember) throw new Exception("Bạn không có quyền chấm điểm cho sự kiện này.");
 
+            // Bắt đầu Transaction
             using var transaction = await _unitOfWork.BeginTransactionAsync();
             try
             {
@@ -448,7 +471,7 @@ namespace Services.Implements.Events
                 {
                     existingRating.Score = dto.Score;
                     existingRating.Reason = dto.Reason;
-                    existingRating.UpdatedAt = DateTime.Now;
+                    existingRating.UpdatedAt = DateTime.UtcNow; // Ưu tiên dùng UtcNow
                     _ratingRepo.Update(existingRating);
                 }
                 else
@@ -459,163 +482,181 @@ namespace Services.Implements.Events
                         ExpertId = currentExpertId,
                         Score = dto.Score,
                         Reason = dto.Reason,
-                        CreatedAt = DateTime.Now,
-                        UpdatedAt = DateTime.Now
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
                     });
                 }
+
+                // BẮT BUỘC SAVE ĐỂ HÀM TÍNH TOÁN DƯỚI ĐÂY LẤY ĐƯỢC ĐIỂM MỚI NHẤT
                 await _unitOfWork.SaveChangesAsync();
 
-                await RecalculateEventScoreboardAsync(post.EventId.Value);
+                // CHỈ TÍNH LẠI ĐIỂM CHO ĐÚNG BÀI VIẾT VỪA ĐƯỢC CHẤM (CHỐNG DEADLOCK)
+                await UpdateSinglePostScoreboardAsync(post, ev);
 
                 await _unitOfWork.CommitAsync();
             }
             catch (Exception ex)
             {
                 await _unitOfWork.RollbackAsync();
-                throw new Exception($"Lỗi chấm điểm: {ex.Message}");
+                // Ghi log lỗi ex.Message ở đây nếu có NLog/Serilog
+                throw new Exception($"Lỗi trong quá trình chấm điểm: Lỗi hệ thống.");
             }
         }
 
-        private async Task RecalculateEventScoreboardAsync(int eventId)
+        private async Task UpdateSinglePostScoreboardAsync(Post post, Event ev)
         {
-            var ev = await _eventRepo.GetByIdAsync(eventId);
-
-            var allPosts = (await _postRepo.GetPostsByEventIdAsync(eventId)).ToList();
-            if (!allPosts.Any()) return;
-
-            // 1. Tính Raw Community Score cho từng bài và tìm Max
-            var rawScores = allPosts.Select(p => new {
-                PostId = p.PostId,
-                RawValue = (p.LikeCount ?? 0) * ev.PointPerLike + (p.ShareCount ?? 0) * ev.PointPerShare
-            }).ToList();
-
-            double maxRawScore = rawScores.Max(s => s.RawValue);
+            // 1. Tìm điểm Community Max hiện tại của toàn sự kiện (để chuẩn hóa hệ 10)
+            double maxRawScore = await _postRepo.GetMaxRawCommunityScoreAsync(ev.EventId, ev.PointPerLike, ev.PointPerShare);
             if (maxRawScore == 0) maxRawScore = 1;
 
-            // 2. update each Scoreboard
-            foreach (var p in allPosts)
+            // 2. Tính điểm cộng đồng của bài viết này (Hệ 10)
+            double currentRaw = (post.LikeCount ?? 0) * ev.PointPerLike + (post.ShareCount ?? 0) * ev.PointPerShare;
+            double normalizedCommunityScore = (currentRaw / maxRawScore) * 10;
+
+            // 3. Tính điểm chuyên môn
+            var ratings = (await _ratingRepo.GetRatingsByPostIdAsync(post.PostId)).ToList();
+
+            // CASE GIẢI QUYẾT 3/5 GIÁM KHẢO: Chia cho số lượng người ĐÃ CHẤM (ratings.Count)
+            double avgExpertScore = ratings.Any() ? ratings.Average(r => r.Score) : 0;
+
+            // Lấy tổng số giám khảo của sự kiện để kiểm tra tiến độ
+            int totalExpertsInEvent = await _eventExpertRepo.CountAcceptedExpertsAsync(ev.EventId);
+            int judgedCount = ratings.Count;
+
+            double totalWeight = ev.ExpertWeight + ev.UserWeight;
+            double finalScore = totalWeight > 0
+                ? ((avgExpertScore * ev.ExpertWeight) + (normalizedCommunityScore * ev.UserWeight)) / totalWeight
+                : 0;
+
+            // 5. Cập nhật hoặc tạo mới Scoreboard
+            var sb = await _scoreboardRepo.GetByPostIdAsync(post.PostId);
+            if (sb == null)
             {
-                var ratings = await _ratingRepo.GetRatingsByPostIdAsync(p.PostId);
-
-                double avgExpertScore = ratings.Any() ? ratings.Average(r => r.Score) : 0;
-
-                double currentRaw = (p.LikeCount ?? 0) * ev.PointPerLike + (p.ShareCount ?? 0) * ev.PointPerShare;
-                double normalizedCommunityScore = (currentRaw / maxRawScore) * 10;
-
-                double finalScore = (avgExpertScore * ev.ExpertWeight) + (normalizedCommunityScore * ev.UserWeight);
-
-                var sb = await _scoreboardRepo.GetByPostIdAsync(p.PostId);
-                if (sb == null)
+                await _scoreboardRepo.AddAsync(new Scoreboard
                 {
-                    await _scoreboardRepo.AddAsync(new Scoreboard
-                    {
-                        PostId = p.PostId,
-                        ExpertScore = avgExpertScore,
-                        CommunityScore = normalizedCommunityScore,
-                        FinalScore = finalScore,
-                        FinalLikeCount = p.LikeCount ?? 0,
-                        FinalShareCount = p.ShareCount ?? 0,
-                        CreatedAt = DateTime.Now,
-                        Status = "Judging"
-                    });
-                }
-                else
-                {
-                    sb.ExpertScore = avgExpertScore;
-                    sb.CommunityScore = normalizedCommunityScore;
-                    sb.FinalScore = finalScore;
-                    sb.FinalLikeCount = p.LikeCount ?? 0;
-                    sb.FinalShareCount = p.ShareCount ?? 0;
-                    sb.Status = "Judging";
-                    _scoreboardRepo.Update(sb);
-                }
+                    PostId = post.PostId,
+                    ExpertScore = avgExpertScore,
+                    CommunityScore = normalizedCommunityScore,
+                    FinalScore = finalScore,
+                    FinalLikeCount = post.LikeCount ?? 0,
+                    FinalShareCount = post.ShareCount ?? 0,
+                    CreatedAt = DateTime.UtcNow,
+                    Status = judgedCount >= totalExpertsInEvent ? "Completed" : "Judging"
+                });
             }
+            else
+            {
+                sb.ExpertScore = avgExpertScore;
+                sb.CommunityScore = normalizedCommunityScore;
+                sb.FinalScore = finalScore;
+                sb.FinalLikeCount = post.LikeCount ?? 0;
+                sb.FinalShareCount = post.ShareCount ?? 0;
+                sb.Status = judgedCount >= totalExpertsInEvent ? "Completed" : "Judging";
+                _scoreboardRepo.Update(sb);
+            }
+
             await _unitOfWork.SaveChangesAsync();
         }
         #endregion
 
-        #region Logic Giải ngân
-        public async Task FinalizeEventAndDistributePrizesAsync(int eventId)
+        #region Kết Thúc Sự Kiện & Trao Giải
+        public async Task FinalizeAndAwardEventAsync(int eventId)
         {
-            int creatorId = _currentUserService.GetRequiredUserId();
-
             var ev = await _eventRepo.GetByIdAsync(eventId);
             if (ev == null) throw new Exception("Sự kiện không tồn tại.");
-            if (ev.CreatorId != creatorId) throw new Exception("Chỉ người tạo sự kiện mới có quyền chốt giải.");
-            if (ev.Status != "Active") throw new Exception("Sự kiện đã kết thúc hoặc không ở trạng thái hoạt động.");
 
-            var prizes = (await _prizeRepo.GetByEventIdAsync(eventId)).OrderBy(p => p.Ranked).ToList();
-            var leaderboard = (await _scoreboardRepo.GetLeaderboardByEventIdAsync(eventId)).ToList();
-
-            if (!leaderboard.Any()) throw new Exception("Không có bài dự thi nào để trao giải.");
+            // 1. Chỉ trao giải cho sự kiện đang Active hoặc đang ở trạng thái Chờ trao giải (Judging/PendingAward)
+            if (ev.Status != "Active" && ev.Status != "Judging")
+                throw new Exception($"Không thể trao giải. Trạng thái hiện tại: {ev.Status}");
 
             using var transaction = await _unitOfWork.BeginTransactionAsync();
             try
             {
-                var escrow = await _escrowRepo.GetByEventIdAsync(eventId);
-                if (escrow == null || escrow.Status != "Held") throw new Exception("Không tìm thấy khoản ký quỹ hợp lệ.");
+                // 2. Lấy danh sách bài viết đã có điểm & Sắp xếp tìm người thắng
+                var posts = await _postRepo.GetGradedPostsByEventIdAsync(eventId);
 
-                for (int i = 0; i < prizes.Count; i++)
+                // LOGIC TÌM NGƯỜI THẮNG (TIE-BREAKER): Điểm cao xếp trước, nếu bằng điểm thì ai nộp trước xếp trước
+                var rankedPosts = posts
+                    .OrderByDescending(p => p.Scoreboard!.FinalScore)
+                    .ThenBy(p => p.CreatedAt)
+                    .ToList();
+
+                // 3. Lấy cấu trúc giải thưởng của sự kiện
+                var prizes = (await _prizeRepo.GetByEventIdAsync(eventId))
+                    .OrderBy(p => p.Ranked)
+                    .ToList();
+
+                // 4. Lấy phiên ký quỹ (Escrow) để chuẩn bị giải ngân
+                var escrow = await _escrowRepo.GetActiveEscrowByEventIdAsync(eventId);
+                if (escrow == null) throw new Exception("Không tìm thấy khoản ký quỹ hợp lệ cho sự kiện này.");
+
+                decimal totalDistributedAmount = 0;
+
+                // 5. Bắt đầu trao giải (Khớp số lượng bài nộp với số lượng giải)
+                int winningCount = Math.Min(rankedPosts.Count, prizes.Count);
+
+                for (int i = 0; i < winningCount; i++)
                 {
-                    if (i >= leaderboard.Count) break;
-
+                    var post = rankedPosts[i];
                     var prize = prizes[i];
-                    var winnerScore = leaderboard[i];
-                    var winnerPost = await _postRepo.GetByIdAsync(winnerScore.PostId);
-                    var winnerWallet = await _walletRepo.GetByAccountIdAsync(winnerPost.AccountId);
+                    var winnerAccountId = post.AccountId;
+                    decimal rewardAmount = prize.RewardAmount;
 
-                    if (winnerWallet == null) continue;
-
-                    await _winnerRepo.AddAsync(new EventWinner
+                    // 5.1 Lưu thông tin người thắng giải vào DB
+                    var winnerRecord = new EventWinner
                     {
-                        AccountId = winnerPost.AccountId,
+                        AccountId = winnerAccountId,
                         PrizeEventId = prize.PrizeEventId,
-                        WinningScore = winnerScore.FinalScore,
+                        WinningScore = post.Scoreboard!.FinalScore,
                         FinalRank = prize.Ranked,
-                        ExpertFeedback = winnerScore.ExpertReason,
-                        CreatedAt = DateTime.Now,
-                        UpdatedAt = DateTime.Now,
-                        Status = "Paid"
-                    });
+                        Status = "Awarded",
+                        CreatedAt = DateTime.UtcNow,
+                        UpdatedAt = DateTime.UtcNow
+                    };
+                    await _winnerRepo.AddAsync(winnerRecord);
+
+                    // Cập nhật trạng thái PrizeEvent
+                    prize.Status = "Awarded";
+                    _prizeRepo.Update(prize);
+
+                    // 5.2 Giải ngân: Cộng tiền vào ví người thắng
+                    var winnerWallet = await _walletRepo.GetByAccountIdAsync(winnerAccountId);
+                    if (winnerWallet == null) throw new Exception($"Ví của người dùng {winnerAccountId} không tồn tại.");
 
                     decimal balanceBefore = winnerWallet.Balance;
-                    winnerWallet.Balance += prize.RewardAmount;
+                    winnerWallet.Balance += rewardAmount;
+                    winnerWallet.UpdatedAt = DateTime.UtcNow;
                     _walletRepo.Update(winnerWallet);
 
+                    // 5.3 Lưu lịch sử giao dịch (Transaction)
                     await _transactionRepo.AddAsync(new Transaction
                     {
                         WalletId = winnerWallet.WalletId,
-                        Amount = prize.RewardAmount,
+                        Amount = rewardAmount,
                         BalanceBefore = balanceBefore,
                         BalanceAfter = winnerWallet.Balance,
-                        Type = "Event_Prize_Payout",
-                        ReferenceType = "PrizeEvent",
-                        ReferenceId = prize.PrizeEventId,
+                        Type = "Prize_Reward",
+                        ReferenceId = eventId,
+                        ReferenceType = "Event",
+                        Description = $"Nhận thưởng Giải {prize.Ranked} sự kiện '{ev.Title}'",
                         Status = "Success",
-                        CreatedAt = DateTime.Now
+                        CreatedAt = DateTime.UtcNow
                     });
 
-                    prize.Status = "Distributed";
-                    _prizeRepo.Update(prize);
+                    totalDistributedAmount += rewardAmount;
                 }
 
-                ev.Status = "Completed";
-                _eventRepo.Update(ev);
-
-                escrow.Status = "Resolved";
-                escrow.ResolvedAt = DateTime.Now;
-                _escrowRepo.Update(escrow);
-
-                decimal paidAmount = prizes.Where(p => p.Status == "Distributed").Sum(p => p.RewardAmount);
-                decimal refundAmount = escrow.Amount - paidAmount;
-
+                // 6. XỬ LÝ SỐ TIỀN THỪA VÀ HOÀN TRẢ (QUAN TRỌNG)
+                // Nếu số người tham gia hợp lệ ÍT HƠN số giải thưởng, tiền thừa phải trả về cho Creator
+                decimal refundAmount = escrow.Amount - totalDistributedAmount;
                 if (refundAmount > 0)
                 {
-                    var creatorWallet = await _walletRepo.GetByAccountIdAsync(creatorId);
+                    var creatorWallet = await _walletRepo.GetByAccountIdAsync(ev.CreatorId);
                     if (creatorWallet != null)
                     {
                         decimal creatorBalanceBefore = creatorWallet.Balance;
                         creatorWallet.Balance += refundAmount;
+                        creatorWallet.UpdatedAt = DateTime.UtcNow;
                         _walletRepo.Update(creatorWallet);
 
                         await _transactionRepo.AddAsync(new Transaction
@@ -625,12 +666,34 @@ namespace Services.Implements.Events
                             BalanceBefore = creatorBalanceBefore,
                             BalanceAfter = creatorWallet.Balance,
                             Type = "Event_Refund",
+                            ReferenceId = eventId,
                             ReferenceType = "Event",
-                            ReferenceId = ev.EventId,
+                            Description = $"Hoàn tiền ký quỹ dư từ sự kiện '{ev.Title}' do không đủ người đạt giải.",
                             Status = "Success",
-                            CreatedAt = DateTime.Now
+                            CreatedAt = DateTime.UtcNow
                         });
                     }
+                }
+
+                // 7. Tất toán Escrow
+                escrow.Status = "Resolved";
+                escrow.ResolvedAt = DateTime.UtcNow;
+                escrow.Description = $"Đã giải ngân {totalDistributedAmount:N0}. Hoàn trả {refundAmount:N0}.";
+                _escrowRepo.Update(escrow);
+
+                // 8. Đóng sự kiện
+                ev.Status = "Completed";
+                ev.EndTime = DateTime.UtcNow; // Cập nhật lại thời gian kết thúc thực tế
+                _eventRepo.Update(ev);
+
+                // Lưu tất cả thay đổi
+                await _unitOfWork.SaveChangesAsync();
+
+                var scheduler = await _schedulerFactory.GetScheduler();
+                var jobKeyFinalize = new JobKey($"Job_Finalize_{ev.EventId}", "EventAwardGroup");
+                if (await scheduler.CheckExists(jobKeyFinalize))
+                {
+                    await scheduler.DeleteJob(jobKeyFinalize);
                 }
 
                 await _unitOfWork.CommitAsync();
@@ -638,7 +701,7 @@ namespace Services.Implements.Events
             catch (Exception ex)
             {
                 await _unitOfWork.RollbackAsync();
-                throw new Exception($"Lỗi khi giải ngân giải thưởng: {ex.Message}");
+                throw new Exception($"Lỗi trong quá trình kết thúc và trao giải sự kiện: {ex.Message}");
             }
         }
         #endregion
@@ -681,7 +744,6 @@ namespace Services.Implements.Events
         public async Task RejectEventAsync(int eventId, string reason)
         {
             // 1. Lấy thông tin sự kiện và kiểm tra điều kiện
-            // Cần Include PrizeEvents để tính tổng tiền giải thưởng
             var ev = await _eventRepo.GetByIdAsync(eventId);
 
             if (ev == null)
@@ -693,7 +755,6 @@ namespace Services.Implements.Events
             if (string.IsNullOrWhiteSpace(reason))
                 throw new ArgumentException("Vui lòng cung cấp lý do từ chối.");
 
-            // 2. Bắt đầu Transaction để đảm bảo an toàn tài chính
             using var transaction = await _unitOfWork.BeginTransactionAsync();
             try
             {
@@ -702,7 +763,6 @@ namespace Services.Implements.Events
                 decimal totalPrizePool = ev.PrizeEvents?.Sum(p => p.RewardAmount) ?? 0;
                 decimal totalToRefund = totalPrizePool + ev.AppliedFee;
 
-                // 4. Cập nhật Ví của Creator
                 var wallet = await _walletRepo.GetByAccountIdAsync(ev.CreatorId);
                 if (wallet == null)
                     throw new Exception("Không tìm thấy ví của người tạo sự kiện.");
@@ -714,25 +774,20 @@ namespace Services.Implements.Events
                 wallet.LockedBalance -= totalToRefund;
                 wallet.Balance += totalToRefund;
 
-                // 5. Cập nhật trạng thái sự kiện
                 ev.Status = "Rejected";
                 ev.Note = reason;
 
-                // 6. Lưu thay đổi
                 _eventRepo.Update(ev);
                 _walletRepo.Update(wallet);
 
-                // Lưu xuống DB
                 await _unitOfWork.SaveChangesAsync();
 
-                // Xác nhận hoàn tất giao dịch
                 await _unitOfWork.CommitAsync();
 
                 // TODO: Gửi Notification cho Creator ở đây (nếu có hệ thống thông báo)
             }
             catch (Exception ex)
             {
-                // Nếu có bất kỳ lỗi nào, rollback lại toàn bộ để tránh mất tiền
                 await _unitOfWork.RollbackAsync();
                 throw new Exception($"Lỗi khi từ chối sự kiện: {ex.Message}");
             }

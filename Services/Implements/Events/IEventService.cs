@@ -15,7 +15,7 @@ namespace Services.Implements.Events
     {
         Task<Event> CreateEventAsync(CreateEventRequest dto);
         Task SubmitExpertRatingAsync(ExpertRatingRequest dto);
-        Task FinalizeEventAndDistributePrizesAsync(int eventId);
+        Task FinalizeAndAwardEventAsync(int eventId);
 
         // Expert
         Task<IEnumerable<EventListDto>> GetMyCreatedEventsAsync();

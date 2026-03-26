@@ -17,6 +17,7 @@ namespace Repositories.Repos.EventExpertRepos
         Task<IEnumerable<int>> GetEventIdsByStatusAsync(int expertId, string status);
         Task<IEnumerable<EventExpert>> GetByEventIdAsync(int eventId);
         Task<EventExpert?> GetByEventAndExpertAsync(int eventId, int expertId);
+        Task<int> CountAcceptedExpertsAsync(int eventId);
         void Update(EventExpert expert);
     }
 }

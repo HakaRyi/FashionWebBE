@@ -93,7 +93,7 @@ namespace WebAPIs.Controllers
         {
             try
             {
-                await _eventService.FinalizeEventAndDistributePrizesAsync(id);
+                await _eventService.FinalizeAndAwardEventAsync(id);
                 return Ok(new { message = "Sự kiện đã kết thúc. Tiền thưởng đã được chuyển đến ví của những người thắng cuộc." });
             }
             catch (Exception ex)

@@ -21,6 +21,12 @@ namespace Repositories.Repos.EscrowSessionRepos
         public async Task<EscrowSession?> GetByEventIdAsync(int eventId) =>
             await _context.EscrowSessions.FirstOrDefaultAsync(s => s.EventId == eventId);
 
+        public async Task<EscrowSession?> GetActiveEscrowByEventIdAsync(int eventId)
+        {
+            return await _context.EscrowSessions
+                .FirstOrDefaultAsync(e => e.EventId == eventId && e.Status == "Held");
+        }
+
         public void Update(EscrowSession session) => _context.EscrowSessions.Update(session);
     }
 }

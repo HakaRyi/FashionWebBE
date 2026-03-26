@@ -91,6 +91,8 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
     public virtual DbSet<ReportType> ReportTypes { get; set; }
 
+    public virtual DbSet<ReputationHistory> ReputationHistorys { get; set; }
+
     public virtual DbSet<SavedItem> SavedItems { get; set; }
 
     public virtual DbSet<Scoreboard> Scoreboards { get; set; }
@@ -780,6 +782,8 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasDefaultValue(false)
                 .HasColumnName("verified");
             entity.Property(e => e.RatingAvg).HasColumnName("rating_avg");
+            entity.Property(e => e.ReputationScore)
+                .HasColumnName("reputation_score");
             entity.Property(e => e.CreatedAt)
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at");
@@ -1649,6 +1653,36 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.TypeName)
                 .HasMaxLength(100)
                 .HasColumnName("type_name");
+        });
+
+        modelBuilder.Entity<ReputationHistory>(entity =>
+        {
+            entity.HasKey(e => e.ReputationHistoryId).HasName("Reputation_History_pkey");
+
+            entity.ToTable("Reputation_History", "public");
+
+            entity.Property(e => e.ReputationHistoryId).HasColumnName("reputation_history_id");
+
+            entity.Property(e => e.ExpertProfileId).HasColumnName("expert_profile_id");
+
+            entity.Property(e => e.PointChange).HasColumnName("point_change");
+
+            entity.Property(e => e.CurrentPoint).HasColumnName("current_point");
+
+            entity.Property(e => e.Reason)
+                .HasMaxLength(500)
+                .HasColumnName("reason");
+
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.ExpertProfile)
+                .WithMany(p => p.ReputationHistories)
+                .HasForeignKey(d => d.ExpertProfileId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("Reputation_History_expert_profile_id_fkey");
         });
 
         modelBuilder.Entity<SystemSetting>(entity =>

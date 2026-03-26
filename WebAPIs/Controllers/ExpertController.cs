@@ -107,7 +107,7 @@ namespace WebAPIs.Controllers
         public async Task<IActionResult> DeleteExpert(int profileId)
         {
             var result = await _expertService.DeleteExpertProfileAsync(profileId);
-            if (result) return Ok("Xóa chuyên gia thành công.");
+            if (result) return Ok();
             return NotFound();
         }
 
