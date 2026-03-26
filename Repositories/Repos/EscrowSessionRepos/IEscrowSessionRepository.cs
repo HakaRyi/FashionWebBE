@@ -6,7 +6,9 @@ namespace Repositories.Repos.EscrowSessionRepos
     {
         Task<EscrowSession> AddAsync(EscrowSession session);
         Task<EscrowSession?> GetByIdAsync(int sessionId);
+        Task<EscrowSession?> GetByOrderIdAsync(int orderId);
         Task<EscrowSession?> GetByEventIdAsync(int eventId);
         void Update(EscrowSession session);
+        IQueryable<EscrowSession> Query();
     }
 }

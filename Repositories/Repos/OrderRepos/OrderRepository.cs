@@ -1,11 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Repositories.Data;
 using Repositories.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Repositories.Repos.OrderRepos
 {
@@ -20,8 +15,7 @@ namespace Repositories.Repos.OrderRepos
 
         public async Task<Order> CreateAsync(Order order)
         {
-            _context.Orders.Add(order);
-            await _context.SaveChangesAsync();
+            await _context.Orders.AddAsync(order);
             return order;
         }
 
@@ -37,6 +31,7 @@ namespace Repositories.Repos.OrderRepos
         public async Task<List<Order>> GetOrdersBySellerIdAsync(int sellerId)
         {
             return await _context.Orders
+                .AsNoTracking()
                 .Include(o => o.Buyer)
                 .Include(o => o.Seller)
                 .Include(o => o.OrderDetails)
@@ -48,6 +43,7 @@ namespace Repositories.Repos.OrderRepos
         public async Task<List<Order>> GetOrdersByBuyerIdAsync(int buyerId)
         {
             return await _context.Orders
+                .AsNoTracking()
                 .Include(o => o.Buyer)
                 .Include(o => o.Seller)
                 .Include(o => o.OrderDetails)
@@ -56,10 +52,15 @@ namespace Repositories.Repos.OrderRepos
                 .ToListAsync();
         }
 
-        public Task<Order> UpdateAsync(Order order)
+        public Order Update(Order order)
         {
             _context.Orders.Update(order);
-            return _context.SaveChangesAsync().ContinueWith(t => order);
+            return order;
+        }
+
+        public IQueryable<Order> Query()
+        {
+            return _context.Orders.AsQueryable();
         }
     }
 }

@@ -1,4 +1,6 @@
-﻿dotnet ef database update --project Repositories --startup-project WebAPIs
+﻿dotnet ef database drop --project Repositories --startup-project WebAPIs
+
+dotnet ef database update --project Repositories --startup-project WebAPIs
 
 dotnet ef migrations add InitialIdentity --project Repositories --startup-project WebAPIs --output-dir Migrations
 
@@ -10,4 +12,11 @@ dotnet ef migrations add InitialIdentity --project Repositories --startup-projec
 }
 
 
-
+{
+  "message": "Đăng nhập thành công",
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0MmJlMmE2OC1kNWNiLTQ0NjYtOWMwNC01ZmI4NGJiNzY1OWEiLCJzdWIiOiIyIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZWlkZW50aWZpZXIiOiIyIiwiZW1haWwiOiJudmhvYW5nMDk3NUBnbWFpbC5jb20iLCJBY2NvdW50SWQiOiIyIiwiVXNlcm5hbWUiOiJtazEyMzQ1IiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy9yb2xlIjoiVXNlciIsImV4cCI6MTc3NDUzMzY2NiwiaXNzIjoiRmFzaGlvbkJhY2tlbmQiLCJhdWQiOiJGYXNoaW9uRnJvbnRlbmQifQ.cpMgDnH83JjX5co3oSiDp-CjbdR4YkB0lbra2Q-BcDc",
+  "refreshToken": "l+97A/5F30Mb3VqppGu2qI4EE2I+74iDkDujIjUFinJfek7Ptv0diWd51cT1Zm01XY0ttbRSVHixNFJ7pOq8gA==",
+  "user": {
+    "email": "nvhoang0975@gmail.com"
+  }
+}

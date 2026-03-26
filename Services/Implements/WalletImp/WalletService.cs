@@ -1,6 +1,6 @@
 ﻿using Repositories.Constants;
 using Repositories.Entities;
-using Repositories.Repos.Payments;
+using Repositories.Repos.PaymentsRespo;
 using Repositories.Repos.TransactionRepos;
 using Repositories.Repos.WalletRepos;
 using Repositories.UnitOfWork;

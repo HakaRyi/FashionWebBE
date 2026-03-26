@@ -6,7 +6,7 @@
         public int AccountId { get; set; }
         public decimal Balance { get; set; }
         public decimal LockedBalance { get; set; }
-        public string? Currency { get; set; }
+        public string Currency { get; set; } = "VND";
         public DateTime UpdatedAt { get; set; }
 
         public virtual Account Account { get; set; } = null!;

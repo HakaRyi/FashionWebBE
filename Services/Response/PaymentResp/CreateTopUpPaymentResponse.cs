@@ -1,6 +1,6 @@
 ﻿namespace Services.Response.PaymentResp
 {
-    public class PaymentResponse
+    public class CreateTopUpPaymentResponse
     {
         public int PaymentId { get; set; }
         public string OrderCode { get; set; } = null!;

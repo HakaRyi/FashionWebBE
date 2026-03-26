@@ -1,17 +1,14 @@
 ﻿using Microsoft.AspNetCore.SignalR;
+using Repositories.Constants;
 using Repositories.Entities;
-using Repositories.Repos.AccountRepos;
 using Repositories.Repos.EscrowSessionRepos;
 using Repositories.Repos.OrderRepos;
+using Repositories.Repos.TransactionRepos;
 using Repositories.Repos.WalletRepos;
+using Repositories.UnitOfWork;
 using Services.Request.OrderReq;
 using Services.Response.OrderResp;
 using Services.Utils.SignalR;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Services.Implements.OrderImp
 {
@@ -19,28 +16,49 @@ namespace Services.Implements.OrderImp
     {
         private readonly IOrderRepository _orderRepo;
         private readonly IHubContext<OrderHub> _hubContext;
-        private readonly IAccountRepository _accountRepo;
         private readonly IEscrowSessionRepository _escrowRepo;
         private readonly IWalletRepository _walletRepo;
+        private readonly ITransactionRepository _transactionRepo;
+        private readonly IUnitOfWork _unitOfWork;
 
-        public OrderService(IOrderRepository orderRepo
-            , IHubContext<OrderHub> hubContext
-            , IAccountRepository accountRepo
-            , IEscrowSessionRepository escrowRepo
-            , IWalletRepository walletRepo
-            )
+        public OrderService(
+            IOrderRepository orderRepo,
+            IHubContext<OrderHub> hubContext,
+            IEscrowSessionRepository escrowRepo,
+            IWalletRepository walletRepo,
+            ITransactionRepository transactionRepo,
+            IUnitOfWork unitOfWork)
         {
             _orderRepo = orderRepo;
             _hubContext = hubContext;
-            _accountRepo = accountRepo;
             _escrowRepo = escrowRepo;
             _walletRepo = walletRepo;
+            _transactionRepo = transactionRepo;
+            _unitOfWork = unitOfWork;
         }
 
         public async Task<OrderResponse> CreateOrderAsync(int sellerId, CreateOrderRequest request)
         {
-            decimal serviceFee = 15000;
-            var totalAmount = request.SubTotal + serviceFee;
+            if (request == null)
+                throw new Exception("Dữ liệu đơn hàng không hợp lệ.");
+
+            if (request.BuyerId <= 0)
+                throw new Exception("Buyer không hợp lệ.");
+
+            if (request.Details == null || !request.Details.Any())
+                throw new Exception("Đơn hàng phải có ít nhất 1 sản phẩm.");
+
+            if (request.Details.Any(d => d.OutfitId == null && d.ItemId == null))
+                throw new Exception("Mỗi dòng đơn hàng phải có ít nhất OutfitId hoặc ItemId.");
+
+            if (request.Details.Any(d => d.Quantity <= 0))
+                throw new Exception("Số lượng sản phẩm phải lớn hơn 0.");
+
+            if (request.Details.Any(d => d.UnitPrice <= 0))
+                throw new Exception("Đơn giá sản phẩm phải lớn hơn 0.");
+
+            const decimal serviceFee = 15000m;
+            decimal totalAmount = request.SubTotal + serviceFee;
 
             var order = new Order
             {
@@ -49,7 +67,7 @@ namespace Services.Implements.OrderImp
                 SubTotal = request.SubTotal,
                 ServiceFee = serviceFee,
                 TotalAmount = totalAmount,
-                Status = "PENDING",
+                Status = OrderStatus.PendingPayment,
                 Note = request.Note,
                 ShippingAddress = request.ShippingAddress,
                 ReceiverName = request.ReceiverName,
@@ -57,8 +75,8 @@ namespace Services.Implements.OrderImp
                 CreatedAt = DateTime.UtcNow,
                 OrderDetails = request.Details.Select(d => new OrderDetail
                 {
-                    OutfitId = null,
-                    ProductId = null,
+                    OutfitId = d.OutfitId,
+                    ItemId = d.ItemId,
                     Quantity = d.Quantity,
                     UnitPrice = d.UnitPrice,
                     ImageUrl = d.ImageUrl,
@@ -66,35 +84,28 @@ namespace Services.Implements.OrderImp
                 }).ToList()
             };
 
-            var createdOrder = await _orderRepo.CreateAsync(order);
-
-            var buyer = await _accountRepo.GetAccountById(createdOrder.BuyerId);
-            var seller = await _accountRepo.GetAccountById(createdOrder.SellerId);
-
-            var response = new OrderResponse
+            await _unitOfWork.BeginTransactionAsync();
+            try
             {
-                OrderId = createdOrder.OrderId,
-                BuyerId = createdOrder.BuyerId,
-                BuyerName = buyer?.UserName ?? "Unknown",
-                SellerId = createdOrder.SellerId,
-                SellerName = seller?.UserName ?? "You",
-                TotalAmount = createdOrder.TotalAmount,
-                Status = createdOrder.Status,
-                CreatedAt = createdOrder.CreatedAt,
-                OrderDetails = createdOrder.OrderDetails.Select(d => new OrderDetailResponse
-                {
-                    OrderDetailId = d.OrderDetailId,
-                    OrderId = d.OrderId,
-                    OutfitId = d.OutfitId,
-                    ProductId = d.ProductId,
-                    Quantity = d.Quantity,
-                    UnitPrice = d.UnitPrice,
-                    ItemName = d.ItemName,
-                    ImageUrl = d.ImageUrl
-                }).ToList()
-            };
+                await _orderRepo.CreateAsync(order);
+                await _unitOfWork.CommitAsync();
+            }
+            catch
+            {
+                await _unitOfWork.RollbackAsync();
+                throw;
+            }
 
-            await _hubContext.Clients.Group($"User_{response.BuyerId}").SendAsync("ReceiveNewOrder", response);
+            var createdOrder = await _orderRepo.GetByIdAsync(order.OrderId)
+                               ?? throw new Exception("Không thể tải lại đơn hàng sau khi tạo.");
+
+            var response = MapToResponse(createdOrder);
+
+            await _hubContext.Clients.Group($"User_{response.BuyerId}")
+                .SendAsync("ReceiveNewOrder", response);
+
+            await _hubContext.Clients.Group($"User_{response.SellerId}")
+                .SendAsync("ReceiveNewOrder", response);
 
             return response;
         }
@@ -102,6 +113,17 @@ namespace Services.Implements.OrderImp
         public async Task<Order?> GetOrderByIdAsync(int orderId)
         {
             return await _orderRepo.GetByIdAsync(orderId);
+        }
+
+        public async Task<OrderResponse?> GetOrderByIdAsync(int orderId, int currentUserId)
+        {
+            var order = await _orderRepo.GetByIdAsync(orderId);
+            if (order == null) return null;
+
+            if (order.BuyerId != currentUserId && order.SellerId != currentUserId)
+                throw new UnauthorizedAccessException();
+
+            return MapToResponse(order);
         }
 
         public async Task<List<OrderResponse>> GetSalesOrdersAsync(int sellerId)
@@ -118,18 +140,171 @@ namespace Services.Implements.OrderImp
 
         public async Task<OrderResponse> UpdateOrderStatusAsync(int orderId, string status, int currentUserId)
         {
+            if (!OrderStatus.IsValid(status))
+                throw new Exception("Trạng thái đơn hàng không hợp lệ.");
+
             var order = await _orderRepo.GetByIdAsync(orderId);
-
             if (order == null) throw new Exception("Order not found");
-            if (order.BuyerId != currentUserId && order.SellerId != currentUserId) throw new UnauthorizedAccessException();
 
-            order.Status = status;
-            await _orderRepo.UpdateAsync(order);
+            if (order.BuyerId != currentUserId && order.SellerId != currentUserId)
+                throw new UnauthorizedAccessException();
 
-            var response = MapToResponse(order);
+            await _unitOfWork.BeginTransactionAsync();
+            try
+            {
+                if (status == OrderStatus.Shipping)
+                {
+                    if (order.SellerId != currentUserId)
+                        throw new UnauthorizedAccessException("Chỉ seller mới được xác nhận giao hàng.");
 
-            await _hubContext.Clients.Group($"User_{order.BuyerId}").SendAsync("ReceiveNewOrder", response);
-            await _hubContext.Clients.Group($"User_{order.SellerId}").SendAsync("ReceiveNewOrder", response);
+                    if (order.Status != OrderStatus.Processing)
+                        throw new Exception("Đơn hàng chưa ở trạng thái có thể giao.");
+
+                    order.Status = OrderStatus.Shipping;
+                    order.UpdatedAt = DateTime.UtcNow;
+                    _orderRepo.Update(order);
+                }
+                else if (status == OrderStatus.Completed)
+                {
+                    if (order.BuyerId != currentUserId)
+                        throw new UnauthorizedAccessException("Chỉ buyer mới được xác nhận hoàn tất.");
+
+                    if (order.Status != OrderStatus.Shipping)
+                        throw new Exception("Đơn hàng chưa ở trạng thái giao hàng.");
+
+                    var buyerWallet = await _walletRepo.GetByAccountIdAsync(order.BuyerId)
+                                      ?? throw new Exception("Ví buyer không tồn tại.");
+                    var sellerWallet = await _walletRepo.GetByAccountIdAsync(order.SellerId)
+                                       ?? throw new Exception("Ví seller không tồn tại.");
+
+                    if (buyerWallet.LockedBalance < order.TotalAmount)
+                        throw new Exception("Số dư khóa không đủ để giải ngân.");
+
+                    decimal buyerBefore = buyerWallet.Balance;
+                    decimal sellerBefore = sellerWallet.Balance;
+
+                    buyerWallet.Balance -= order.TotalAmount;
+                    buyerWallet.LockedBalance -= order.TotalAmount;
+                    buyerWallet.UpdatedAt = DateTime.UtcNow;
+
+                    sellerWallet.Balance += order.TotalAmount;
+                    sellerWallet.UpdatedAt = DateTime.UtcNow;
+
+                    _walletRepo.Update(buyerWallet);
+                    _walletRepo.Update(sellerWallet);
+
+                    var escrow = order.EscrowSession ?? await _escrowRepo.GetByOrderIdAsync(order.OrderId);
+                    if (escrow != null)
+                    {
+                        escrow.Status = EscrowStatus.Released;
+                        escrow.ResolvedAt = DateTime.UtcNow;
+                        _escrowRepo.Update(escrow);
+                    }
+
+                    order.Status = OrderStatus.Completed;
+                    order.UpdatedAt = DateTime.UtcNow;
+                    _orderRepo.Update(order);
+
+                    await _transactionRepo.AddAsync(new Transaction
+                    {
+                        WalletId = buyerWallet.WalletId,
+                        PaymentId = null,
+                        TransactionCode = GenerateTransactionCode("TRX"),
+                        Amount = order.TotalAmount,
+                        BalanceBefore = buyerBefore,
+                        BalanceAfter = buyerWallet.Balance,
+                        Type = TransactionType.Debit,
+                        ReferenceType = TransactionReferenceType.OrderPayment,
+                        ReferenceId = order.OrderId,
+                        Description = $"Hoàn tất thanh toán đơn hàng #{order.OrderId}",
+                        CreatedAt = DateTime.UtcNow,
+                        Status = TransactionStatus.Success
+                    });
+
+                    await _transactionRepo.AddAsync(new Transaction
+                    {
+                        WalletId = sellerWallet.WalletId,
+                        PaymentId = null,
+                        TransactionCode = GenerateTransactionCode("TRX"),
+                        Amount = order.TotalAmount,
+                        BalanceBefore = sellerBefore,
+                        BalanceAfter = sellerWallet.Balance,
+                        Type = TransactionType.Credit,
+                        ReferenceType = TransactionReferenceType.OrderPayment,
+                        ReferenceId = order.OrderId,
+                        Description = $"Nhận tiền từ đơn hàng #{order.OrderId}",
+                        CreatedAt = DateTime.UtcNow,
+                        Status = TransactionStatus.Success
+                    });
+                }
+                else if (status == OrderStatus.Cancelled || status == OrderStatus.Refunded)
+                {
+                    if (order.Status == OrderStatus.Processing || order.Status == OrderStatus.Shipping)
+                    {
+                        var buyerWallet = await _walletRepo.GetByAccountIdAsync(order.BuyerId)
+                                          ?? throw new Exception("Ví buyer không tồn tại.");
+
+                        if (buyerWallet.LockedBalance < order.TotalAmount)
+                            throw new Exception("Số dư khóa không đủ để hoàn tiền.");
+
+                        buyerWallet.LockedBalance -= order.TotalAmount;
+                        buyerWallet.UpdatedAt = DateTime.UtcNow;
+                        _walletRepo.Update(buyerWallet);
+
+                        var escrow = order.EscrowSession ?? await _escrowRepo.GetByOrderIdAsync(order.OrderId);
+                        if (escrow != null)
+                        {
+                            escrow.Status = EscrowStatus.Refunded;
+                            escrow.ResolvedAt = DateTime.UtcNow;
+                            _escrowRepo.Update(escrow);
+                        }
+
+                        await _transactionRepo.AddAsync(new Transaction
+                        {
+                            WalletId = buyerWallet.WalletId,
+                            PaymentId = null,
+                            TransactionCode = GenerateTransactionCode("TRX"),
+                            Amount = order.TotalAmount,
+                            BalanceBefore = buyerWallet.Balance,
+                            BalanceAfter = buyerWallet.Balance,
+                            Type = TransactionType.Credit,
+                            ReferenceType = TransactionReferenceType.OrderRefund,
+                            ReferenceId = order.OrderId,
+                            Description = $"Hoàn tiền đơn hàng #{order.OrderId}",
+                            CreatedAt = DateTime.UtcNow,
+                            Status = TransactionStatus.Success
+                        });
+                    }
+
+                    order.Status = status;
+                    order.UpdatedAt = DateTime.UtcNow;
+                    _orderRepo.Update(order);
+                }
+                else
+                {
+                    order.Status = status;
+                    order.UpdatedAt = DateTime.UtcNow;
+                    _orderRepo.Update(order);
+                }
+
+                await _unitOfWork.CommitAsync();
+            }
+            catch
+            {
+                await _unitOfWork.RollbackAsync();
+                throw;
+            }
+
+            var updatedOrder = await _orderRepo.GetByIdAsync(orderId)
+                              ?? throw new Exception("Không tìm thấy đơn hàng sau cập nhật.");
+
+            var response = MapToResponse(updatedOrder);
+
+            await _hubContext.Clients.Group($"User_{updatedOrder.BuyerId}")
+                .SendAsync("ReceiveNewOrder", response);
+
+            await _hubContext.Clients.Group($"User_{updatedOrder.SellerId}")
+                .SendAsync("ReceiveNewOrder", response);
 
             return response;
         }
@@ -140,37 +315,75 @@ namespace Services.Implements.OrderImp
 
             if (order == null) throw new Exception("Order not found");
             if (order.BuyerId != buyerId) throw new UnauthorizedAccessException();
-            if (order.Status != "CONFIRMED") throw new Exception("Invalid order status");
+            if (order.Status != OrderStatus.PendingPayment)
+                throw new Exception("Invalid order status");
 
-            var buyer = await _accountRepo.GetAccountById(buyerId);
-            if (buyer == null) throw new Exception("Buyer not found");
+            var buyerWallet = await _walletRepo.GetByAccountIdAsync(buyerId);
+            if (buyerWallet == null) throw new Exception("Buyer wallet not found");
 
-            if (buyer.Wallet.Balance < order.TotalAmount) throw new Exception("Insufficient balance");
+            decimal availableBalance = buyerWallet.Balance - buyerWallet.LockedBalance;
+            if (availableBalance < order.TotalAmount)
+                throw new Exception("Insufficient available balance");
 
-            buyer.Wallet.Balance -= order.TotalAmount;
-            await _walletRepo.UpdateWalletAsync(buyer.Wallet);
-
-            order.Status = "PAID";
-            await _orderRepo.UpdateAsync(order);
-
-            var escrowSession = new EscrowSession
+            await _unitOfWork.BeginTransactionAsync();
+            try
             {
-                OrderId = order.OrderId,
-                SenderId = buyerId,
-                ReceiverId = order.SellerId,
-                Amount = order.TotalAmount,
-                ServiceFee = order.ServiceFee,
-                Status = "HELD",
-                Description = $"Thanh toán tạm giữ cho đơn hàng #{order.OrderId}",
-                CreatedAt = DateTime.UtcNow
-            };
+                buyerWallet.LockedBalance += order.TotalAmount;
+                buyerWallet.UpdatedAt = DateTime.UtcNow;
+                _walletRepo.Update(buyerWallet);
 
-            await _escrowRepo.AddAsync(escrowSession);
+                order.Status = OrderStatus.Processing;
+                order.UpdatedAt = DateTime.UtcNow;
+                _orderRepo.Update(order);
 
-            var response = MapToResponse(order);
+                var escrowSession = new EscrowSession
+                {
+                    OrderId = order.OrderId,
+                    SenderId = buyerId,
+                    ReceiverId = order.SellerId,
+                    Amount = order.TotalAmount,
+                    ServiceFee = order.ServiceFee,
+                    Status = EscrowStatus.Held,
+                    Description = $"Thanh toán tạm giữ cho đơn hàng #{order.OrderId}",
+                    CreatedAt = DateTime.UtcNow
+                };
 
-            await _hubContext.Clients.Group($"User_{order.BuyerId}").SendAsync("ReceiveNewOrder", response);
-            await _hubContext.Clients.Group($"User_{order.SellerId}").SendAsync("ReceiveNewOrder", response);
+                await _escrowRepo.AddAsync(escrowSession);
+
+                await _transactionRepo.AddAsync(new Transaction
+                {
+                    WalletId = buyerWallet.WalletId,
+                    PaymentId = null,
+                    TransactionCode = GenerateTransactionCode("TRX"),
+                    Amount = order.TotalAmount,
+                    BalanceBefore = buyerWallet.Balance,
+                    BalanceAfter = buyerWallet.Balance,
+                    Type = TransactionType.Debit,
+                    ReferenceType = TransactionReferenceType.OrderPayment,
+                    ReferenceId = order.OrderId,
+                    Description = $"Giữ tiền thanh toán đơn hàng #{order.OrderId}",
+                    CreatedAt = DateTime.UtcNow,
+                    Status = TransactionStatus.Success
+                });
+
+                await _unitOfWork.CommitAsync();
+            }
+            catch
+            {
+                await _unitOfWork.RollbackAsync();
+                throw;
+            }
+
+            var updatedOrder = await _orderRepo.GetByIdAsync(order.OrderId)
+                              ?? throw new Exception("Không tìm thấy đơn hàng sau thanh toán.");
+
+            var response = MapToResponse(updatedOrder);
+
+            await _hubContext.Clients.Group($"User_{updatedOrder.BuyerId}")
+                .SendAsync("ReceiveNewOrder", response);
+
+            await _hubContext.Clients.Group($"User_{updatedOrder.SellerId}")
+                .SendAsync("ReceiveNewOrder", response);
 
             return response;
         }
@@ -183,7 +396,7 @@ namespace Services.Implements.OrderImp
                 BuyerId = order.BuyerId,
                 BuyerName = order.Buyer?.UserName ?? "Unknown",
                 SellerId = order.SellerId,
-                SellerName = order.Seller?.UserName ?? "You",
+                SellerName = order.Seller?.UserName ?? "Unknown",
                 SubTotal = order.SubTotal,
                 ServiceFee = order.ServiceFee,
                 TotalAmount = order.TotalAmount,
@@ -198,31 +411,19 @@ namespace Services.Implements.OrderImp
                     OrderDetailId = d.OrderDetailId,
                     OrderId = d.OrderId,
                     OutfitId = d.OutfitId,
-                    ProductId = d.ProductId,
+                    ItemId = d.ItemId,
                     Quantity = d.Quantity,
                     UnitPrice = d.UnitPrice,
+                    TotalPrice = d.UnitPrice * d.Quantity,
                     ItemName = d.ItemName,
                     ImageUrl = d.ImageUrl
                 }).ToList()
             };
         }
 
-        public async Task<OrderResponse?> GetOrderByIdAsync(int orderId, int currentUserId)
+        private static string GenerateTransactionCode(string prefix)
         {
-            var order = await _orderRepo.GetByIdAsync(orderId);
-
-            if (order == null)
-            {
-                return null;
-            }
-
-            if (order.BuyerId != currentUserId && order.SellerId != currentUserId)
-            {
-                throw new UnauthorizedAccessException();
-            }
-
-            OrderResponse response = MapToResponse(order);
-            return response;
+            return $"{prefix}-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
         }
     }
 }

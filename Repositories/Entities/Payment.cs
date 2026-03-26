@@ -16,6 +16,8 @@ public partial class Payment
 
     public string? Status { get; set; }
 
+    public string? ExternalTransactionId { get; set; } // mã giao dịch từ cổng thanh toán
+
     public DateTime? CreatedAt { get; set; }
 
     public DateTime? PaidAt { get; set; }

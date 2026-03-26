@@ -27,7 +27,7 @@ using Repositories.Repos.NotificationRepos;
 using Repositories.Repos.OrderRepos;
 using Repositories.Repos.OutfitRepos;
 using Repositories.Repos.PackageRepos;
-using Repositories.Repos.Payments;
+using Repositories.Repos.PaymentsRespo;
 using Repositories.Repos.PostRepos;
 using Repositories.Repos.PostSaveRepos;
 using Repositories.Repos.PrizeEventRepos;
@@ -356,7 +356,8 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<FashionDbContext>();
-    await ExpenseTestDataSeeder.SeedAsync(dbContext);
+    //await ExpenseTestDataSeeder.SeedAsync(dbContext);
+    //await MarketplaceTestDataSeeder.SeedAsync(dbContext);
 }
 
 #region MIDDLEWARE

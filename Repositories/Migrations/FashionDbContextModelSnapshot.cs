@@ -1437,10 +1437,17 @@ namespace Repositories.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("OrderDetailId"));
 
                     b.Property<string>("ImageUrl")
-                        .HasColumnType("text");
+                        .HasColumnType("text")
+                        .HasColumnName("image_url");
+
+                    b.Property<int?>("ItemId")
+                        .HasColumnType("integer")
+                        .HasColumnName("item_id");
 
                     b.Property<string>("ItemName")
-                        .HasColumnType("text");
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("item_name");
 
                     b.Property<int>("OrderId")
                         .HasColumnType("integer")
@@ -1449,10 +1456,6 @@ namespace Repositories.Migrations
                     b.Property<int?>("OutfitId")
                         .HasColumnType("integer")
                         .HasColumnName("outfit_id");
-
-                    b.Property<int?>("ProductId")
-                        .HasColumnType("integer")
-                        .HasColumnName("product_id");
 
                     b.Property<int>("Quantity")
                         .ValueGeneratedOnAdd()
@@ -1466,6 +1469,8 @@ namespace Repositories.Migrations
 
                     b.HasKey("OrderDetailId")
                         .HasName("OrderDetail_pkey");
+
+                    b.HasIndex("ItemId");
 
                     b.HasIndex("OrderId");
 
@@ -1604,6 +1609,9 @@ namespace Repositories.Migrations
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("created_at");
+
+                    b.Property<string>("ExternalTransactionId")
+                        .HasColumnType("text");
 
                     b.Property<string>("OrderCode")
                         .HasMaxLength(100)
@@ -2291,6 +2299,7 @@ namespace Repositories.Migrations
                         .HasColumnName("balance");
 
                     b.Property<string>("Currency")
+                        .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)")
@@ -2785,6 +2794,12 @@ namespace Repositories.Migrations
 
             modelBuilder.Entity("Repositories.Entities.OrderDetail", b =>
                 {
+                    b.HasOne("Repositories.Entities.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("OrderDetail_item_id_fkey");
+
                     b.HasOne("Repositories.Entities.Order", "Order")
                         .WithMany("OrderDetails")
                         .HasForeignKey("OrderId")
@@ -2797,6 +2812,8 @@ namespace Repositories.Migrations
                         .HasForeignKey("OutfitId")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("OrderDetail_outfit_id_fkey");
+
+                    b.Navigation("Item");
 
                     b.Navigation("Order");
 

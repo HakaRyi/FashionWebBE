@@ -236,7 +236,7 @@ namespace Repositories.Seeders
                     {
                         OrderId = order.OrderId,
                         OutfitId = null,
-                        ProductId = null,
+                        ItemId = null,
                         Quantity = 1,
                         UnitPrice = subTotal
                     };
@@ -420,7 +420,7 @@ namespace Repositories.Seeders
                     await AddBuyerTransactionAsync(
                         99000m,
                         TransactionType.Debit,
-                        TransactionReferenceType.PackagePurchase,
+                        TransactionReferenceType.Adjustment,
                         firstPackage.PackageId,
                         $"Mua gói dịch vụ #{firstPackage.PackageId} - {SeedNote}",
                         cursor);

@@ -329,7 +329,6 @@ namespace Services.Implements.WalletImp
                 TransactionReferenceType.TryOn => $"Thanh toán Try-On #{transaction.ReferenceId}",
                 TransactionReferenceType.EventReward => $"Thưởng sự kiện #{transaction.ReferenceId}",
                 TransactionReferenceType.Withdraw => $"Rút tiền #{transaction.ReferenceId}",
-                TransactionReferenceType.PackagePurchase => $"Mua gói dịch vụ #{transaction.ReferenceId}",
                 TransactionReferenceType.Adjustment => $"Điều chỉnh số dư #{transaction.ReferenceId}",
                 _ => $"Giao dịch #{transaction.TransactionId}"
             };

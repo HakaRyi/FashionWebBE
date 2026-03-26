@@ -2,7 +2,8 @@
 {
     public class ZaloCallbackRequest
     {
-        public string data { get; set; } = string.Empty;
-        public string mac { get; set; } = string.Empty;
+        public string data { get; set; } = null!;
+        public string? mac { get; set; }
+        public int type { get; set; }
     }
 }
