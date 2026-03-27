@@ -26,6 +26,8 @@ namespace Repositories.Repos.Events
             => await _db.Events
                 .Include(e => e.Creator)
                 .Include(e => e.Posts)
+                .Include(e => e.Images)
+                .Include(e => e.PrizeEvents)
                 .Where(e => e.CreatorId == creatorId)
                 .OrderByDescending(e => e.CreatedAt)
                 .ToListAsync();

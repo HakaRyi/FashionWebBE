@@ -17,6 +17,7 @@ namespace Services.Response.EventResp
         public string? Description { get; set; }
         public string? Status { get; set; }
         public DateTime? StartTime { get; set; }
+        public DateTime? SubmissionDeadline { get; set; }
         public DateTime? EndTime { get; set; }
         public DateTime? CreatedAt { get; set; }
 
@@ -49,6 +50,7 @@ namespace Services.Response.EventResp
         public double UserWeight { get; set; }
         public decimal AppliedFee { get; set; }
         public DateTime? StartTime { get; set; }
+        public DateTime? SubmissionDeadline { get; set; }
         public DateTime? EndTime { get; set; }
         public string? Status { get; set; }
 

@@ -2,6 +2,7 @@
 using Repositories.Entities;
 using Services.Request.EventReq;
 using Services.Request.ItemReq;
+using Services.Response.EventResp;
 using Services.Response.ExpertResp;
 using Services.Response.ItemResp;
 
@@ -24,8 +25,11 @@ namespace Services.Mappers
 
             TypeAdapterConfig<CreateEventRequest, Event>
                 .NewConfig()
-                .Map(dest => dest.CreatedAt, src => DateTime.UtcNow)
-                .Map(dest => dest.Status, src => "Pending_Review")
+                .Map(dest => dest.StartTime, src => src.StartTime.ToUniversalTime())
+                .Map(dest => dest.EndTime, src => src.EndTime.ToUniversalTime())
+                .Map(dest => dest.SubmissionDeadline, src => src.SubmissionDeadline.ToUniversalTime())
+                .Map(dest => dest.CreatedAt, _ => DateTime.UtcNow)
+                .Map(dest => dest.Status, _ => "Pending_Review")
                 .Map(dest => dest.MinExpertsToStart, src => src.MinExpertsRequired)
                 .Ignore(dest => dest.Images);
 
@@ -37,6 +41,13 @@ namespace Services.Mappers
 
             TypeAdapterConfig<ExpertRequest, ExpertFileByAdminDto>
                 .NewConfig();
+
+            TypeAdapterConfig<Event, EventListDto>.ForType()
+                .Map(dest => dest.CreatorName, src => src.Creator != null ? src.Creator.UserName : null)
+                .Map(dest => dest.ThumbnailUrl, src => src.Images.Select(img => img.ImageUrl).FirstOrDefault())
+                .Map(dest => dest.TotalPrizePool, src => src.PrizeEvents.Sum(p => p.RewardAmount))
+                .Map(dest => dest.ParticipantCount, src => src.Posts.Select(p => p.AccountId).Distinct().Count())
+                .MaxDepth(3);
         }
     }
 }

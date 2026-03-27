@@ -545,16 +545,16 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.PointPerShare).HasColumnName("point_per_share").HasDefaultValue(2.0);
 
             entity.Property(e => e.StartTime)
-                .HasColumnType("timestamp without time zone")
+                .HasColumnType("timestamp with time zone")
                 .HasColumnName("start_time");
             entity.Property(e => e.SubmissionDeadline)
-               .HasColumnType("timestamp without time zone")
+               .HasColumnType("timestamp with time zone")
                .HasColumnName("submission_deadline");
             entity.Property(e => e.EndTime)
-                .HasColumnType("timestamp without time zone")
+                .HasColumnType("timestamp with time zone")
                 .HasColumnName("end_time");
             entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
+                .HasColumnType("timestamp with time zone")
                 .HasColumnName("created_at")
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.Note)
