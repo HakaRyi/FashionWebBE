@@ -64,10 +64,13 @@ namespace Services.Utils.CloundStorage
         public async Task DeleteImageAsync(string imageUrl)
         {
             var publicId = GetPublicIdFromUrl(imageUrl);
+            Console.WriteLine($"--- ĐANG THỬ XÓA CLOUDINARY VỚI ID: {publicId} ---");
 
             var deleteParams = new DeletionParams(publicId);
 
             var result = await _cloudinary.DestroyAsync(deleteParams);
+
+            Console.WriteLine($"--- KẾT QUẢ XÓA: {result.Result} ---");
 
             if (result.Error != null)
                 throw new Exception(result.Error.Message);
@@ -75,11 +78,16 @@ namespace Services.Utils.CloundStorage
 
         private string GetPublicIdFromUrl(string url)
         {
+            if (string.IsNullOrEmpty(url)) return string.Empty;
+
             var uri = new Uri(url);
+            var pathAfterUpload = uri.AbsolutePath.Split("/upload/")[1];
+            var segments = pathAfterUpload.Split('/');
+            var filteredSegments = segments.SkipWhile(s => s.StartsWith("v") && s.Length > 1 && char.IsDigit(s[1])).ToList();
+            var publicIdWithExtension = string.Join("/", filteredSegments);
+            // var segments = uri.AbsolutePath.Split("/upload/")[1];
 
-            var segments = uri.AbsolutePath.Split("/upload/")[1];
-
-            return Path.ChangeExtension(segments, null);
+            return Path.ChangeExtension(publicIdWithExtension, null);
         }
     }
 }

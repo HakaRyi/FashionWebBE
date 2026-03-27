@@ -39,5 +39,20 @@ namespace WebAPIs.Controllers
             var result = await _dashboardService.GetAdminNotifications(pageIndex, pageSize);
             return Ok(result);
         }
+        [HttpGet("list-events")]
+        public async Task<IActionResult> GetEvents([FromQuery] int pageIndex = 1, [FromQuery] int pageSize = 5)
+        {
+            var result = await _dashboardService.GetEvents(pageIndex, pageSize);
+            return Ok(result);
+        }
+        [HttpPut("check-event/{eventId}")]
+        public async Task<IActionResult> CheckEvent([FromRoute] int eventId, [FromBody]AdminCheckRequest request)
+        {
+            await _dashboardService.AdminCheckEvent(eventId,request);
+            return Ok(new
+            {
+                message = "Admin da check"
+            });
+        }
     }
 }

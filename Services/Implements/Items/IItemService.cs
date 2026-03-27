@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Repositories.Entities;
+using Services.Request.ItemRequest;
 using Services.Response.ItemResp;
 
 namespace Services.Implements.Items
@@ -15,5 +16,8 @@ namespace Services.Implements.Items
         Task<ItemResponseDto> CreateFashionItemAsync(ProductUploadDto dto, int accountId);
         Task<List<ItemResponseDto>> GetRecommendationsAsync(string prompt);
         Task<IEnumerable<ItemResponseDto>> GetMyItemsAsync(int accountid);
+        Task UpdateItem(int itemId,UpdateItemRequest request);
+        Task DeleteItem(int itemId);
+        //Task DeleteItems();
     }
 }

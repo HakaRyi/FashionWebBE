@@ -6,11 +6,13 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Repos.AdminRepos;
+using Repositories.Repos.Events;
 using Repositories.UnitOfWork;
 using Services.Request.AdminReq;
 using Services.Request.NotificationReq;
 using Services.Response.AccountRep;
 using Services.Response.AdminResp;
+using Services.Response.EventResp;
 using Services.Response.TransactionResp;
 namespace Services.Implements.AdminImp
 {
@@ -19,11 +21,25 @@ namespace Services.Implements.AdminImp
         private readonly IDashboardRepository _dashboardRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly UserManager<Repositories.Entities.Account> _userManager;
-        public DashboardService(IDashboardRepository dashboardRepository, IUnitOfWork unitOfWork, UserManager<Repositories.Entities.Account> userManager)
+        private readonly IEventRepository _eventRepository;
+        public DashboardService(IDashboardRepository dashboardRepository, 
+            IUnitOfWork unitOfWork, 
+            UserManager<Repositories.Entities.Account> userManager,
+            IEventRepository eventRepository)
         {
             _dashboardRepository = dashboardRepository;
             _unitOfWork = unitOfWork;
             _userManager = userManager;
+            _eventRepository = eventRepository;
+        }
+
+        public async Task AdminCheckEvent(int eventId,AdminCheckRequest request)
+        {
+            var entity = await _eventRepository.GetByIdAsync(eventId);
+            if (entity == null) throw new Exception("ko thay su kien");
+            entity.Status = request.TheStatus;
+            _eventRepository.Update(entity);
+            await _unitOfWork.CommitAsync();
         }
 
         public async Task<List<AccountResponse>> Get3NewestUser()
@@ -104,7 +120,7 @@ namespace Services.Implements.AdminImp
 
             var userData = await _dashboardRepository.GetAccountsByRole(2)
                 .Where(a => a.CreatedAt >= start && a.CreatedAt <= end)
-                .GroupBy(a => a.CreatedAt.Value.Date) 
+                .GroupBy(a => a.CreatedAt.Value.Date)
                 .Select(g => new { Date = g.Key, Count = g.Count() })
                 .ToListAsync();
 
@@ -137,6 +153,46 @@ namespace Services.Implements.AdminImp
                 ExpertChart = FormatData(expertData),
                 PostChart = FormatData(postData)
             };
+        }
+
+        public async Task<PagedAdminEventResponse> GetEvents(int pageIndex, int pageSize)
+        {
+            var query = _dashboardRepository.GetEvents();
+
+            var totalCount = await query.CountAsync();
+
+            var items = await query
+                .Skip((pageIndex - 1) * pageSize)
+                .Take(pageSize)
+                .Select(n => new AdminEventResponse
+                {
+                    EventId = n.EventId,
+                    CreatorName = n.Creator.UserName,
+                    Title = n.Title,
+                    Description = n.Description,
+                    Status = n.Status,
+                    StartTime = n.StartTime,
+                    EndTime = n.EndTime,
+                    AppliedFee = n.AppliedFee,
+                    CreatorId = n.CreatorId,
+                    ExpertWeight = n.ExpertWeight,
+                    UserWeight = n.UserWeight,
+                    Prizes = n.PrizeEvents.Select(p => new PrizeDtoV1
+                    {
+                        PrizeEventId = p.PrizeEventId,
+                        Ranked = p.Ranked,
+                        RewardAmount = p.RewardAmount,
+                        Status = p.Status
+                    }).OrderBy(p => p.Ranked).ToList(),
+                    Experts = n.EventExperts.Select(ex => new ExpertInEventDto
+                    {
+                        ExpertId = ex.ExpertId,
+                        FullName = ex.Expert.UserName,
+                    }).ToList(),
+                })
+                .ToListAsync();
+
+            return new PagedAdminEventResponse { Items = items, TotalCount = totalCount };
         }
 
         public async Task<List<TransactionResponse>> GetTransactionList(DashboardRequest request)

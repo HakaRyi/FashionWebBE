@@ -15,5 +15,6 @@ namespace Repositories.Repos.AdminRepos
         Task<List<Transaction>> GetRevenueSystem();
         Task<List<Account>> Get3NewestUser();
         IQueryable<Notification> GetAdminNotificationsQuery();
+        IQueryable<Event> GetEvents();
     }
 }

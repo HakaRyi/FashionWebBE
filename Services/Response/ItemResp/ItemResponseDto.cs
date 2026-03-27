@@ -10,6 +10,7 @@ namespace Services.Response.ItemResp
     public class ItemResponseDto
     {
         public int ItemId { get; set; }
+        public string? Description { get; set; }
         public string? ItemName { get; set; }
         public string? MainColor { get; set; }
         public string? Style { get; set; }
@@ -20,7 +21,7 @@ namespace Services.Response.ItemResp
         public string? Placement { get; set; }
         public string? PrimaryImageUrl { get; set; }
         public DateTime? CreatedAt { get; set; }
-        public DateTime? UpdatedAt { get; set; }
+        public DateTime? UpdateAt { get; set; }
     }
 
     public class ProductUploadDto

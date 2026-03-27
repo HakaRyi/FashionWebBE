@@ -68,7 +68,7 @@ namespace Services.Implements.BackgroundServices
                             GroupId = chatData.GroupId,
                             Content = chatData.Content,
                             SentAt = DateTime.UtcNow,
-                            ReplyToMessageId = chatData.ReplyToId,
+                            ReplyToMessageId = (chatData.ReplyToId > 0) ? chatData.ReplyToId : (int?)null,
                             IsRecalled = false,
                             Photos = chatData.ImageUrls.Select(url => new Photo { PhotoUrl = url }).ToList()
                         };
@@ -82,6 +82,7 @@ namespace Services.Implements.BackgroundServices
                             MessageId = newMessage.MessageId,
                             Content = newMessage.Content,
                             SenderName = senderName.UserName,
+                            SenderId = chatData.SenderId,
                             SentAt = newMessage.SentAt,
                             Photos = chatData.ImageUrls
                         };

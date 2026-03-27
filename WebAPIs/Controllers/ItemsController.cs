@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Services.Implements.Items;
+using Services.Request.ItemRequest;
 using Services.Response.ItemResp;
 
 namespace WebAPIs.Controllers
@@ -69,6 +70,24 @@ namespace WebAPIs.Controllers
 
             var results = await _itemService.GetRecommendationsAsync(prompt);
             return Ok(results);
+        }
+        [HttpPut("update/{itemId}")]
+        public async Task<ActionResult> Update([FromRoute]int itemId,[FromBody] UpdateItemRequest request)
+        {
+            await _itemService.UpdateItem(itemId,request);
+            return Ok(new
+            {
+                message = "cap nhat thanh cong"
+            });
+        }
+        [HttpDelete("delete/{itemId}")]
+        public async Task<ActionResult> Delete([FromRoute] int itemId)
+        {
+            await _itemService.DeleteItem(itemId);
+            return Ok(new
+            {
+                message = "xoa thanh cong"
+            });
         }
     }
 }

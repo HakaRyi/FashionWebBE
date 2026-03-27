@@ -41,6 +41,17 @@ namespace Repositories.Repos.AdminRepos
                 .Where(n => n.TargetUserId == 1)
                 .OrderByDescending(n => n.CreatedAt); 
         }
+        public IQueryable<Event> GetEvents()
+        {
+            return _db.Events
+                .Include(e => e.Creator)
+                .Include(e => e.Images)
+                .Include(e => e.Posts)
+                .Include(e=>e.PrizeEvents)
+                .Include(e=>e.EventExperts)
+                    .ThenInclude(ee=>ee.Expert)
+                .OrderByDescending(e => e.StartTime);
+        }
 
         public IQueryable<Post> GetPosts()
         {

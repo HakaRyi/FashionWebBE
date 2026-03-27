@@ -11,6 +11,7 @@ namespace Services.Response.MessageResp
         public int MessageId { get; set; }
         public string GroupName { get; set; }
         public string SenderName { get; set; }
+        public int SenderId { get; set; }
         public string Content { get; set; } = string.Empty;
         public List<string>? Photos { get; set; } = new List<string>();
         public DateTime? SentAt { get; set; }
