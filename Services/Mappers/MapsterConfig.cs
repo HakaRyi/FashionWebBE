@@ -2,6 +2,7 @@
 using Repositories.Entities;
 using Services.Request.EventReq;
 using Services.Request.ItemReq;
+using Services.Response.ExpertResp;
 using Services.Response.ItemResp;
 
 
@@ -27,6 +28,15 @@ namespace Services.Mappers
                 .Map(dest => dest.Status, src => "Pending_Review")
                 .Map(dest => dest.MinExpertsToStart, src => src.MinExpertsRequired)
                 .Ignore(dest => dest.Images);
+
+            TypeAdapterConfig<ExpertProfile, ExpertManagementByAdminDto>
+                .NewConfig()
+                .Map(dest => dest.UserName, src => src.Account != null ? src.Account.UserName : null)
+                .Map(dest => dest.ExpertRequests, src => src.ExpertRequests.OrderByDescending(r => r.CreatedAt))
+                .PreserveReference(true);
+
+            TypeAdapterConfig<ExpertRequest, ExpertFileByAdminDto>
+                .NewConfig();
         }
     }
 }

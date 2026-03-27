@@ -11,8 +11,9 @@ namespace Services.Implements.Experts
 {
     public interface IExpertService
     {
-        Task<IEnumerable<ExpertManagementDto>> GetAllExpertsAsync();
+        Task<IEnumerable<ExpertManagementByAdminDto>> GetAllExpertsAsync();
         Task<bool> RegisterExpertAsync(ExpertRegistrationDto dto);
+        Task<string> GetCurrentApplicationStatusAsync();
         Task<ExpertProfile?> GetProfileByAccountId(int accountId);
         Task<IEnumerable<Repositories.Entities.ExpertRequest>> GetPendingApplicationsAsync();
         Task<IEnumerable<ExpertManagementDto>> GetActiveExpertsForUserAsync();

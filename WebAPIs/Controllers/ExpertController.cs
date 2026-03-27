@@ -66,6 +66,20 @@ namespace WebAPIs.Controllers
             return Ok(profile);
         }
 
+        [HttpGet("my-status")]
+        //[Authorize]
+        public async Task<IActionResult> GetMyStatus()
+        {
+            try
+            {
+                var status = await _expertService.GetCurrentApplicationStatusAsync();
+                return Ok(new { status });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
         #endregion
 
         #region Admin Logic (Moderation)
