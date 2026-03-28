@@ -1,4 +1,5 @@
-﻿using System.Text;
+using System.Text;
+﻿using Mapster;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.SignalR;
@@ -35,6 +36,7 @@ using Repositories.Repos.PostRepos;
 using Repositories.Repos.PostSaveRepos;
 using Repositories.Repos.PrizeEventRepos;
 using Repositories.Repos.ReactionRepos;
+using Repositories.Repos.ReputationHistoryRepos;
 using Repositories.Repos.ScoreboardRepos;
 using Repositories.Repos.SocialRepos;
 using Repositories.Repos.SystemSettingRepos;
@@ -211,6 +213,7 @@ builder.Services.AddScoped<IEscrowSessionRepository, EscrowSessionRepository>();
 builder.Services.AddScoped<IAccountSubscriptionRepository, AccountSubscriptionRepository>();
 builder.Services.AddScoped<IEventExpertRepository, EventExpertRepository>();
 builder.Services.AddScoped<IExpertRatingRepository, ExpertRatingRepository>();
+builder.Services.AddScoped<IReputationHistoryRepository, ReputationHistoryRepository>();
 builder.Services.AddScoped<IScoreboardRepository, ScoreboardRepository>();
 builder.Services.AddScoped<IEventWinnerRepository, EventWinnerRepository>();
 builder.Services.AddScoped<ISystemSettingRepository, SystemSettingRepository>();
@@ -230,6 +233,11 @@ builder.Services.AddScoped<IFollowService, FollowService>();
 builder.Services.AddScoped<IWardrobeService, WardrobeService>();
 builder.Services.AddScoped<IItemService, ItemService>();
 builder.Services.AddScoped<IExpertService, ExpertService>();
+
+builder.Services.AddScoped<IGeminiService, GeminiService>();
+//builder.Services.AddScoped<IFileService, LocalFileService>();
+builder.Services.AddScoped<FashionMapper>();
+builder.Services.AddScoped<IAIDetectionService, AIDetectionService>();
 builder.Services.AddScoped<IExpertRequestService, ExpertRequestService>();
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<IOutfitService, OutfitService>();
@@ -285,7 +293,8 @@ builder.Services.AddHostedService<ChatConsumerWorker>();
 
 #region MAPPERS
 
-builder.Services.AddSingleton<FashionMapper>();
+MapsterConfig.Configure();
+builder.Services.AddMapster();
 
 #endregion
 

@@ -17,6 +17,13 @@ namespace WebAPIs.Controllers
             _postService = postService;
         }
 
+        [HttpGet("/api/events/{eventId}/posts")]
+        public async Task<IActionResult> GetPostsByEvent(int eventId)
+        {
+            var posts = await _postService.GetPostsByEventIdAsync(eventId);
+            return Ok(posts);
+        }
+
         [HttpPost]
         [Authorize]
         public async Task<IActionResult> CreatePost([FromForm] CreatePostDto request)

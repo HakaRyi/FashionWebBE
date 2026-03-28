@@ -1,4 +1,7 @@
 ﻿using Repositories.Entities;
+using Services.Request.ExpertRatingReq;
+using Services.Response.EventResp;
+using Services.Response.PostResp;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,6 +14,9 @@ namespace Services.Implements.EventExpertSer
     {
         Task<bool> InviteExpertsAsync(int eventId, List<int> expertIds);
         Task<bool> RespondToInvitationAsync(int eventId, bool accept);
-        Task<IEnumerable<Event>> GetMyPendingInvitationsAsync();
+        Task<IEnumerable<EventListDto>> GetPendingInvitationsAsync();
+        Task<IEnumerable<EventListDto>> GetEventsInvitedToRateAsync();
+        Task<IEnumerable<PostReviewDto>> GetPostsForReviewAsync(int eventId);
+        Task SubmitExpertRatingAsync(ExpertRatingRequest dto);
     }
 }

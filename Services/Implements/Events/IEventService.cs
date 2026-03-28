@@ -13,22 +13,26 @@ namespace Services.Implements.Events
 {
     public interface IEventService
     {
-        Task<IEnumerable<Event>> GetExpertEventsAsync(int expertId);
         Task<Event> CreateEventAsync(CreateEventRequest dto);
         Task SubmitExpertRatingAsync(ExpertRatingRequest dto);
-        Task FinalizeEventAndDistributePrizesAsync(int eventId);
+        Task FinalizeAndAwardEventAsync(int eventId);
 
         // Expert
-        Task<IEnumerable<Event>> GetMyCreatedEventsAsync();
-        Task<IEnumerable<Event>> GetEventsInvitedToRateAsync();
+        Task<IEnumerable<EventListDto>> GetMyCreatedEventsAsync();
+        Task<IEnumerable<EventListDto>> GetAllEventsForExpertAsync();
         Task ActivateEventWithEscrowAsync(int eventId);
         Task<AnalyticsDashboardResponse> GetAnalyticsAsync(string period);
+        Task ManualStartEventAsync(int eventId);
 
         // User / Public
         Task<IEnumerable<EventListDto>> GetAllEventsForUserAsync();
 
+        //admin
+        Task<IEnumerable<EventAdminListDto>> GetAllEventsForAdminAsync();
+        Task RejectEventAsync(int eventId, string reason);
+        Task ApproveEventAsync(int eventId);
+
         // Common
         Task<EventDetailDto?> GetEventDetailsAsync(int eventId);
-        Task<IEnumerable<Post>> GetPostsByEventIdAsync(int eventId);
     }
 }

@@ -10,30 +10,6 @@ namespace Services.Response.EventResp
     {
     }
 
-    public class PrizeDto
-    {
-        public string Label { get; set; } = null!;
-        public double Amount { get; set; }
-    }
-
-    public class CreateEventDto
-    {
-        public string Title { get; set; } = null!;
-        public string? Description { get; set; }
-        public DateTime StartTime { get; set; }
-        public DateTime EndTime { get; set; }
-        public double ExpertWeight { get; set; }
-        public List<PrizeDto> Prizes { get; set; } = new();
-        public List<string> Hashtags { get; set; } = new();
-    }
-
-    public class DepositDto
-    {
-        public int AccountId { get; set; }
-        public double Amount { get; set; }
-        public string TransactionCode { get; set; } = null!;
-    }
-
     public class EventListDto
     {
         public int EventId { get; set; }
@@ -42,8 +18,25 @@ namespace Services.Response.EventResp
         public string? Status { get; set; }
         public DateTime? StartTime { get; set; }
         public DateTime? EndTime { get; set; }
-        public int ParticipantCount { get; set; } // Số lượng bài post tham gia
+        public DateTime? CreatedAt { get; set; }
+
+        // Thông tin định lượng
+        public int ParticipantCount { get; set; }
         public string? CreatorName { get; set; }
+        public string? ThumbnailUrl { get; set; }
+
+        // Cơ cấu giải thưởng (Rút gọn)
+        public decimal TotalPrizePool { get; set; }
+        public List<PrizeBriefDto> Prizes { get; set; } = new();
+
+        public bool IsJoined { get; set; }
+        public string? MyExpertStatus { get; set; }
+    }
+
+    public class PrizeBriefDto
+    {
+        public int Ranked { get; set; }
+        public decimal RewardAmount { get; set; }
     }
 
     // DTO chi tiết sự kiện
@@ -82,6 +75,35 @@ namespace Services.Response.EventResp
     {
         public int ExpertId { get; set; }
         public string? FullName { get; set; }
-        public string? ExpertiseField { get; set; } // Lấy từ ExpertProfile
+        public string? ExpertiseField { get; set; }
+        public string? Status { get; set; }
+    }
+
+    public class EventAdminListDto
+    {
+        public int EventId { get; set; }
+        public string Title { get; set; } = null!;
+        public string? Status { get; set; }
+        public string? Note { get; set; }
+
+        // Thông tin người tạo
+        public int CreatorId { get; set; }
+        public string? CreatorName { get; set; }
+        public string? CreatorEmail { get; set; }
+
+        // Thông tin tài chính & Cấu hình
+        public decimal AppliedFee { get; set; }
+        public decimal TotalPrizePool { get; set; }
+        public int MinExperts { get; set; }
+        public int CurrentAcceptedExperts { get; set; }
+
+        // Thời gian
+        public DateTime? StartTime { get; set; }
+        public DateTime? EndTime { get; set; }
+        public DateTime? CreatedAt { get; set; }
+
+        // Chỉ số tương tác
+        public int ParticipantCount { get; set; }
+        public string? ThumbnailUrl { get; set; }
     }
 }

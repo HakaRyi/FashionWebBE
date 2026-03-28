@@ -17,6 +17,7 @@ namespace Services.Response.ExpertResp
         public string? UserName { get; set; }
         public string? ExpertiseField { get; set; }
         public double? RatingAvg { get; set; }
+        public int? ReputationScore { get; set; }
         public string? Bio { get; set; }
         public string? StyleAesthetic { get; set; }
         public int? YearsOfExperience { get; set; }

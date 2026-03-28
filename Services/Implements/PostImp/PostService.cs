@@ -37,6 +37,7 @@ namespace Services.Implements.PostImp
             _uow = uow;
         }
 
+
         public async Task<PostResponse> CreatePostAsync(int accountId, CreatePostDto dto)
         {
             ValidateCreatePost(dto?.Content, dto?.Images);
@@ -431,6 +432,14 @@ namespace Services.Implements.PostImp
         }
 
         
+
+        public async Task<List<PostResponse>> GetPostsByEventIdAsync(int eventId)
+        {
+            var posts = await _postRepo.GetPostsByEventIdAsync(eventId);
+            return posts.Select(MapToResponse).ToList();
+        }
+
+
         // ==============================
         // ADMIN MODERATION
         // ==============================

@@ -471,9 +471,30 @@ namespace Repositories.Repos.PostRepos
         public async Task<IEnumerable<Post>> GetPostsByEventIdAsync(int eventId)
         {
             return await _db.Posts
-                .Where(p => p.EventId == eventId)
-                .OrderByDescending(p => p.Score)
+                .Include(p => p.Account)
+                .Include(p => p.Images)
+                .Include(p => p.ExpertRatings)
+                .Where(p => p.EventId == eventId && p.Status == "Active")
                 .ToListAsync();
         }
+
+        public async Task<double> GetMaxRawCommunityScoreAsync(int eventId, double pointPerLike, double pointPerShare)
+        {
+            var maxRawScore = await _db.Posts
+                .Where(p => p.EventId == eventId && p.Status != "Deleted")
+                .MaxAsync(p => (double?)((p.LikeCount ?? 0) * pointPerLike + (p.ShareCount ?? 0) * pointPerShare)) ?? 0;
+
+            return maxRawScore;
+        }
+
+        public async Task<List<Post>> GetGradedPostsByEventIdAsync(int eventId)
+        {
+            return await _db.Posts
+                .Include(p => p.Scoreboard)
+                .Where(p => p.EventId == eventId && p.Scoreboard != null)
+                .ToListAsync();
+        }
+
+
     }
 }

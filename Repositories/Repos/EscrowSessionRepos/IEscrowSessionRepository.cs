@@ -12,6 +12,7 @@ namespace Repositories.Repos.EscrowSessionRepos
         Task AddAsync(EscrowSession session);
         Task<EscrowSession?> GetByIdAsync(int sessionId);
         Task<EscrowSession?> GetByEventIdAsync(int eventId);
+        Task<EscrowSession?> GetActiveEscrowByEventIdAsync(int eventId);
         void Update(EscrowSession session);
     }
 }

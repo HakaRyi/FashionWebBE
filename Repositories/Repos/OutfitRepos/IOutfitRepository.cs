@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Repositories.Entities;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -8,6 +9,8 @@ namespace Repositories.Repos.OutfitRepos
 {
     public interface IOutfitRepository
     {
-        Task AddAsync(Entities.Outfit outfit);
+        Task AddAsync(Outfit outfit);
+        Task<Outfit> CreateOutfitAsync(Outfit outfit);
+        Task<List<Outfit>> GetUserOutfitsAsync(int accountId);
     }
 }

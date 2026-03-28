@@ -1,7 +1,8 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Repositories.Entities;
-using Repositories.Repos.ExpertRequestRepos;
 using Repositories.Repos.ExpertProfileRepos;
+using Repositories.Repos.ExpertRequestRepos;
+using Repositories.Repos.ReputationHistoryRepos;
 using Repositories.UnitOfWork;
 using Services.Implements.Auth;
 using Services.Request.ExpertReq;
@@ -13,6 +14,7 @@ namespace Services.Implements.Experts
     {
         private readonly IExpertProfileRepository _profileRepo;
         private readonly IExpertRequestRepository _fileRepo;
+        private readonly IReputationHistoryRepository _reputationHistory;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICurrentUserService _currentUser;
         private readonly UserManager<Account> _userManager;
@@ -21,6 +23,7 @@ namespace Services.Implements.Experts
             IExpertProfileRepository profileRepo,
             IExpertRequestRepository fileRepo,
             IUnitOfWork unitOfWork,
+            IReputationHistoryRepository reputationHistory,
             ICurrentUserService currentUser,
             UserManager<Account> userManager)
         {
@@ -29,6 +32,7 @@ namespace Services.Implements.Experts
             _unitOfWork = unitOfWork;
             _currentUser = currentUser;
             _userManager = userManager;
+            _reputationHistory = reputationHistory;
         }
 
         public async Task<bool> RegisterExpertAsync(ExpertRegistrationDto dto)
@@ -119,6 +123,18 @@ namespace Services.Implements.Experts
                         {
                             profile.Verified = true;
                             profile.UpdatedAt = DateTime.UtcNow;
+                            profile.ReputationScore = 10;
+
+                            var history = new ReputationHistory
+                            {
+                                ExpertProfileId = profile.ExpertProfileId,
+                                PointChange = 10,
+                                CurrentPoint = 10,
+                                Reason = "Hệ thống cấp điểm uy tín khởi tạo khi duyệt hồ sơ Expert.",
+                                CreatedAt = DateTime.UtcNow
+                            };
+
+                            await _reputationHistory.AddAsync(history);
                             _profileRepo.Update(profile);
 
                             var account = await _userManager.FindByIdAsync(profile.AccountId.ToString());
@@ -131,7 +147,7 @@ namespace Services.Implements.Experts
 
                                     if (!addResult.Succeeded)
                                     {
-                                        throw new Exception("Không thể cập nhật quyền Expert cho người dùng.");
+                                        throw new Exception("Unable to update Expert privileges for the user.");
                                     }
                                 }
                             }
@@ -225,6 +241,7 @@ namespace Services.Implements.Experts
                     StyleAesthetic = p.StyleAesthetic,
                     YearsOfExperience = p.YearsOfExperience,
                     RatingAvg = p.RatingAvg,
+                    ReputationScore = p.ReputationScore,
                     Verified = p.Verified
                 });
         }
@@ -245,6 +262,7 @@ namespace Services.Implements.Experts
                 StyleAesthetic = p.StyleAesthetic,
                 YearsOfExperience = p.YearsOfExperience,
                 RatingAvg = p.RatingAvg,
+                ReputationScore = p.ReputationScore,
                 Verified = p.Verified,
                 CreatedAt = p.CreatedAt
             };

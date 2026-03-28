@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Repositories.Dto;
+using Repositories.Repos.ItemRespos;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http.Json;
@@ -9,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace Services.AI
 {
-    public class GeminiService
+    public class GeminiService: IGeminiService
     {
         private readonly HttpClient _httpClient;
         private const string ApiKey = "AIzaSyB8uBL_30H-hb4awIewGBft2Eg_UtyHqsU";
@@ -23,78 +25,98 @@ namespace Services.AI
                 var requestBody = new
                 {
                     contents = new[] {
-                    new { parts = new[] { new { text = $@"
-                        Phân tích yêu cầu thời trang: '{prompt}'. 
-                        Trả về JSON duy nhất với cấu trúc: 
-                        {{
-            ""ItemType"": ""t-shirt|shoes|..."",""CleanPrompt"": ""english description"",
-            ""MustHave"": [""breathable"", ""polyester"", ""sport""],
-            ""MustExclude"": [""wool"", ""sweater"", ""office"", ""formal""]
-        }}
-                        Luật:
-                     1. Nếu là 'đồ thể thao', 'năng động', 'chạy bộ': 
-                      MustExclude BẮT BUỘC có: [""wool"", ""sweater"", ""knitted"", ""shirt"", ""formal""]
-                      ItemType PHẢI LÀ: ""t-shirt"" hoặc ""pants"" hoặc bất kì từ khóa nào phù hợp với sprot.                        
-                    2. CleanPrompt là mô tả chi tiết bằng TIẾNG ANH (ví dụ: 'a professional breathable polo shirt').
-                        Chỉ trả về JSON, không giải thích gì thêm."
-                    } } }
+                new {
+                    parts = new[] {
+                        new { text = $@"Act as a professional Fashion Ontology Expert. 
+                            {prompt}
+                            
+                            ### OUTPUT SCHEMA (STRICT JSON):
+                            {{
+                              ""item"": ""clothing|footwear|accessory"",
+                              ""category"": ""upper_body|lower_body|full_body|footwear|accessory|unknown"",
+                              ""sub_category"": ""string"",
+                              ""gender"": ""Men|Women|Unisex"",
+                              ""main_color"": ""string"",
+                              ""sub_color"": ""string"",
+                              ""material"": ""string"",
+                              ""style"": ""Casual|Formal|Sporty|Streetwear|Vintage|Minimalist"",
+                              ""pattern"": ""Solid|Striped|Checked|Floral|Camo|Graphic"",
+                              ""sleeve_length"": ""Short|Long|Sleeveless|None"",
+                              ""length"": ""Mini|Midi|Maxi|Regular|Cropped"",
+                              ""neckline"": ""V-neck|Round|Collar|Hoodie|None"",
+                              ""fit"": ""Slim|Regular|Oversized|Loose"",
+                              ""item_type"": ""specific product name e.g. jogger, hoodie, loafers"",
+                              ""clean_prompt"": ""A high-quality English descriptive caption for SigLIP image-text matching"",
+                              ""must_have"": [""essential keywords""],
+                              ""must_exclude"": [""forbidden keywords""]
+                            }}
+
+                            ### STRATEGIC RULES:
+                            1. If context is 'Sporty/Active': exclude [""wool"", ""formal"", ""leather"", ""office"", ""knitted"", ""heels""].
+                            2. If context is 'Formal/Office': exclude [""hoodie"", ""sweatpants"", ""camo"", ""distressed""].
+                            3. 'clean_prompt' must be in English, focusing on visual attributes.
+                            4. ALWAYS return valid JSON. No conversational filler."
+                        }
+                    }
                 }
+            },
+                    generationConfig = new
+                    {
+                        temperature = 0.1,
+                        response_mime_type = "application/json"
+                    }
                 };
 
-                var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={ApiKey}";
+                var url = $"[https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=](https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=){ApiKey}";
 
                 var response = await _httpClient.PostAsJsonAsync(url, requestBody);
 
-                var rawJson = await response.Content.ReadAsStringAsync();
+                if (!response.IsSuccessStatusCode)
+                {
+                    var error = await response.Content.ReadAsStringAsync();
+                    throw new Exception($"Gemini API Error: {error}");
+                }
 
-                // 1. Trích xuất text từ cấu trúc phức tạp của Gemini Response
-                using var doc = JsonDocument.Parse(rawJson);
-                var messageText = doc.RootElement
+                var jsonResponse = await response.Content.ReadFromJsonAsync<JsonElement>();
+
+                // Truy cập an toàn vào phần tử text
+                var messageText = jsonResponse
                     .GetProperty("candidates")[0]
                     .GetProperty("content")
                     .GetProperty("parts")[0]
                     .GetProperty("text").GetString();
 
-                // 2. Xử lý trường hợp Gemini trả về Markdown (có dấu ```json)
-                var cleanJson = Regex.Replace(messageText ?? "{}", @"```json|```", "").Trim();
+                if (string.IsNullOrEmpty(messageText)) return new SearchIntent { CleanPrompt = prompt };
 
-                // 3. Chuyển thành Object C# (parsedResult)
-                var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                var parsedResult = JsonSerializer.Deserialize<SearchIntent>(cleanJson, options);
+                // Deserialize trực tiếp từ text
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    AllowTrailingCommas = true
+                };
 
-                return parsedResult ?? new SearchIntent();
+                var parsedResult = JsonSerializer.Deserialize<SearchIntent>(messageText, options);
+
+                // Đảm bảo CleanPrompt luôn có giá trị để SigLIP không bị lỗi
+                if (parsedResult != null && string.IsNullOrEmpty(parsedResult.CleanPrompt))
+                    parsedResult.CleanPrompt = prompt;
+
+                return parsedResult ?? new SearchIntent { CleanPrompt = prompt };
             }
             catch (Exception ex)
             {
-                // LOG LỖI RA CONSOLE ĐỂ DEBUG
-                Console.WriteLine($"--- LỖI GEMINI: {ex.Message} ---");
-
-                // TRẢ VỀ DỮ LIỆU MẶC ĐỊNH ĐỂ APP KHÔNG BỊ CHẾT (FALLBACK)
-                return new SearchIntent
-                {
-                    ItemType = "", // Không lọc theo loại để User vẫn thấy kết quả từ Vector
-                    CleanPrompt = prompt,
-                    Style = "General"
-                };
+                Console.WriteLine($"--- ❌ LỖI CRITICAL GEMINI: {ex.Message} ---");
+                return new SearchIntent { CleanPrompt = prompt, Style = "General" };
             }
-
-
-            //return new SearchIntent
-            //{
-            //    ItemType = "t-shirt",
-            //    CleanPrompt = "sporty t-shirt",
-            //    Style = "sporty"
-            //};
         }
 
         public async Task<List<int>> RefineResultsAsync(string userPrompt, string candidatesJson)
         {
             try
             {
-                // LOG 1: Xem dữ liệu đầu vào gửi cho Gemini
                 Console.WriteLine("\n=== [GEMINI REFINE START] ===");
                 Console.WriteLine($"User Prompt: {userPrompt}");
-                // Console.WriteLine($"Candidates Sent: {candidatesJson}"); // Bật dòng này nếu muốn xem JSON gửi đi
+                Console.WriteLine($"Candidates Sent: {candidatesJson}");
 
                 var requestBody = new
                 {
@@ -122,7 +144,6 @@ namespace Services.AI
                 using var doc = JsonDocument.Parse(rawJson);
                 var text = doc.RootElement.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts")[0].GetProperty("text").GetString();
 
-                // LOG 2: Xem phản hồi thô từ Gemini
                 Console.WriteLine($"Gemini Raw Response: {text?.Replace("\n", " ")}");
 
                 var match = Regex.Match(text ?? "[]", @"\[[\d,\s]*\]");
@@ -130,7 +151,6 @@ namespace Services.AI
                 {
                     var result = JsonSerializer.Deserialize<List<int>>(match.Value);
 
-                    // LOG 3: Xem danh sách ID sau khi bóc tách thành công
                     Console.WriteLine($"Refined IDs Found: {string.Join(", ", result)}");
                     Console.WriteLine("=== [GEMINI REFINE END] ===\n");
 
@@ -146,15 +166,5 @@ namespace Services.AI
                 return new List<int>();
             }
         }
-    }
-
-    public class SearchIntent
-    {
-        public string Category { get; set; } = "";
-        public string ItemType { get; set; } = "";
-        public string CleanPrompt { get; set; } = "";
-        public string Style { get; set; } = "";
-        public List<string> MustHave { get; set; } = new();
-        public List<string> MustExclude { get; set; } = new();
     }
 }

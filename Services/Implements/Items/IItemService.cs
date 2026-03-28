@@ -1,9 +1,11 @@
+
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Repositories.Entities;
+using Services.Request.ItemReq;
 using Services.Request.ItemRequest;
 using Services.Response.ItemResp;
 
@@ -13,11 +15,12 @@ namespace Services.Implements.Items
     {
         Task<IEnumerable<ItemResponseDto>> GetAllItemsAsync();
         Task<ItemResponseDto?> GetItemByIdAsync(int id);
-        Task<ItemResponseDto> CreateFashionItemAsync(ProductUploadDto dto, int accountId);
+        Task<ItemResponseDto> CreateFashionItemAsync(Request.ItemReq.ProductUploadDto dto, int accountId);
         Task<List<ItemResponseDto>> GetRecommendationsAsync(string prompt);
         Task<IEnumerable<ItemResponseDto>> GetMyItemsAsync(int accountid);
         Task UpdateItem(int itemId,UpdateItemRequest request);
         Task DeleteItem(int itemId);
-        //Task DeleteItems();
+        Task<List<ItemResponseDto>> GetSmartRecommendationsAsync(SmartRecommendationRequestDto request);
+
     }
 }

@@ -23,10 +23,14 @@
 
         public int MinExpertsToStart { get; set; }
 
+
         public DateTime? StartTime { get; set; }
 
+        public DateTime? SubmissionDeadline { get; set; }
 
         public DateTime? EndTime { get; set; }
+
+        public string? Note { get; set; }
 
         public DateTime? CreatedAt { get; set; }
 

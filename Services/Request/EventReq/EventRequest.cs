@@ -21,6 +21,8 @@ namespace Services.Request.EventReq
 
         public DateTime StartTime { get; set; }
 
+        public DateTime? SubmissionDeadline { get; set; }
+
         public DateTime EndTime { get; set; }
 
         public double ExpertWeight { get; set; }

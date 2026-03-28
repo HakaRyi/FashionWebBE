@@ -24,24 +24,6 @@ namespace Repositories.Migrations
             NpgsqlModelBuilderExtensions.HasPostgresExtension(modelBuilder, "vector");
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
-            modelBuilder.Entity("ItemCategory", b =>
-                {
-                    b.Property<int>("ItemId")
-                        .HasColumnType("integer")
-                        .HasColumnName("item_id");
-
-                    b.Property<int>("CategoryId")
-                        .HasColumnType("integer")
-                        .HasColumnName("category_id");
-
-                    b.HasKey("ItemId", "CategoryId")
-                        .HasName("Item_Category_pkey");
-
-                    b.HasIndex("CategoryId");
-
-                    b.ToTable("Item_Category", "public");
-                });
-
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<int>", b =>
                 {
                     b.Property<int>("Id")
@@ -372,31 +354,6 @@ namespace Repositories.Migrations
                     b.ToTable("AccountSubscription", "public");
                 });
 
-            modelBuilder.Entity("Repositories.Entities.Category", b =>
-                {
-                    b.Property<int>("CategoryId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("category_id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("CategoryId"));
-
-                    b.Property<string>("CategoryName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("category_name");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("created_at");
-
-                    b.HasKey("CategoryId")
-                        .HasName("Category_pkey");
-
-                    b.ToTable("Category", "public");
-                });
-
             modelBuilder.Entity("Repositories.Entities.Comment", b =>
                 {
                     b.Property<int>("CommentId")
@@ -608,6 +565,11 @@ namespace Repositories.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("min_experts_to_start");
 
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("note");
+
                     b.Property<double>("PointPerLike")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("double precision")
@@ -628,6 +590,10 @@ namespace Repositories.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("status");
+
+                    b.Property<DateTime?>("SubmissionDeadline")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("submission_deadline");
 
                     b.Property<string>("Title")
                         .IsRequired()
@@ -774,6 +740,10 @@ namespace Repositories.Migrations
                     b.Property<double?>("RatingAvg")
                         .HasColumnType("double precision")
                         .HasColumnName("rating_avg");
+
+                    b.Property<int?>("ReputationScore")
+                        .HasColumnType("integer")
+                        .HasColumnName("reputation_score");
 
                     b.Property<string>("StyleAesthetic")
                         .HasMaxLength(100)
@@ -1118,22 +1088,42 @@ namespace Repositories.Migrations
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ItemId"));
 
                     b.Property<string>("Brand")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
                         .HasColumnName("brand");
 
+                    b.Property<string>("Category")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(70)
+                        .HasColumnType("character varying(70)")
+                        .HasDefaultValue("unknown")
+                        .HasColumnName("category");
+
                     b.Property<DateTime?>("CreatedAt")
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("created_at");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<string>("Description")
                         .HasColumnType("text")
                         .HasColumnName("description");
 
-                    b.Property<string>("Fabric")
+                    b.Property<string>("Fit")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
-                        .HasColumnName("fabric");
+                        .HasColumnName("fit");
+
+                    b.Property<string>("Gender")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasColumnName("gender");
+
+                    b.Property<bool?>("IsPublic")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false)
+                        .HasColumnName("is_public");
 
                     b.Property<Vector>("ItemEmbedding")
                         .IsRequired()
@@ -1141,46 +1131,68 @@ namespace Repositories.Migrations
                         .HasColumnName("item_embedding");
 
                     b.Property<string>("ItemName")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
                         .HasColumnName("item_name");
+
+                    b.Property<string>("ItemType")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("item_type");
+
+                    b.Property<string>("Length")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("length");
 
                     b.Property<string>("MainColor")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("main_color");
 
+                    b.Property<string>("Material")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("material");
+
+                    b.Property<string>("Neckline")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("neckline");
+
                     b.Property<string>("Pattern")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
                         .HasColumnName("pattern");
 
-                    b.Property<string>("Placement")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("placement");
+                    b.Property<string>("SleeveLength")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("sleeve_length");
 
-                    b.Property<string>("Status")
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
+                    b.Property<int?>("Status")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(1)
                         .HasColumnName("status");
 
                     b.Property<string>("Style")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
                         .HasColumnName("style");
 
-                    b.Property<double?>("StyleScore")
-                        .HasColumnType("double precision")
-                        .HasColumnName("style_score");
+                    b.Property<string>("SubCategory")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("sub_category");
 
-                    b.Property<string>("Texture")
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("texture");
+                    b.Property<string>("SubColor")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("sub_color");
 
                     b.Property<DateTime?>("UpdateAt")
-                        .HasColumnType("timestamp without time zone")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("update_at");
 
                     b.Property<int>("WardrobeId")
@@ -1190,7 +1202,25 @@ namespace Repositories.Migrations
                     b.HasKey("ItemId")
                         .HasName("Item_pkey");
 
-                    b.HasIndex("WardrobeId");
+                    b.HasIndex("Category")
+                        .HasDatabaseName("IX_Item_Category");
+
+                    b.HasIndex("Gender")
+                        .HasDatabaseName("IX_Item_Gender");
+
+                    b.HasIndex("IsPublic")
+                        .HasDatabaseName("IX_Item_IsPublic");
+
+                    b.HasIndex("ItemEmbedding");
+
+                    NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("ItemEmbedding"), "hnsw");
+                    NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("ItemEmbedding"), new[] { "vector_cosine_ops" });
+
+                    b.HasIndex("WardrobeId")
+                        .HasDatabaseName("IX_Item_WardrobeId");
+
+                    b.HasIndex("IsPublic", "Category")
+                        .HasDatabaseName("IX_Item_IsPublic_Category");
 
                     b.ToTable("Item", "public");
                 });
@@ -1492,8 +1522,10 @@ namespace Repositories.Migrations
                         .HasColumnName("account_id");
 
                     b.Property<DateTime?>("CreatedAt")
+                        .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp without time zone")
-                        .HasColumnName("created_at");
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<string>("ImageUrl")
                         .HasMaxLength(500)
@@ -1511,6 +1543,29 @@ namespace Repositories.Migrations
                     b.HasIndex("AccountId");
 
                     b.ToTable("Outfit", "public");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.OutfitItem", b =>
+                {
+                    b.Property<int>("OutfitId")
+                        .HasColumnType("integer")
+                        .HasColumnName("outfit_id");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("integer")
+                        .HasColumnName("item_id");
+
+                    b.Property<string>("Slot")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("slot");
+
+                    b.HasKey("OutfitId", "ItemId")
+                        .HasName("OutfitItem_pkey");
+
+                    b.HasIndex("ItemId");
+
+                    b.ToTable("OutfitItem", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Package", b =>
@@ -2006,6 +2061,70 @@ namespace Repositories.Migrations
                     b.ToTable("Report_Type", "public");
                 });
 
+            modelBuilder.Entity("Repositories.Entities.ReputationHistory", b =>
+                {
+                    b.Property<int>("ReputationHistoryId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("reputation_history_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ReputationHistoryId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<int>("CurrentPoint")
+                        .HasColumnType("integer")
+                        .HasColumnName("current_point");
+
+                    b.Property<int>("ExpertProfileId")
+                        .HasColumnType("integer")
+                        .HasColumnName("expert_profile_id");
+
+                    b.Property<int>("PointChange")
+                        .HasColumnType("integer")
+                        .HasColumnName("point_change");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("reason");
+
+                    b.HasKey("ReputationHistoryId")
+                        .HasName("Reputation_History_pkey");
+
+                    b.HasIndex("ExpertProfileId");
+
+                    b.ToTable("Reputation_History", "public");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.SavedItem", b =>
+                {
+                    b.Property<int>("AccountId")
+                        .HasColumnType("integer")
+                        .HasColumnName("account_id");
+
+                    b.Property<int>("ItemId")
+                        .HasColumnType("integer")
+                        .HasColumnName("item_id");
+
+                    b.Property<DateTime?>("SavedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("saved_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.HasKey("AccountId", "ItemId")
+                        .HasName("SavedItem_pkey");
+
+                    b.HasIndex("ItemId");
+
+                    b.ToTable("SavedItem", "public");
+                });
+
             modelBuilder.Entity("Repositories.Entities.Scoreboard", b =>
                 {
                     b.Property<int>("ScoreboardId")
@@ -2379,21 +2498,6 @@ namespace Repositories.Migrations
                     b.ToTable("Wardrobe", "public");
                 });
 
-            modelBuilder.Entity("ItemCategory", b =>
-                {
-                    b.HasOne("Repositories.Entities.Category", null)
-                        .WithMany()
-                        .HasForeignKey("CategoryId")
-                        .IsRequired()
-                        .HasConstraintName("Item_Category_category_id_fkey");
-
-                    b.HasOne("Repositories.Entities.Item", null)
-                        .WithMany()
-                        .HasForeignKey("ItemId")
-                        .IsRequired()
-                        .HasConstraintName("Item_Category_item_id_fkey");
-                });
-
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<int>", null)
@@ -2724,6 +2828,7 @@ namespace Repositories.Migrations
                     b.HasOne("Repositories.Entities.Wardrobe", "Wardrobe")
                         .WithMany("Items")
                         .HasForeignKey("WardrobeId")
+                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("Item_wardrobe_id_fkey");
 
@@ -2842,6 +2947,27 @@ namespace Repositories.Migrations
                         .HasConstraintName("Outfit_account_id_fkey");
 
                     b.Navigation("Account");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.OutfitItem", b =>
+                {
+                    b.HasOne("Repositories.Entities.Item", "Item")
+                        .WithMany("OutfitItems")
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired()
+                        .HasConstraintName("OutfitItem_item_id_fkey");
+
+                    b.HasOne("Repositories.Entities.Outfit", "Outfit")
+                        .WithMany("OutfitItems")
+                        .HasForeignKey("OutfitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("OutfitItem_outfit_id_fkey");
+
+                    b.Navigation("Item");
+
+                    b.Navigation("Outfit");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Package", b =>
@@ -3028,6 +3154,39 @@ namespace Repositories.Migrations
                     b.Navigation("Account");
                 });
 
+            modelBuilder.Entity("Repositories.Entities.ReputationHistory", b =>
+                {
+                    b.HasOne("Repositories.Entities.ExpertProfile", "ExpertProfile")
+                        .WithMany("ReputationHistories")
+                        .HasForeignKey("ExpertProfileId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("Reputation_History_expert_profile_id_fkey");
+
+                    b.Navigation("ExpertProfile");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.SavedItem", b =>
+                {
+                    b.HasOne("Repositories.Entities.Account", "Account")
+                        .WithMany("SavedItems")
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("SavedItem_account_id_fkey");
+
+                    b.HasOne("Repositories.Entities.Item", "Item")
+                        .WithMany("SavedByUsers")
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("SavedItem_item_id_fkey");
+
+                    b.Navigation("Account");
+
+                    b.Navigation("Item");
+                });
+
             modelBuilder.Entity("Repositories.Entities.Scoreboard", b =>
                 {
                     b.HasOne("Repositories.Entities.Post", "Post")
@@ -3182,6 +3341,8 @@ namespace Repositories.Migrations
 
                     b.Navigation("RefreshTokens");
 
+                    b.Navigation("SavedItems");
+
                     b.Navigation("SavedPosts");
 
                     b.Navigation("SentEscrows");
@@ -3221,6 +3382,8 @@ namespace Repositories.Migrations
             modelBuilder.Entity("Repositories.Entities.ExpertProfile", b =>
                 {
                     b.Navigation("ExpertRequests");
+
+                    b.Navigation("ReputationHistories");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Feature", b =>
@@ -3242,6 +3405,10 @@ namespace Repositories.Migrations
             modelBuilder.Entity("Repositories.Entities.Item", b =>
                 {
                     b.Navigation("Images");
+
+                    b.Navigation("OutfitItems");
+
+                    b.Navigation("SavedByUsers");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Message", b =>
@@ -3260,6 +3427,11 @@ namespace Repositories.Migrations
                     b.Navigation("EscrowSession");
 
                     b.Navigation("OrderDetails");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.Outfit", b =>
+                {
+                    b.Navigation("OutfitItems");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Package", b =>

@@ -22,25 +22,27 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
     public virtual DbSet<AccountSubscription> AccountSubscriptions { get; set; }
 
-    public virtual DbSet<Category> Categories { get; set; }
-
     public virtual DbSet<Comment> Comments { get; set; }
 
     public virtual DbSet<CommentReaction> CommentReactions { get; set; }
 
-    public virtual DbSet<Event> Events { get; set; }
+    public virtual DbSet<EscrowSession> EscrowSessions { get; set; }
 
-    public virtual DbSet<ExpertRating> ExpertRatings { get; set; }
+    public virtual DbSet<Event> Events { get; set; }
 
     public virtual DbSet<EventExpert> EventExperts { get; set; }
 
-    public virtual DbSet<ExpertRequest> ExpertRequests { get; set; }
+    public virtual DbSet<EventWinner> EventWinners { get; set; }
 
     public virtual DbSet<ExpertProfile> ExpertProfiles { get; set; }
 
-    public virtual DbSet<EscrowSession> EscrowSessions { get; set; }
+    public virtual DbSet<ExpertRating> ExpertRatings { get; set; }
+
+    public virtual DbSet<ExpertRequest> ExpertRequests { get; set; }
 
     public virtual DbSet<Feature> Features { get; set; }
+
+    public virtual DbSet<Follow> Follows { get; set; }
 
     public virtual DbSet<Group> Groups { get; set; }
 
@@ -50,9 +52,11 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
     public virtual DbSet<Item> Items { get; set; }
 
+    public virtual DbSet<Message> Messages { get; set; }
+
     public virtual DbSet<MessReaction> MessReactions { get; set; }
 
-    public virtual DbSet<Message> Messages { get; set; }
+    public virtual DbSet<Model> Models { get; set; }
 
     public virtual DbSet<Notification> Notifications { get; set; }
 
@@ -61,6 +65,8 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
     public virtual DbSet<OrderDetail> OrderDetails { get; set; }
 
     public virtual DbSet<Outfit> Outfits { get; set; }
+
+    public virtual DbSet<OutfitItem> OutfitItems { get; set; }
 
     public virtual DbSet<Package> Packages { get; set; }
 
@@ -78,35 +84,33 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
     public virtual DbSet<PostVector> PostVectors { get; set; }
 
+    public virtual DbSet<PrizeEvent> PrizeEvents { get; set; }
+
     public virtual DbSet<Reaction> Reactions { get; set; }
 
     public virtual DbSet<RefreshToken> RefreshTokens { get; set; }
 
     public virtual DbSet<ReportType> ReportTypes { get; set; }
 
+    public virtual DbSet<ReputationHistory> ReputationHistorys { get; set; }
+
+    public virtual DbSet<SavedItem> SavedItems { get; set; }
+
+    public virtual DbSet<Scoreboard> Scoreboards { get; set; }
+
+    public virtual DbSet<SystemSetting> SystemSettings { get; set; }
+
     public virtual DbSet<Transaction> Transactions { get; set; }
+
+    public virtual DbSet<TryOnHistory> TryOnHistories { get; set; }
 
     public virtual DbSet<UserProfileVector> UserProfileVectors { get; set; }
 
     public virtual DbSet<UserReport> UserReports { get; set; }
 
-    public virtual DbSet<Wardrobe> Wardrobes { get; set; }
-
     public virtual DbSet<Wallet> Wallets { get; set; }
 
-    public virtual DbSet<Follow> Follows { get; set; }
-
-    public virtual DbSet<TryOnHistory> TryOnHistories { get; set; }
-
-    public virtual DbSet<PrizeEvent> PrizeEvents { get; set; }
-
-    public virtual DbSet<EventWinner> EventWinners { get; set; }
-
-    public virtual DbSet<Scoreboard> Scoreboards { get; set; }
-
-    public virtual DbSet<Model> Models { get; set; }
-
-    public virtual DbSet<SystemSetting> SystemSettings { get; set; }
+    public virtual DbSet<Wardrobe> Wardrobes { get; set; }
 
     public static string GetConnectionString(string connectionStringName)
     {
@@ -341,21 +345,6 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.Value).HasColumnName("token_value");
         });
 
-        modelBuilder.Entity<Category>(entity =>
-        {
-            entity.HasKey(e => e.CategoryId).HasName("Category_pkey");
-
-            entity.ToTable("Category", "public");
-
-            entity.Property(e => e.CategoryId).HasColumnName("category_id");
-            entity.Property(e => e.CategoryName)
-                .HasMaxLength(100)
-                .HasColumnName("category_name");
-            entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("created_at");
-        });
-
         modelBuilder.Entity<Comment>(entity =>
         {
             entity.HasKey(e => e.CommentId)
@@ -568,6 +557,9 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.StartTime)
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("start_time");
+            entity.Property(e => e.SubmissionDeadline)
+               .HasColumnType("timestamp without time zone")
+               .HasColumnName("submission_deadline");
             entity.Property(e => e.EndTime)
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("end_time");
@@ -575,6 +567,9 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at")
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
+            entity.Property(e => e.Note)
+                .HasMaxLength(500)
+                .HasColumnName("note");
 
             entity.Property(e => e.Status)
                 .HasMaxLength(30)
@@ -797,6 +792,8 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasDefaultValue(false)
                 .HasColumnName("verified");
             entity.Property(e => e.RatingAvg).HasColumnName("rating_avg");
+            entity.Property(e => e.ReputationScore)
+                .HasColumnName("reputation_score");
             entity.Property(e => e.CreatedAt)
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("created_at");
@@ -951,73 +948,113 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
         modelBuilder.Entity<Item>(entity =>
         {
             entity.HasKey(e => e.ItemId).HasName("Item_pkey");
-
             entity.ToTable("Item", "public");
 
             entity.Property(e => e.ItemId).HasColumnName("item_id");
-            entity.Property(e => e.Brand)
-                .HasMaxLength(50)
-                .HasColumnName("brand");
-            entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("created_at");
-            entity.Property(e => e.Description).HasColumnName("description");
-            entity.Property(e => e.Fabric)
-                .HasMaxLength(50)
-                .HasColumnName("fabric");
+            entity.Property(e => e.WardrobeId).HasColumnName("wardrobe_id");
+
             entity.Property(e => e.ItemName)
-                .HasMaxLength(100)
+                .HasMaxLength(200)
                 .HasColumnName("item_name");
-            entity.Property(e => e.MainColor)
+
+            entity.Property(e => e.Category)
+                .HasColumnName("category")
+                .HasMaxLength(70)
+                .HasDefaultValue("unknown");
+
+            entity.Property(e => e.ItemType)
                 .HasMaxLength(50)
-                .HasColumnName("main_color");
-            entity.Property(e => e.Pattern)
-                .HasMaxLength(255)
-                .HasColumnName("pattern");
-            entity.Property(e => e.Placement)
-                .HasMaxLength(255)
-                .HasColumnName("placement");
+                .HasColumnName("item_type");
+
+            entity.Property(e => e.SubCategory)
+                .HasMaxLength(100)
+                .HasColumnName("sub_category");
+
+            entity.Property(e => e.Gender).HasMaxLength(20).HasColumnName("gender");
+            entity.Property(e => e.MainColor).HasMaxLength(50).HasColumnName("main_color");
+            entity.Property(e => e.SubColor).HasMaxLength(50).HasColumnName("sub_color");
+            entity.Property(e => e.Material).HasMaxLength(100).HasColumnName("material");
+            entity.Property(e => e.Pattern).HasMaxLength(100).HasColumnName("pattern");
+            entity.Property(e => e.Style).HasMaxLength(100).HasColumnName("style");
+            entity.Property(e => e.Fit).HasMaxLength(50).HasColumnName("fit");
+            entity.Property(e => e.Neckline).HasMaxLength(50).HasColumnName("neckline");
+            entity.Property(e => e.SleeveLength).HasMaxLength(50).HasColumnName("sleeve_length");
+            entity.Property(e => e.Length).HasMaxLength(50).HasColumnName("length");
+            entity.Property(e => e.Brand).HasMaxLength(100).HasColumnName("brand");
+            entity.Property(e => e.Description).HasColumnName("description");
+
             entity.Property(e => e.ItemEmbedding)
                 .HasColumnName("item_embedding")
                 .HasColumnType("vector(768)");
+
+            entity.HasIndex(e => e.ItemEmbedding)
+                .HasMethod("hnsw")
+                .HasOperators("vector_cosine_ops");
+
             entity.Property(e => e.Status)
-                .HasMaxLength(30)
-                .HasColumnName("status");
-            entity.Property(e => e.Style)
-                .HasMaxLength(255)
-                .HasColumnName("style");
-            entity.Property(e => e.StyleScore).HasColumnName("style_score");
-            entity.Property(e => e.Texture)
-                .HasMaxLength(255)
-                .HasColumnName("texture");
+                .HasColumnName("status")
+                .HasDefaultValue(ItemStatus.Active);
+
+            entity.Property(e => e.IsPublic)
+                .HasColumnName("is_public")
+                .HasDefaultValue(false);
+
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("created_at");
+
             entity.Property(e => e.UpdateAt)
-                .HasColumnType("timestamp without time zone")
+                .HasColumnType("timestamp with time zone")
                 .HasColumnName("update_at");
-            entity.Property(e => e.WardrobeId).HasColumnName("wardrobe_id");
 
-            entity.HasOne(d => d.Wardrobe).WithMany(p => p.Items)
+            entity.HasIndex(e => e.WardrobeId)
+                .HasDatabaseName("IX_Item_WardrobeId");
+
+            entity.HasIndex(e => e.IsPublic)
+                .HasDatabaseName("IX_Item_IsPublic");
+
+            entity.HasIndex(e => e.Category)
+                .HasDatabaseName("IX_Item_Category");
+
+            entity.HasIndex(e => e.Gender)
+                .HasDatabaseName("IX_Item_Gender");
+
+            entity.HasIndex(e => new { e.IsPublic, e.Category })
+                .HasDatabaseName("IX_Item_IsPublic_Category");
+
+            entity.HasOne(d => d.Wardrobe)
+                .WithMany(p => p.Items)
                 .HasForeignKey(d => d.WardrobeId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
+                .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("Item_wardrobe_id_fkey");
+        });
 
-            entity.HasMany(d => d.Categories).WithMany(p => p.Items)
-                .UsingEntity<Dictionary<string, object>>(
-                    "ItemCategory",
-                    r => r.HasOne<Category>().WithMany()
-                        .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.ClientSetNull)
-                        .HasConstraintName("Item_Category_category_id_fkey"),
-                    l => l.HasOne<Item>().WithMany()
-                        .HasForeignKey("ItemId")
-                        .OnDelete(DeleteBehavior.ClientSetNull)
-                        .HasConstraintName("Item_Category_item_id_fkey"),
-                    j =>
-                    {
-                        j.HasKey("ItemId", "CategoryId").HasName("Item_Category_pkey");
-                        j.ToTable("Item_Category", "public");
-                        j.IndexerProperty<int>("ItemId").HasColumnName("item_id");
-                        j.IndexerProperty<int>("CategoryId").HasColumnName("category_id");
-                    });
+        modelBuilder.Entity<SavedItem>(entity =>
+        {
+            entity.HasKey(e => new { e.AccountId, e.ItemId }).HasName("SavedItem_pkey");
+
+            entity.ToTable("SavedItem", "public");
+
+            entity.Property(e => e.AccountId).HasColumnName("account_id");
+            entity.Property(e => e.ItemId).HasColumnName("item_id");
+
+            entity.Property(e => e.SavedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("saved_at");
+
+            entity.HasOne(d => d.Account)
+                .WithMany(p => p.SavedItems)
+                .HasForeignKey(d => d.AccountId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("SavedItem_account_id_fkey");
+
+            entity.HasOne(d => d.Item)
+                .WithMany(p => p.SavedByUsers)
+                .HasForeignKey(d => d.ItemId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("SavedItem_item_id_fkey");
         });
 
         modelBuilder.Entity<MessReaction>(entity =>
@@ -1208,12 +1245,16 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
             entity.Property(e => e.OutfitId).HasColumnName("outfit_id");
             entity.Property(e => e.AccountId).HasColumnName("account_id");
+
             entity.Property(e => e.CreatedAt)
                 .HasColumnType("timestamp without time zone")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnName("created_at");
+
             entity.Property(e => e.ImageUrl)
                 .HasMaxLength(500)
                 .HasColumnName("image_url");
+
             entity.Property(e => e.OutfitName)
                 .HasMaxLength(100)
                 .HasColumnName("outfit_name");
@@ -1222,6 +1263,29 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasForeignKey(d => d.AccountId)
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("Outfit_account_id_fkey");
+        });
+
+        modelBuilder.Entity<OutfitItem>(entity =>
+        {
+            entity.HasKey(ei => new { ei.OutfitId, ei.ItemId }).HasName("OutfitItem_pkey");
+
+            entity.ToTable("OutfitItem", "public");
+
+            entity.Property(e => e.OutfitId).HasColumnName("outfit_id");
+            entity.Property(e => e.ItemId).HasColumnName("item_id");
+            entity.Property(e => e.Slot).HasMaxLength(50).HasColumnName("slot");
+
+            entity.HasOne(d => d.Outfit)
+                .WithMany(p => p.OutfitItems)
+                .HasForeignKey(d => d.OutfitId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("OutfitItem_outfit_id_fkey");
+
+            entity.HasOne(d => d.Item)
+                .WithMany(p => p.OutfitItems)
+                .HasForeignKey(d => d.ItemId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("OutfitItem_item_id_fkey");
         });
 
         modelBuilder.Entity<Package>(entity =>
@@ -1741,6 +1805,36 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.Description)
                 .HasMaxLength(255)
                 .HasColumnName("description");
+        });
+
+        modelBuilder.Entity<ReputationHistory>(entity =>
+        {
+            entity.HasKey(e => e.ReputationHistoryId).HasName("Reputation_History_pkey");
+
+            entity.ToTable("Reputation_History", "public");
+
+            entity.Property(e => e.ReputationHistoryId).HasColumnName("reputation_history_id");
+
+            entity.Property(e => e.ExpertProfileId).HasColumnName("expert_profile_id");
+
+            entity.Property(e => e.PointChange).HasColumnName("point_change");
+
+            entity.Property(e => e.CurrentPoint).HasColumnName("current_point");
+
+            entity.Property(e => e.Reason)
+                .HasMaxLength(500)
+                .HasColumnName("reason");
+
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("created_at");
+
+            entity.HasOne(d => d.ExpertProfile)
+                .WithMany(p => p.ReputationHistories)
+                .HasForeignKey(d => d.ExpertProfileId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("Reputation_History_expert_profile_id_fkey");
         });
 
         modelBuilder.Entity<SystemSetting>(entity =>
