@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pgvector;
@@ -12,9 +13,11 @@ using Repositories.Data;
 namespace Repositories.Migrations
 {
     [DbContext(typeof(FashionDbContext))]
-    partial class FashionDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260327041953_InitUpdateDB")]
+    partial class InitUpdateDB
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -539,7 +542,7 @@ namespace Repositories.Migrations
 
                     b.Property<DateTime?>("CreatedAt")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("timestamp without time zone")
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
@@ -552,7 +555,7 @@ namespace Repositories.Migrations
                         .HasColumnName("description");
 
                     b.Property<DateTime?>("EndTime")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("timestamp without time zone")
                         .HasColumnName("end_time");
 
                     b.Property<double>("ExpertWeight")
@@ -583,7 +586,7 @@ namespace Repositories.Migrations
                         .HasColumnName("point_per_share");
 
                     b.Property<DateTime?>("StartTime")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("timestamp without time zone")
                         .HasColumnName("start_time");
 
                     b.Property<string>("Status")
@@ -592,7 +595,7 @@ namespace Repositories.Migrations
                         .HasColumnName("status");
 
                     b.Property<DateTime?>("SubmissionDeadline")
-                        .HasColumnType("timestamp with time zone")
+                        .HasColumnType("timestamp without time zone")
                         .HasColumnName("submission_deadline");
 
                     b.Property<string>("Title")

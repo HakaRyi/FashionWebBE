@@ -103,6 +103,7 @@ namespace Services.Implements.Events
 
                 var eventData = dto.Adapt<Event>();
 
+                eventData.MinExpertsToStart = dto.MinExpertsRequired;
                 eventData.CreatorId = creatorId;
                 eventData.AppliedFee = currentFee;
                 eventData.Status = "Pending_Review";
@@ -909,7 +910,7 @@ namespace Services.Implements.Events
 
             var events = await _eventRepo.GetAllByCreatorIdAsync(expertId);
 
-            return events.Select(MapToEventListDto);
+            return events.Adapt<IEnumerable<EventListDto>>();
         }
 
         /// <summary>
@@ -929,6 +930,7 @@ namespace Services.Implements.Events
                 UserWeight = e.UserWeight,
                 AppliedFee = e.AppliedFee,
                 StartTime = e.StartTime,
+                SubmissionDeadline = e.SubmissionDeadline,
                 EndTime = e.EndTime,
                 Status = e.Status,
                 CreatorId = e.CreatorId,

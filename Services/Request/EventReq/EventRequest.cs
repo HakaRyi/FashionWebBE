@@ -21,7 +21,7 @@ namespace Services.Request.EventReq
 
         public DateTime StartTime { get; set; }
 
-        public DateTime? SubmissionDeadline { get; set; }
+        public DateTime SubmissionDeadline { get; set; }
 
         public DateTime EndTime { get; set; }
 
@@ -33,7 +33,7 @@ namespace Services.Request.EventReq
 
         public double PointPerShare { get; set; }
 
-        [Range(2, 20, ErrorMessage = "Số lượng Expert tối thiểu để bắt đầu phải từ 2 trở lên.")]
+        //[Range(2, 20, ErrorMessage = "Số lượng Expert tối thiểu để bắt đầu phải từ 2 trở lên.")]
         public int MinExpertsRequired { get; set; }
 
         public List<PrizeRequest> Prizes { get; set; } = new();

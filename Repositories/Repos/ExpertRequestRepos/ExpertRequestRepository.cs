@@ -37,6 +37,11 @@ namespace Repositories.Repos.ExpertRequestRepos
                 .ToListAsync();
         }
 
+        public async Task<bool> AnyPendingRequestAsync(int profileId)
+        {
+            return await _db.ExpertRequests
+                .AnyAsync(r => r.ExpertProfileId == profileId && r.Status == "Pending");
+        }
         public async Task AddAsync(ExpertRequest file)
         {
             file.CreatedAt = DateTime.UtcNow;

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using Mapster;
+using Microsoft.AspNetCore.Identity;
 using Repositories.Entities;
 using Repositories.Repos.ExpertProfileRepos;
 using Repositories.Repos.ExpertRequestRepos;
@@ -35,6 +36,7 @@ namespace Services.Implements.Experts
             _reputationHistory = reputationHistory;
         }
 
+        #region Expert Logic
         public async Task<bool> RegisterExpertAsync(ExpertRegistrationDto dto)
         {
             var userId = _currentUser.GetUserId();
@@ -50,7 +52,8 @@ namespace Services.Implements.Experts
                     profile = new ExpertProfile
                     {
                         AccountId = userId.Value,
-                        CreatedAt = DateTime.UtcNow
+                        CreatedAt = DateTime.UtcNow,
+                        Verified = false
                     };
                 }
 
@@ -58,7 +61,6 @@ namespace Services.Implements.Experts
                 profile.StyleAesthetic = dto.StyleAesthetic;
                 profile.YearsOfExperience = dto.YearsOfExperience;
                 profile.Bio = dto.Bio;
-                profile.Verified = false;
                 profile.UpdatedAt = DateTime.UtcNow;
 
                 if (isNewProfile) await _profileRepo.AddAsync(profile);
@@ -66,41 +68,63 @@ namespace Services.Implements.Experts
 
                 await _unitOfWork.SaveChangesAsync();
 
-                var file = await _fileRepo.GetByProfileIdAsync(profile.ExpertProfileId);
-                bool isNewFile = (file == null);
+                var existingRequests = await _fileRepo.GetByProfileIdAsync(profile.ExpertProfileId);
 
-                if (isNewFile)
+                var hasPending = await _fileRepo.AnyPendingRequestAsync(profile.ExpertProfileId);
+                if (hasPending)
                 {
-                    file = new Repositories.Entities.ExpertRequest
-                    {
-                        ExpertProfileId = profile.ExpertProfileId,
-                        CreatedAt = DateTime.UtcNow
-                    };
+                    throw new Exception("Bạn đã có một đơn đăng ký đang chờ duyệt. Vui lòng đợi phản hồi từ hệ thống.");
                 }
 
-                file.Status = "Pending";
+                var newRequest = new Repositories.Entities.ExpertRequest
+                {
+                    ExpertProfileId = profile.ExpertProfileId,
+                    CreatedAt = DateTime.UtcNow,
+                    Status = "Pending",
+                    ExpertiseField = dto.Style,
+                    StyleAesthetic = dto.StyleAesthetic,
+                    YearsOfExperience = dto.YearsOfExperience,
+                    Bio = dto.Bio,
+                    Reason = null
+                };
 
                 if (dto.EvidenceType?.ToLower() == "pdf")
                 {
-                    file.CertificateUrl = dto.PortfolioUrl;
-                    file.LicenseUrl = null;
+                    newRequest.CertificateUrl = dto.PortfolioUrl;
+                    newRequest.LicenseUrl = null;
                 }
                 else
                 {
-                    file.LicenseUrl = dto.PortfolioUrl;
-                    file.CertificateUrl = null;
+                    newRequest.LicenseUrl = dto.PortfolioUrl;
+                    newRequest.CertificateUrl = null;
                 }
 
-                if (isNewFile) await _fileRepo.AddAsync(file);
-                else _fileRepo.Update(file);
+                await _fileRepo.AddAsync(newRequest);
 
                 return await _unitOfWork.SaveChangesAsync() > 0;
             }
             catch (Exception ex)
             {
-                throw new Exception($"Lỗi đăng ký Expert: {ex.Message}");
+                throw new Exception(ex.Message);
             }
         }
+
+        public async Task<string> GetCurrentApplicationStatusAsync()
+        {
+            var userId = _currentUser.GetUserId();
+            if (userId == null) return "None";
+
+            var profile = await _profileRepo.GetByAccountIdAsync(userId.Value);
+            if (profile == null) return "None";
+
+            var hasPending = await _fileRepo.AnyPendingRequestAsync(profile.ExpertProfileId);
+            if (hasPending) return "Pending";
+
+            if ((bool)profile.Verified) return "Approved";
+
+            return "None";
+        }
+        #endregion
 
         #region Admin Logic
 
@@ -114,6 +138,8 @@ namespace Services.Implements.Experts
                 try
                 {
                     file.Status = status;
+                    file.Reason = reason;
+                    file.ProcessedAt = DateTime.UtcNow;
                     _fileRepo.Update(file);
 
                     if (status.Equals("Approved", StringComparison.OrdinalIgnoreCase))
@@ -124,6 +150,7 @@ namespace Services.Implements.Experts
                             profile.Verified = true;
                             profile.UpdatedAt = DateTime.UtcNow;
                             profile.ReputationScore = 10;
+                            profile.Verified = true;
 
                             var history = new ReputationHistory
                             {
@@ -173,30 +200,11 @@ namespace Services.Implements.Experts
             return await ProcessApplicationAsync(fileId, status, feedback);
         }
 
-        public async Task<IEnumerable<ExpertManagementDto>> GetAllExpertsAsync()
+        public async Task<IEnumerable<ExpertManagementByAdminDto>> GetAllExpertsAsync()
         {
             var profiles = await _profileRepo.GetAllAsync();
 
-            return profiles.Select(p => new ExpertManagementDto
-            {
-                ExpertProfileId = p.ExpertProfileId,
-                AccountId = p.AccountId,
-                UserName = p.Account?.UserName,
-                ExpertiseField = p.ExpertiseField,
-                Bio = p.Bio,
-                StyleAesthetic = p.StyleAesthetic,
-                YearsOfExperience = p.YearsOfExperience,
-                Verified = p.Verified,
-                CreatedAt = p.CreatedAt,
-                ExpertFile = p.ExpertRequests.OrderByDescending(r => r.CreatedAt).Select(r => new ExpertFileDto
-                {
-                    ExpertFileId = r.ExpertFileId,
-                    Status = r.Status,
-                    CertificateUrl = r.CertificateUrl,
-                    LicenseUrl = r.LicenseUrl,
-                    Reason = r.Reason
-                }).FirstOrDefault()
-            });
+            return profiles.Adapt<IEnumerable<ExpertManagementByAdminDto>>();
         }
 
         public async Task<IEnumerable<Repositories.Entities.ExpertRequest>> GetPendingApplicationsAsync()
