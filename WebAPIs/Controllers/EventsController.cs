@@ -1,11 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Services.Implements.Auth;
+using Services.Implements.EventAwardingImp;
+using Services.Implements.EventCreationImp;
 using Services.Implements.Events;
 using Services.Request.EventReq;
-using Services.Request.ExpertRatingReq;
-using Services.Response.DashboardResp;
-using Services.Response.EventResp;
+
 
 namespace WebAPIs.Controllers
 {
@@ -15,10 +14,14 @@ namespace WebAPIs.Controllers
     public class EventsController : ControllerBase
     {
         private readonly IEventService _eventService;
+        private readonly IEventCreationService _eventCreationService;
+        private readonly IEventAwardingService _eventAwardingService;
 
-        public EventsController(IEventService eventService)
+        public EventsController(IEventService eventService, IEventCreationService eventCreationService, IEventAwardingService eventAwardingService)
         {
             _eventService = eventService;
+            _eventCreationService = eventCreationService;
+            _eventAwardingService = eventAwardingService;
         }
 
         /// <summary>
@@ -33,7 +36,7 @@ namespace WebAPIs.Controllers
             try
             {
                 // Gọi hàm tạo sự kiện mới (Đã bao gồm logic lập lịch Quartz bên trong Service)
-                var result = await _eventService.CreateEventAsync(request);
+                var result = await _eventCreationService.CreateEventAsync(request);
 
                 return Ok(new
                 {
@@ -50,42 +53,6 @@ namespace WebAPIs.Controllers
         }
 
         /// <summary>
-        /// Expert chủ động kích hoạt sự kiện sớm (Publish thủ công).
-        /// Chỉ thành công nếu số lượng Expert đã Accepted >= MinExpertsRequired.
-        /// </summary>
-        [HttpPost("{id}/publish-now")]
-        public async Task<IActionResult> PublishManual(int id)
-        {
-            try
-            {
-                // Gọi hàm kích hoạt và ký quỹ ngay lập tức
-                await _eventService.ActivateEventWithEscrowAsync(id);
-                return Ok(new { message = "Sự kiện đã được kích hoạt và ký quỹ thành công!" });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-        }
-
-        /// <summary>
-        /// Chuyên gia chấm điểm cho bài thi trong sự kiện
-        /// </summary>
-        [HttpPost("submit-rating")]
-        public async Task<IActionResult> SubmitRating([FromBody] ExpertRatingRequest request)
-        {
-            try
-            {
-                await _eventService.SubmitExpertRatingAsync(request);
-                return Ok(new { message = "Chấm điểm thành công và đã cập nhật bảng điểm tổng." });
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-        }
-
-        /// <summary>
         /// Chốt sự kiện, công bố kết quả và tự động giải ngân tiền thưởng
         /// </summary>
         [HttpPost("{id}/finalize")]
@@ -93,7 +60,7 @@ namespace WebAPIs.Controllers
         {
             try
             {
-                await _eventService.FinalizeAndAwardEventAsync(id);
+                await _eventAwardingService.FinalizeAndAwardEventAsync(id);
                 return Ok(new { message = "Sự kiện đã kết thúc. Tiền thưởng đã được chuyển đến ví của những người thắng cuộc." });
             }
             catch (Exception ex)
@@ -129,7 +96,7 @@ namespace WebAPIs.Controllers
         {
             try
             {
-                await _eventService.ManualStartEventAsync(id);
+                await _eventCreationService.ManualStartEventAsync(id);
 
                 return Ok(new
                 {

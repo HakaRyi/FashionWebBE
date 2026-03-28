@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pgvector;
@@ -12,9 +13,11 @@ using Repositories.Data;
 namespace Repositories.Migrations
 {
     [DbContext(typeof(FashionDbContext))]
-    partial class FashionDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260328114847_AddNewField")]
+    partial class AddNewField
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -241,11 +244,6 @@ namespace Repositories.Migrations
                         .HasColumnType("integer")
                         .HasDefaultValue(3)
                         .HasColumnName("free_try_on");
-
-                    b.Property<string>("IsOnline")
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
-                        .HasColumnName("isOnline");
 
                     b.Property<bool>("LockoutEnabled")
                         .HasColumnType("boolean")
@@ -987,12 +985,6 @@ namespace Repositories.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("isGroup");
 
-                    b.Property<DateTime>("LastActivity")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("last_activity")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
                     b.Property<string>("Name")
                         .HasColumnType("character varying")
                         .HasColumnName("name");
@@ -1046,9 +1038,6 @@ namespace Repositories.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("event_id");
 
-                    b.Property<int?>("GroupId")
-                        .HasColumnType("integer");
-
                     b.Property<string>("ImageUrl")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -1074,8 +1063,6 @@ namespace Repositories.Migrations
                     b.HasIndex("AccountAvatarId");
 
                     b.HasIndex("EventId");
-
-                    b.HasIndex("GroupId");
 
                     b.HasIndex("ItemId");
 
@@ -1328,7 +1315,7 @@ namespace Repositories.Migrations
                     b.Property<DateTime?>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp without time zone")
-                        .HasColumnName("create_at")
+                        .HasColumnName("created_at")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
                     b.Property<string>("ImageUrl")
@@ -1378,10 +1365,6 @@ namespace Repositories.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("status");
-
-                    b.Property<int?>("TargetUserId")
-                        .HasColumnType("integer")
-                        .HasColumnName("target_user_id");
 
                     b.Property<string>("Title")
                         .HasMaxLength(255)
@@ -1822,10 +1805,8 @@ namespace Repositories.Migrations
                         .HasColumnName("share_count");
 
                     b.Property<string>("Status")
-                        .ValueGeneratedOnAdd()
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
-                        .HasDefaultValue("Draft")
                         .HasColumnName("status");
 
                     b.Property<string>("Title")
@@ -1836,22 +1817,12 @@ namespace Repositories.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("updated_at");
 
-                    b.Property<string>("Visibility")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)")
-                        .HasDefaultValue("Visible")
-                        .HasColumnName("visibility");
-
                     b.HasKey("PostId")
-                        .HasName("post_pkey");
+                        .HasName("Post_pkey");
 
-                    b.HasIndex("AccountId")
-                        .HasDatabaseName("ix_post_account_id");
+                    b.HasIndex("AccountId");
 
-                    b.HasIndex("EventId")
-                        .HasDatabaseName("ix_post_event_id");
+                    b.HasIndex("EventId");
 
                     b.ToTable("Post", "public");
                 });
@@ -1964,27 +1935,20 @@ namespace Repositories.Migrations
                         .HasColumnName("account_id");
 
                     b.Property<DateTime?>("CreatedAt")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp without time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("NOW()");
+                        .HasColumnName("created_at");
 
                     b.Property<int>("PostId")
                         .HasColumnType("integer")
                         .HasColumnName("post_id");
 
                     b.HasKey("ReactionId")
-                        .HasName("reaction_pkey");
+                        .HasName("Reaction_pkey");
 
-                    b.HasIndex("AccountId")
-                        .HasDatabaseName("ix_reaction_account_id");
+                    b.HasIndex("PostId");
 
-                    b.HasIndex("PostId")
-                        .HasDatabaseName("ix_reaction_post_id");
-
-                    b.HasIndex("AccountId", "PostId")
-                        .IsUnique()
-                        .HasDatabaseName("ux_reaction_account_post");
+                    b.HasIndex(new[] { "AccountId", "PostId" }, "UQ_Account_Post_Reaction")
+                        .IsUnique();
 
                     b.ToTable("Reaction", "public");
                 });
@@ -2379,16 +2343,9 @@ namespace Repositories.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("account_id");
 
-                    b.Property<string>("AdminNote")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)")
-                        .HasColumnName("admin_note");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
+                    b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("timestamp without time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+                        .HasColumnName("created_at");
 
                     b.Property<int>("PostId")
                         .HasColumnType("integer")
@@ -2402,31 +2359,14 @@ namespace Repositories.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("report_type_id");
 
-                    b.Property<DateTime?>("ReviewedAt")
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("reviewed_at");
-
-                    b.Property<int?>("ReviewedBy")
-                        .HasColumnType("integer")
-                        .HasColumnName("reviewed_by");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .ValueGeneratedOnAdd()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasDefaultValue("Pending")
-                        .HasColumnName("status");
-
                     b.HasKey("UserReportId")
                         .HasName("User_Report_pkey");
 
                     b.HasIndex("AccountId");
 
-                    b.HasIndex("ReportTypeId");
+                    b.HasIndex("PostId");
 
-                    b.HasIndex(new[] { "PostId", "AccountId" }, "User_Report_post_id_account_id_key")
-                        .IsUnique();
+                    b.HasIndex("ReportTypeId");
 
                     b.ToTable("User_Report", "public");
                 });
@@ -2808,11 +2748,6 @@ namespace Repositories.Migrations
                         .HasForeignKey("EventId")
                         .OnDelete(DeleteBehavior.Cascade);
 
-                    b.HasOne("Repositories.Entities.Group", "Group")
-                        .WithMany("Images")
-                        .HasForeignKey("GroupId")
-                        .OnDelete(DeleteBehavior.Cascade);
-
                     b.HasOne("Repositories.Entities.Item", "Item")
                         .WithMany("Images")
                         .HasForeignKey("ItemId")
@@ -2826,8 +2761,6 @@ namespace Repositories.Migrations
                     b.Navigation("Account");
 
                     b.Navigation("Event");
-
-                    b.Navigation("Group");
 
                     b.Navigation("Item");
 
@@ -3072,12 +3005,12 @@ namespace Repositories.Migrations
                         .WithMany("Posts")
                         .HasForeignKey("AccountId")
                         .IsRequired()
-                        .HasConstraintName("post_account_id_fkey");
+                        .HasConstraintName("Post_account_id_fkey");
 
                     b.HasOne("Repositories.Entities.Event", "Event")
                         .WithMany("Posts")
                         .HasForeignKey("EventId")
-                        .HasConstraintName("post_event_id_fkey");
+                        .HasConstraintName("Post_event_id_fkey");
 
                     b.Navigation("Account");
 
@@ -3137,16 +3070,14 @@ namespace Repositories.Migrations
                     b.HasOne("Repositories.Entities.Account", "Account")
                         .WithMany("Reactions")
                         .HasForeignKey("AccountId")
-                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("reaction_account_id_fkey");
+                        .HasConstraintName("Reaction_account_id_fkey");
 
                     b.HasOne("Repositories.Entities.Post", "Post")
                         .WithMany("Reactions")
                         .HasForeignKey("PostId")
-                        .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
-                        .HasConstraintName("reaction_post_id_fkey");
+                        .HasConstraintName("Reaction_post_id_fkey");
 
                     b.Navigation("Account");
 
@@ -3260,21 +3191,18 @@ namespace Repositories.Migrations
                     b.HasOne("Repositories.Entities.Account", "Account")
                         .WithMany("UserReports")
                         .HasForeignKey("AccountId")
-                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("User_Report_account_id_fkey");
 
                     b.HasOne("Repositories.Entities.Post", "Post")
                         .WithMany("UserReports")
                         .HasForeignKey("PostId")
-                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("User_Report_post_id_fkey");
 
                     b.HasOne("Repositories.Entities.ReportType", "ReportType")
                         .WithMany("UserReports")
                         .HasForeignKey("ReportTypeId")
-                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired()
                         .HasConstraintName("User_Report_report_type_id_fkey");
 
@@ -3405,8 +3333,6 @@ namespace Repositories.Migrations
             modelBuilder.Entity("Repositories.Entities.Group", b =>
                 {
                     b.Navigation("GroupUsers");
-
-                    b.Navigation("Images");
 
                     b.Navigation("Messages");
 

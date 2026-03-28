@@ -22,8 +22,7 @@
         public double PointPerShare { get; set; } = 2;
 
         public int MinExpertsToStart { get; set; }
-
-
+        public bool IsAutoStart { get; set; } = false;
         public DateTime? StartTime { get; set; }
 
         public DateTime? SubmissionDeadline { get; set; }

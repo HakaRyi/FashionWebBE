@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Quartz;
+using Services.Implements.EventAwardingImp;
 using Services.Implements.Events;
 
 namespace Services.Jobs
@@ -29,12 +30,12 @@ namespace Services.Jobs
 
             // 2. Tạo Scope mới để lấy DbContext và Services an toàn
             using var scope = _scopeFactory.CreateScope();
-            var eventService = scope.ServiceProvider.GetRequiredService<IEventService>();
+            var eventAwardingService = scope.ServiceProvider.GetRequiredService<IEventAwardingService>();
 
             try
             {
                 // 3. Thực thi nghiệp vụ chốt điểm và trao thưởng
-                await eventService.FinalizeAndAwardEventAsync(eventId);
+                await eventAwardingService.FinalizeAndAwardEventAsync(eventId);
 
                 _logger.LogInformation(">>> [QUARTZ] KẾT THÚC & TRAO GIẢI Event ID: {EventId} HOÀN TẤT thành công.", eventId);
             }
