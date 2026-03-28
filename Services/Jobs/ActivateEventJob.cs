@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Quartz;
+using Services.Implements.EventCreationImp;
 using Services.Implements.Events;
 
 namespace Services.Jobs
@@ -30,12 +31,13 @@ namespace Services.Jobs
             // 2. Tạo Scope để lấy Scoped Services (IEventService, DBContext, UnitOfWork, v.v.)
             using var scope = _scopeFactory.CreateScope();
             var eventService = scope.ServiceProvider.GetRequiredService<IEventService>();
+            var eventCreationService = scope.ServiceProvider.GetRequiredService<IEventCreationService>();
 
             try
             {
                 // 3. Thực thi nghiệp vụ chính
                 // Hàm này bên trong đã có check số lượng Expert Accepted và trừ tiền ví
-                await eventService.ActivateEventWithEscrowAsync(eventId);
+                await eventCreationService.ActivateEventWithEscrowAsync(eventId);
 
                 _logger.LogInformation(">>> [QUARTZ] Kích hoạt Event ID: {EventId} HOÀN TẤT thành công.", eventId);
             }

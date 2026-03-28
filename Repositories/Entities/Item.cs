@@ -37,6 +37,8 @@ public partial class Item
 
     public string? Length { get; set; }
 
+    public string? Size { get; set; }
+
     public string? Brand { get; set; }
 
     public string? Description { get; set; }
