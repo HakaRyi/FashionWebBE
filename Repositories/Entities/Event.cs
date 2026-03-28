@@ -22,6 +22,8 @@ public partial class Event
 
     public int MinExpertsToStart { get; set; }
 
+    public bool IsAutoStart { get; set; } = false;
+
     public DateTime? StartTime { get; set; }
 
     public DateTime? SubmissionDeadline { get; set; }

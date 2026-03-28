@@ -36,6 +36,8 @@ namespace Services.Request.EventReq
         //[Range(2, 20, ErrorMessage = "Số lượng Expert tối thiểu để bắt đầu phải từ 2 trở lên.")]
         public int MinExpertsRequired { get; set; }
 
+        public bool IsAutoStart { get; set; }
+
         public List<PrizeRequest> Prizes { get; set; } = new();
 
         public List<int>? InvitedExpertIds { get; set; }

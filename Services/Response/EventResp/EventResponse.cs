@@ -30,6 +30,8 @@ namespace Services.Response.EventResp
         public decimal TotalPrizePool { get; set; }
         public List<PrizeBriefDto> Prizes { get; set; } = new();
 
+
+        public bool IsAutoStart { get; set; }
         public bool IsJoined { get; set; }
         public string? MyExpertStatus { get; set; }
     }

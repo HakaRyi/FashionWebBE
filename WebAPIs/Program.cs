@@ -39,8 +39,11 @@ using Services.Helpers;
 using Services.Implements.AccountService;
 using Services.Implements.Auth;
 using Services.Implements.BackgroundServices;
+using Services.Implements.EventAwardingImp;
+using Services.Implements.EventCreationImp;
 using Services.Implements.EventExpertSer;
 using Services.Implements.Events;
+using Services.Implements.ExpertRatingImp;
 using Services.Implements.Experts;
 using Services.Implements.ExpertsService.ExpertRequestImp;
 using Services.Implements.Follow;
@@ -196,6 +199,9 @@ builder.Services.AddScoped<IPackageService, PackageService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IEventExpertService, EventExpertService>();
+builder.Services.AddScoped<IEventAwardingService, EventAwardingService>();
+builder.Services.AddScoped<IExpertRatingService, ExpertRatingService>();
+builder.Services.AddScoped<IEventCreationService, EventCreationService>();
 builder.Services.AddScoped<IImageService, ImageService>();
 builder.Services.AddScoped<IFileService>(sp =>
 {

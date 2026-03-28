@@ -534,6 +534,9 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.MinExpertsToStart)
                 .HasColumnName("min_experts_to_start");
+            entity.Property(e => e.IsAutoStart)
+              .HasColumnName("is_auto_start")
+              .HasDefaultValue(false);
 
             entity.Property(e => e.ExpertWeight).HasColumnName("expert_weight").HasDefaultValue(0.0);
             entity.Property(e => e.UserWeight).HasColumnName("user_weight").HasDefaultValue(0.0);
@@ -963,6 +966,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.Neckline).HasMaxLength(50).HasColumnName("neckline");
             entity.Property(e => e.SleeveLength).HasMaxLength(50).HasColumnName("sleeve_length");
             entity.Property(e => e.Length).HasMaxLength(50).HasColumnName("length");
+            entity.Property(e => e.Size).HasMaxLength(50).HasColumnName("size");
             entity.Property(e => e.Brand).HasMaxLength(100).HasColumnName("brand");
             entity.Property(e => e.Description).HasColumnName("description");
 
