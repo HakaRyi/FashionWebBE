@@ -104,7 +104,7 @@ namespace Services.Implements.PaymentService
 
         public async Task<object> CreateVnPayOrderAsync(CreateOrderRequest request, string ipAddress)
         {
-            var vnpReturnUrl = "https://sliding-rudderless-consuelo.ngrok-free.dev/api/payment/vnpay-return";
+            var vnpReturnUrl = "https://0992-118-71-8-38.ngrok-free.app/api/payment/vnpay-return";
             var vnpUrl = "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html";
             var vnpTmnCode = "1K7OF3A1".Trim();
             var vnpHashSecret = "9G9LFM1HFI9KFAM2LGS7WQY4K2EXM51Z".Trim();
@@ -298,7 +298,7 @@ namespace Services.Implements.PaymentService
                 { "embed_data", embedData },
                 { "item", items },
                 { "description", $"Nap tien {amountLong} VND" },
-                { "callback_url", "https://sliding-rudderless-consuelo.ngrok-free.dev/api/payment/callback" }
+                { "callback_url", "https://0992-118-71-8-38.ngrok-free.app/api/payment/callback" }
             };
 
             string data = $"{appId}|{appTransId}|{appUser}|{amountLong}|{appTime}|{embedData}|{items}";
