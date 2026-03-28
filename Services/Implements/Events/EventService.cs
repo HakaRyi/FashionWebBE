@@ -1023,6 +1023,7 @@ namespace Services.Implements.Events
                 CreatedAt = e.CreatedAt,
                 CreatorName = e.Creator?.UserName,
 
+
                 // 1. Đếm số lượng bài tham gia
                 ParticipantCount = e.Posts?.Count ?? 0,
 
