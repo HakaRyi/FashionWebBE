@@ -1,11 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Repositories.Data;
 using Repositories.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Repositories.Repos.OutfitRepos
 {
@@ -13,7 +8,7 @@ namespace Repositories.Repos.OutfitRepos
     {
         private readonly FashionDbContext _context;
         public OutfitRepository(FashionDbContext context)
-        { 
+        {
             _context = context;
         }
         public async Task AddAsync(Outfit outfit)

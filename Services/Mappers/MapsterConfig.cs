@@ -17,7 +17,7 @@ namespace Services.Mappers
                 .Map(dest => dest.PrimaryImageUrl, src => src.Images.Select(img => img.ImageUrl).FirstOrDefault())
                 .Map(dest => dest.Category, src => src.Category != null ? src.Category.ToString() : null);
 
-            TypeAdapterConfig<ProductUploadDto, Item>.NewConfig()
+            TypeAdapterConfig<Request.ItemReq.ProductUploadDto, Item>.NewConfig()
                 .Ignore(dest => dest.ItemEmbedding)
                 .Ignore(dest => dest.Images)
                 .Map(dest => dest.CreatedAt, _ => DateTime.UtcNow)

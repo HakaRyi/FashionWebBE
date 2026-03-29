@@ -11,7 +11,6 @@ using Quartz.Impl.Matchers;
 using Repositories.Data;
 using Repositories.Entities;
 using Repositories.Repos.AccountRepos;
-using Repositories.Repos.AccountSubscriptionRepos;
 using Repositories.Repos.AdminRepos;
 using Repositories.Repos.ChatRepos;
 using Repositories.Repos.CommentReactionRepos;
@@ -29,9 +28,9 @@ using Repositories.Repos.ImageRepos;
 using Repositories.Repos.ItemRespos;
 using Repositories.Repos.ModelRepos;
 using Repositories.Repos.NotificationRepos;
+using Repositories.Repos.OrderRepos;
 using Repositories.Repos.OutfitRepos;
-using Repositories.Repos.PackageRepos;
-using Repositories.Repos.Payments;
+using Repositories.Repos.PaymentsRespo;
 using Repositories.Repos.PostRepos;
 using Repositories.Repos.PostSaveRepos;
 using Repositories.Repos.PrizeEventRepos;
@@ -65,8 +64,8 @@ using Services.Implements.ImageImp;
 using Services.Implements.Items;
 using Services.Implements.ModelImp;
 using Services.Implements.NotificationImp;
+using Services.Implements.OrderImp;
 using Services.Implements.OutfitImp;
-using Services.Implements.PackageImp;
 using Services.Implements.PaymentService;
 using Services.Implements.PostImp;
 using Services.Implements.SocialImp;
@@ -172,7 +171,6 @@ builder.Services.AddIdentity<Account, IdentityRole<int>>(options =>
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
-builder.Services.AddScoped<IAccountSubscriptionRepository, AccountSubscriptionRepository>();
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<ICommentRepository, CommentRepository>();
 builder.Services.AddScoped<ICommentReactionRepository, CommentReactionRepository>();
@@ -190,7 +188,6 @@ builder.Services.AddScoped<IItemRepository, ItemRepository>();
 builder.Services.AddScoped<IModelRepository, ModelRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IOutfitRepository, OutfitRepository>();
-builder.Services.AddScoped<IPackageRepository, PackageRepository>();
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 builder.Services.AddScoped<IPhotoRepository, PhotoRepository>();
 builder.Services.AddScoped<IPinMessageRepository, PinMessageRepository>();
@@ -205,6 +202,7 @@ builder.Services.AddScoped<ITryOnHistoryRepository, TryOnHistoryRepository>();
 builder.Services.AddScoped<IUserReportRepository, UserReportRepository>();
 builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<IWardrobeRepository, WardrobeRepository>();
+builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<IGroupRepository, GroupRepository>();
@@ -213,7 +211,6 @@ builder.Services.AddScoped<IPhotoRepository, PhotoRepository>();
 builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<IPrizeEventRepository, PrizeEventRepository>();
 builder.Services.AddScoped<IEscrowSessionRepository, EscrowSessionRepository>();
-builder.Services.AddScoped<IAccountSubscriptionRepository, AccountSubscriptionRepository>();
 builder.Services.AddScoped<IEventExpertRepository, EventExpertRepository>();
 builder.Services.AddScoped<IExpertRatingRepository, ExpertRatingRepository>();
 builder.Services.AddScoped<IReputationHistoryRepository, ReputationHistoryRepository>();
@@ -239,14 +236,13 @@ builder.Services.AddScoped<IExpertService, ExpertService>();
 
 builder.Services.AddScoped<IGeminiService, GeminiService>();
 //builder.Services.AddScoped<IFileService, LocalFileService>();
-builder.Services.AddScoped<FashionMapper>();
+
 builder.Services.AddScoped<IAIDetectionService, AIDetectionService>();
 builder.Services.AddScoped<IExpertRequestService, ExpertRequestService>();
 builder.Services.AddScoped<IEventService, EventService>();
 builder.Services.AddScoped<IOutfitService, OutfitService>();
 builder.Services.AddScoped<IModelService, ModelService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
-builder.Services.AddScoped<IPackageService, PackageService>();
 builder.Services.AddScoped<IWalletService, WalletService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IUserReportService, UserReportService>();
@@ -265,6 +261,8 @@ builder.Services.AddScoped<IDashboardService, DashboardService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IGroupService, GroupService>();
+builder.Services.AddScoped<IExpenseService, ExpenseService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
 
 #endregion
 
@@ -392,6 +390,8 @@ builder.Services.AddSwaggerGen(c =>
             Array.Empty<string>()
         }
     });
+
+    c.CustomSchemaIds(type => type.FullName);
 });
 
 #endregion
@@ -422,6 +422,13 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<FashionDbContext>();
+    //await ExpenseTestDataSeeder.SeedAsync(dbContext);
+    //await MarketplaceTestDataSeeder.SeedAsync(dbContext);
+}
+
 #region MIDDLEWARE
 
 if (app.Environment.IsDevelopment())
@@ -446,6 +453,7 @@ app.UseAuthorization();
 
 app.MapHub<NotificationHub>("/notificationHub");
 app.MapHub<ChatHub>("/chatHub");
+app.MapHub<OrderHub>("/orderHub");
 app.MapControllers();
 
 #endregion

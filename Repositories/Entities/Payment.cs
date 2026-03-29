@@ -6,8 +6,6 @@ public partial class Payment
 
     public int AccountId { get; set; }
 
-    public int? PackageId { get; set; }
-
     public decimal Amount { get; set; }
 
     public string? Provider { get; set; }
@@ -16,13 +14,13 @@ public partial class Payment
 
     public string? Status { get; set; }
 
+    public string? ExternalTransactionId { get; set; } // mã giao dịch từ cổng thanh toán
+
     public DateTime? CreatedAt { get; set; }
 
     public DateTime? PaidAt { get; set; }
 
     public virtual Account Account { get; set; } = null!;
-
-    public virtual Package? Package { get; set; }
 
     public virtual Transaction? Transaction { get; set; }
 }

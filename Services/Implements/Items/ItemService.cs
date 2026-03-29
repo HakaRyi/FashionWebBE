@@ -1,29 +1,24 @@
-
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+﻿using Mapster;
+using Microsoft.AspNetCore.Routing.Matching;
 using Pgvector;
+using Repositories.Dto;
+using Repositories.Entities;
 using Repositories.Repos.ItemRespos;
 using Repositories.Repos.WardrobeRepos;
 using Repositories.UnitOfWork;
 using Services.AI;
 using Services.Implements.Auth;
 using Services.Mappers;
+using Services.Request.ItemReq;
+using Services.Request.ItemRequest;
+using Services.Response.ItemResp;
 using Services.Utils;
 using Services.Utils.File;
-﻿using Mapster;
-using Repositories.Dto;
-using Repositories.Entities;
-using Repositories.Repos.ItemRespos;
-using Services.AI;
-using Services.Implements.Auth;
-using System.Text.Json;
-using Services.Request.ItemReq;
-using Services.Response.ItemResp;
-using Services.Request.ItemRequest;
-
 
 namespace Services.Implements.Items
 {
@@ -37,10 +32,9 @@ namespace Services.Implements.Items
         private readonly ICurrentUserService _currentUserService;
         private readonly IUnitOfWork _uow;
         private readonly ICloudStorageService _cloudStorageService;
-        private readonly FashionMapper _mapper;
+        //private readonly FashionMapper _mapper;
         public ItemService(IItemRepository itemRepo,
             IAiService aiService,
-            FashionMapper mapper, 
             IFileService fileService,
             IWardrobeRepository wardrobeRepository, 
             ICurrentUserService currentUserService,
@@ -58,7 +52,6 @@ namespace Services.Implements.Items
             _cloudStorageService = cloudStorageService;
             _geminiService = geminiService;
             _currentUserService = currentUserService;
-            _mapper = mapper;
 
         }
 
@@ -168,7 +161,7 @@ namespace Services.Implements.Items
             var wardrobe = await wardrobeRepository.GetById(accountid);
             var items = await _itemRepo.GetByWardrobeIdAsync(wardrobe.WardrobeId);
 
-            return items.Select(item => _mapper.ToResponse(item));
+            return items.Adapt<List<ItemResponseDto>>();
         }
 
         public async Task UpdateItem(int itemId, UpdateItemRequest request)

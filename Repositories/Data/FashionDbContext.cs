@@ -20,8 +20,6 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
     public virtual DbSet<Account> Accounts { get; set; }
 
-    public virtual DbSet<AccountSubscription> AccountSubscriptions { get; set; }
-
     public virtual DbSet<Comment> Comments { get; set; }
 
     public virtual DbSet<CommentReaction> CommentReactions { get; set; }
@@ -39,8 +37,6 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
     public virtual DbSet<ExpertRating> ExpertRatings { get; set; }
 
     public virtual DbSet<ExpertRequest> ExpertRequests { get; set; }
-
-    public virtual DbSet<Feature> Features { get; set; }
 
     public virtual DbSet<Follow> Follows { get; set; }
 
@@ -67,10 +63,6 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
     public virtual DbSet<Outfit> Outfits { get; set; }
 
     public virtual DbSet<OutfitItem> OutfitItems { get; set; }
-
-    public virtual DbSet<Package> Packages { get; set; }
-
-    public virtual DbSet<PackageFeature> PackageFeatures { get; set; }
 
     public virtual DbSet<Payment> Payments { get; set; }
 
@@ -241,37 +233,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        modelBuilder.Entity<AccountSubscription>(entity =>
-        {
-            entity.HasKey(e => e.Id);
-            entity.ToTable("AccountSubscription", "public");
-
-            entity.Property(e => e.Id).HasColumnName("id");
-            entity.Property(e => e.AccountId).HasColumnName("account_id");
-            entity.Property(e => e.PackageId).HasColumnName("package_id");
-
-            entity.Property(e => e.StartDate)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("start_date");
-
-            entity.Property(e => e.EndDate)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("end_date");
-
-            entity.Property(e => e.IsActive)
-                .HasDefaultValue(true)
-                .HasColumnName("is_active");
-
-            entity.HasOne(d => d.Account)
-                .WithMany(p => p.AccountSubscriptions)
-                .HasForeignKey(d => d.AccountId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            entity.HasOne(d => d.Package)
-                .WithMany(p => p.Subscriptions)
-                .HasForeignKey(d => d.PackageId)
-                .OnDelete(DeleteBehavior.Restrict);
-        });
+        
 
         modelBuilder.Entity<IdentityRole<int>>(entity =>
         {
@@ -810,39 +772,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasConstraintName("Expert_Profile_account_id_fkey");
         });
 
-        modelBuilder.Entity<Feature>(entity =>
-        {
-            entity.HasKey(e => e.FeatureId).HasName("Feature_pkey");
-
-            entity.ToTable("Feature", "public");
-
-            entity.Property(e => e.FeatureId)
-                .HasColumnName("feature_id");
-
-            entity.Property(e => e.FeatureCode)
-                .IsRequired()
-                .HasMaxLength(50)
-                .HasColumnName("feature_code");
-
-            entity.HasIndex(e => e.FeatureCode)
-                .IsUnique()
-                .HasDatabaseName("UQ_Feature_FeatureCode");
-
-            entity.Property(e => e.Name)
-                .IsRequired()
-                .HasMaxLength(100)
-                .HasColumnName("name");
-
-            entity.Property(e => e.Description)
-                .HasMaxLength(500)
-                .HasColumnName("description");
-
-            entity.HasMany(d => d.PackageFeatures)
-                .WithOne(p => p.Feature)
-                .HasForeignKey(p => p.FeatureId)
-                .OnDelete(DeleteBehavior.Cascade)
-                .HasConstraintName("FK_PackageFeature_Feature");
-        });
+       
 
         modelBuilder.Entity<Follow>(entity =>
         {
@@ -1216,7 +1146,14 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.OrderDetailId).HasColumnName("order_detail_id");
             entity.Property(e => e.OrderId).HasColumnName("order_id");
             entity.Property(e => e.OutfitId).HasColumnName("outfit_id");
-            entity.Property(e => e.ProductId).HasColumnName("product_id");
+            entity.Property(e => e.ItemId).HasColumnName("item_id");
+
+            entity.Property(e => e.ItemName)
+                .HasMaxLength(255)
+                .HasColumnName("item_name");
+
+            entity.Property(e => e.ImageUrl)
+                .HasColumnName("image_url");
 
             entity.Property(e => e.Quantity)
                 .IsRequired()
@@ -1239,6 +1176,12 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasForeignKey(d => d.OutfitId)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("OrderDetail_outfit_id_fkey");
+
+            entity.HasOne(d => d.Item)
+                .WithMany()
+                .HasForeignKey(d => d.ItemId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("OrderDetail_item_id_fkey");
         });
 
         modelBuilder.Entity<Outfit>(entity =>
@@ -1292,91 +1235,6 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasConstraintName("OutfitItem_item_id_fkey");
         });
 
-        modelBuilder.Entity<Package>(entity =>
-        {
-            entity.HasKey(e => e.PackageId).HasName("Package_pkey");
-
-            entity.ToTable("Package", "public");
-
-            entity.Property(e => e.PackageId).HasColumnName("package_id");
-            entity.Property(e => e.AccountId).HasColumnName("account_id");
-
-            entity.Property(e => e.Name)
-                .HasMaxLength(100)
-                .HasColumnName("name");
-
-            entity.Property(e => e.Description)
-                .HasMaxLength(500)
-                .HasColumnName("description");
-
-            entity.Property(e => e.Price)
-                .HasColumnType("decimal(18,2)")
-                .HasColumnName("price");
-
-            entity.Property(e => e.DurationDays)
-                .HasColumnName("duration_days");
-
-            entity.Property(e => e.IsActive)
-                .HasDefaultValue(true)
-                .HasColumnName("is_active");
-
-            entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
-                .HasDefaultValueSql("CURRENT_TIMESTAMP")
-                .HasColumnName("created_at");
-
-            entity.HasOne(d => d.Account)
-                .WithMany(p => p.Packages)
-                .HasForeignKey(d => d.AccountId)
-                .OnDelete(DeleteBehavior.ClientSetNull)
-                .HasConstraintName("FK_Package_Account");
-
-            entity.HasMany(e => e.Payments)
-                .WithOne(p => p.Package)
-                .HasForeignKey(p => p.PackageId)
-                .OnDelete(DeleteBehavior.SetNull);
-
-            entity.HasMany(e => e.Subscriptions)
-                .WithOne(s => s.Package)
-                .HasForeignKey(s => s.PackageId)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasMany(e => e.PackageFeatures)
-                .WithOne(pf => pf.Package)
-                .HasForeignKey(pf => pf.PackageId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        modelBuilder.Entity<PackageFeature>(entity =>
-        {
-            entity.HasKey(pf => new { pf.PackageId, pf.FeatureId })
-                  .HasName("PackageFeature_pkey");
-
-            entity.ToTable("PackageFeature", "public");
-
-            entity.Property(pf => pf.PackageId)
-                .HasColumnName("package_id");
-
-            entity.Property(pf => pf.FeatureId)
-                .HasColumnName("feature_id");
-
-            entity.Property(pf => pf.Value)
-                .IsRequired()
-                .HasMaxLength(255)
-                .HasColumnName("value");
-
-            entity.HasOne(pf => pf.Package)
-                .WithMany(p => p.PackageFeatures)
-                .HasForeignKey(pf => pf.PackageId)
-                .OnDelete(DeleteBehavior.Cascade)
-                .HasConstraintName("FK_PackageFeature_Package");
-
-            entity.HasOne(pf => pf.Feature)
-                .WithMany(f => f.PackageFeatures)
-                .HasForeignKey(pf => pf.FeatureId)
-                .OnDelete(DeleteBehavior.Cascade)
-                .HasConstraintName("FK_PackageFeature_Feature");
-        });
 
         modelBuilder.Entity<Payment>(entity =>
         {
@@ -1395,7 +1253,6 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.OrderCode)
                 .HasMaxLength(100)
                 .HasColumnName("order_code");
-            entity.Property(e => e.PackageId).HasColumnName("package_id");
             entity.Property(e => e.PaidAt)
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("paid_at");
@@ -1411,9 +1268,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("Payment_account_id_fkey");
 
-            entity.HasOne(d => d.Package).WithMany(p => p.Payments)
-                .HasForeignKey(d => d.PackageId)
-                .HasConstraintName("Payment_package_id_fkey");
+           
         });
 
         modelBuilder.Entity<Photo>(entity =>
@@ -1880,6 +1735,10 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.TransactionId).HasColumnName("transaction_id");
             entity.Property(e => e.WalletId).HasColumnName("wallet_id");
 
+            entity.Property(e => e.TransactionCode)
+                .HasMaxLength(100)
+                .HasColumnName("transaction_code");
+
             entity.Property(e => e.Amount)
                 .HasColumnType("decimal(18,2)")
                 .HasColumnName("amount");
@@ -2068,7 +1927,8 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasConstraintName("Wardrobe_account_id_fkey");
         });
 
-        modelBuilder.Entity<TryOnHistory>(entity => {
+        modelBuilder.Entity<TryOnHistory>(entity =>
+        {
             entity.ToTable("TryOnHistory", "public");
             entity.HasKey(e => e.TryOnId);
             entity.Property(e => e.TryOnId).HasColumnName("tryon_id");

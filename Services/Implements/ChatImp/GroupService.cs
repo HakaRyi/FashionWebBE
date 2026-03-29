@@ -1,12 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
-using CloudinaryDotNet;
-using Microsoft.EntityFrameworkCore;
-using Repositories.Entities;
+﻿using Repositories.Entities;
 using Repositories.Repos.AccountRepos;
 using Repositories.Repos.GroupRepos;
 using Repositories.UnitOfWork;
@@ -24,9 +16,9 @@ namespace Services.Implements.ChatImp
         private readonly ICurrentUserService _currentUserService;
         private readonly IAccountRepository _accountRepository;
         private readonly ICloudStorageService _storage;
-        public GroupService(IUnitOfWork unitOfWork, 
-            IGroupRepository groupRepository, 
-            ICurrentUserService currentUserService, 
+        public GroupService(IUnitOfWork unitOfWork,
+            IGroupRepository groupRepository,
+            ICurrentUserService currentUserService,
             IAccountRepository accountRepository,
             ICloudStorageService storageService)
         {
@@ -39,7 +31,7 @@ namespace Services.Implements.ChatImp
 
         public async Task CreateGroup(GroupRequest request)
         {
-            var currentUserId = _currentUserService.GetUserId()??0;
+            var currentUserId = _currentUserService.GetUserId() ?? 0;
             if (currentUserId == 0) throw new Exception("User not authenticated");
             var group = new Group
             {
@@ -68,7 +60,7 @@ namespace Services.Implements.ChatImp
         }
         public async Task AddMemberToGroup(int groupId, int userId)
         {
-            var currentUserId = _currentUserService.GetUserId()??0;
+            var currentUserId = _currentUserService.GetUserId() ?? 0;
             if (currentUserId == 0) throw new Exception("User not authenticated");
             //kiem tra th user dang dang nhap da trong group chua, neu chua thi khong the them nguoi khac vao group duoc
             var checkUser1IsInGroup = await _groupRepository.GetAccountFromGroup(groupId, currentUserId);
@@ -93,7 +85,7 @@ namespace Services.Implements.ChatImp
         }
         public async Task KickMemberToGroup(int groupId, int userId)
         {
-            var account = await _groupRepository.GetAccountFromGroup(groupId,userId);
+            var account = await _groupRepository.GetAccountFromGroup(groupId, userId);
             if (account == null)
             {
                 throw new Exception("User not found in group");
@@ -103,9 +95,9 @@ namespace Services.Implements.ChatImp
         }
         public async Task CreateGroup2User(int targetUserId)
         {
-            var currentUserId =  _currentUserService.GetUserId()??0;
+            var currentUserId = _currentUserService.GetUserId() ?? 0;
             if (currentUserId == 0) throw new Exception("User not authenticated");
-            var isExisted = await _groupRepository.CheckIsRoomExist(currentUserId,targetUserId);
+            var isExisted = await _groupRepository.CheckIsRoomExist(currentUserId, targetUserId);
             if (isExisted) throw new Exception("You and this user have already private room");
             var group = new Group
             {
@@ -193,10 +185,11 @@ namespace Services.Implements.ChatImp
 
         public async Task<List<GroupResponse>> GetMyGroupList()
         {
-            var currentUserId = _currentUserService.GetUserId()??0;
+            var currentUserId = _currentUserService.GetUserId() ?? 0;
             if (currentUserId == 0) throw new Exception("User not authenticated");
             var groups = await _groupRepository.GetGroupsByAccountId(currentUserId);
-            return groups.Select(group => {
+            return groups.Select(group =>
+            {
                 var response = new GroupResponse
                 {
                     GroupId = group.GroupId,
@@ -204,7 +197,7 @@ namespace Services.Implements.ChatImp
                     CreatedAt = group.CreatedAt
                 };
 
-                if (group.IsGroup == false) 
+                if (group.IsGroup == false)
                 {
                     var otherUser = group.GroupUsers.FirstOrDefault(gu => gu.AccountId != currentUserId)?.Account;
                     response.Name = otherUser?.UserName ?? "Người dùng hệ thống";
@@ -213,7 +206,7 @@ namespace Services.Implements.ChatImp
                         .OrderByDescending(img => img.CreatedAt)
                         .FirstOrDefault()?.ImageUrl;
                 }
-                else 
+                else
                 {
                     response.Name = group.Name;
                     response.IsOnline = "Online";

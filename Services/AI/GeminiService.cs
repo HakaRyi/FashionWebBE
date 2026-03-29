@@ -1,4 +1,4 @@
-﻿using Repositories.Dto;
+using Repositories.Dto;
 using Repositories.Repos.ItemRespos;
 using System;
 using System.Collections.Generic;
@@ -7,7 +7,6 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace Services.AI
 {

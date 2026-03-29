@@ -1,25 +1,30 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Repositories.Data;
 using Repositories.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Repositories.Repos.EscrowSessionRepos
 {
     public class EscrowSessionRepository : IEscrowSessionRepository
     {
         private readonly FashionDbContext _context;
-        public EscrowSessionRepository(FashionDbContext context) => _context = context;
 
-        public async Task AddAsync(EscrowSession session) => await _context.EscrowSessions.AddAsync(session);
+        public EscrowSessionRepository(FashionDbContext context)
+        {
+            _context = context;
+        }
 
-        public async Task<EscrowSession?> GetByIdAsync(int sessionId) => await _context.EscrowSessions.FindAsync(sessionId);
+        public async Task<EscrowSession> AddAsync(EscrowSession session)
+        {
+            await _context.EscrowSessions.AddAsync(session);
+            return session;
+        }
 
-        public async Task<EscrowSession?> GetByEventIdAsync(int eventId) =>
-            await _context.EscrowSessions.FirstOrDefaultAsync(s => s.EventId == eventId);
+        public async Task<EscrowSession?> GetByIdAsync(int sessionId)
+        {
+            return await _context.EscrowSessions
+                .FirstOrDefaultAsync(x => x.EscrowSessionId == sessionId);
+        }
+
 
         public async Task<EscrowSession?> GetActiveEscrowByEventIdAsync(int eventId)
         {
@@ -27,6 +32,28 @@ namespace Repositories.Repos.EscrowSessionRepos
                 .FirstOrDefaultAsync(e => e.EventId == eventId && e.Status == "Held");
         }
 
-        public void Update(EscrowSession session) => _context.EscrowSessions.Update(session);
+
+        public async Task<EscrowSession?> GetByOrderIdAsync(int orderId)
+        {
+            return await _context.EscrowSessions
+                .FirstOrDefaultAsync(x => x.OrderId == orderId);
+        }
+
+        public async Task<EscrowSession?> GetByEventIdAsync(int eventId)
+        {
+            return await _context.EscrowSessions
+                .FirstOrDefaultAsync(x => x.EventId == eventId);
+        }
+
+        public void Update(EscrowSession session)
+        {
+            _context.EscrowSessions.Update(session);
+        }
+
+        public IQueryable<EscrowSession> Query()
+        {
+            return _context.EscrowSessions.AsQueryable();
+        }
+
     }
 }

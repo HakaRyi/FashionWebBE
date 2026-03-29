@@ -1,14 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Services.Request.PaymentReq
+﻿namespace Services.Request.PaymentReq
 {
     public class ZaloCallbackRequest
     {
-        public string data { get; set; } = string.Empty;
-        public string mac { get; set; } = string.Empty;
+        public string data { get; set; } = null!;
+        public string? mac { get; set; }
+        public int type { get; set; }
     }
 }

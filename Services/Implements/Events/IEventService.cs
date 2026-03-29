@@ -1,6 +1,5 @@
-﻿using Services.Response.DashboardResp;
+using Services.Response.DashboardResp;
 using Services.Response.EventResp;
-
 
 namespace Services.Implements.Events
 {

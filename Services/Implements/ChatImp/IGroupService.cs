@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Services.Request.GroupReq;
+﻿using Services.Request.GroupReq;
 using Services.Response.GroupResp;
 
 namespace Services.Implements.ChatImp
@@ -17,7 +12,7 @@ namespace Services.Implements.ChatImp
         Task CreateGroup2User(int targetUserId);
         Task AddMemberToGroup(int groupId, int userId);
         Task KickMemberToGroup(int groupId, int userId);
-        Task UpdateGroup(int groupId,EditGroupRequest request);
+        Task UpdateGroup(int groupId, EditGroupRequest request);
         Task DeleteGroup(int groupId);
     }
 }

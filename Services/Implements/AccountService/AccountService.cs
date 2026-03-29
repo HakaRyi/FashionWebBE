@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Infrastructure;
 using Repositories.Repos.AccountRepos;
 using Repositories.Repos.ExpertProfileRepos;
 using Repositories.Repos.ImageRepos;
@@ -71,7 +70,7 @@ namespace Services.Implements.AccountService
 
         public async Task<AccountResponse?> GetAccountByMe()
         {
-            var accountId =  _currentUserService.GetUserId();
+            var accountId = _currentUserService.GetUserId();
             if (accountId == null) return null;
             var account = await _userManager.FindByIdAsync(accountId.ToString());
             if (account == null) return null;

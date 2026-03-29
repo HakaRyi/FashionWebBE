@@ -8,6 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+
 namespace Services.Implements.OutfitImp
 {
     public interface IOutfitService

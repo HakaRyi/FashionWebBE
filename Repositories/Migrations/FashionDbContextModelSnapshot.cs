@@ -314,46 +314,6 @@ namespace Repositories.Migrations
                     b.ToTable("Accounts", "public");
                 });
 
-            modelBuilder.Entity("Repositories.Entities.AccountSubscription", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("AccountId")
-                        .HasColumnType("integer")
-                        .HasColumnName("account_id");
-
-                    b.Property<DateTime>("EndDate")
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("end_date");
-
-                    b.Property<bool>("IsActive")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(true)
-                        .HasColumnName("is_active");
-
-                    b.Property<int>("PackageId")
-                        .HasColumnType("integer")
-                        .HasColumnName("package_id");
-
-                    b.Property<DateTime>("StartDate")
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("start_date");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AccountId");
-
-                    b.HasIndex("PackageId");
-
-                    b.ToTable("AccountSubscription", "public");
-                });
-
             modelBuilder.Entity("Repositories.Entities.Comment", b =>
                 {
                     b.Property<int>("CommentId")
@@ -906,42 +866,6 @@ namespace Repositories.Migrations
                     b.ToTable("Expert_File", "public");
                 });
 
-            modelBuilder.Entity("Repositories.Entities.Feature", b =>
-                {
-                    b.Property<int>("FeatureId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("feature_id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("FeatureId"));
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("description");
-
-                    b.Property<string>("FeatureCode")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("feature_code");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("name");
-
-                    b.HasKey("FeatureId")
-                        .HasName("Feature_pkey");
-
-                    b.HasIndex("FeatureCode")
-                        .IsUnique()
-                        .HasDatabaseName("UQ_Feature_FeatureCode");
-
-                    b.ToTable("Feature", "public");
-                });
-
             modelBuilder.Entity("Repositories.Entities.Follow", b =>
                 {
                     b.Property<int>("UserId")
@@ -1487,6 +1411,19 @@ namespace Repositories.Migrations
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("OrderDetailId"));
 
+                    b.Property<string>("ImageUrl")
+                        .HasColumnType("text")
+                        .HasColumnName("image_url");
+
+                    b.Property<int?>("ItemId")
+                        .HasColumnType("integer")
+                        .HasColumnName("item_id");
+
+                    b.Property<string>("ItemName")
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)")
+                        .HasColumnName("item_name");
+
                     b.Property<int>("OrderId")
                         .HasColumnType("integer")
                         .HasColumnName("order_id");
@@ -1494,10 +1431,6 @@ namespace Repositories.Migrations
                     b.Property<int?>("OutfitId")
                         .HasColumnType("integer")
                         .HasColumnName("outfit_id");
-
-                    b.Property<int?>("ProductId")
-                        .HasColumnType("integer")
-                        .HasColumnName("product_id");
 
                     b.Property<int>("Quantity")
                         .ValueGeneratedOnAdd()
@@ -1511,6 +1444,8 @@ namespace Repositories.Migrations
 
                     b.HasKey("OrderDetailId")
                         .HasName("OrderDetail_pkey");
+
+                    b.HasIndex("ItemId");
 
                     b.HasIndex("OrderId");
 
@@ -1579,81 +1514,6 @@ namespace Repositories.Migrations
                     b.ToTable("OutfitItem", "public");
                 });
 
-            modelBuilder.Entity("Repositories.Entities.Package", b =>
-                {
-                    b.Property<int>("PackageId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("package_id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("PackageId"));
-
-                    b.Property<int>("AccountId")
-                        .HasColumnType("integer")
-                        .HasColumnName("account_id");
-
-                    b.Property<DateTime?>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("description");
-
-                    b.Property<int>("DurationDays")
-                        .HasColumnType("integer")
-                        .HasColumnName("duration_days");
-
-                    b.Property<bool?>("IsActive")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("boolean")
-                        .HasDefaultValue(true)
-                        .HasColumnName("is_active");
-
-                    b.Property<string>("Name")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("name");
-
-                    b.Property<decimal>("Price")
-                        .HasColumnType("decimal(18,2)")
-                        .HasColumnName("price");
-
-                    b.HasKey("PackageId")
-                        .HasName("Package_pkey");
-
-                    b.HasIndex("AccountId");
-
-                    b.ToTable("Package", "public");
-                });
-
-            modelBuilder.Entity("Repositories.Entities.PackageFeature", b =>
-                {
-                    b.Property<int>("PackageId")
-                        .HasColumnType("integer")
-                        .HasColumnName("package_id");
-
-                    b.Property<int>("FeatureId")
-                        .HasColumnType("integer")
-                        .HasColumnName("feature_id");
-
-                    b.Property<string>("Value")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("character varying(255)")
-                        .HasColumnName("value");
-
-                    b.HasKey("PackageId", "FeatureId")
-                        .HasName("PackageFeature_pkey");
-
-                    b.HasIndex("FeatureId");
-
-                    b.ToTable("PackageFeature", "public");
-                });
-
             modelBuilder.Entity("Repositories.Entities.Payment", b =>
                 {
                     b.Property<int>("PaymentId")
@@ -1675,14 +1535,13 @@ namespace Repositories.Migrations
                         .HasColumnType("timestamp without time zone")
                         .HasColumnName("created_at");
 
+                    b.Property<string>("ExternalTransactionId")
+                        .HasColumnType("text");
+
                     b.Property<string>("OrderCode")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)")
                         .HasColumnName("order_code");
-
-                    b.Property<int?>("PackageId")
-                        .HasColumnType("integer")
-                        .HasColumnName("package_id");
 
                     b.Property<DateTime?>("PaidAt")
                         .HasColumnType("timestamp without time zone")
@@ -1702,8 +1561,6 @@ namespace Repositories.Migrations
                         .HasName("Payment_pkey");
 
                     b.HasIndex("AccountId");
-
-                    b.HasIndex("PackageId");
 
                     b.ToTable("Payment", "public");
                 });
@@ -2280,16 +2137,25 @@ namespace Repositories.Migrations
                         .HasColumnName("reference_id");
 
                     b.Property<string>("ReferenceType")
+                        .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("reference_type");
 
                     b.Property<string>("Status")
+                        .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("status");
 
+                    b.Property<string>("TransactionCode")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("transaction_code");
+
                     b.Property<string>("Type")
+                        .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("type");
@@ -2451,6 +2317,7 @@ namespace Repositories.Migrations
                         .HasColumnName("balance");
 
                     b.Property<string>("Currency")
+                        .IsRequired()
                         .ValueGeneratedOnAdd()
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)")
@@ -2558,25 +2425,6 @@ namespace Repositories.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-                });
-
-            modelBuilder.Entity("Repositories.Entities.AccountSubscription", b =>
-                {
-                    b.HasOne("Repositories.Entities.Account", "Account")
-                        .WithMany("AccountSubscriptions")
-                        .HasForeignKey("AccountId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Repositories.Entities.Package", "Package")
-                        .WithMany("Subscriptions")
-                        .HasForeignKey("PackageId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Account");
-
-                    b.Navigation("Package");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Comment", b =>
@@ -2931,6 +2779,12 @@ namespace Repositories.Migrations
 
             modelBuilder.Entity("Repositories.Entities.OrderDetail", b =>
                 {
+                    b.HasOne("Repositories.Entities.Item", "Item")
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("OrderDetail_item_id_fkey");
+
                     b.HasOne("Repositories.Entities.Order", "Order")
                         .WithMany("OrderDetails")
                         .HasForeignKey("OrderId")
@@ -2943,6 +2797,8 @@ namespace Repositories.Migrations
                         .HasForeignKey("OutfitId")
                         .OnDelete(DeleteBehavior.SetNull)
                         .HasConstraintName("OrderDetail_outfit_id_fkey");
+
+                    b.Navigation("Item");
 
                     b.Navigation("Order");
 
@@ -2981,38 +2837,6 @@ namespace Repositories.Migrations
                     b.Navigation("Outfit");
                 });
 
-            modelBuilder.Entity("Repositories.Entities.Package", b =>
-                {
-                    b.HasOne("Repositories.Entities.Account", "Account")
-                        .WithMany("Packages")
-                        .HasForeignKey("AccountId")
-                        .IsRequired()
-                        .HasConstraintName("FK_Package_Account");
-
-                    b.Navigation("Account");
-                });
-
-            modelBuilder.Entity("Repositories.Entities.PackageFeature", b =>
-                {
-                    b.HasOne("Repositories.Entities.Feature", "Feature")
-                        .WithMany("PackageFeatures")
-                        .HasForeignKey("FeatureId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("FK_PackageFeature_Feature");
-
-                    b.HasOne("Repositories.Entities.Package", "Package")
-                        .WithMany("PackageFeatures")
-                        .HasForeignKey("PackageId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("FK_PackageFeature_Package");
-
-                    b.Navigation("Feature");
-
-                    b.Navigation("Package");
-                });
-
             modelBuilder.Entity("Repositories.Entities.Payment", b =>
                 {
                     b.HasOne("Repositories.Entities.Account", "Account")
@@ -3021,15 +2845,7 @@ namespace Repositories.Migrations
                         .IsRequired()
                         .HasConstraintName("Payment_account_id_fkey");
 
-                    b.HasOne("Repositories.Entities.Package", "Package")
-                        .WithMany("Payments")
-                        .HasForeignKey("PackageId")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("Payment_package_id_fkey");
-
                     b.Navigation("Account");
-
-                    b.Navigation("Package");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Photo", b =>
@@ -3312,8 +3128,6 @@ namespace Repositories.Migrations
                 {
                     b.Navigation("AccountModels");
 
-                    b.Navigation("AccountSubscriptions");
-
                     b.Navigation("Avatars");
 
                     b.Navigation("Comments");
@@ -3337,8 +3151,6 @@ namespace Repositories.Migrations
                     b.Navigation("Notifications");
 
                     b.Navigation("Outfits");
-
-                    b.Navigation("Packages");
 
                     b.Navigation("Payments");
 
@@ -3397,11 +3209,6 @@ namespace Repositories.Migrations
                     b.Navigation("ReputationHistories");
                 });
 
-            modelBuilder.Entity("Repositories.Entities.Feature", b =>
-                {
-                    b.Navigation("PackageFeatures");
-                });
-
             modelBuilder.Entity("Repositories.Entities.Group", b =>
                 {
                     b.Navigation("GroupUsers");
@@ -3443,15 +3250,6 @@ namespace Repositories.Migrations
             modelBuilder.Entity("Repositories.Entities.Outfit", b =>
                 {
                     b.Navigation("OutfitItems");
-                });
-
-            modelBuilder.Entity("Repositories.Entities.Package", b =>
-                {
-                    b.Navigation("PackageFeatures");
-
-                    b.Navigation("Payments");
-
-                    b.Navigation("Subscriptions");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Payment", b =>

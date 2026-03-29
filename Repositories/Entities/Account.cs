@@ -21,7 +21,7 @@ public partial class Account : IdentityUser<int>
     public int CountFollower { get; set; }
 
     public int CountFollowing { get; set; }
-    public string? IsOnline { get; set; } 
+    public string? IsOnline { get; set; }
 
     public virtual ICollection<Comment> Comments { get; set; } = new List<Comment>();
 
@@ -38,8 +38,6 @@ public partial class Account : IdentityUser<int>
     public virtual ICollection<Notification> Notifications { get; set; } = new List<Notification>();
 
     public virtual ICollection<Outfit> Outfits { get; set; } = new List<Outfit>();
-
-    public virtual ICollection<Package> Packages { get; set; } = new List<Package>();
 
     public virtual ICollection<Payment> Payments { get; set; } = new List<Payment>();
 
@@ -80,6 +78,4 @@ public partial class Account : IdentityUser<int>
     public virtual ICollection<EscrowSession> SentEscrows { get; set; } = new List<EscrowSession>();
 
     public virtual ICollection<EscrowSession> ReceivedEscrows { get; set; } = new List<EscrowSession>();
-
-    public virtual ICollection<AccountSubscription> AccountSubscriptions { get; set; } = new List<AccountSubscription>();
 }

@@ -1,17 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Repositories.Repos.AccountRepos;
-using Repositories.Repos.ChatRepos;
-using Repositories.Repos.GroupRepos;
-using Repositories.UnitOfWork;
-using Services.Implements.Auth;
-
-namespace Services.Response.GroupResp
+﻿namespace Services.Response.GroupResp
 {
-    public class GroupResponse 
+    public class GroupResponse
     {
         public int GroupId { get; set; }
 

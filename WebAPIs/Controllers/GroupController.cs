@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Services.Implements.ChatImp;
 using Services.Request.GroupReq;
@@ -19,7 +18,7 @@ namespace WebAPIs.Controllers
         [Authorize]
         public async Task<IActionResult> GetGroups()
         {
-            var result=await _groupService.GetMyGroupList();
+            var result = await _groupService.GetMyGroupList();
             return Ok(result);
 
         }
@@ -36,9 +35,9 @@ namespace WebAPIs.Controllers
         }
         [HttpPut("update-group/{groupId}")]
         [Authorize]
-        public async Task<IActionResult> UpdateGroup([FromRoute]int groupId,EditGroupRequest request)
+        public async Task<IActionResult> UpdateGroup([FromRoute] int groupId, EditGroupRequest request)
         {
-            await _groupService.UpdateGroup(groupId,request);
+            await _groupService.UpdateGroup(groupId, request);
             return Ok(new
             {
                 message = "update success"
@@ -47,7 +46,7 @@ namespace WebAPIs.Controllers
         }
         [HttpPost("create-1v1-room/{targetUserId}")]
         [Authorize]
-        public async Task<IActionResult> CreateRoom1v1([FromRoute]int targetUserId)
+        public async Task<IActionResult> CreateRoom1v1([FromRoute] int targetUserId)
         {
             await _groupService.CreateGroup2User(targetUserId);
             return Ok(new
@@ -60,7 +59,7 @@ namespace WebAPIs.Controllers
         [Authorize]
         public async Task<IActionResult> AddMember([FromRoute] int targetUserId, int groupId)
         {
-            await _groupService.AddMemberToGroup(groupId,targetUserId);
+            await _groupService.AddMemberToGroup(groupId, targetUserId);
             return Ok(new
             {
                 message = "add success"

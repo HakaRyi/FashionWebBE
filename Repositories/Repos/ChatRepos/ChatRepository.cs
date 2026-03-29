@@ -1,12 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Repositories.Data;
 using Repositories.Entities;
-using Repositories.Repos.ChatRepos;
 
 namespace Repositories.Repos.ChatRepos
 {
@@ -85,8 +79,8 @@ namespace Repositories.Repos.ChatRepos
                 .Include(r => r.AccountReact)
                 .Include(r => r.Message)
                 .Where(r => r.MessageId == messageId)
-                .OrderByDescending(r=>r.MessageId)
+                .OrderByDescending(r => r.MessageId)
                 .ToListAsync();
         }
-    }   
+    }
 }

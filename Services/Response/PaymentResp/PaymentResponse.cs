@@ -1,16 +1,14 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Services.Response.PaymentResp
+﻿namespace Services.Response.PaymentResp
 {
     public class PaymentResponse
     {
+        public int PaymentId { get; set; }
         public string OrderCode { get; set; } = null!;
         public decimal Amount { get; set; }
-        public string Description { get; set; } = null!;
+        public string Provider { get; set; } = null!;
         public string Status { get; set; } = null!;
+        public string Description { get; set; } = null!;
+        public string? PaymentUrl { get; set; }
+        public DateTime CreatedAt { get; set; }
     }
 }
