@@ -23,6 +23,8 @@ namespace Repositories.Dto.Social.Post
         public int CommentCount { get; set; }
 
         public int ShareCount { get; set; }
+        public bool IsEvent { get; set; } 
+        public string? EventName { get; set; }
 
         public bool IsLiked { get; set; }
 

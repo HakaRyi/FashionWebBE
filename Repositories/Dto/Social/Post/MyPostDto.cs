@@ -27,6 +27,8 @@ namespace Repositories.Dto.Social.Post
         public bool IsLiked { get; set; }
 
         public bool IsSaved { get; set; }
+        public bool IsEvent { get; set; }
+        public string? EventName { get; set; }
 
         public DateTime CreatedAt { get; set; }
 

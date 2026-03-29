@@ -18,6 +18,7 @@
         // Thông tin định lượng
         public int ParticipantCount { get; set; }
         public string? CreatorName { get; set; }
+        public string? CreatorAvatarUrl { get; set; }
         public string? ThumbnailUrl { get; set; }
 
         // Cơ cấu giải thưởng (Rút gọn)
@@ -47,8 +48,13 @@
         public decimal AppliedFee { get; set; }
         public DateTime? StartTime { get; set; }
         public DateTime? SubmissionDeadline { get; set; }
+        public string? ThumbnailUrl { get; set; }
         public DateTime? EndTime { get; set; }
         public string? Status { get; set; }
+        public decimal TotalPrizePool { get; set; }
+        public int ParticipantCount { get; set; }
+
+        public bool IsJoined { get; set; }
 
         // Thông tin người tạo
         public int CreatorId { get; set; }
@@ -74,6 +80,7 @@
         public int ExpertId { get; set; }
         public string? FullName { get; set; }
         public string? ExpertiseField { get; set; }
+        public string? AvatarUrl { get; set; }
         public string? Status { get; set; }
     }
 
@@ -103,5 +110,39 @@
         // Chỉ số tương tác
         public int ParticipantCount { get; set; }
         public string? ThumbnailUrl { get; set; }
+    }
+    //BXH
+    public class EventLeaderboardDto
+    {
+        public int Rank { get; set; }
+        public int AccountId { get; set; }
+        public string UserName { get; set; } = null!;
+        public string? AvatarUrl { get; set; }
+        public double FinalScore { get; set; }
+        public int PostId { get; set; }
+    }
+
+    public class MyEventResultDetailDto
+    {
+        public int Rank { get; set; }
+        public double MyScore { get; set; }
+        public string? MyPostImageUrl { get; set; }
+        public List<ExpertReviewDto> ExpertReviews { get; set; } = new();
+        public List<VoterDto> Voters { get; set; } = new();
+    }
+
+    public class ExpertReviewDto
+    {
+        public string ExpertName { get; set; } = null!;
+        public string? ExpertAvatar { get; set; }
+        public double Score { get; set; }
+        public string? Reason { get; set; }
+    }
+
+    public class VoterDto
+    {
+        public string UserName { get; set; } = null!;
+        public string? AvatarUrl { get; set; }
+        public DateTime VotedAt { get; set; }
     }
 }
