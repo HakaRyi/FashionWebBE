@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
-using Repositories.Entities;
+﻿using Repositories.Entities;
 using Repositories.Repos.AccountRepos;
 using Repositories.Repos.ChatRepos;
 using Repositories.Repos.GroupRepos;
@@ -29,7 +23,7 @@ namespace Services.Implements.ChatImp
         private readonly IPinMessageRepository _pinMessageRepository;
         private readonly ICloudStorageService _storage;
         private readonly IRabbitMQProducer _rabbitMQProducer;
-        public ChatService(IUnitOfWork unitOfWork, IChatRepository chatrepo, 
+        public ChatService(IUnitOfWork unitOfWork, IChatRepository chatrepo,
             IGroupRepository groupRepository,
             ICurrentUserService userService,
             IAccountRepository accountRepository,
@@ -56,7 +50,7 @@ namespace Services.Implements.ChatImp
                 var message = await _chatrepo.GetMessageById(messageId);
                 await _chatrepo.DeleteMessage(message);
                 await _unitOfWork.CommitAsync();
-                
+
             }
             catch (Exception ex)
             {
@@ -82,7 +76,7 @@ namespace Services.Implements.ChatImp
                     ReactionType = r.Type
                 }).ToList(),
                 ReplyToMessageId = m.ReplyToMessageId
-             }).ToList();
+            }).ToList();
 
 
         }
@@ -109,9 +103,9 @@ namespace Services.Implements.ChatImp
 
         }
 
-        public async Task SendMessage(int groupId,SendMessageRequest request)
+        public async Task SendMessage(int groupId, SendMessageRequest request)
         {
-            int senderId = _currentUserService.GetUserId()??0;
+            int senderId = _currentUserService.GetUserId() ?? 0;
             if (senderId == 0) throw new Exception("User not authenticated");
             var sender = await _accountRepository.GetAccountById(senderId);
             var group = await _groupRepository.GetGroupById(groupId);
@@ -130,15 +124,15 @@ namespace Services.Implements.ChatImp
                 ReplyToId = request.replyToId
             };
             await _rabbitMQProducer.SendMessage(queueMessage);
-   
+
         }
 
-        public async Task UpdateMessage(int messageId,EditMessageRequest request)
+        public async Task UpdateMessage(int messageId, EditMessageRequest request)
         {
-            int senderId = _currentUserService.GetUserId()??0;
+            int senderId = _currentUserService.GetUserId() ?? 0;
             if (senderId == 0) throw new Exception("User not authenticated");
             var message = await _chatrepo.GetMessageById(messageId);
-            if(message.AccountId!= senderId) throw new Exception("User not authorized to edit this message");
+            if (message.AccountId != senderId) throw new Exception("User not authorized to edit this message");
             message.Content = request.newContent;
             message.SentAt = DateTime.UtcNow;
             await _chatrepo.EditMessage(message);
@@ -146,16 +140,16 @@ namespace Services.Implements.ChatImp
         }
         public async Task DeletePhotoFromMessageId(int messageId)
         {
-            int senderId = _currentUserService.GetUserId()??0;
+            int senderId = _currentUserService.GetUserId() ?? 0;
             if (senderId == 0) throw new Exception("User not authenticated");
             var message = await _chatrepo.GetMessageById(messageId);
-            if(message.AccountId!= senderId) throw new Exception("User not authorized to delete photos from this message");
+            if (message.AccountId != senderId) throw new Exception("User not authorized to delete photos from this message");
             var photo = await _photoRepository.GetPhotoFromMessageId(messageId);
             if (photo != null)
             {
                 foreach (var p in photo)
                 {
-                     await _photoRepository.DeletePhotoAsync(p);
+                    await _photoRepository.DeletePhotoAsync(p);
                 }
                 await _unitOfWork.CommitAsync();
             }
@@ -190,7 +184,7 @@ namespace Services.Implements.ChatImp
         public async Task PinMessage(int messageId, int groupId)
         {
             var userId = _currentUserService.GetUserId() ?? 0;
-            if(userId == 0) throw new Exception("User not authenticated");
+            if (userId == 0) throw new Exception("User not authenticated");
             var pinMessage = new PinnedMessage
             {
                 MessageId = messageId,

@@ -1,6 +1,6 @@
 ﻿namespace Repositories.Entities;
 
-public partial class  Group
+public partial class Group
 {
     public int GroupId { get; set; }
 

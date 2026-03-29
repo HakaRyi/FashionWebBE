@@ -1,6 +1,6 @@
-﻿using Repositories.Repos.TransactionRepos;
+﻿using Repositories.Entities;
+using Repositories.Repos.TransactionRepos;
 using Services.Response.TransactionResp;
-using Repositories.Entities;
 
 namespace Services.Implements.TransactionImp
 {
@@ -15,7 +15,7 @@ namespace Services.Implements.TransactionImp
 
         public async Task<TransactionResponse?> GetById(int id)
         {
-            var t = await _transactionRepository.GetById(id);
+            var t = await _transactionRepository.GetByIdAsync(id);
             if (t == null) return null;
 
             return MapToResponse(t);
@@ -23,7 +23,7 @@ namespace Services.Implements.TransactionImp
 
         public async Task<List<TransactionResponse>> GetTransactions()
         {
-            var transactions = await _transactionRepository.GetTransactions();
+            var transactions = await _transactionRepository.GetTransactionsAsync();
             return transactions.Select(t => MapToResponse(t)).ToList();
         }
 

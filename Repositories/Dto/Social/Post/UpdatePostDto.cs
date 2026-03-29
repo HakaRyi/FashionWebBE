@@ -1,5 +1,4 @@
-﻿using System;
-namespace Repositories.Dto.Social.Post
+﻿namespace Repositories.Dto.Social.Post
 {
     public class UpdatePostDto
     {

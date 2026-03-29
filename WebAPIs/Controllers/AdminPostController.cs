@@ -1,6 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Repositories.Dto.Social.Post;
 using Services.Implements.PostImp;
 using Services.Request.PostReq;
 

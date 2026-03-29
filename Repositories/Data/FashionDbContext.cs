@@ -1167,7 +1167,14 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.OrderDetailId).HasColumnName("order_detail_id");
             entity.Property(e => e.OrderId).HasColumnName("order_id");
             entity.Property(e => e.OutfitId).HasColumnName("outfit_id");
-            entity.Property(e => e.ProductId).HasColumnName("product_id");
+            entity.Property(e => e.ItemId).HasColumnName("item_id");
+
+            entity.Property(e => e.ItemName)
+                .HasMaxLength(255)
+                .HasColumnName("item_name");
+
+            entity.Property(e => e.ImageUrl)
+                .HasColumnName("image_url");
 
             entity.Property(e => e.Quantity)
                 .IsRequired()
@@ -1190,6 +1197,12 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasForeignKey(d => d.OutfitId)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("OrderDetail_outfit_id_fkey");
+
+            entity.HasOne(d => d.Item)
+                .WithMany()
+                .HasForeignKey(d => d.ItemId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("OrderDetail_item_id_fkey");
         });
 
         modelBuilder.Entity<Outfit>(entity =>
@@ -1745,6 +1758,10 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.TransactionId).HasColumnName("transaction_id");
             entity.Property(e => e.WalletId).HasColumnName("wallet_id");
 
+            entity.Property(e => e.TransactionCode)
+                .HasMaxLength(100)
+                .HasColumnName("transaction_code");
+
             entity.Property(e => e.Amount)
                 .HasColumnType("decimal(18,2)")
                 .HasColumnName("amount");
@@ -1933,7 +1950,8 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasConstraintName("Wardrobe_account_id_fkey");
         });
 
-        modelBuilder.Entity<TryOnHistory>(entity => {
+        modelBuilder.Entity<TryOnHistory>(entity =>
+        {
             entity.ToTable("TryOnHistory", "public");
             entity.HasKey(e => e.TryOnId);
             entity.Property(e => e.TryOnId).HasColumnName("tryon_id");

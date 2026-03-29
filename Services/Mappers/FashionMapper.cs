@@ -1,5 +1,4 @@
-﻿using Repositories.Entities;
-using Riok.Mapperly.Abstractions;
+﻿using Riok.Mapperly.Abstractions;
 using Services.Response.ItemResp;
 
 namespace Services.Mappers

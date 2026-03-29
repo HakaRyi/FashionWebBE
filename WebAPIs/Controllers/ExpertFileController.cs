@@ -12,14 +12,14 @@ namespace WebAPIs.Controllers
         {
             this.service = service;
         }
-        
+
         [HttpGet]
         public IEnumerable<string> Get()
         {
             return new string[] { "value1", "value2" };
         }
 
-        
+
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {

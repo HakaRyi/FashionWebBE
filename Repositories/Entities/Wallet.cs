@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Repositories.Entities
+﻿namespace Repositories.Entities
 {
     public partial class Wallet
     {
@@ -12,7 +6,7 @@ namespace Repositories.Entities
         public int AccountId { get; set; }
         public decimal Balance { get; set; }
         public decimal LockedBalance { get; set; }
-        public string? Currency { get; set; }
+        public string Currency { get; set; } = "VND";
         public DateTime UpdatedAt { get; set; }
 
         public virtual Account Account { get; set; } = null!;

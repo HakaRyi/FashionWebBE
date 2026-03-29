@@ -1,14 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Services.Response.OrderResp
+﻿namespace Services.Response.OrderResp
 {
-    using System;
-    using System.Collections.Generic;
-
     public class OrderResponse
     {
         public int OrderId { get; set; }
@@ -26,17 +17,5 @@ namespace Services.Response.OrderResp
         public string? ReceiverPhone { get; set; }
         public DateTime CreatedAt { get; set; }
         public List<OrderDetailResponse> OrderDetails { get; set; } = new List<OrderDetailResponse>();
-    }
-
-    public class OrderDetailResponse
-    {
-        public int OrderDetailId { get; set; }
-        public int OrderId { get; set; }
-        public int? OutfitId { get; set; }
-        public int? ProductId { get; set; }
-        public int Quantity { get; set; }
-        public decimal UnitPrice { get; set; }
-        public string? ItemName { get; set; }
-        public string? ImageUrl { get; set; }
     }
 }

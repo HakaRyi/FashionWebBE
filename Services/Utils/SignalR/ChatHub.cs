@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Security.Claims;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.SignalR;
+﻿using Microsoft.AspNetCore.SignalR;
 using Service.DTO.Request;
 using Services.Implements.Auth;
 using Services.Implements.ChatImp;
@@ -27,8 +21,8 @@ namespace Services.Utils.SignalR
         }
         public override async Task OnConnectedAsync()
         {
-            var userId = _currentUserService.GetUserId()??0;
-            if(userId ==0) throw new HubException("Bạn cần đăng nhập để kết nối.");
+            var userId = _currentUserService.GetUserId() ?? 0;
+            if (userId == 0) throw new HubException("Bạn cần đăng nhập để kết nối.");
             var userGroups = await _groupService.GetMyGroupList();
             foreach (var group in userGroups)
             {
@@ -46,7 +40,7 @@ namespace Services.Utils.SignalR
             await base.OnDisconnectedAsync(ex);
         }
 
-        public async Task SendMessage(int groupId,SendMessageRequest request)
+        public async Task SendMessage(int groupId, SendMessageRequest request)
         {
             var userId = _currentUserService.GetUserId() ?? 0;
             if (userId == 0) throw new HubException("Bạn cần đăng nhập để kết nối.");
@@ -72,7 +66,7 @@ namespace Services.Utils.SignalR
             await Clients.Group(groupId.ToString()).SendAsync("MessageUnPinned", PinMsgId);
         }
 
-        public async Task DeleteMessage(int groupId,int messageId)
+        public async Task DeleteMessage(int groupId, int messageId)
         {
             await _service.DeleteMessage(messageId);
             await Clients.Group(groupId.ToString()).SendAsync("MessageDeleted", messageId);

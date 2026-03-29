@@ -1,9 +1,4 @@
 ﻿using Repositories.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Repositories.Repos.EscrowSessionRepos
 {
@@ -11,7 +6,9 @@ namespace Repositories.Repos.EscrowSessionRepos
     {
         Task<EscrowSession> AddAsync(EscrowSession session);
         Task<EscrowSession?> GetByIdAsync(int sessionId);
+        Task<EscrowSession?> GetByOrderIdAsync(int orderId);
         Task<EscrowSession?> GetByEventIdAsync(int eventId);
         void Update(EscrowSession session);
+        IQueryable<EscrowSession> Query();
     }
 }

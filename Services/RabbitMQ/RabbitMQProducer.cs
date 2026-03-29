@@ -37,7 +37,7 @@ namespace Services.RabbitMQ
             var properties = channel.CreateBasicProperties();
             properties.Persistent = true;
 
-            channel.BasicPublish(exchange: "", routingKey:queueName, basicProperties: properties, body: body);
+            channel.BasicPublish(exchange: "", routingKey: queueName, basicProperties: properties, body: body);
             return Task.CompletedTask;
         }
     }

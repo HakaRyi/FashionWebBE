@@ -48,7 +48,7 @@ namespace WebAPIs.Controllers
             try
             {
                 var accountId = int.Parse(User.FindFirst("AccountId")?.Value!);
-                var result = await _itemService.CreateFashionItemAsync(dto,accountId);
+                var result = await _itemService.CreateFashionItemAsync(dto, accountId);
                 return Ok(result);
             }
             catch (ArgumentException ex)
