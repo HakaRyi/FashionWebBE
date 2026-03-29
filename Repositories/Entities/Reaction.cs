@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace Repositories.Entities;
+﻿namespace Repositories.Entities;
 
 public partial class Reaction
 {
@@ -10,8 +7,6 @@ public partial class Reaction
     public int PostId { get; set; }
 
     public int AccountId { get; set; }
-
-    public string ReactionType { get; set; } = null!;
 
     public DateTime? CreatedAt { get; set; }
 

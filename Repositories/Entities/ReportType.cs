@@ -1,15 +1,13 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace Repositories.Entities;
-
-public partial class ReportType
+﻿namespace Repositories.Entities
 {
-    public int ReportTypeId { get; set; }
+    public partial class ReportType
+    {
+        public int ReportTypeId { get; set; }
 
-    public string TypeName { get; set; } = null!;
+        public string TypeName { get; set; } = null!;
 
-    public string? Description { get; set; }
+        public string? Description { get; set; }
 
-    public virtual ICollection<UserReport> UserReports { get; set; } = new List<UserReport>();
+        public virtual ICollection<UserReport> UserReports { get; set; } = new List<UserReport>();
+    }
 }

@@ -1,21 +1,31 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace Repositories.Entities;
-
-public partial class Comment
+﻿namespace Repositories.Entities
 {
-    public int CommentId { get; set; }
+    public partial class Comment
+    {
+        public int CommentId { get; set; }
 
-    public int PostId { get; set; }
+        public int PostId { get; set; }
 
-    public int AccountId { get; set; }
+        public int AccountId { get; set; }
 
-    public string Content { get; set; } = null!;
+        public int? ParentCommentId { get; set; }
 
-    public DateTime? CreatedAt { get; set; }
+        public string Content { get; set; } = null!;
 
-    public virtual Account Account { get; set; } = null!;
+        public int LikeCount { get; set; } = 0;
 
-    public virtual Post Post { get; set; } = null!;
+        public DateTime CreatedAt { get; set; }
+
+        public DateTime? UpdatedAt { get; set; }
+
+        public virtual Post Post { get; set; } = null!;
+
+        public virtual Account Account { get; set; } = null!;
+
+        public virtual Comment? ParentComment { get; set; }
+
+        public virtual ICollection<Comment> Replies { get; set; } = new List<Comment>();
+
+        public virtual ICollection<CommentReaction> Reactions { get; set; } = new List<CommentReaction>();
+    }
 }

@@ -1,43 +1,73 @@
-﻿using Repositories.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using Microsoft.EntityFrameworkCore;
+using Repositories.Data;
+using Repositories.Entities;
 
 namespace Repositories.Repos.AccountRepos
 {
     public class AccountRepository : IAccountRepository
     {
+        private readonly FashionDbContext _db;
 
-        public Task<Account?> GetAccountByEmail(string email)
+        public AccountRepository(FashionDbContext db)
         {
-            throw new NotImplementedException();
+            _db = db;
         }
 
-        public Task<Account?> GetAccountById(int accountId)
+        public async Task<List<Account>> GetFashionExperts()
         {
-            throw new NotImplementedException();
+            return await _db.Accounts
+                .Include(a => a.ExpertProfile)
+                    .ThenInclude(ep => ep.ExpertRequests)
+                .Include(a => a.Avatars)
+                .Where(a => a.ExpertProfile != null)
+                .ToListAsync();
         }
 
-        public Task<List<Account>> GetAllAccounts()
+        public async Task AddRefreshTokenAsync(RefreshToken refreshToken)
         {
-            throw new NotImplementedException();
+            await _db.RefreshTokens.AddAsync(refreshToken);
+            await _db.SaveChangesAsync();
         }
 
-        public Task<Account?> SignIn(string email, string password)
+        public async Task<RefreshToken?> GetRefreshTokenByAccountIdAsync(int accountId)
         {
-            throw new NotImplementedException();
+            return await _db.RefreshTokens.FirstOrDefaultAsync(x => x.AccountId == accountId);
         }
 
-        public Task<int> SignUp(Account account)
+        public async Task UpdateRefreshTokenAsync(RefreshToken token)
         {
-            throw new NotImplementedException();
+            _db.RefreshTokens.Update(token);
+            await _db.SaveChangesAsync();
         }
 
-        public Task<bool> UpdateAccount(Account account)
+        public async Task<int> UpdateAccount(Account account)
         {
-            throw new NotImplementedException();
+            _db.Accounts.Update(account);
+            return await _db.SaveChangesAsync();
+        }
+
+        public async Task<Account?> GetAccountById(int userId)
+        {
+            return await _db.Accounts
+                .FirstOrDefaultAsync(a => a.Id == userId);
+        }
+
+
+        public async Task<List<Account>> GetAll()
+        {
+            return await _db.Accounts
+                .Include(a => a.Avatars)
+                .Where(p => p.Status != "" && _db.UserRoles.Any(ur => ur.UserId == p.Id && ur.RoleId == 2))
+                .OrderByDescending(a => a.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<RefreshToken?> GetRefreshTokenByTokenAsync(string token)
+        {
+            return await _db.RefreshTokens
+                .Include(rt => rt.Account)
+                .FirstOrDefaultAsync(x => x.Token == token);
+
         }
     }
 }

@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace Repositories.Entities;
+﻿namespace Repositories.Entities;
 
 public partial class Outfit
 {
@@ -16,4 +13,6 @@ public partial class Outfit
     public DateTime? CreatedAt { get; set; }
 
     public virtual Account Account { get; set; } = null!;
+
+    public virtual ICollection<OutfitItem> OutfitItems { get; set; } = new List<OutfitItem>();
 }

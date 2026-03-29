@@ -1,0 +1,17 @@
+﻿using Services.Request.AccountReq;
+using Services.Response.AccountRep;
+
+namespace Services.Implements.AccountService
+{
+    public interface IAccountService
+    {
+        Task<List<AccountResponse>> GetListAccount();
+        Task<List<FashionExpertResponse>> GetFashionExpert();
+        Task<FashionExpertDetail> GetFashionExpertDetail(int id);
+        Task<AccountResponse?> GetAccountById(int accountId);
+        Task<AccountResponse?> GetAccountByMe();
+        Task<string> updateAccountRequest(int accountId, UpdateAccountRequest request);
+        Task<int> CountAccount();
+        Task<int> CountExpert();
+    }
+}
