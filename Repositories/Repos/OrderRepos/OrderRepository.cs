@@ -106,5 +106,11 @@ namespace Repositories.Repos.OrderRepos
                 .OrderByDescending(o => o.UpdatedAt ?? o.CreatedAt)
                 .ToListAsync();
         }
+
+        public Task<Order> UpdateAsync(Order order)
+        {
+            _context.Orders.Update(order);
+            return _context.SaveChangesAsync().ContinueWith(t => order);
+        }
     }
 }

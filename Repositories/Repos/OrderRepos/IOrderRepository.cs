@@ -14,5 +14,6 @@ namespace Repositories.Repos.OrderRepos
         Task<List<Order>> GetCompletedOrdersAsync();
         Task<List<Order>> GetCancelledOrdersAsync();
         Task<List<Order>> GetShippingOrdersAsync();
+        Task<Order> UpdateAsync(Order order);
     }
 }
