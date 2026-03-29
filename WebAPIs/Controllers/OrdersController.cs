@@ -145,5 +145,105 @@ namespace WebAPIs.Controllers
 
             return int.TryParse(claimValue, out userId);
         }
+
+        [AllowAnonymous]
+        [HttpGet("detail/{id}")]
+        public async Task<IActionResult> GetOrderDetailById(int id)
+        {
+            try
+            {
+                var result = await _orderService.GetOrderDetailByIdAsync(id);
+
+                if (result == null)
+                {
+                    return NotFound();
+                }
+
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+        }
+
+        [AllowAnonymous]
+        [HttpPut("shipper/{id}/status")]
+        public async Task<IActionResult> UpdateOrderByShipperStatus(int id, [FromBody] UpdateOrderStatusRequest request)
+        {
+            try
+            {
+                var result = await _orderService.UpdateOrderStatusByShipperAsync(id, request.Status);
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [AllowAnonymous]
+        [HttpGet("paid")]
+        public async Task<IActionResult> GetPaidOrders()
+        {
+            try
+            {
+                var result = await _orderService.GetPaidOrdersAsync();
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [AllowAnonymous]
+        [HttpGet("completed")]
+        public async Task<IActionResult> GetCompletedOrders()
+        {
+            try
+            {
+                var result = await _orderService.GetCompletedOrdersAsync();
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [AllowAnonymous]
+        [HttpGet("cancelled")]
+        public async Task<IActionResult> GetCancelledOrders()
+        {
+            try
+            {
+                var result = await _orderService.GetCancelledOrdersAsync();
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [AllowAnonymous]
+        [HttpGet("shipping")]
+        public async Task<IActionResult> GetShippingOrders()
+        {
+            try
+            {
+                var result = await _orderService.GetShippingOrdersAsync();
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 }
