@@ -62,5 +62,49 @@ namespace Repositories.Repos.OrderRepos
         {
             return _context.Orders.AsQueryable();
         }
+
+        public async Task<List<Order>> GetPaidOrdersAsync()
+        {
+            return await _context.Orders
+                .Include(o => o.Buyer)
+                .Include(o => o.Seller)
+                .Include(o => o.OrderDetails)
+                .Where(o => o.Status == "Processing")
+                .OrderBy(o => o.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<List<Order>> GetCompletedOrdersAsync()
+        {
+            return await _context.Orders
+                .Include(o => o.Buyer)
+                .Include(o => o.Seller)
+                .Include(o => o.OrderDetails)
+                .Where(o => o.Status == "Completed")
+                .OrderByDescending(o => o.UpdatedAt ?? o.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<List<Order>> GetCancelledOrdersAsync()
+        {
+            return await _context.Orders
+                .Include(o => o.Buyer)
+                .Include(o => o.Seller)
+                .Include(o => o.OrderDetails)
+                .Where(o => o.Status == "Cancelled")
+                .OrderByDescending(o => o.UpdatedAt ?? o.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<List<Order>> GetShippingOrdersAsync()
+        {
+            return await _context.Orders
+                .Include(o => o.Buyer)
+                .Include(o => o.Seller)
+                .Include(o => o.OrderDetails)
+                .Where(o => o.Status == "Shipping")
+                .OrderByDescending(o => o.UpdatedAt ?? o.CreatedAt)
+                .ToListAsync();
+        }
     }
 }

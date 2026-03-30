@@ -388,6 +388,12 @@ namespace Services.Implements.OrderImp
             return response;
         }
 
+        public async Task<List<OrderResponse>> GetPaidOrdersAsync()
+        {
+            var orders = await _orderRepo.GetPaidOrdersAsync();
+            return orders.Select(MapToResponse).ToList();
+        }
+
         private OrderResponse MapToResponse(Order order)
         {
             return new OrderResponse
@@ -424,6 +430,49 @@ namespace Services.Implements.OrderImp
         private static string GenerateTransactionCode(string prefix)
         {
             return $"{prefix}-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
+        }
+
+        public async Task<List<OrderResponse>> GetCompletedOrdersAsync()
+        {
+            var orders = await _orderRepo.GetCompletedOrdersAsync();
+            return orders.Select(MapToResponse).ToList();
+        }
+
+        public async Task<List<OrderResponse>> GetCancelledOrdersAsync()
+        {
+            var orders = await _orderRepo.GetCancelledOrdersAsync();
+            return orders.Select(MapToResponse).ToList();
+        }
+
+        public async Task<List<OrderResponse>> GetShippingOrdersAsync()
+        {
+            var orders = await _orderRepo.GetShippingOrdersAsync();
+            return orders.Select(MapToResponse).ToList();
+        }
+
+        public async Task<OrderResponse> GetOrderDetailByIdAsync(int orderId)
+        {
+            var order = await _orderRepo.GetByIdAsync(orderId);
+            if (order == null) throw new Exception("Order not found");
+            return MapToResponse(order);
+        }
+
+        public async Task<OrderResponse> UpdateOrderStatusByShipperAsync(int orderId, string status)
+        {
+            var order = await _orderRepo.GetByIdAsync(orderId);
+
+            if (order == null) throw new Exception("Order not found");
+
+            order.Status = status;
+            await _orderRepo.UpdateAsync(order);
+
+            var response = MapToResponse(order);
+
+            await _hubContext.Clients.Group($"User_{order.BuyerId}").SendAsync("ReceiveNewOrder", response);
+            await _hubContext.Clients.Group($"User_{order.SellerId}").SendAsync("ReceiveNewOrder", response);
+            await _hubContext.Clients.All.SendAsync("ReceiveNewOrder", response);
+
+            return response;
         }
     }
 }

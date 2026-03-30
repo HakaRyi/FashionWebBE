@@ -8,6 +8,11 @@ namespace Repositories.Repos.OrderRepos
         Task<Order?> GetByIdAsync(int orderId);
         Task<List<Order>> GetOrdersBySellerIdAsync(int sellerId);
         Task<List<Order>> GetOrdersByBuyerIdAsync(int buyerId);
+        Task<List<Order>> GetOrdersBySellerIdAsync(int sellerId);
+        Task<List<Order>> GetPaidOrdersAsync();
+        Task<List<Order>> GetCompletedOrdersAsync();
+        Task<List<Order>> GetCancelledOrdersAsync();
+        Task<List<Order>> GetShippingOrdersAsync();
         Order Update(Order order);
         IQueryable<Order> Query();
     }
