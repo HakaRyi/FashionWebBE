@@ -61,7 +61,8 @@ namespace Repositories.Repos.PostRepos
                         .OrderByDescending(a => a.CreatedAt)
                         .Select(a => a.ImageUrl)
                         .FirstOrDefault(),
-
+                    IsEvent = p.EventId.HasValue ? true : false,
+                    EventName = p.EventId.HasValue ? p.Event!.Title : null,
                     Title = p.Title,
                     Content = p.Content,
 
@@ -162,7 +163,8 @@ namespace Repositories.Repos.PostRepos
                         .OrderByDescending(a => a.CreatedAt)
                         .Select(a => a.ImageUrl)
                         .FirstOrDefault(),
-
+                    IsEvent = p.EventId.HasValue ? true : false,
+                    EventName = p.EventId.HasValue ? p.Event!.Title : null,
                     Title = p.Title,
                     Content = p.Content,
 
@@ -474,7 +476,7 @@ namespace Repositories.Repos.PostRepos
                 .Include(p => p.Account)
                 .Include(p => p.Images)
                 .Include(p => p.ExpertRatings)
-                .Where(p => p.EventId == eventId && p.Status == "Active")
+                .Where(p => p.EventId == eventId && p.Status == "Published")
                 .ToListAsync();
         }
 

@@ -21,5 +21,8 @@ namespace Services.Implements.Events
 
         // Common
         Task<EventDetailDto?> GetEventDetailsAsync(int eventId);
+
+        Task<List<EventLeaderboardDto>> GetEventLeaderboardAsync(int eventId);
+        Task<MyEventResultDetailDto?> GetMyResultDetailAsync(int eventId);
     }
 }

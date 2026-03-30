@@ -215,7 +215,8 @@ namespace Services.Implements.Events
             // Đảm bảo PostRepo.GetPostsByEventIdAsync đã .Include(p => p.ExpertRatings)
             var posts = await _postRepo.GetPostsByEventIdAsync(eventId);
 
-            return posts.Select(p => {
+            return posts.Select(p =>
+            {
                 // Tìm bản ghi chấm điểm của Expert hiện tại
                 var myRating = p.ExpertRatings?.FirstOrDefault(r => r.ExpertId == currentExpertId);
 
@@ -329,6 +330,7 @@ namespace Services.Implements.Events
         /// </summary>
         public async Task<EventDetailDto?> GetEventDetailsAsync(int eventId)
         {
+            int currentUserId = _currentUserService.GetUserId() ?? 0;
             var e = await _eventRepo.GetByIdAsync(eventId);
             if (e == null) return null;
 
@@ -342,10 +344,15 @@ namespace Services.Implements.Events
                 AppliedFee = e.AppliedFee,
                 StartTime = e.StartTime,
                 SubmissionDeadline = e.SubmissionDeadline,
+                ThumbnailUrl = e.Images.OrderBy(i => i.ImageId).FirstOrDefault()?.ImageUrl,
                 EndTime = e.EndTime,
                 Status = e.Status,
                 CreatorId = e.CreatorId,
                 CreatorName = e.Creator?.UserName,
+                IsJoined = currentUserId != 0 && e.Posts.Any(p => p.AccountId == currentUserId),
+                ParticipantCount = e.Posts?.Count ?? 0,
+                TotalPrizePool = e.PrizeEvents?.Sum(p => p.RewardAmount) ?? 0,
+
 
                 // Map List Prize
                 Prizes = e.PrizeEvents.Select(p => new PrizeDtoV1
@@ -361,6 +368,9 @@ namespace Services.Implements.Events
                 {
                     ExpertId = ex.ExpertId,
                     FullName = ex.Expert?.UserName,
+                    AvatarUrl = ex.Expert?.Avatars.OrderByDescending(img => img.CreatedAt)
+                      .Select(img => img.ImageUrl)
+                      .FirstOrDefault() ?? null,
                     Status = ex.Status,
                 }).ToList()
             };
@@ -433,6 +443,9 @@ namespace Services.Implements.Events
                 EndTime = e.EndTime,
                 CreatedAt = e.CreatedAt,
                 CreatorName = e.Creator?.UserName,
+                CreatorAvatarUrl = e.Creator?.Avatars.OrderByDescending(img => img.CreatedAt)
+                    .Select(img => img.ImageUrl)
+                    .FirstOrDefault() ?? null,
 
 
                 // 1. Đếm số lượng bài tham gia
@@ -461,5 +474,62 @@ namespace Services.Implements.Events
         }
 
         #endregion
-    }
+
+        public async Task<List<EventLeaderboardDto>> GetEventLeaderboardAsync(int eventId)
+        {
+            var eventDetail = await _eventRepo.GetByIdAsync(eventId);
+            var scores = await _eventRepo.GetLeaderboardAsync(eventId);
+            return scores.Select((s, index) => {
+                int rank = index + 1;
+                var prize = eventDetail?.PrizeEvents?.FirstOrDefault(p => p.Ranked == rank);
+
+                return new EventLeaderboardDto
+                {
+                    Rank = rank,
+                    AccountId = s.Post.AccountId,
+                    UserName = s.Post.Account.UserName ?? "Anonymous",
+                    AvatarUrl = s.Post.Account.Avatars.OrderByDescending(a => a.CreatedAt).FirstOrDefault()?.ImageUrl,
+                    FinalScore = s.FinalScore,
+                    PostId = s.PostId,
+                    RewardAmount = prize?.RewardAmount
+                };
+            }).ToList();
+        }
+
+        public async Task<MyEventResultDetailDto?> GetMyResultDetailAsync(int eventId)
+        {
+            var userId = _currentUserService.GetUserId()??0;
+            var myScore = await _eventRepo.GetUserScoreAsync(eventId, userId);
+            if (myScore == null) return null;
+
+            var leaderboard = await GetEventLeaderboardAsync(eventId);
+            int myRank = leaderboard.FirstOrDefault(x => x.AccountId == userId)?.Rank ?? 0;
+
+            var ratings = await _eventRepo.GetExpertRatingsForPostAsync(myScore.PostId);
+            var reactions = await _eventRepo.GetPostVotersAsync(myScore.PostId);
+
+            // Lấy ảnh bài post của chính mình
+            var post = await _postRepo.GetByIdAsync(myScore.PostId);
+
+            return new MyEventResultDetailDto
+            {
+                Rank = myRank,
+                MyScore = myScore.FinalScore,
+                MyPostImageUrl = post?.Images.FirstOrDefault()?.ImageUrl,
+                ExpertReviews = ratings.Select(r => new ExpertReviewDto
+                {
+                    ExpertName = r.Expert.UserName ?? "Expert",
+                    ExpertAvatar = r.Expert.Avatars.OrderByDescending(a => a.CreatedAt).FirstOrDefault()?.ImageUrl,
+                    Score = r.Score,
+                    Reason = r.Reason
+                }).ToList(),
+                Voters = reactions.Select(re => new VoterDto
+                {
+                    UserName = re.Account.UserName ?? "Voter",
+                    AvatarUrl = re.Account.Avatars.OrderByDescending(a => a.CreatedAt).FirstOrDefault()?.ImageUrl,
+                    VotedAt = re.CreatedAt ?? DateTime.Now
+                }).ToList()
+            };
+        }
+    } 
 }
