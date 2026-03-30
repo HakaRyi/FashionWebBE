@@ -19,7 +19,7 @@ namespace Repositories.Repos.ItemRespos
             SearchIntent intent,
             int currentAccountId,
             SmartRecommendationDto scopeRequest);
-        
+
 
         Task<List<Item>> GetByVectorSimilarityAsync(Vector embedding, int limit = 20);
 

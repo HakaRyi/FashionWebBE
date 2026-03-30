@@ -2,7 +2,7 @@
 using Services.Request.ExpertReq;
 using Services.Response.ExpertResp;
 
-namespace Services.Implements.Experts
+namespace Services.Implements.ExpertsService
 {
     public interface IExpertService
     {

@@ -1,4 +1,4 @@
-﻿namespace Repositories.Dto.Social.Post
+﻿namespace Repositories.Dto.Admin
 {
     public class AdminReviewPostDto
     {

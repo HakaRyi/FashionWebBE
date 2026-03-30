@@ -11,7 +11,7 @@ namespace Services.Implements.Items
         Task<ItemResponseDto> CreateFashionItemAsync(Request.ItemReq.ProductUploadDto dto, int accountId);
         Task<List<ItemResponseDto>> GetRecommendationsAsync(string prompt);
         Task<IEnumerable<ItemResponseDto>> GetMyItemsAsync(int accountid);
-        Task UpdateItem(int itemId,UpdateItemRequest request);
+        Task UpdateItem(int itemId, UpdateItemRequest request);
         Task DeleteItem(int itemId);
         Task<List<ItemResponseDto>> GetSmartRecommendationsAsync(SmartRecommendationRequestDto request);
 

@@ -256,7 +256,7 @@ namespace WebAPIs.Controllers
 
         #endregion
 
-   
+
         [HttpGet("{id}/leaderboard")]
         public async Task<IActionResult> GetLeaderboard(int id)
         {
@@ -288,7 +288,7 @@ namespace WebAPIs.Controllers
     }
 }
 
-    public class RejectEventRequest
-    {
-        public string Reason { get; set; } = null!;
-    }
+public class RejectEventRequest
+{
+    public string Reason { get; set; } = null!;
+}

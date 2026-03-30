@@ -1,6 +1,5 @@
-﻿using Microsoft.AspNetCore.SignalR;
-using Microsoft.AspNetCore.Http.Connections;
-using Abp.AspNetCore.SignalR.Hubs;
+﻿using Microsoft.AspNetCore.Http.Connections;
+using Microsoft.AspNetCore.SignalR;
 
 namespace Services.Utils.SignalR
 {

@@ -1,10 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-﻿using Mapster;
-using Microsoft.AspNetCore.Routing.Matching;
+using Mapster;
 using Pgvector;
 using Repositories.Dto;
 using Repositories.Entities;
@@ -13,7 +7,6 @@ using Repositories.Repos.WardrobeRepos;
 using Repositories.UnitOfWork;
 using Services.AI;
 using Services.Implements.Auth;
-using Services.Mappers;
 using Services.Request.ItemReq;
 using Services.Request.ItemRequest;
 using Services.Response.ItemResp;
@@ -36,12 +29,12 @@ namespace Services.Implements.Items
         public ItemService(IItemRepository itemRepo,
             IAiService aiService,
             IFileService fileService,
-            IWardrobeRepository wardrobeRepository, 
+            IWardrobeRepository wardrobeRepository,
             ICurrentUserService currentUserService,
             IUnitOfWork uow,
             ICloudStorageService cloudStorageService,
             IGeminiService geminiService)
-        
+
         {
             _itemRepo = itemRepo;
             _aiService = aiService;
@@ -75,7 +68,7 @@ namespace Services.Implements.Items
             var wardrobe = await wardrobeRepository.GetById(accountId);
             if (dto.PrimaryImageUrl == null) throw new ArgumentException("File is required");
 
-            Vector vectorObject = await _aiService.GetEmbeddingFromPhotoAsync(dto,dto.PrimaryImageUrl);
+            Vector vectorObject = await _aiService.GetEmbeddingFromPhotoAsync(dto, dto.PrimaryImageUrl);
 
             var newItem = dto.Adapt<Item>();
             newItem.WardrobeId = wardrobe.WardrobeId;
@@ -166,7 +159,7 @@ namespace Services.Implements.Items
 
         public async Task UpdateItem(int itemId, UpdateItemRequest request)
         {
-            var currentUserId = _currentUserService.GetUserId()??0;
+            var currentUserId = _currentUserService.GetUserId() ?? 0;
             if (currentUserId == 0) throw new Exception("user phai dang nhap");
             var item = await _itemRepo.GetByIdAsync(itemId);
             if (item == null) throw new Exception("ko thay item");
@@ -179,11 +172,11 @@ namespace Services.Implements.Items
             item.SleeveLength = request.SleeveLength;
             item.Pattern = request.Pattern;
             item.SubCategory = request.SubCategory;
-            item.Style = request.Style; 
+            item.Style = request.Style;
             item.Fit = request.Fit;
             item.Neckline = request.Neckline;
             item.Status = request.Status;
-            item.IsPublic  = request.IsPublic;
+            item.IsPublic = request.IsPublic;
             item.MainColor = request.MainColor;
             item.Length = request.Length;
             item.Brand = request.Brand;

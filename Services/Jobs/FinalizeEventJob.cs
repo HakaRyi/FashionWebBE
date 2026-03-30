@@ -2,7 +2,6 @@
 using Microsoft.Extensions.Logging;
 using Quartz;
 using Services.Implements.EventAwardingImp;
-using Services.Implements.Events;
 
 namespace Services.Jobs
 {

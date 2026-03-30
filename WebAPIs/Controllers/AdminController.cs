@@ -1,5 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 using Services.Implements.AdminImp;
 using Services.Request.AdminReq;
 
@@ -30,7 +29,7 @@ namespace WebAPIs.Controllers
         [HttpGet("new-created-recently")]
         public async Task<IActionResult> Get3NewestUser()
         {
-            var data = await _dashboardService.Get3NewestUser   ();
+            var data = await _dashboardService.Get3NewestUser();
             return Ok(data);
         }
         [HttpGet("admin-notifications")]
@@ -46,9 +45,9 @@ namespace WebAPIs.Controllers
             return Ok(result);
         }
         [HttpPut("check-event/{eventId}")]
-        public async Task<IActionResult> CheckEvent([FromRoute] int eventId, [FromBody]AdminCheckRequest request)
+        public async Task<IActionResult> CheckEvent([FromRoute] int eventId, [FromBody] AdminCheckRequest request)
         {
-            await _dashboardService.AdminCheckEvent(eventId,request);
+            await _dashboardService.AdminCheckEvent(eventId, request);
             return Ok(new
             {
                 message = "Admin da check"

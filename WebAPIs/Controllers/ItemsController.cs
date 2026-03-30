@@ -3,7 +3,6 @@ using Services.Implements.Items;
 using Services.Request.ItemReq;
 
 using Services.Request.ItemRequest;
-using Services.Request.ItemReq;
 using Services.Response.ItemResp;
 
 namespace WebAPIs.Controllers
@@ -121,9 +120,9 @@ namespace WebAPIs.Controllers
             }
         }
         [HttpPut("update/{itemId}")]
-        public async Task<ActionResult> Update([FromRoute]int itemId,[FromBody] UpdateItemRequest request)
+        public async Task<ActionResult> Update([FromRoute] int itemId, [FromBody] UpdateItemRequest request)
         {
-            await _itemService.UpdateItem(itemId,request);
+            await _itemService.UpdateItem(itemId, request);
             return Ok(new
             {
                 message = "cap nhat thanh cong"

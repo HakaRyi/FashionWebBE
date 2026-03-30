@@ -1,7 +1,6 @@
 ﻿using Mapster;
 using Repositories.Entities;
 using Services.Request.EventReq;
-using Services.Request.ItemReq;
 using Services.Response.EventResp;
 using Services.Response.ExpertResp;
 using Services.Response.ItemResp;

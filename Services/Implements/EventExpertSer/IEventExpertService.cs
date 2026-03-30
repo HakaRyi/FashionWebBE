@@ -1,12 +1,6 @@
-﻿using Repositories.Entities;
-using Services.Request.ExpertRatingReq;
+﻿using Services.Request.ExpertRatingReq;
 using Services.Response.EventResp;
 using Services.Response.PostResp;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Services.Implements.EventExpertSer
 {

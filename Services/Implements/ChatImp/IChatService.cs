@@ -1,4 +1,4 @@
-﻿using Service.DTO.Request;
+﻿using Services.Request.MessageReq;
 using Services.Response.MessageResp;
 using Services.Response.MessReactResp;
 

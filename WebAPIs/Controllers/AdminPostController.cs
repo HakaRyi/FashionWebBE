@@ -1,9 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Repositories.Dto.Social.Post;
 using Services.Implements.AdminImp;
 using Services.Implements.PostImp;
-using Services.Request.AdminReq;
 using Services.Request.PostReq;
 
 namespace WebAPIs.Controllers

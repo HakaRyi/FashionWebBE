@@ -153,10 +153,10 @@ namespace WebAPIs.Controllers
                     <h3>Đang quay lại ứng dụng...</h3>
                 </body>
                 </html>", "text/html");
-                            }
-                            catch
-                            {
-                                return Content(@"
+            }
+            catch
+            {
+                return Content(@"
                 <html>
                 <head>
                     <script>
@@ -167,7 +167,7 @@ namespace WebAPIs.Controllers
                     <h3>Đang quay lại ứng dụng...</h3>
                 </body>
                 </html>", "text/html");
-                            }
+            }
         }
 
         private bool TryGetCurrentUserId(out int userId)

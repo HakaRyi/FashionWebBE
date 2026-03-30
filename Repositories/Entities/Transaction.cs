@@ -9,8 +9,8 @@ public partial class Transaction
     public decimal Amount { get; set; }
     public decimal BalanceBefore { get; set; }
     public decimal BalanceAfter { get; set; }
-    public string Type { get; set; } = null!;           
-    public string ReferenceType { get; set; } = null!;  
+    public string Type { get; set; } = null!;
+    public string ReferenceType { get; set; } = null!;
     public int? ReferenceId { get; set; }
     public string? Description { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.Now;

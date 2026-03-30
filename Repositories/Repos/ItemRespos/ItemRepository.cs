@@ -22,7 +22,7 @@ namespace Repositories.Repos.ItemRespos
         {
             return await _context.Items
                 .Include(i => i.Images)
-                .Include(i=>i.Wardrobe)
+                .Include(i => i.Wardrobe)
                     .ThenInclude(w => w.Account)
                 .FirstOrDefaultAsync(i => i.ItemId == id);
         }

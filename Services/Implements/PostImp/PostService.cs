@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Repositories.Constants;
+using Repositories.Dto.Admin;
 using Repositories.Dto.Common;
 using Repositories.Dto.Social.Post;
 using Repositories.Entities;
@@ -440,7 +441,7 @@ namespace Services.Implements.PostImp
         }
 
 
-        
+
 
         public async Task<List<PostResponse>> GetPostsByEventIdAsync(int eventId)
         {

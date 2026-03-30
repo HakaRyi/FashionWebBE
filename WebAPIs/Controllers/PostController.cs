@@ -1,5 +1,4 @@
-﻿using System.Security.Claims;
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Repositories.Dto.Social.Post;
 using Services.Implements.PostImp;
@@ -158,7 +157,7 @@ namespace WebAPIs.Controllers
             var accountId = User.GetUserId();
             try
             {
-                var result = await _postService.JoinEventByPostAsync(accountId,request);
+                var result = await _postService.JoinEventByPostAsync(accountId, request);
 
                 return Created($"/api/post/{result.PostId}", result);
             }

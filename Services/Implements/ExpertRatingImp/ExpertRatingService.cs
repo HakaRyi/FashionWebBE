@@ -10,7 +10,7 @@ using Services.Request.ExpertRatingReq;
 
 namespace Services.Implements.ExpertRatingImp
 {
-    public class ExpertRatingService: IExpertRatingService
+    public class ExpertRatingService : IExpertRatingService
     {
 
         private readonly IEventRepository _eventRepo;
