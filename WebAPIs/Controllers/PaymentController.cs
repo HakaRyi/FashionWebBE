@@ -143,31 +143,31 @@ namespace WebAPIs.Controllers
                 string status = isSuccess ? "00" : "99";
 
                 return Content($@"
-                <html>
-                <head>
-                    <script>
-                        window.location.href = 'fashionmobile://payment-result?status={status}';
-                    </script>
-                </head>
-                <body>
-                    <h3>Đang quay lại ứng dụng...</h3>
-                </body>
-                </html>", "text/html");
-                            }
-                            catch
-                            {
-                                return Content(@"
-                <html>
-                <head>
-                    <script>
-                        window.location.href = 'fashionmobile://payment-result?status=99';
-                    </script>
-                </head>
-                <body>
-                    <h3>Đang quay lại ứng dụng...</h3>
-                </body>
-                </html>", "text/html");
-                            }
+            <html>
+            <head>
+                <script>
+                    window.location.href = 'fashionmobile://payment-result?status={status}';
+                </script>
+            </head>
+            <body>
+                <h3>Đang quay lại ứng dụng...</h3>
+            </body>
+            </html>", "text/html");
+            }
+            catch
+            {
+                return Content(@"
+            <html>
+            <head>
+                <script>
+                    window.location.href = 'fashionmobile://payment-result?status=99';
+                </script>
+            </head>
+            <body>
+                <h3>Đang quay lại ứng dụng...</h3>
+            </body>
+            </html>", "text/html");
+            }
         }
 
         private bool TryGetCurrentUserId(out int userId)

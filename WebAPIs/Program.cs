@@ -84,6 +84,8 @@ using Services.Utils.SignalR;
 using System.Text;
 using WebAPIs.Endpoints;
 using WebAPIs.Services;
+using Services.Implements.SearchImp;
+using Repositories.Repos.SearchRepos;
 
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -217,7 +219,7 @@ builder.Services.AddScoped<IReputationHistoryRepository, ReputationHistoryReposi
 builder.Services.AddScoped<IScoreboardRepository, ScoreboardRepository>();
 builder.Services.AddScoped<IEventWinnerRepository, EventWinnerRepository>();
 builder.Services.AddScoped<ISystemSettingRepository, SystemSettingRepository>();
-
+builder.Services.AddScoped<ISearchHistoryRepository, SearchHistoryRepository>();
 
 
 
@@ -263,6 +265,8 @@ builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IGroupService, GroupService>();
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<ISearchService, SearchService>();
+
 
 #endregion
 

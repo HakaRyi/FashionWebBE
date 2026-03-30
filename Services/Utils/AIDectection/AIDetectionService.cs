@@ -1,12 +1,15 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Repositories.Repos.AI;
 using System.Net.Http.Json;
+using Services.Response.AiResp;
+using AIFashionDetectReponse = Services.Response.AiResp.AIFashionDetectReponse;
 
 namespace Services.Utils.AIDectection
 {
     public class AIDetectionService : IAIDetectionService
     {
         private readonly string _apiUrl;
+        private readonly string _predictApi;
         private readonly HttpClient _httpClient;
 
         public AIDetectionService(HttpClient httpClient, IConfiguration config)
@@ -14,18 +17,24 @@ namespace Services.Utils.AIDectection
             _httpClient = httpClient;
             _apiUrl = config["AISettings:ApiUrl"]!
                 ?? throw new InvalidOperationException("AISettings:ApiUrl is not configured.");
+            _predictApi = config["AISettings:Fashin_PredictionUrl"]!
+                ?? throw new InvalidOperationException("AISettings:ApiUrl is not configured.");
         }
 
         public async Task<bool> DetectFashionItemsAsync(string imageUrl)
         {
-            Console.WriteLine($"[AIDetection] Sending URL: {imageUrl} to {_apiUrl}");
-
-            var payload = new { image_url = imageUrl };
+            Console.WriteLine($"[AIDetection] Sending URL: {imageUrl} to {_predictApi}");
 
             HttpResponseMessage response;
             try
             {
-                response = await _httpClient.PostAsJsonAsync(_apiUrl, payload);
+                var imageBytes = await _httpClient.GetByteArrayAsync(imageUrl);
+
+                using var content = new MultipartFormDataContent();
+                var imageContent = new ByteArrayContent(imageBytes);
+                content.Add(imageContent, "file", "upload.jpg");
+
+                response = await _httpClient.PostAsync(_predictApi, content);
             }
             catch (Exception ex)
             {
@@ -60,9 +69,9 @@ namespace Services.Utils.AIDectection
                 throw new Exception("AI detection response body is null.");
             }
 
-            Console.WriteLine($"[AIDetection] IsFashion: {result.IsFashion}");
+            Console.WriteLine($"[AIDetection] IsClothing: {result.IsClothing}");
 
-            return result.IsFashion;
+            return result.IsClothing;
         }
     }
 }
