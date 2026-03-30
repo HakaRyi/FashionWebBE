@@ -477,15 +477,22 @@ namespace Services.Implements.Events
 
         public async Task<List<EventLeaderboardDto>> GetEventLeaderboardAsync(int eventId)
         {
+            var eventDetail = await _eventRepo.GetByIdAsync(eventId);
             var scores = await _eventRepo.GetLeaderboardAsync(eventId);
-            return scores.Select((s, index) => new EventLeaderboardDto
-            {
-                Rank = index + 1,
-                AccountId = s.Post.AccountId,
-                UserName = s.Post.Account.UserName ?? "Anonymous",
-                AvatarUrl = s.Post.Account.Avatars.OrderByDescending(a => a.CreatedAt).FirstOrDefault()?.ImageUrl,
-                FinalScore = s.FinalScore,
-                PostId = s.PostId
+            return scores.Select((s, index) => {
+                int rank = index + 1;
+                var prize = eventDetail?.PrizeEvents?.FirstOrDefault(p => p.Ranked == rank);
+
+                return new EventLeaderboardDto
+                {
+                    Rank = rank,
+                    AccountId = s.Post.AccountId,
+                    UserName = s.Post.Account.UserName ?? "Anonymous",
+                    AvatarUrl = s.Post.Account.Avatars.OrderByDescending(a => a.CreatedAt).FirstOrDefault()?.ImageUrl,
+                    FinalScore = s.FinalScore,
+                    PostId = s.PostId,
+                    RewardAmount = prize?.RewardAmount
+                };
             }).ToList();
         }
 

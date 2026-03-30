@@ -120,6 +120,7 @@
         public string? AvatarUrl { get; set; }
         public double FinalScore { get; set; }
         public int PostId { get; set; }
+        public decimal? RewardAmount { get; set; }
     }
 
     public class MyEventResultDetailDto
