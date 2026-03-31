@@ -1,91 +1,138 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Services.Implements.Auth;
 using Services.Implements.Items;
 using Services.Request.ItemReq;
-
 using Services.Request.ItemRequest;
 using Services.Response.ItemResp;
 
 namespace WebAPIs.Controllers
 {
     [ApiController]
-    [Route("api/item")]
+    [Route("api/items")]
     public class ItemsController : ControllerBase
     {
         private readonly IItemService _itemService;
+        private readonly ICurrentUserService _currentUserService;
 
-        public ItemsController(IItemService itemService)
+        public ItemsController(
+            IItemService itemService,
+            ICurrentUserService currentUserService)
         {
             _itemService = itemService;
+            _currentUserService = currentUserService;
         }
 
-        [HttpGet("/api/items")]
+        [HttpGet]
         public async Task<ActionResult<IEnumerable<ItemResponseDto>>> GetAll()
         {
             var results = await _itemService.GetAllItemsAsync();
-            return Ok(results);
-        }
-        [HttpGet("/api/my-items")]
-        public async Task<ActionResult<IEnumerable<ItemResponseDto>>> GetMyItems()
-        {
-            var accountId = int.Parse(User.FindFirst("AccountId")?.Value!);
-            var results = await _itemService.GetMyItemsAsync(accountId);
-            return Ok(results);
+
+            return Ok(new
+            {
+                message = "Lấy danh sách item thành công.",
+                data = results
+            });
         }
 
-        [HttpGet("{id}")]
+        [Authorize]
+        [HttpGet("me")]
+        public async Task<ActionResult<IEnumerable<ItemResponseDto>>> GetMyItems()
+        {
+            var accountId = _currentUserService.GetRequiredUserId();
+            var results = await _itemService.GetMyItemsAsync(accountId);
+
+            return Ok(new
+            {
+                message = "Lấy danh sách item của tôi thành công.",
+                data = results
+            });
+        }
+
+        [HttpGet("{id:int}")]
         public async Task<ActionResult<ItemResponseDto>> GetById(int id)
         {
             var result = await _itemService.GetItemByIdAsync(id);
 
             if (result == null)
-                return NotFound(new { Message = $"Không tìm thấy sản phẩm với ID {id}" });
+            {
+                return NotFound(new
+                {
+                    message = $"Không tìm thấy item với ID = {id}."
+                });
+            }
 
-            return Ok(result);
+            return Ok(new
+            {
+                message = "Lấy chi tiết item thành công.",
+                data = result
+            });
         }
 
-        [HttpPost("upload")]
-        //[Consumes("multipart/form-data")]
+        [Authorize]
+        [HttpPost]
         public async Task<ActionResult<ItemResponseDto>> Create([FromBody] ProductUploadDto dto)
         {
-
             try
             {
-                var accountId = int.Parse(User.FindFirst("AccountId")?.Value!);
+                var accountId = _currentUserService.GetRequiredUserId();
                 var result = await _itemService.CreateFashionItemAsync(dto, accountId);
-                return Ok(result);
+
+                return Ok(new
+                {
+                    message = "Tạo item thành công.",
+                    data = result
+                });
             }
             catch (ArgumentException ex)
             {
-                return BadRequest(ex.Message);
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
             }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
-        }
-
-        //[HttpGet("recommendv1")]
-        //public async Task<ActionResult<List<ItemResponseDto>>> GetRecommendations([FromQuery] string prompt)
-        //{
-        //    if (string.IsNullOrWhiteSpace(prompt))
-        //        return BadRequest("Prompt cannot be empty");
-
-        //    var results = await _itemService.GetRecommendationsAsync(prompt);
-        //    return Ok(results);
-        //}
-
-        /// <summary>
-        /// Gợi ý phối đồ thông minh bằng AI (Gemini + Vector Search)
-        /// Hỗ trợ cả 2 luồng: Prompt tự do và Tìm đồ phối cùng 1 Item cụ thể.
-        /// </summary>
-        [HttpPost("smart-match")]
-        public async Task<ActionResult<List<ItemResponseDto>>> GetSmartRecommendations([FromBody] SmartRecommendationRequestDto request)
-        {
-            if (string.IsNullOrWhiteSpace(request.Prompt) && (!request.ReferenceItemId.HasValue || request.ReferenceItemId <= 0))
+            catch (InvalidOperationException ex)
             {
                 return BadRequest(new
                 {
-                    Message = "Vui lòng nhập câu lệnh (Prompt) hoặc chọn một món đồ (ReferenceItemId) để AI có thể gợi ý."
+                    message = ex.Message
+                });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "Có lỗi hệ thống khi tạo item.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        [Authorize]
+        [HttpPost("smart-match")]
+        public async Task<ActionResult<List<ItemResponseDto>>> GetSmartRecommendations([FromBody] SmartRecommendationRequestDto request)
+        {
+            if (request == null)
+            {
+                return BadRequest(new
+                {
+                    message = "Request không hợp lệ."
+                });
+            }
+
+            if (string.IsNullOrWhiteSpace(request.Prompt) &&
+                (!request.ReferenceItemId.HasValue || request.ReferenceItemId <= 0))
+            {
+                return BadRequest(new
+                {
+                    message = "Vui lòng nhập prompt hoặc chọn ReferenceItemId để AI gợi ý."
                 });
             }
 
@@ -93,50 +140,113 @@ namespace WebAPIs.Controllers
             {
                 var recommendations = await _itemService.GetSmartRecommendationsAsync(request);
 
-                // Nếu không tìm thấy kết quả nào phù hợp
                 if (recommendations == null || recommendations.Count == 0)
                 {
                     return Ok(new
                     {
-                        Message = "Rất tiếc, không tìm thấy món đồ nào phù hợp với yêu cầu của bạn lúc này.",
-                        Data = new List<ItemResponseDto>()
+                        message = "Không tìm thấy món đồ phù hợp với yêu cầu của bạn.",
+                        data = new List<ItemResponseDto>()
                     });
                 }
 
                 return Ok(new
                 {
-                    Message = "Lấy danh sách gợi ý thành công!",
-                    Data = recommendations
+                    message = "Lấy danh sách gợi ý thành công.",
+                    data = recommendations
+                });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new
+                {
+                    message = ex.Message
                 });
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[SmartMatch Error]: {ex.Message}");
+                Console.WriteLine($"[SmartMatch Error] {ex.Message}");
+
                 return StatusCode(500, new
                 {
-                    Message = "Hệ thống AI đang gặp chút sự cố, vui lòng thử lại sau.",
-                    Error = ex.Message
+                    message = "Hệ thống AI đang gặp sự cố, vui lòng thử lại sau.",
+                    error = ex.Message
                 });
             }
         }
-        [HttpPut("update/{itemId}")]
+
+        [Authorize]
+        [HttpPut("{itemId:int}")]
         public async Task<ActionResult> Update([FromRoute] int itemId, [FromBody] UpdateItemRequest request)
         {
-            await _itemService.UpdateItem(itemId, request);
-            return Ok(new
+            try
             {
-                message = "cap nhat thanh cong"
-            });
-        }
-        [HttpDelete("delete/{itemId}")]
-        public async Task<ActionResult> Delete([FromRoute] int itemId)
-        {
-            await _itemService.DeleteItem(itemId);
-            return Ok(new
+                await _itemService.UpdateItemAsync(itemId, request);
+
+                return Ok(new
+                {
+                    message = "Cập nhật item thành công."
+                });
+            }
+            catch (ArgumentNullException ex)
             {
-                message = "xoa thanh cong"
-            });
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "Có lỗi hệ thống khi cập nhật item.",
+                    error = ex.Message
+                });
+            }
         }
 
+        [Authorize]
+        [HttpDelete("{itemId:int}")]
+        public async Task<ActionResult> Delete([FromRoute] int itemId)
+        {
+            try
+            {
+                await _itemService.DeleteItemAsync(itemId);
+
+                return Ok(new
+                {
+                    message = "Xóa item thành công."
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "Có lỗi hệ thống khi xóa item.",
+                    error = ex.Message
+                });
+            }
+        }
     }
 }

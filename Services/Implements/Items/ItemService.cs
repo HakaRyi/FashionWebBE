@@ -4,7 +4,6 @@ using Repositories.Dto;
 using Repositories.Entities;
 using Repositories.Repos.ItemRespos;
 using Repositories.Repos.WardrobeRepos;
-using Repositories.UnitOfWork;
 using Services.AI;
 using Services.Implements.Auth;
 using Services.Request.ItemReq;
@@ -20,53 +19,49 @@ namespace Services.Implements.Items
         private readonly IItemRepository _itemRepo;
         private readonly IAiService _aiService;
         private readonly IGeminiService _geminiService;
-        private readonly IFileService _fileService;
-        private readonly IWardrobeRepository wardrobeRepository;
+        private readonly IWardrobeRepository _wardrobeRepository;
         private readonly ICurrentUserService _currentUserService;
-        private readonly IUnitOfWork _uow;
         private readonly ICloudStorageService _cloudStorageService;
-        //private readonly FashionMapper _mapper;
-        public ItemService(IItemRepository itemRepo,
+
+        public ItemService(
+            IItemRepository itemRepo,
             IAiService aiService,
-            IFileService fileService,
             IWardrobeRepository wardrobeRepository,
             ICurrentUserService currentUserService,
-            IUnitOfWork uow,
             ICloudStorageService cloudStorageService,
             IGeminiService geminiService)
-
         {
             _itemRepo = itemRepo;
             _aiService = aiService;
-            _fileService = fileService;
-            this.wardrobeRepository = wardrobeRepository;
+            _wardrobeRepository = wardrobeRepository;
             _currentUserService = currentUserService;
-            _uow = uow;
             _cloudStorageService = cloudStorageService;
             _geminiService = geminiService;
-            _currentUserService = currentUserService;
-
         }
 
         public async Task<IEnumerable<ItemResponseDto>> GetAllItemsAsync()
         {
             var items = await _itemRepo.GetAllAsync();
-
             return items.Adapt<IEnumerable<ItemResponseDto>>();
         }
 
         public async Task<ItemResponseDto?> GetItemByIdAsync(int id)
         {
             var item = await _itemRepo.GetByIdAsync(id);
-
             return item?.Adapt<ItemResponseDto>();
         }
 
-        public async Task<ItemResponseDto> CreateFashionItemAsync(Request.ItemReq.ProductUploadDto dto, int accountId)
+        public async Task<ItemResponseDto> CreateFashionItemAsync(ProductUploadDto dto, int accountId)
         {
+            if (dto == null)
+                throw new ArgumentNullException(nameof(dto));
 
-            var wardrobe = await wardrobeRepository.GetById(accountId);
-            if (dto.PrimaryImageUrl == null) throw new ArgumentException("File is required");
+            if (string.IsNullOrWhiteSpace(dto.PrimaryImageUrl))
+                throw new ArgumentException("PrimaryImageUrl là bắt buộc.");
+
+            var wardrobe = await _wardrobeRepository.GetByAccountIdAsync(accountId);
+            if (wardrobe == null)
+                throw new InvalidOperationException("Người dùng chưa có tủ đồ.");
 
             Vector vectorObject = await _aiService.GetEmbeddingFromPhotoAsync(dto, dto.PrimaryImageUrl);
 
@@ -74,6 +69,7 @@ namespace Services.Implements.Items
             newItem.WardrobeId = wardrobe.WardrobeId;
             newItem.ItemEmbedding = vectorObject;
             newItem.Status = ItemStatus.Active;
+            newItem.CreatedAt = DateTime.UtcNow;
 
             var imageRecord = new Image
             {
@@ -93,8 +89,10 @@ namespace Services.Implements.Items
 
         public async Task<List<ItemResponseDto>> GetRecommendationsAsync(string prompt)
         {
-            Vector queryVector = await _aiService.GetTextEmbeddingAsync(prompt);
+            if (string.IsNullOrWhiteSpace(prompt))
+                return new List<ItemResponseDto>();
 
+            Vector queryVector = await _aiService.GetTextEmbeddingAsync(prompt);
             var candidates = await _itemRepo.GetByVectorSimilarityAsync(queryVector, limit: 10);
 
             return candidates.Adapt<List<ItemResponseDto>>();
@@ -102,9 +100,16 @@ namespace Services.Implements.Items
 
         public async Task<List<ItemResponseDto>> GetSmartRecommendationsAsync(SmartRecommendationRequestDto request)
         {
+            if (request == null)
+                return new List<ItemResponseDto>();
+
+            if (string.IsNullOrWhiteSpace(request.Prompt) &&
+                (!request.ReferenceItemId.HasValue || request.ReferenceItemId <= 0))
+            {
+                return new List<ItemResponseDto>();
+            }
 
             string taskInstruction = $"Convert user request '{request.Prompt}' into structured metadata.";
-
             var scopeRequestForRepo = request.Adapt<SmartRecommendationDto>();
 
             if (request.ReferenceItemId.HasValue && request.ReferenceItemId.Value > 0)
@@ -114,27 +119,22 @@ namespace Services.Implements.Items
                 if (referenceItem != null)
                 {
                     taskInstruction = $@"
-                The user owns this reference item: A {referenceItem.MainColor} {referenceItem.Category} 
-                (Style: {referenceItem.Style}, Material: {referenceItem.Material}). 
-                User request: '{request.Prompt}'. 
-                
-                TASK: Recommend ONE complementary fashion item that creates list good outfit with the reference item. 
-                CRITICAL: Do NOT output metadata for the reference item. Output metadata ONLY for the RECOMMENDED item 
-                (e.g., if the reference is UpperBody, suggest LowerBody or Footwear).";
+The user owns this reference item: A {referenceItem.MainColor} {referenceItem.Category} 
+(Style: {referenceItem.Style}, Material: {referenceItem.Material}). 
+User request: '{request.Prompt}'.
+
+TASK: Recommend ONE complementary fashion item that creates a good outfit with the reference item.
+CRITICAL: Do NOT output metadata for the reference item. Output metadata ONLY for the recommended item.";
 
                     scopeRequestForRepo.ReferenceCategory = referenceItem.Category;
                 }
             }
 
-            // 1. GỌI AI ĐÚNG 1 LẦN: Lấy Intent và bóc tách cấu trúc
             var intent = await _geminiService.AnalyzePromptAsync(taskInstruction);
-
-            // 2. NHÚNG VECTOR: Lấy CleanPrompt dịch ra Vector
             Vector queryVector = await _aiService.GetTextEmbeddingAsync(intent.CleanPrompt);
 
             int currentAccountId = _currentUserService.GetRequiredUserId();
 
-            // 3. HYBRID SEARCH: Lọc Scope + Lọc Metadata + Sắp xếp Vector (Đẩy hết gánh nặng cho Database)
             var candidates = await _itemRepo.GetHybridRecommendationsAsync(
                 queryVector,
                 intent,
@@ -142,75 +142,87 @@ namespace Services.Implements.Items
                 scopeRequestForRepo
             );
 
-            // Không cần hàm Refine nữa! Dữ liệu trả ra đã cực kỳ chính xác nhờ lọc Metadata (bước 2 ở Repo).
-            if (!candidates.Any()) return new List<ItemResponseDto>();
+            if (!candidates.Any())
+                return new List<ItemResponseDto>();
 
-            // Trả về thẳng cho Client
             return candidates.Adapt<List<ItemResponseDto>>();
         }
 
-        public async Task<IEnumerable<ItemResponseDto>> GetMyItemsAsync(int accountid)
+        public async Task<IEnumerable<ItemResponseDto>> GetMyItemsAsync(int accountId)
         {
-            var wardrobe = await wardrobeRepository.GetById(accountid);
-            var items = await _itemRepo.GetByWardrobeIdAsync(wardrobe.WardrobeId);
+            var wardrobe = await _wardrobeRepository.GetByAccountIdAsync(accountId);
+            if (wardrobe == null)
+                return new List<ItemResponseDto>();
 
+            var items = await _itemRepo.GetByWardrobeIdAsync(wardrobe.WardrobeId);
             return items.Adapt<List<ItemResponseDto>>();
         }
 
-        public async Task UpdateItem(int itemId, UpdateItemRequest request)
+        public async Task UpdateItemAsync(int itemId, UpdateItemRequest request)
         {
-            var currentUserId = _currentUserService.GetUserId() ?? 0;
-            if (currentUserId == 0) throw new Exception("user phai dang nhap");
+            if (request == null)
+                throw new ArgumentNullException(nameof(request));
+
+            int currentUserId = _currentUserService.GetRequiredUserId();
+
             var item = await _itemRepo.GetByIdAsync(itemId);
-            if (item == null) throw new Exception("ko thay item");
-            if (item.Wardrobe.Account.Id != currentUserId) throw new Exception("ban ko co quyen sua do cua nguoi khac");
+            if (item == null)
+                throw new KeyNotFoundException("Không tìm thấy item.");
+
+            if (item.Wardrobe?.Account?.Id != currentUserId)
+                throw new UnauthorizedAccessException("Bạn không có quyền sửa item này.");
+
             item.ItemName = request.ItemName;
             item.ItemType = request.ItemType;
             item.Category = request.Category;
+            item.SubCategory = request.SubCategory;
             item.Description = request.Description;
             item.Gender = request.Gender;
             item.SleeveLength = request.SleeveLength;
             item.Pattern = request.Pattern;
-            item.SubCategory = request.SubCategory;
             item.Style = request.Style;
             item.Fit = request.Fit;
             item.Neckline = request.Neckline;
             item.Status = request.Status;
             item.IsPublic = request.IsPublic;
             item.MainColor = request.MainColor;
+            item.SubColor = request.SubColor;
             item.Length = request.Length;
             item.Brand = request.Brand;
             item.Material = request.Material;
-            item.SubColor = request.SubColor;
+
             _itemRepo.Update(item);
-            await _uow.CommitAsync();
+            await _itemRepo.SaveChangesAsync();
         }
 
-        public async Task DeleteItem(int itemId)
+        public async Task DeleteItemAsync(int itemId)
         {
-            var currentUserId = _currentUserService.GetUserId() ?? 0;
-            if (currentUserId == 0) throw new Exception("user phai dang nhap");
-            var item = await _itemRepo.GetByIdAsync(itemId);
-            if (item == null) throw new Exception("ko thay item");
-            if (item.Wardrobe.Account.Id != currentUserId) throw new Exception("ban ko co quyen xoa do cua nguoi khac");
+            int currentUserId = _currentUserService.GetRequiredUserId();
 
-            try
+            var item = await _itemRepo.GetByIdAsync(itemId);
+            if (item == null)
+                throw new KeyNotFoundException("Không tìm thấy item.");
+
+            if (item.Wardrobe?.Account?.Id != currentUserId)
+                throw new UnauthorizedAccessException("Bạn không có quyền xóa item này.");
+
+            if (item.Images != null && item.Images.Any())
             {
-                if (item.Images != null && item.Images.Any())
+                foreach (var img in item.Images)
                 {
-                    foreach (var img in item.Images)
+                    try
                     {
                         await _cloudStorageService.DeleteImageAsync(img.ImageUrl);
                     }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Không thể xóa ảnh cloud: {ex.Message}");
+                    }
                 }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Lỗi khi xóa ảnh trên Cloudinary: {ex.Message}");
             }
 
             _itemRepo.Delete(item);
-            await _uow.CommitAsync();
+            await _itemRepo.SaveChangesAsync();
         }
     }
 }

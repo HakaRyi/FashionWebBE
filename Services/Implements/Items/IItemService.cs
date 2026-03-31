@@ -8,12 +8,11 @@ namespace Services.Implements.Items
     {
         Task<IEnumerable<ItemResponseDto>> GetAllItemsAsync();
         Task<ItemResponseDto?> GetItemByIdAsync(int id);
-        Task<ItemResponseDto> CreateFashionItemAsync(Request.ItemReq.ProductUploadDto dto, int accountId);
+        Task<ItemResponseDto> CreateFashionItemAsync(ProductUploadDto dto, int accountId);
         Task<List<ItemResponseDto>> GetRecommendationsAsync(string prompt);
-        Task<IEnumerable<ItemResponseDto>> GetMyItemsAsync(int accountid);
-        Task UpdateItem(int itemId, UpdateItemRequest request);
-        Task DeleteItem(int itemId);
         Task<List<ItemResponseDto>> GetSmartRecommendationsAsync(SmartRecommendationRequestDto request);
-
+        Task<IEnumerable<ItemResponseDto>> GetMyItemsAsync(int accountId);
+        Task UpdateItemAsync(int itemId, UpdateItemRequest request);
+        Task DeleteItemAsync(int itemId);
     }
 }
