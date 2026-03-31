@@ -48,6 +48,24 @@ namespace Services.Mappers
                 .Map(dest => dest.TotalPrizePool, src => src.PrizeEvents.Sum(p => p.RewardAmount))
                 .Map(dest => dest.ParticipantCount, src => src.Posts.Select(p => p.AccountId).Distinct().Count())
                 .MaxDepth(3);
+
+            TypeAdapterConfig<Event, EventDetailDto>.NewConfig()
+                .Map(dest => dest.CreatorName, src => src.Creator != null ? src.Creator.UserName : null)
+                .Map(dest => dest.ParticipantCount, src => src.Posts != null ? src.Posts.Count : 0)
+                .Map(dest => dest.TotalPrizePool, src => src.PrizeEvents != null ? src.PrizeEvents.Sum(p => p.RewardAmount) : 0)
+                .Map(dest => dest.ThumbnailUrl, src => src.Images != null ? src.Images.OrderBy(i => i.ImageId).FirstOrDefault().ImageUrl : null)
+                .Map(dest => dest.Prizes, src => src.PrizeEvents != null ? src.PrizeEvents.OrderBy(p => p.Ranked) : null)
+                .Map(dest => dest.Experts, src => src.EventExperts)
+                .Ignore(dest => dest.IsJoined)
+                .Ignore(dest => dest.CanManualStart)
+                .Ignore(dest => dest.AcceptedExpertsCount);
+
+            TypeAdapterConfig<EventExpert, ExpertInEventDto>.NewConfig()
+                .Map(dest => dest.FullName, src => src.Expert != null ? src.Expert.UserName : null)
+                // Lấy ảnh Avatar mới nhất của Expert
+                .Map(dest => dest.AvatarUrl, src => (src.Expert != null && src.Expert.Avatars != null)
+                    ? src.Expert.Avatars.OrderByDescending(img => img.CreatedAt).FirstOrDefault().ImageUrl
+                    : null);
         }
     }
 }
