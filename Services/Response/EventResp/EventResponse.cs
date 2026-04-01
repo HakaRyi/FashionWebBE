@@ -64,6 +64,7 @@
         public int MinExpertsToStart { get; set; }
         public int AcceptedExpertsCount { get; set; }
         public bool CanManualStart { get; set; }
+        public bool CanFinalize { get; set; }
 
         public List<PrizeDtoV1> Prizes { get; set; } = new();
         public List<ExpertInEventDto> Experts { get; set; } = new();

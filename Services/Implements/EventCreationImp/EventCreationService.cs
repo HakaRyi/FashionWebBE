@@ -200,37 +200,63 @@ namespace Services.Implements.EventCreationImp
             var adminWallet = await _walletRepo.GetByAccountIdAsync(adminAccountId);
 
             if (adminWallet == null) throw new Exception("Không tìm thấy ví hệ thống.");
+            if (ev.AppliedFee <= 0) return; // Không có phí thì không cần chạy tiếp
 
-            // Trừ từ tiền đã khóa của Expert
+            // --- 1. XỬ LÝ VÍ EXPERT (NGƯỜI TẠO) ---
+            decimal expertBefore = expertWallet.LockedBalance;
             expertWallet.LockedBalance -= ev.AppliedFee;
 
+            // Log giao dịch chi trả phí cho Expert
+            await _transactionRepo.AddAsync(new Transaction
+            {
+                TransactionCode = $"PAY_FEE_{ev.EventId}_{DateTime.Now.Ticks}",
+                WalletId = expertWallet.WalletId,
+                Amount = -ev.AppliedFee, // Số tiền âm (chi ra)
+                BalanceBefore = expertBefore,
+                BalanceAfter = expertWallet.LockedBalance,
+                Type = "System_Fee_Payment",
+                ReferenceId = ev.EventId,
+                ReferenceType = "Event",
+                Status = "Success",
+                Description = $"Thanh toán phí hệ thống cho sự kiện: {ev.Title}",
+                CreatedAt = DateTime.Now
+            });
+
+            // --- 2. XỬ LÝ VÍ ADMIN (HỆ THỐNG) ---
             decimal adminBefore = adminWallet.Balance;
             adminWallet.Balance += ev.AppliedFee;
-
-            _walletRepo.Update(expertWallet);
-            _walletRepo.Update(adminWallet);
 
             // Log giao dịch doanh thu cho Admin
             await _transactionRepo.AddAsync(new Transaction
             {
+                TransactionCode = $"REV_FEE_{ev.EventId}_{DateTime.Now.Ticks}",
                 WalletId = adminWallet.WalletId,
-                Amount = ev.AppliedFee,
+                Amount = ev.AppliedFee, // Số tiền dương (thu vào)
                 BalanceBefore = adminBefore,
                 BalanceAfter = adminWallet.Balance,
                 Type = "System_Fee_Revenue",
                 ReferenceId = ev.EventId,
                 ReferenceType = "Event",
                 Status = "Success",
+                Description = $"Thu phí hệ thống từ sự kiện: {ev.EventId}",
                 CreatedAt = DateTime.Now
             });
+
+            // Cập nhật trạng thái ví vào DB
+            _walletRepo.Update(expertWallet);
+            _walletRepo.Update(adminWallet);
         }
 
         private async Task ProcessEscrowFromLockedAsync(int eventId, int expertId, decimal amount, Wallet wallet)
         {
-            // Trừ từ tiền đã khóa
+            // 1. Lấy số dư trước khi thay đổi để log giao dịch
+            decimal beforeLocked = wallet.LockedBalance;
+
+            // 2. Trừ từ tiền đã khóa (Tiền thưởng sự kiện)
             wallet.LockedBalance -= amount;
             _walletRepo.Update(wallet);
 
+            // 3. Tạo phiên ký quỹ (Escrow) để giữ tiền thưởng
             await _escrowRepo.AddAsync(new EscrowSession
             {
                 EventId = eventId,
@@ -240,14 +266,24 @@ namespace Services.Implements.EventCreationImp
                 CreatedAt = DateTime.Now
             });
 
+            // 4. Log giao dịch chuyển tiền vào hệ thống ký quỹ
             await _transactionRepo.AddAsync(new Transaction
             {
+                // FIX LỖI: Thêm mã giao dịch duy nhất
+                TransactionCode = $"ESCROW_HOLD_{eventId}_{DateTime.Now.Ticks}",
+
                 WalletId = wallet.WalletId,
-                Amount = -amount,
+                Amount = -amount, // Số tiền âm vì đang chuyển ra khỏi ví (vào Escrow)
+
+                // Bổ sung thông tin đối soát số dư
+                BalanceBefore = beforeLocked,
+                BalanceAfter = wallet.LockedBalance,
+
                 Type = "Escrow_Hold",
                 ReferenceId = eventId,
                 ReferenceType = "Event",
                 Status = "Success",
+                Description = $"Ký quỹ tiền thưởng cho sự kiện ID: {eventId}",
                 CreatedAt = DateTime.Now
             });
         }
@@ -265,7 +301,6 @@ namespace Services.Implements.EventCreationImp
             double maxEarlyHours = await _settingRepo.GetDoubleValueAsync("MaxEarlyStartHours", 24.0);
             DateTime now = DateTime.Now;
 
-            // Chặn bấm Start quá sớm (Áp dụng chung cho cả Auto và Manual)
             if ((ev.StartTime.Value - now).TotalHours > maxEarlyHours)
             {
                 throw new Exception($"Bạn chỉ có thể bắt đầu sớm tối đa {maxEarlyHours} tiếng so với lịch dự kiến.");
@@ -283,7 +318,6 @@ namespace Services.Implements.EventCreationImp
             else
             {
                 // Sự kiện Thủ công: Nếu ngâm quá 12 tiếng kể từ giờ StartTime dự kiến -> Khóa mõm, cấm Start
-                // (Lưu ý: Nếu ý bạn là 12 tiếng từ lúc TẠO event, hãy đổi ev.StartTime.Value thành ev.CreatedAt.Value nhé)
                 if ((now - ev.StartTime.Value).TotalHours > 12)
                 {
                     throw new Exception("Đã quá 12 tiếng kể từ thời gian bắt đầu dự kiến. Bạn không thể kích hoạt sự kiện này được nữa.");
@@ -340,6 +374,89 @@ namespace Services.Implements.EventCreationImp
             {
                 await _unitOfWork.RollbackAsync();
                 throw new Exception($"Lỗi khi bắt đầu sự kiện thủ công: {ex.Message}");
+            }
+        }
+
+        public async Task CancelEventAsync(int eventId)
+        {
+            int currentUserId = _currentUserService.GetRequiredUserId();
+            var ev = await _eventRepo.GetByIdAsync(eventId);
+
+            if (ev == null) throw new Exception("Sự kiện không tồn tại.");
+
+            // 1. Kiểm tra quyền sở hữu
+            if (ev.CreatorId != currentUserId)
+                throw new Exception("Bạn không có quyền hủy sự kiện này.");
+
+            // 2. Kiểm tra trạng thái cho phép hủy
+            // Chỉ được hủy khi đang chờ duyệt (Pending_Review) hoặc đang mời chuyên gia (Inviting)
+            // Một khi đã Active (đang diễn ra), không được phép hủy ngang để bảo vệ thí sinh.
+            var allowedStatuses = new[] { "Pending_Review", "Inviting" };
+            if (!allowedStatuses.Contains(ev.Status))
+                throw new Exception($"Không thể hủy sự kiện ở trạng thái {ev.Status}.");
+
+            using var transaction = await _unitOfWork.BeginTransactionAsync();
+            try
+            {
+                var wallet = await _walletRepo.GetByAccountIdAsync(ev.CreatorId);
+                var prizesData = await _prizeRepo.GetByEventIdAsync(eventId);
+                decimal totalPrizeAmount = prizesData.Sum(p => p.RewardAmount);
+                decimal totalToRefund = totalPrizeAmount + ev.AppliedFee;
+
+                // 3. Thực hiện hoàn tiền (Refund)
+                decimal beforeBalance = wallet.Balance;
+                decimal beforeLocked = wallet.LockedBalance;
+
+                wallet.LockedBalance -= totalToRefund;
+                wallet.Balance += totalToRefund;
+                _walletRepo.Update(wallet);
+
+                // 4. Ghi Log giao dịch hoàn tiền
+                await _transactionRepo.AddAsync(new Transaction
+                {
+                    TransactionCode = $"REFUND_{eventId}_{DateTime.Now.Ticks}",
+                    WalletId = wallet.WalletId,
+                    Amount = totalToRefund,
+                    BalanceBefore = beforeBalance, // Log theo ví chính
+                    BalanceAfter = wallet.Balance,
+                    Type = "Event_Cancel_Refund",
+                    ReferenceId = eventId,
+                    ReferenceType = "Event",
+                    Status = "Success",
+                    Description = $"Hoàn tiền hủy sự kiện: {ev.Title}",
+                    CreatedAt = DateTime.Now
+                });
+
+                // 5. Cập nhật trạng thái sự kiện và chuyên gia
+                ev.Status = "Cancelled_By_Creator";
+                _eventRepo.Update(ev);
+
+                // Chuyển các lời mời chuyên gia sang trạng thái Hủy
+                var experts = await _eventExpertRepo.GetByEventIdAsync(eventId);
+                foreach (var exp in experts)
+                {
+                    if (exp.Status == "Pending" || exp.Status == "Accepted")
+                    {
+                        exp.Status = "Event_Cancelled";
+                        _eventExpertRepo.Update(exp);
+                    }
+                }
+
+                // 6. Hủy bỏ Background Job kích hoạt tự động (nếu có)
+                var scheduler = await _schedulerFactory.GetScheduler();
+                var jobKey = new JobKey($"Job_Activate_{ev.EventId}", "EventGroup");
+                if (await scheduler.CheckExists(jobKey))
+                {
+                    await scheduler.DeleteJob(jobKey);
+                }
+
+                await _unitOfWork.SaveChangesAsync();
+                await _unitOfWork.CommitAsync();
+            }
+            catch (Exception ex)
+            {
+                await _unitOfWork.RollbackAsync();
+                throw new Exception($"Lỗi khi hủy sự kiện: {ex.Message}");
             }
         }
 

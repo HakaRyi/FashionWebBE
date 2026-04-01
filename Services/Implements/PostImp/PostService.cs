@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Mapster;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Hosting;
 using Repositories.Constants;
 using Repositories.Dto.Common;
 using Repositories.Dto.Social.Post;
@@ -8,6 +10,7 @@ using Repositories.Repos.ImageRepos;
 using Repositories.Repos.PostRepos;
 using Repositories.Repos.WalletRepos;
 using Repositories.UnitOfWork;
+using Services.Implements.Auth;
 using Services.RabbitMQ;
 using Services.Request.PostReq;
 using Services.Response.PostResp;
@@ -24,6 +27,7 @@ namespace Services.Implements.PostImp
         private readonly IUnitOfWork _uow;
         private readonly IWalletRepository _walletRepo;
         private readonly IEventRepository _eventRepo;
+        private readonly ICurrentUserService _currentUserService;
 
         private const int MAX_IMAGES = 5;
 
@@ -34,7 +38,8 @@ namespace Services.Implements.PostImp
             IRabbitMQProducer producer,
             IUnitOfWork uow,
             IWalletRepository walletRepository,
-            IEventRepository eventRepository)
+            IEventRepository eventRepository,
+            ICurrentUserService currentUserService)
         {
             _postRepo = postRepo;
             _imageRepo = imageRepo;
@@ -43,6 +48,7 @@ namespace Services.Implements.PostImp
             _uow = uow;
             _walletRepo = walletRepository;
             _eventRepo = eventRepository;
+            _currentUserService = currentUserService;
         }
 
 
@@ -88,7 +94,7 @@ namespace Services.Implements.PostImp
 
             post.Images = images;
 
-            return MapToResponse(post);
+            return post.Adapt<PostResponse>();
         }
 
         public async Task UpdatePostAsync(int postId, int accountId, UpdatePostDto dto)
@@ -195,55 +201,19 @@ namespace Services.Implements.PostImp
         public async Task<List<PostResponse>> GetAllPostAsync()
         {
             var posts = await _postRepo.GetAllPostAsync();
-            return posts.Select(MapToResponse).ToList();
+            return posts.Adapt<List<PostResponse>>();
         }
 
         public async Task<List<PostResponse>> GetAllMyPostAsync(int userId)
         {
             var posts = await _postRepo.GetAllByUserAsync(userId);
-            return posts.Select(MapToResponse).ToList();
+            return posts.Adapt<List<PostResponse>>();
         }
 
         public async Task<PostResponse?> GetPostByIdAsync(int postId)
         {
             var post = await _postRepo.GetByIdAsync(postId);
-            return post == null ? null : MapToResponse(post);
-        }
-
-        private PostResponse MapToResponse(Post post)
-        {
-            return new PostResponse
-            {
-                PostId = post.PostId,
-                AccountId = post.AccountId,
-
-                UserName = post.Account?.UserName,
-                AvatarUrl = post.Account?.Avatars?
-                    .OrderByDescending(a => a.CreatedAt)
-                    .FirstOrDefault()?.ImageUrl,
-
-                EventId = post.EventId,
-                EventName = post.Event?.Title,
-
-                Title = post.Title,
-                Content = post.Content,
-
-                ImageUrls = post.Images?
-                    .OrderBy(i => i.CreatedAt)
-                    .Select(i => i.ImageUrl)
-                    .ToList() ?? new List<string>(),
-
-                IsExpertPost = post.IsExpertPost,
-                Status = post.Status,
-                Score = post.Score,
-
-                LikeCount = post.LikeCount,
-                CommentCount = post.CommentCount,
-                ShareCount = post.ShareCount,
-
-                CreatedAt = post.CreatedAt,
-                UpdatedAt = post.UpdatedAt
-            };
+            return post.Adapt<PostResponse>();
         }
 
         public Task<List<PostFeedDto>> GetFeedAsync(int userId, DateTime? cursor, int pageSize)
@@ -439,13 +409,34 @@ namespace Services.Implements.PostImp
             }
         }
 
-
-        
-
         public async Task<List<PostResponse>> GetPostsByEventIdAsync(int eventId)
         {
             var posts = await _postRepo.GetPostsByEventIdAsync(eventId);
-            return posts.Select(MapToResponse).ToList();
+
+            return posts.Adapt<List<PostResponse>>();
+        }
+
+        public async Task<List<PostResponse>> GetPostsForExpertReviewAsync(int eventId)
+        {
+            int currentExpertId = _currentUserService.GetRequiredUserId();
+
+            var posts = (await _postRepo.GetPostsForReview(eventId, currentExpertId)).ToList();
+
+            var responses = posts.Adapt<List<PostResponse>>();
+
+            for (int i = 0; i < posts.Count; i++)
+            {
+                var rating = posts[i].ExpertRatings?
+                    .FirstOrDefault(r => r.ExpertId == currentExpertId);
+
+                if (rating != null)
+                {
+                    responses[i].Score = rating.Score;
+                    responses[i].Reason = rating.Reason;
+                }
+            }
+
+            return responses;
         }
 
 
@@ -455,7 +446,7 @@ namespace Services.Implements.PostImp
         public async Task<List<PostResponse>> GetAllPendingAdminAsync()
         {
             List<Post> posts = await _postRepo.GetAllPendingAdminPostAsync();
-            return posts.Select(MapToResponse).ToList();
+            return posts.Adapt<List<PostResponse>>();
         }
 
         public async Task<int> UpdatePostStatus(int postId, string status)
@@ -534,7 +525,7 @@ namespace Services.Implements.PostImp
                     ImageUrls = imageUrls
                 });
             }
-            return MapToResponse(post);
+            return post.Adapt<PostResponse>();
         }
 
         public async Task<PostResponse> UpdatePostAsync(int postId, int accountId, UpdatePostRequest request)
@@ -582,7 +573,8 @@ namespace Services.Implements.PostImp
             }
 
             var updatedPost = await _postRepo.GetByIdAsync(postId);
-            return MapToResponse(updatedPost);
+            return updatedPost.Adapt<PostResponse>();
+
         }
 
 
@@ -664,7 +656,8 @@ namespace Services.Implements.PostImp
 
                 await _uow.CommitAsync();
                 post.Images = images;
-                return MapToResponse(post);
+                return post.Adapt<PostResponse>();
+
             }
             catch (Exception)
             {
