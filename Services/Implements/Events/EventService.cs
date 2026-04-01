@@ -331,49 +331,30 @@ namespace Services.Implements.Events
         public async Task<EventDetailDto?> GetEventDetailsAsync(int eventId)
         {
             int currentUserId = _currentUserService.GetUserId() ?? 0;
+
             var e = await _eventRepo.GetByIdAsync(eventId);
             if (e == null) return null;
 
-            return new EventDetailDto
+            var dto = e.Adapt<EventDetailDto>();
+
+            bool isCreator = (currentUserId == e.CreatorId);
+
+            dto.IsJoined = currentUserId != 0 && e.Posts.Any(p => p.AccountId == currentUserId);
+            dto.AcceptedExpertsCount = e.EventExperts?.Count(ex => ex.Status == "Accepted") ?? 0;
+
+            dto.CanManualStart = isCreator &&
+                                 e.Status == "Inviting" &&
+                                 !e.IsAutoStart &&
+                                 dto.AcceptedExpertsCount >= e.MinExpertsToStart;
+
+            if (!isCreator)
             {
-                EventId = e.EventId,
-                Title = e.Title,
-                Description = e.Description,
-                ExpertWeight = e.ExpertWeight,
-                UserWeight = e.UserWeight,
-                AppliedFee = e.AppliedFee,
-                StartTime = e.StartTime,
-                SubmissionDeadline = e.SubmissionDeadline,
-                ThumbnailUrl = e.Images.OrderBy(i => i.ImageId).FirstOrDefault()?.ImageUrl,
-                EndTime = e.EndTime,
-                Status = e.Status,
-                CreatorId = e.CreatorId,
-                CreatorName = e.Creator?.UserName,
-                IsJoined = currentUserId != 0 && e.Posts.Any(p => p.AccountId == currentUserId),
-                ParticipantCount = e.Posts?.Count ?? 0,
-                TotalPrizePool = e.PrizeEvents?.Sum(p => p.RewardAmount) ?? 0,
+                dto.AppliedFee = 0;
 
+                dto.Experts = dto.Experts.Where(ex => ex.Status == "Accepted").ToList();
+            }
 
-                // Map List Prize
-                Prizes = e.PrizeEvents.Select(p => new PrizeDtoV1
-                {
-                    PrizeEventId = p.PrizeEventId,
-                    Ranked = p.Ranked,
-                    RewardAmount = p.RewardAmount,
-                    Status = p.Status
-                }).OrderBy(p => p.Ranked).ToList(),
-
-                // Map List Experts
-                Experts = e.EventExperts.Select(ex => new ExpertInEventDto
-                {
-                    ExpertId = ex.ExpertId,
-                    FullName = ex.Expert?.UserName,
-                    AvatarUrl = ex.Expert?.Avatars.OrderByDescending(img => img.CreatedAt)
-                      .Select(img => img.ImageUrl)
-                      .FirstOrDefault() ?? null,
-                    Status = ex.Status,
-                }).ToList()
-            };
+            return dto;
         }
 
         /// <summary>
