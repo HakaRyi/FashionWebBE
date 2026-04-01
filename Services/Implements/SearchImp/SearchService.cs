@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Identity;
 using Repositories.Entities;
 using Repositories.Repos.AccountRepos;
+using Repositories.Repos.FollowRepos;
 using Repositories.Repos.ImageRepos;
 using Repositories.Repos.SearchRepos;
 using Services.Request.SearchReq;
@@ -17,15 +18,18 @@ namespace Services.Implements.SearchImp
         private readonly UserManager<Account> _userManager;
         private readonly ISearchHistoryRepository _searchHistoryRepository;
         private readonly IImageRepository _imageRepository;
+        private readonly IFollowRepository _followRepository;
 
         public SearchService(
             UserManager<Account> userManager,
             ISearchHistoryRepository searchHistoryRepository,
-            IImageRepository imageRepository)
+            IImageRepository imageRepository,
+            IFollowRepository followRepository)
         {
             _userManager = userManager;
             _searchHistoryRepository = searchHistoryRepository;
             _imageRepository = imageRepository;
+            _followRepository = followRepository;
         }
 
         public async Task<List<UserSuggestionDto>> GetTopInfluencersAsync(string currentUserId)
@@ -37,10 +41,15 @@ namespace Services.Implements.SearchImp
                 .Take(10)
                 .ToList();
 
+            var targetUserIds = topUsers.Select(u => u.Id).ToList();
+            var followingIds = await _followRepository.GetFollowingIdsAsync(int.Parse(currentUserId), targetUserIds);
+
             var suggestions = new List<UserSuggestionDto>();
             foreach (var u in topUsers)
             {
                 var avatar = await _imageRepository.GetNewestAvatarAsync(u.Id);
+                var isFollowing = followingIds.Contains(u.Id);
+
                 suggestions.Add(new UserSuggestionDto
                 {
                     AccountId = u.Id,
@@ -48,7 +57,7 @@ namespace Services.Implements.SearchImp
                     Username = u.UserName,
                     AvatarUrl = avatar?.ImageUrl ?? string.Empty,
                     FollowerCount = u.CountFollower,
-                    IsFollowing = false
+                    IsFollowing = isFollowing
                 });
             }
 
@@ -106,10 +115,15 @@ namespace Services.Implements.SearchImp
                 .Take(20)
                 .ToList();
 
+            var targetUserIds = searchResults.Select(u => u.Id).ToList();
+            var followingIds = await _followRepository.GetFollowingIdsAsync(currentUserId, targetUserIds);
+
             var suggestions = new List<UserSuggestionDto>();
             foreach (var u in searchResults)
             {
                 var avatar = await _imageRepository.GetNewestAvatarAsync(u.Id);
+                var isFollowing = followingIds.Contains(u.Id);
+
                 suggestions.Add(new UserSuggestionDto
                 {
                     AccountId = u.Id,
@@ -117,7 +131,7 @@ namespace Services.Implements.SearchImp
                     Username = u.UserName,
                     AvatarUrl = avatar?.ImageUrl ?? string.Empty,
                     FollowerCount = u.CountFollower,
-                    IsFollowing = false
+                    IsFollowing = isFollowing
                 });
             }
 
