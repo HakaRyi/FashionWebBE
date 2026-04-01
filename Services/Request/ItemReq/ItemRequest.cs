@@ -29,6 +29,7 @@ namespace Services.Request.ItemReq
         public string? Gender { get; set; }
 
         public string? MainColor { get; set; }
+        public string? Size { get; set; }
 
         public string? SubColor { get; set; }
 

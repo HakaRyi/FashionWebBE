@@ -181,6 +181,7 @@ namespace Services.Implements.Items
             item.SubCategory = request.SubCategory;
             item.Style = request.Style; 
             item.Fit = request.Fit;
+            item.Size = request.Size;
             item.Neckline = request.Neckline;
             item.Status = request.Status;
             item.IsPublic  = request.IsPublic;

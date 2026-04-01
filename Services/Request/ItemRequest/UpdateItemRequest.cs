@@ -23,6 +23,7 @@ namespace Services.Request.ItemRequest
         public string? Style { get; set; }
 
         public string? Gender { get; set; }
+        public string? Size { get; set; }
 
         public string? MainColor { get; set; }
 
