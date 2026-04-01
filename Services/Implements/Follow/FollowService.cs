@@ -1,5 +1,6 @@
 ﻿using Repositories.Repos.AccountRepos;
 using Repositories.Repos.FollowRepos;
+using Repositories.UnitOfWork;
 using Services.Response.FollowResp;
 
 namespace Services.Implements.Follow
@@ -8,10 +9,15 @@ namespace Services.Implements.Follow
     {
         private readonly IFollowRepository _followRepository;
         private readonly IAccountRepository _accountRepository;
-        public FollowService(IFollowRepository followRepository, IAccountRepository accountRepository)
+        private readonly IUnitOfWork _unitOfWork;
+        public FollowService(IFollowRepository followRepository
+            , IAccountRepository accountRepository
+            , IUnitOfWork unitOfWork
+            )
         {
             _followRepository = followRepository;
             _accountRepository = accountRepository;
+            _unitOfWork = unitOfWork;
         }
 
         public async Task<int> CountMyFollowers(int userId)
@@ -26,27 +32,40 @@ namespace Services.Implements.Follow
             return follows.Count;
         }
 
-        public async Task<bool> FollowUserAsync(int userId, int followerId)
+        public async Task<bool> FollowUserAsync(int currentUserId, int targetUserId)
         {
-            var follow = new Repositories.Entities.Follow
+            if (currentUserId == targetUserId) return false;
+
+            await _unitOfWork.BeginTransactionAsync();
+            try
             {
-                UserId = followerId,
-                FollowerId = userId,
-                CreatedAt = DateTime.UtcNow
-            };
-            var account = await _accountRepository.GetAccountById(userId);
-            var follower = await _accountRepository.GetAccountById(followerId);
-            account.CountFollowing += 1;
-            follower.CountFollower += 1;
-            var updateCountFollowing = await _accountRepository.UpdateAccount(account);
-            var updateCountFollower = await _accountRepository.UpdateAccount(follower);
-            var result = await _followRepository.FollowUserAsync(follow);
-            if (result > 0 && updateCountFollowing > 0 && updateCountFollower > 0)
-            {
+                var follow = new Repositories.Entities.Follow
+                {
+                    UserId = targetUserId,
+                    FollowerId = currentUserId,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                var currentUserAccount = await _accountRepository.GetAccountById(currentUserId);
+                var targetUserAccount = await _accountRepository.GetAccountById(targetUserId);
+
+                if (currentUserAccount == null || targetUserAccount == null) return false;
+
+                currentUserAccount.CountFollowing += 1;
+                targetUserAccount.CountFollower += 1;
+
+                await _accountRepository.UpdateAccount(currentUserAccount);
+                await _accountRepository.UpdateAccount(targetUserAccount);
+
+                await _followRepository.FollowUserAsync(follow);
+
+                await _unitOfWork.CommitAsync();
+
                 return true;
             }
-            else
+            catch (Exception)
             {
+                await _unitOfWork.RollbackAsync();
                 return false;
             }
         }
@@ -155,21 +174,32 @@ namespace Services.Implements.Follow
             }
         }
 
-        public async Task<bool> UnfollowUserAsync(int userId, int followerId)
+        public async Task<bool> UnfollowUserAsync(int currentUserId, int targetUserId)
         {
-            var result = await _followRepository.UnfollowUserAsync(userId, followerId);
-            var account = await _accountRepository.GetAccountById(userId);
-            var follower = await _accountRepository.GetAccountById(followerId);
-            account.CountFollowing -= 1;
-            follower.CountFollower -= 1;
-            var updateCountFollowing = await _accountRepository.UpdateAccount(account);
-            var updateCountFollower = await _accountRepository.UpdateAccount(follower);
-            if (result > 0 && updateCountFollowing > 0 && updateCountFollower > 0)
+            if (currentUserId == targetUserId) return false;
+
+            await _unitOfWork.BeginTransactionAsync();
+            try
             {
+                var currentUserAccount = await _accountRepository.GetAccountById(currentUserId);
+                var targetUserAccount = await _accountRepository.GetAccountById(targetUserId);
+
+                if (currentUserAccount == null || targetUserAccount == null) return false;
+
+                currentUserAccount.CountFollowing = Math.Max(0, currentUserAccount.CountFollowing - 1);
+                targetUserAccount.CountFollower = Math.Max(0, targetUserAccount.CountFollower - 1);
+
+                await _accountRepository.UpdateAccount(currentUserAccount);
+                await _accountRepository.UpdateAccount(targetUserAccount);
+                await _followRepository.UnfollowUserAsync(targetUserId, currentUserId);
+
+                await _unitOfWork.CommitAsync();
+
                 return true;
             }
-            else
+            catch (Exception)
             {
+                await _unitOfWork.RollbackAsync();
                 return false;
             }
         }
