@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Repositories.Constants;
 using Repositories.Data;
+using Repositories.Dto.Admin;
 using Repositories.Dto.Common;
 using Repositories.Dto.Social.Post;
 using Repositories.Entities;
@@ -509,7 +510,5 @@ namespace Repositories.Repos.PostRepos
                 .Where(p => p.EventId == eventId && p.Scoreboard != null)
                 .ToListAsync();
         }
-
-
     }
 }

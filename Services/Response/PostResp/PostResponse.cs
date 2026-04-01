@@ -18,9 +18,12 @@
         public int? LikeCount { get; set; }
         public int? CommentCount { get; set; }
         public int? ShareCount { get; set; }
+        public bool IsLiked { get; set; }
+        public bool IsSaved { get; set; }
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
     }
+
     public class PostReviewDto
     {
         public int PostId { get; set; }

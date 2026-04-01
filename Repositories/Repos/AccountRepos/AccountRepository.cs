@@ -52,7 +52,6 @@ namespace Repositories.Repos.AccountRepos
                 .FirstOrDefaultAsync(a => a.Id == userId);
         }
 
-
         public async Task<List<Account>> GetAll()
         {
             return await _db.Accounts
@@ -67,7 +66,6 @@ namespace Repositories.Repos.AccountRepos
             return await _db.RefreshTokens
                 .Include(rt => rt.Account)
                 .FirstOrDefaultAsync(x => x.Token == token);
-
         }
     }
 }

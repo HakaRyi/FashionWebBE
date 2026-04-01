@@ -12,11 +12,11 @@ namespace Repositories.Repos.Events
         public async Task<Event?> GetByIdAsync(int id)
             => await _db.Events
                 .Include(e => e.Creator)
-                .Include(e=>e.Images)
+                .Include(e => e.Images)
                 .Include(e => e.Posts)
                 .Include(e => e.PrizeEvents)
                 .Include(e => e.EventExperts)
-                    .ThenInclude(ee => ee.Expert).ThenInclude(ex=>ex.Avatars)
+                    .ThenInclude(ee => ee.Expert).ThenInclude(ex => ex.Avatars)
                 .FirstOrDefaultAsync(e => e.EventId == id);
 
         public async Task<IEnumerable<Event>> GetAllByCreatorIdAsync(int creatorId)

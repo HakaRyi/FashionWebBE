@@ -14,24 +14,36 @@ namespace WebAPIs.Services
 
         public int? GetUserId()
         {
-            var userId = _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
-            return int.TryParse(userId, out var id) ? id : null;
+            var user = _httpContextAccessor.HttpContext?.User;
+            if (user == null) return null;
+
+            var rawUserId =
+                user.FindFirstValue(ClaimTypes.NameIdentifier) ??
+                user.FindFirstValue("AccountId") ??
+                user.FindFirstValue("Id") ??
+                user.FindFirstValue("sub");
+
+            return int.TryParse(rawUserId, out var id) ? id : null;
         }
 
         public int GetRequiredUserId()
         {
             var id = GetUserId();
             if (!id.HasValue)
-            {
                 throw new UnauthorizedAccessException("Phiên đăng nhập đã hết hạn hoặc không hợp lệ.");
-            }
+
             return id.Value;
         }
 
-        public string? GetEmail() =>
-            _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.Email);
+        public string? GetEmail()
+        {
+            var user = _httpContextAccessor.HttpContext?.User;
+            return user?.FindFirstValue(ClaimTypes.Email) ?? user?.FindFirstValue("email");
+        }
 
-        public bool IsAuthenticated() =>
-            _httpContextAccessor.HttpContext?.User?.Identity?.IsAuthenticated ?? false;
+        public bool IsAuthenticated()
+        {
+            return _httpContextAccessor.HttpContext?.User?.Identity?.IsAuthenticated ?? false;
+        }
     }
 }

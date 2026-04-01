@@ -1,8 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Service.DTO.Request;
 using Services.Implements.AccountService;
 using Services.Implements.ChatImp;
+using Services.Request.MessageReq;
 
 namespace WebAPIs.Controllers
 {

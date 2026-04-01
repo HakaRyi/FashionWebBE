@@ -3,9 +3,8 @@ using Pgvector;
 using Pgvector.EntityFrameworkCore;
 using Repositories.Data;
 using Repositories.Dto;
+using Repositories.Dto.Wardrobe;
 using Repositories.Entities;
-
-
 
 namespace Repositories.Repos.ItemRespos
 {
@@ -21,15 +20,25 @@ namespace Repositories.Repos.ItemRespos
         public async Task<Item?> GetByIdAsync(int id)
         {
             return await _context.Items
+                .AsNoTracking()
                 .Include(i => i.Images)
-                .Include(i=>i.Wardrobe)
+                .Include(i => i.Wardrobe)
                     .ThenInclude(w => w.Account)
+                .FirstOrDefaultAsync(i => i.ItemId == id);
+        }
+
+        public async Task<Item?> GetByIdForUpdateAsync(int id)
+        {
+            return await _context.Items
+                .Include(i => i.Images)
+                .Include(i => i.Wardrobe)
                 .FirstOrDefaultAsync(i => i.ItemId == id);
         }
 
         public async Task<List<Item>> GetItemsByIds(List<int> itemIds)
         {
             return await _context.Items
+                .AsNoTracking()
                 .Where(i => itemIds.Contains(i.ItemId))
                 .ToListAsync();
         }
@@ -49,15 +58,107 @@ namespace Repositories.Repos.ItemRespos
         {
             return await _context.Items
                 .AsNoTracking()
-                .OrderByDescending(i => i.CreatedAt)
-                .Include(i => i.Images)
                 .Where(i => i.WardrobeId == wardrobeId)
+                .Include(i => i.Images)
+                .OrderByDescending(i => i.CreatedAt)
                 .ToListAsync();
+        }
+
+        public async Task<int> CountPublicItemsByAccountIdAsync(int accountId)
+        {
+            return await _context.Items
+                .AsNoTracking()
+                .CountAsync(i =>
+                    i.Wardrobe.AccountId == accountId &&
+                    i.IsPublic == true &&
+                    i.Status == ItemStatus.Active);
+        }
+
+        public async Task<List<PublicWardrobeItemDto>> GetPublicItemsByAccountIdAsync(
+            int accountId,
+            int page,
+            int pageSize)
+        {
+            return await _context.Items
+                .AsNoTracking()
+                .Where(i =>
+                    i.Wardrobe.AccountId == accountId &&
+                    i.IsPublic == true &&
+                    i.Status == ItemStatus.Active)
+                .OrderByDescending(i => i.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .Select(i => new PublicWardrobeItemDto
+                {
+                    ItemId = i.ItemId,
+                    ItemName = i.ItemName,
+                    ItemType = i.ItemType,
+                    Category = i.Category,
+                    SubCategory = i.SubCategory,
+                    Style = i.Style,
+                    Gender = i.Gender,
+                    MainColor = i.MainColor,
+                    SubColor = i.SubColor,
+                    Material = i.Material,
+                    Pattern = i.Pattern,
+                    Fit = i.Fit,
+                    Size = i.Size,
+                    Brand = i.Brand,
+                    Description = i.Description,
+                    CreatedAt = i.CreatedAt,
+                    ThumbnailUrl = i.Images
+                        .OrderBy(img => img.CreatedAt)
+                        .Select(img => img.ImageUrl)
+                        .FirstOrDefault()
+                })
+                .ToListAsync();
+        }
+
+        public async Task<PublicWardrobeItemDetailDto?> GetPublicItemDetailAsync(int itemId)
+        {
+            return await _context.Items
+                .AsNoTracking()
+                .Where(i =>
+                    i.ItemId == itemId &&
+                    i.IsPublic == true &&
+                    i.Status == ItemStatus.Active)
+                .Select(i => new PublicWardrobeItemDetailDto
+                {
+                    ItemId = i.ItemId,
+                    WardrobeId = i.WardrobeId,
+                    AccountId = i.Wardrobe.AccountId,
+
+                    ItemName = i.ItemName,
+                    ItemType = i.ItemType,
+                    Category = i.Category,
+                    SubCategory = i.SubCategory,
+                    Style = i.Style,
+                    Gender = i.Gender,
+                    MainColor = i.MainColor,
+                    SubColor = i.SubColor,
+                    Material = i.Material,
+                    Pattern = i.Pattern,
+                    Fit = i.Fit,
+                    Neckline = i.Neckline,
+                    SleeveLength = i.SleeveLength,
+                    Length = i.Length,
+                    Size = i.Size,
+                    Brand = i.Brand,
+                    Description = i.Description,
+                    CreatedAt = i.CreatedAt,
+
+                    ImageUrls = i.Images
+                        .OrderBy(img => img.CreatedAt)
+                        .Select(img => img.ImageUrl)
+                        .ToList(),
+
+                    OwnerUserName = i.Wardrobe.Account.UserName
+                })
+                .FirstOrDefaultAsync();
         }
 
         public async Task<List<Item>> GetByVectorSimilarityAsync(Vector embedding, int limit = 20)
         {
-
             return await _context.Items
                 .AsNoTracking()
                 .OrderBy(i => i.ItemEmbedding.CosineDistance(embedding))
@@ -80,7 +181,6 @@ namespace Repositories.Repos.ItemRespos
         {
             var query = _context.Items.AsQueryable();
 
-            // --- BƯỚC 1: LỌC THEO PHẠM VI (SCOPE) ---
             query = query.Where(item =>
                 (scopeRequest.UseMyWardrobe && item.Wardrobe.AccountId == currentAccountId) ||
                 (scopeRequest.UseSavedItems && item.SavedByUsers.Any(s => s.AccountId == currentAccountId)) ||
@@ -103,19 +203,16 @@ namespace Repositories.Repos.ItemRespos
                 }
             }
 
-            // --- BƯỚC 2: LỌC CỨNG THEO METADATA TỪ GEMINI (EXACT MATCH) ---
             if (!string.IsNullOrEmpty(intent.Gender) && intent.Gender != "Unknown")
             {
                 query = query.Where(i => i.Gender == intent.Gender || i.Gender == "Unisex");
             }
 
-            // [QUAN TRỌNG]: Fix lỗi AI ảo giác trả về Category trùng nhau
             if (!string.IsNullOrEmpty(intent.Category) && intent.Category != "Unknown")
             {
                 bool isAiHallucinating = !string.IsNullOrEmpty(scopeRequest.ReferenceCategory) &&
                                          intent.Category.Equals(scopeRequest.ReferenceCategory, StringComparison.OrdinalIgnoreCase);
 
-                // Chỉ lọc Category nếu AI không bị ảo giác
                 if (!isAiHallucinating)
                 {
                     query = query.Where(i => i.Category == intent.Category);
@@ -143,7 +240,6 @@ namespace Repositories.Repos.ItemRespos
                 }
             }
 
-            // --- BƯỚC 3: SẮP XẾP BẰNG VECTOR (SEMANTIC SEARCH) ---
             return await query
                 .AsNoTracking()
                 .Include(i => i.Images)
@@ -175,4 +271,3 @@ namespace Repositories.Repos.ItemRespos
         }
     }
 }
-

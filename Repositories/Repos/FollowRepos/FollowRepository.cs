@@ -54,5 +54,21 @@ namespace Repositories.Repos.FollowRepos
             fashionDbContext.Follows.Remove(follow);
             return await fashionDbContext.SaveChangesAsync();
         }
+
+        public async Task<bool> IsFollowingAsync(int followerId, int targetUserId)
+        {
+            return await fashionDbContext.Follows
+                .AnyAsync(f => f.FollowerId == followerId && f.UserId == targetUserId);
+        }
+
+        public async Task<HashSet<int>> GetFollowingIdsAsync(int followerId, List<int> targetUserIds)
+        {
+            var followingIds = await fashionDbContext.Follows
+                .Where(f => f.FollowerId == followerId && targetUserIds.Contains(f.UserId))
+                .Select(f => f.UserId)
+                .ToListAsync();
+
+            return new HashSet<int>(followingIds);
+        }
     }
 }

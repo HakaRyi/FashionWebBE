@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.SignalR;
-using Service.DTO.Request;
 using Services.Implements.Auth;
 using Services.Implements.ChatImp;
+using Services.Request.MessageReq;
 
 namespace Services.Utils.SignalR
 {

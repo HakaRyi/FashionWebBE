@@ -1,4 +1,6 @@
-﻿using Repositories.Constants;
+﻿using Microsoft.EntityFrameworkCore;
+using Repositories.Constants;
+using Repositories.Dto.Common;
 using Repositories.Dto.Social.SavedPost;
 using Repositories.Entities;
 using Repositories.Repos.PostRepos;
@@ -23,46 +25,49 @@ namespace Services.Implements.PostImp
             _uow = uow;
         }
 
-        public async Task SavePostAsync(int postId, int accountId)
+        public async Task<bool> SavePostAsync(int postId, int accountId)
         {
-            var post = await _postRepo.GetByIdAsync(postId)
-                ?? throw new Exception("Post not found");
+            var post = await _postRepo.GetByIdAsync(postId);
+            if (post == null)
+                throw new KeyNotFoundException("Post not found.");
 
-            if (post.Status != PostStatus.Published ||
-                post.Visibility != PostVisibility.Visible)
-            {
-                throw new UnauthorizedAccessException("You cannot save this post.");
-            }
+            if (post.Status != PostStatus.Published || post.Visibility != PostVisibility.Visible)
+                throw new InvalidOperationException("You cannot save this post.");
 
             var exists = await _postSaveRepo.ExistsAsync(postId, accountId);
-            if (exists) return;
+            if (exists) return false;
 
-            var save = new PostSave
+            try
             {
-                PostId = postId,
-                AccountId = accountId,
-                CreatedAt = DateTime.UtcNow
-            };
+                await _postSaveRepo.AddAsync(new PostSave
+                {
+                    PostId = postId,
+                    AccountId = accountId,
+                    CreatedAt = DateTime.UtcNow
+                });
 
-            await _postSaveRepo.AddAsync(save);
-            await _uow.SaveChangesAsync();
+                await _uow.SaveChangesAsync();
+                return true;
+            }
+            catch (DbUpdateException)
+            {
+                // trường hợp race condition nhưng DB đã chặn bằng unique index
+                return false;
+            }
         }
 
-        public async Task UnsavePostAsync(int postId, int accountId)
+        public async Task<bool> UnsavePostAsync(int postId, int accountId)
         {
             var save = await _postSaveRepo.GetByPostAndUserAsync(postId, accountId);
-            if (save == null) return;
+            if (save == null) return false;
 
             _postSaveRepo.Delete(save);
             await _uow.SaveChangesAsync();
+            return true;
         }
 
-        public Task<List<SavedPostDto>> GetSavedPostsAsync(int accountId, int page, int pageSize)
+        public Task<PagedResultDto<SavedPostDto>> GetSavedPostsAsync(int accountId, int page, int pageSize)
         {
-            if (page <= 0) page = 1;
-            if (pageSize <= 0) pageSize = 10;
-            if (pageSize > 50) pageSize = 50;
-
             return _postSaveRepo.GetSavedPostsAsync(accountId, page, pageSize);
         }
     }

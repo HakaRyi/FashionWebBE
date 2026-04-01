@@ -1,16 +1,11 @@
 using Repositories.Dto;
-using Repositories.Repos.ItemRespos;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net.Http.Json;
-using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
 namespace Services.AI
 {
-    public class GeminiService: IGeminiService
+    public class GeminiService : IGeminiService
     {
         private readonly HttpClient _httpClient;
         private const string ApiKey = "AIzaSyB8uBL_30H-hb4awIewGBft2Eg_UtyHqsU";

@@ -1,6 +1,4 @@
-using System;
-﻿using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Pgvector;
 using Services.Request.ItemReq;

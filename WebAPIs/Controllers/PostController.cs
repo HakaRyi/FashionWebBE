@@ -1,5 +1,4 @@
-﻿using System.Security.Claims;
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Repositories.Dto.Social.Post;
 using Services.Implements.PostImp;
@@ -120,6 +119,20 @@ namespace WebAPIs.Controllers
             return Ok(posts);
         }
 
+        [HttpPost("{postId:int}/share")]
+        [Authorize]
+        public async Task<IActionResult> SharePost(int postId)
+        {
+            var shareCount = await _postService.SharePostAsync(postId);
+
+            return Ok(new
+            {
+                message = "Share recorded successfully.",
+                postId,
+                shareCount
+            });
+        }
+
         [HttpGet("me")]
         [Authorize]
         public async Task<IActionResult> GetMyPosts(
@@ -158,7 +171,7 @@ namespace WebAPIs.Controllers
             var accountId = User.GetUserId();
             try
             {
-                var result = await _postService.JoinEventByPostAsync(accountId,request);
+                var result = await _postService.JoinEventByPostAsync(accountId, request);
 
                 return Created($"/api/post/{result.PostId}", result);
             }

@@ -103,6 +103,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
     public virtual DbSet<Wallet> Wallets { get; set; }
 
     public virtual DbSet<Wardrobe> Wardrobes { get; set; }
+    public DbSet<SearchHistory> SearchHistories { get; set; }
 
     public static string GetConnectionString(string connectionStringName)
     {
@@ -129,6 +130,20 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
         modelBuilder.HasPostgresExtension("vector");
 
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<SearchHistory>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Keyword)
+                .IsRequired()
+                .HasMaxLength(255);
+
+            entity.HasOne(d => d.Account)
+                .WithMany()
+                .HasForeignKey(d => d.AccountId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
         modelBuilder.Entity<Account>(entity =>
         {
@@ -233,7 +248,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        
+
 
         modelBuilder.Entity<IdentityRole<int>>(entity =>
         {
@@ -772,7 +787,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasConstraintName("Expert_Profile_account_id_fkey");
         });
 
-       
+
 
         modelBuilder.Entity<Follow>(entity =>
         {
@@ -1268,7 +1283,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("Payment_account_id_fkey");
 
-           
+
         });
 
         modelBuilder.Entity<Photo>(entity =>

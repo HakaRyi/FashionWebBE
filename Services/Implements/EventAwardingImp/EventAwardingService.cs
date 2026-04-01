@@ -15,11 +15,6 @@ using Repositories.Repos.WalletRepos;
 using Repositories.UnitOfWork;
 using Services.Implements.Auth;
 using Services.Utils.File;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Services.Implements.EventAwardingImp
 {

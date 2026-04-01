@@ -1,4 +1,4 @@
-﻿namespace Service.DTO.Request
+﻿namespace Services.Request.MessageReq
 {
     public class EditMessageRequest
     {

@@ -16,14 +16,10 @@ using Repositories.Repos.WalletRepos;
 using Repositories.UnitOfWork;
 using Services.Implements.Auth;
 using Services.Jobs;
-using Services.Request.EventReq;
-using Services.Request.ExpertRatingReq;
-using Services.Request.PrizeReq;
 using Services.Response.DashboardResp;
 using Services.Response.EventResp;
 using Services.Response.PostResp;
 using Services.Utils.File;
-using System.Linq;
 
 namespace Services.Implements.Events
 {
@@ -507,7 +503,8 @@ namespace Services.Implements.Events
         {
             var eventDetail = await _eventRepo.GetByIdAsync(eventId);
             var scores = await _eventRepo.GetLeaderboardAsync(eventId);
-            return scores.Select((s, index) => {
+            return scores.Select((s, index) =>
+            {
                 int rank = index + 1;
                 var prize = eventDetail?.PrizeEvents?.FirstOrDefault(p => p.Ranked == rank);
 
@@ -526,7 +523,7 @@ namespace Services.Implements.Events
 
         public async Task<MyEventResultDetailDto?> GetMyResultDetailAsync(int eventId)
         {
-            var userId = _currentUserService.GetUserId()??0;
+            var userId = _currentUserService.GetUserId() ?? 0;
             var myScore = await _eventRepo.GetUserScoreAsync(eventId, userId);
             if (myScore == null) return null;
 
@@ -559,5 +556,5 @@ namespace Services.Implements.Events
                 }).ToList()
             };
         }
-    } 
+    }
 }

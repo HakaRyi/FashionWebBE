@@ -3,8 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using Services.Implements.EventExpertSer;
 using Services.Request.ExpertRatingReq;
 using Services.Response.EventResp;
-using System.Collections.Generic;
-using System.Threading.Tasks;
 
 namespace WebAPIs.Controllers
 {

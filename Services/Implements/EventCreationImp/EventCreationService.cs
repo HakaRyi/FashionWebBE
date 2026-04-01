@@ -20,15 +20,10 @@ using Services.Request.EventReq;
 using Services.Request.PrizeReq;
 using Services.Utils;
 using Services.Utils.File;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Services.Implements.EventCreationImp
 {
-    public class EventCreationService: IEventCreationService
+    public class EventCreationService : IEventCreationService
     {
         private readonly IEventRepository _eventRepo;
         private readonly IWalletRepository _walletRepo;
@@ -83,7 +78,7 @@ namespace Services.Implements.EventCreationImp
             _imageRepo = imageRepo;
             _fileService = fileService;
             _schedulerFactory = schedulerFactory;
-            _cloudStorageService =cloudStorageService;
+            _cloudStorageService = cloudStorageService;
         }
 
         public async Task<Event> CreateEventAsync(CreateEventRequest dto)

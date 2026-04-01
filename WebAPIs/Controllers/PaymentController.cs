@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Services.Implements.Auth;
 using Services.Implements.PaymentService;
 using Services.Request.PaymentReq;
 using Services.Utils;
@@ -11,11 +12,18 @@ namespace WebAPIs.Controllers
     [Authorize]
     public class PaymentController : ControllerBase
     {
-        private readonly IPaymentService _paymentService;
+        private const string MobileDeepLinkSuccess = "fashionmobile://payment-result?status=00";
+        private const string MobileDeepLinkFailed = "fashionmobile://payment-result?status=99";
 
-        public PaymentController(IPaymentService paymentService)
+        private readonly IPaymentService _paymentService;
+        private readonly ICurrentUserService _currentUserService;
+
+        public PaymentController(
+            IPaymentService paymentService,
+            ICurrentUserService currentUserService)
         {
             _paymentService = paymentService;
+            _currentUserService = currentUserService;
         }
 
         [HttpPost("create-package-payment")]
@@ -24,6 +32,7 @@ namespace WebAPIs.Controllers
             try
             {
                 var response = await _paymentService.CreatePackagePaymentAsync(request);
+
                 if (response == null)
                     return BadRequest(new { message = "Không thể tạo giao dịch." });
 
@@ -45,6 +54,7 @@ namespace WebAPIs.Controllers
             try
             {
                 var response = await _paymentService.CreateTopUpPaymentAsync(amount);
+
                 if (response == null)
                     return BadRequest(new { message = "Không thể tạo giao dịch." });
 
@@ -89,6 +99,7 @@ namespace WebAPIs.Controllers
             try
             {
                 request.AccountId = User.GetUserId();
+
                 var result = await _paymentService.CreateOrderAsync(request);
                 return Ok(result);
             }
@@ -122,7 +133,7 @@ namespace WebAPIs.Controllers
             try
             {
                 request.AccountId = accountId;
-                var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+                string ipAddress = GetClientIpAddress();
 
                 var result = await _paymentService.CreateVnPayOrderAsync(request, ipAddress);
                 return Ok(result);
@@ -139,45 +150,53 @@ namespace WebAPIs.Controllers
         {
             try
             {
-                var isSuccess = await _paymentService.ProcessPaymentReturn(Request.Query);
-                string status = isSuccess ? "00" : "99";
-
-                return Content($@"
-                <html>
-                <head>
-                    <script>
-                        window.location.href = 'fashionmobile://payment-result?status={status}';
-                    </script>
-                </head>
-                <body>
-                    <h3>Đang quay lại ứng dụng...</h3>
-                </body>
-                </html>", "text/html");
-                            }
-                            catch
-                            {
-                                return Content(@"
-                <html>
-                <head>
-                    <script>
-                        window.location.href = 'fashionmobile://payment-result?status=99';
-                    </script>
-                </head>
-                <body>
-                    <h3>Đang quay lại ứng dụng...</h3>
-                </body>
-                </html>", "text/html");
-                            }
+                bool isSuccess = await _paymentService.ProcessPaymentReturn(Request.Query);
+                return BuildMobileRedirectPage(isSuccess ? MobileDeepLinkSuccess : MobileDeepLinkFailed);
+            }
+            catch
+            {
+                return BuildMobileRedirectPage(MobileDeepLinkFailed);
+            }
         }
 
-        private bool TryGetCurrentUserId(out int userId)
+        private bool TryGetCurrentUserId(out int accountId)
         {
-            var claimValue =
-                User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value ??
-                User.FindFirst("Id")?.Value ??
-                User.FindFirst("AccountId")?.Value;
+            accountId = 0;
 
-            return int.TryParse(claimValue, out userId);
+            try
+            {
+                accountId = _currentUserService.GetRequiredUserId();
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private string GetClientIpAddress()
+        {
+            return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "127.0.0.1";
+        }
+
+        private ContentResult BuildMobileRedirectPage(string deepLink)
+        {
+            var html = $@"
+            <!DOCTYPE html>
+            <html lang=""vi"">
+            <head>
+                <meta charset=""utf-8"" />
+                <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"" />
+                <title>Đang quay lại ứng dụng...</title>
+                <script>
+                    window.location.href = '{deepLink}';
+                </script>
+            </head>
+            <body>
+                <h3>Đang quay lại ứng dụng...</h3>
+            </body>
+            </html>";
+            return Content(html, "text/html");
         }
     }
 }

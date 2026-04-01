@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Hosting;
 using Repositories.Constants;
+using Repositories.Dto.Admin;
 using Repositories.Dto.Common;
 using Repositories.Dto.Social.Post;
 using Repositories.Entities;
@@ -213,7 +214,47 @@ namespace Services.Implements.PostImp
         public async Task<PostResponse?> GetPostByIdAsync(int postId)
         {
             var post = await _postRepo.GetByIdAsync(postId);
-            return post.Adapt<PostResponse>();
+
+            return post == null ? null : MapToResponse(post);
+        }
+
+        private PostResponse MapToResponse(Post post)
+        {
+            return new PostResponse
+            {
+                PostId = post.PostId,
+                AccountId = post.AccountId,
+
+                UserName = post.Account?.UserName,
+                AvatarUrl = post.Account?.Avatars?
+                    .OrderByDescending(a => a.CreatedAt)
+                    .FirstOrDefault()?.ImageUrl,
+
+                EventId = post.EventId,
+                EventName = post.Event?.Title,
+
+                Title = post.Title,
+                Content = post.Content,
+
+                ImageUrls = post.Images?
+                    .OrderBy(i => i.CreatedAt)
+                    .Select(i => i.ImageUrl)
+                    .ToList() ?? new List<string>(),
+
+                IsExpertPost = post.IsExpertPost,
+                Status = post.Status,
+                Score = post.Score,
+
+                IsLiked = post.Reactions.Any(r => r.AccountId == _currentUserService.GetUserId()),
+                IsSaved = post.Saves.Any(s => s.AccountId == _currentUserService.GetUserId()),
+
+                LikeCount = post.LikeCount,
+                CommentCount = post.CommentCount,
+                ShareCount = post.ShareCount,
+
+                CreatedAt = post.CreatedAt,
+                UpdatedAt = post.UpdatedAt
+            };
         }
 
         public Task<List<PostFeedDto>> GetFeedAsync(int userId, DateTime? cursor, int pageSize)
@@ -577,6 +618,25 @@ namespace Services.Implements.PostImp
 
         }
 
+        public async Task<int> SharePostAsync(int postId)
+        {
+            var post = await _postRepo.GetByIdAsync(postId)
+                ?? throw new KeyNotFoundException("Post not found.");
+
+            if (post.Status != PostStatus.Published)
+                throw new Exception("Only published posts can be shared.");
+
+            if (post.Visibility != PostVisibility.Visible)
+                throw new Exception("Only visible posts can be shared.");
+
+            post.ShareCount = (post.ShareCount ?? 0) + 1;
+            post.UpdatedAt = DateTime.UtcNow;
+
+            _postRepo.Update(post);
+            await _uow.SaveChangesAsync();
+
+            return post.ShareCount ?? 0;
+        }
 
         public async Task DeletePostAsync(int postId)
         {
@@ -604,6 +664,7 @@ namespace Services.Implements.PostImp
             _postRepo.Update(post);
             await _uow.SaveChangesAsync();
         }
+
         public async Task<PostResponse> JoinEventByPostAsync(int accountId, CreatePostDto dto)
         {
             if (!dto.EventId.HasValue) throw new Exception("Thiếu EventId để tham gia sự kiện.");
@@ -665,6 +726,5 @@ namespace Services.Implements.PostImp
                 throw;
             }
         }
-
     }
 }
