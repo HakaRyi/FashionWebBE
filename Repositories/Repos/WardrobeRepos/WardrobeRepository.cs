@@ -26,11 +26,11 @@ namespace Repositories.Repos.WardrobeRepos
                 .ToListAsync();
         }
 
-        public async Task<Wardrobe?> GetById(int accountId)
+        public async Task<Wardrobe?> GetByIdAsync(int wardrobeId)
         {
             return await _db.Wardrobes
                 .AsNoTracking()
-                .FirstOrDefaultAsync(w => w.AccountId == accountId);
+                .FirstOrDefaultAsync(w => w.WardrobeId == wardrobeId);
         }
 
         public async Task<Wardrobe?> GetByAccountIdAsync(int accountId)

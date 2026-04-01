@@ -119,6 +119,20 @@ namespace WebAPIs.Controllers
             return Ok(posts);
         }
 
+        [HttpPost("{postId:int}/share")]
+        [Authorize]
+        public async Task<IActionResult> SharePost(int postId)
+        {
+            var shareCount = await _postService.SharePostAsync(postId);
+
+            return Ok(new
+            {
+                message = "Share recorded successfully.",
+                postId,
+                shareCount
+            });
+        }
+
         [HttpGet("me")]
         [Authorize]
         public async Task<IActionResult> GetMyPosts(

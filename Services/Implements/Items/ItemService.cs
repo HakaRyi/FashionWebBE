@@ -1,7 +1,9 @@
 using Mapster;
 using Pgvector;
 using Repositories.Dto;
+using Repositories.Dto.Wardrobe;
 using Repositories.Entities;
+using Repositories.Repos.ImageRepos;
 using Repositories.Repos.ItemRespos;
 using Repositories.Repos.WardrobeRepos;
 using Services.AI;
@@ -22,6 +24,7 @@ namespace Services.Implements.Items
         private readonly IWardrobeRepository _wardrobeRepository;
         private readonly ICurrentUserService _currentUserService;
         private readonly ICloudStorageService _cloudStorageService;
+        private readonly IImageRepository _imageRepository;
 
         public ItemService(
             IItemRepository itemRepo,
@@ -29,7 +32,8 @@ namespace Services.Implements.Items
             IWardrobeRepository wardrobeRepository,
             ICurrentUserService currentUserService,
             ICloudStorageService cloudStorageService,
-            IGeminiService geminiService)
+            IGeminiService geminiService,
+            IImageRepository imageRepository)
         {
             _itemRepo = itemRepo;
             _aiService = aiService;
@@ -37,6 +41,7 @@ namespace Services.Implements.Items
             _currentUserService = currentUserService;
             _cloudStorageService = cloudStorageService;
             _geminiService = geminiService;
+            _imageRepository = imageRepository;
         }
 
         public async Task<IEnumerable<ItemResponseDto>> GetAllItemsAsync()
@@ -49,6 +54,18 @@ namespace Services.Implements.Items
         {
             var item = await _itemRepo.GetByIdAsync(id);
             return item?.Adapt<ItemResponseDto>();
+        }
+
+        public async Task<PublicWardrobeItemDetailDto?> GetPublicItemDetailAsync(int itemId)
+        {
+            var item = await _itemRepo.GetPublicItemDetailAsync(itemId);
+            if (item == null)
+                return null;
+
+            var avatar = await _imageRepository.GetNewestAvatarAsync(item.AccountId);
+            item.OwnerAvatarUrl = avatar?.ImageUrl;
+
+            return item;
         }
 
         public async Task<ItemResponseDto> CreateFashionItemAsync(ProductUploadDto dto, int accountId)
@@ -165,11 +182,11 @@ CRITICAL: Do NOT output metadata for the reference item. Output metadata ONLY fo
 
             int currentUserId = _currentUserService.GetRequiredUserId();
 
-            var item = await _itemRepo.GetByIdAsync(itemId);
+            var item = await _itemRepo.GetByIdForUpdateAsync(itemId);
             if (item == null)
                 throw new KeyNotFoundException("Không tìm thấy item.");
 
-            if (item.Wardrobe?.Account?.Id != currentUserId)
+            if (item.Wardrobe == null || item.Wardrobe.AccountId != currentUserId)
                 throw new UnauthorizedAccessException("Bạn không có quyền sửa item này.");
 
             item.ItemName = request.ItemName;
@@ -190,8 +207,8 @@ CRITICAL: Do NOT output metadata for the reference item. Output metadata ONLY fo
             item.Length = request.Length;
             item.Brand = request.Brand;
             item.Material = request.Material;
+            item.UpdateAt = DateTime.UtcNow;
 
-            _itemRepo.Update(item);
             await _itemRepo.SaveChangesAsync();
         }
 
@@ -199,11 +216,11 @@ CRITICAL: Do NOT output metadata for the reference item. Output metadata ONLY fo
         {
             int currentUserId = _currentUserService.GetRequiredUserId();
 
-            var item = await _itemRepo.GetByIdAsync(itemId);
+            var item = await _itemRepo.GetByIdForUpdateAsync(itemId);
             if (item == null)
                 throw new KeyNotFoundException("Không tìm thấy item.");
 
-            if (item.Wardrobe?.Account?.Id != currentUserId)
+            if (item.Wardrobe == null || item.Wardrobe.AccountId != currentUserId)
                 throw new UnauthorizedAccessException("Bạn không có quyền xóa item này.");
 
             if (item.Images != null && item.Images.Any())

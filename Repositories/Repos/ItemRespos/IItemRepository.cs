@@ -8,6 +8,7 @@ namespace Repositories.Repos.ItemRespos
     public interface IItemRepository
     {
         Task<Item?> GetByIdAsync(int id);
+        Task<Item?> GetByIdForUpdateAsync(int id); 
         Task<List<Item>> GetItemsByIds(List<int> itemIds);
         Task<IEnumerable<Item>> GetAllAsync();
         Task<IEnumerable<Item>> GetByWardrobeIdAsync(int wardrobeId);
@@ -18,6 +19,8 @@ namespace Repositories.Repos.ItemRespos
             int accountId,
             int page,
             int pageSize);
+
+        Task<PublicWardrobeItemDetailDto?> GetPublicItemDetailAsync(int itemId);
 
         Task<List<Item>> GetByVectorSimilarityAsync(Vector embedding, int limit = 20);
 

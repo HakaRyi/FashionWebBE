@@ -4,13 +4,14 @@ dotnet ef database update --project Repositories --startup-project WebAPIs
 
 dotnet ef migrations add InitialIdentity --project Repositories --startup-project WebAPIs --output-dir Migrations
 
+123456Aa@
+
 {
   "email": "nvhoang0975@gmail.com",
-  "password": "mk12345",
+  "password": "123456Aa@",
   "username": "mk12345",
   "roleId": 2
 }
-
 
 {
   "message": "Đăng nhập thành công",

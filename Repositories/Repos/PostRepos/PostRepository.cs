@@ -497,7 +497,5 @@ namespace Repositories.Repos.PostRepos
                 .Where(p => p.EventId == eventId && p.Scoreboard != null)
                 .ToListAsync();
         }
-
-
     }
 }

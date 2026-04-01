@@ -84,6 +84,8 @@ using WebAPIs.Endpoints;
 using WebAPIs.Services;
 using Services.Implements.SearchImp;
 using Repositories.Repos.SearchRepos;
+using Repositories.Seeders;
+using Services.Utils.Gateways;
 
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -169,7 +171,6 @@ builder.Services.AddIdentity<Account, IdentityRole<int>>(options =>
 #region REPOSITORIES
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
-
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<ICommentRepository, CommentRepository>();
@@ -203,7 +204,6 @@ builder.Services.AddScoped<IUserReportRepository, UserReportRepository>();
 builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<IWardrobeRepository, WardrobeRepository>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
-
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<IGroupRepository, GroupRepository>();
 builder.Services.AddScoped<IPinMessageRepository, PinMessageRepository>();
@@ -219,9 +219,6 @@ builder.Services.AddScoped<IEventWinnerRepository, EventWinnerRepository>();
 builder.Services.AddScoped<ISystemSettingRepository, SystemSettingRepository>();
 builder.Services.AddScoped<ISearchHistoryRepository, SearchHistoryRepository>();
 
-
-
-
 #endregion
 
 #region SERVICES
@@ -233,10 +230,8 @@ builder.Services.AddScoped<IFollowService, FollowService>();
 builder.Services.AddScoped<IWardrobeService, WardrobeService>();
 builder.Services.AddScoped<IItemService, ItemService>();
 builder.Services.AddScoped<IExpertService, ExpertService>();
-
 builder.Services.AddScoped<IGeminiService, GeminiService>();
 //builder.Services.AddScoped<IFileService, LocalFileService>();
-
 builder.Services.AddScoped<IAIDetectionService, AIDetectionService>();
 builder.Services.AddScoped<IExpertRequestService, ExpertRequestService>();
 builder.Services.AddScoped<IEventService, EventService>();
@@ -264,7 +259,9 @@ builder.Services.AddScoped<IGroupService, GroupService>();
 builder.Services.AddScoped<IExpenseService, ExpenseService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<ISearchService, SearchService>();
-
+builder.Services.AddScoped<IVnPayGatewayService, VnPayGatewayService>();
+builder.Services.AddScoped<IZaloPayGatewayService, ZaloPayGatewayService>();
+builder.Services.AddScoped<ITopUpPaymentProcessor, TopUpPaymentProcessor>();
 
 #endregion
 
@@ -434,6 +431,7 @@ using (var scope = app.Services.CreateScope())
     var dbContext = scope.ServiceProvider.GetRequiredService<FashionDbContext>();
     //await ExpenseTestDataSeeder.SeedAsync(dbContext);
     //await MarketplaceTestDataSeeder.SeedAsync(dbContext);
+    await PublicProfileWardrobeSeeder.SeedAsync(dbContext);
 }
 
 #region MIDDLEWARE
@@ -487,7 +485,7 @@ using (var scope = app.Services.CreateScope())
 #endregion
 
 
-//app.MapQuartzEndpoints();
+app.MapQuartzEndpoints();
 
 app.Run();
 

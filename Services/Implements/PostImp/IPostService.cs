@@ -24,17 +24,12 @@ namespace Services.Implements.PostImp
         Task<PostVisibilityResponseDto> UnhidePostAsync(int postId, int accountId);
         Task<PagedResultDto<AdminReviewPostDto>> GetPendingAdminPostsAsync(int page, int pageSize);
         Task<PagedResultDto<AdminReviewPostDto>> GetRejectedPostsAsync(int page, int pageSize);
-
-
-
+        Task<int> SharePostAsync(int postId);
         Task<List<PostResponse>> GetPostsByEventIdAsync(int eventId);
         Task<PostResponse> UpdatePostAsync(int postId, int accountId, UpdatePostRequest request);
-
         Task DeletePostAsync(int postId);
         Task SetPostDeleteStatus(int postId);
         Task SetPostBannedStatus(int postId);
-
         Task<PostResponse> JoinEventByPostAsync(int accountId, CreatePostDto dto);
-
     }
 }

@@ -432,12 +432,6 @@ namespace Services.Implements.OrderImp
             return $"{prefix}-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
         }
 
-        public async Task<List<OrderResponse>> GetPaidOrdersAsync()
-        {
-            var orders = await _orderRepo.GetPaidOrdersAsync();
-            return orders.Select(MapToResponse).ToList();
-        }
-
         public async Task<List<OrderResponse>> GetCompletedOrdersAsync()
         {
             var orders = await _orderRepo.GetCompletedOrdersAsync();

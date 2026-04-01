@@ -14,7 +14,6 @@ namespace Services.Implements.OrderImp
         Task<List<OrderResponse>> GetPurchasesOrdersAsync(int buyerId);
         Task<OrderResponse> UpdateOrderStatusAsync(int orderId, string status, int currentUserId);
         Task<OrderResponse> PayOrderWithWalletAsync(int orderId, int buyerId);
-        Task<OrderResponse> GetOrderDetailByIdAsync(int orderId);
         Task<OrderResponse> UpdateOrderStatusByShipperAsync(int orderId, string status);
         Task<List<OrderResponse>> GetPaidOrdersAsync();
         Task<List<OrderResponse>> GetCompletedOrdersAsync();

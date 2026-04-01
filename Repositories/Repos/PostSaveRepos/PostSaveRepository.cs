@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Repositories.Constants;
 using Repositories.Data;
+using Repositories.Dto.Common;
 using Repositories.Dto.Social.SavedPost;
 using Repositories.Entities;
 
@@ -38,17 +39,21 @@ namespace Repositories.Repos.PostSaveRepos
             _db.PostSaves.Remove(postSave);
         }
 
-        public async Task<List<SavedPostDto>> GetSavedPostsAsync(int accountId, int page, int pageSize)
+        public async Task<PagedResultDto<SavedPostDto>> GetSavedPostsAsync(int accountId, int page, int pageSize)
         {
             if (page <= 0) page = 1;
             if (pageSize <= 0) pageSize = 10;
             if (pageSize > 50) pageSize = 50;
 
-            return await _db.PostSaves
+            var query = _db.PostSaves
                 .AsNoTracking()
                 .Where(x => x.AccountId == accountId
                          && x.Post.Status == PostStatus.Published
-                         && x.Post.Visibility == PostVisibility.Visible)
+                         && x.Post.Visibility == PostVisibility.Visible);
+
+            var totalCount = await query.CountAsync();
+
+            var items = await query
                 .OrderByDescending(x => x.CreatedAt)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
@@ -56,35 +61,35 @@ namespace Repositories.Repos.PostSaveRepos
                 {
                     PostId = x.PostId,
                     AccountId = x.Post.AccountId,
-
                     UserName = x.Post.Account.UserName!,
-
                     AvatarUrl = x.Post.Account.Avatars
                         .OrderByDescending(a => a.CreatedAt)
                         .Select(a => a.ImageUrl)
                         .FirstOrDefault(),
-
                     Title = x.Post.Title,
                     Content = x.Post.Content,
-
                     Images = x.Post.Images
                         .OrderBy(i => i.CreatedAt)
                         .Select(i => i.ImageUrl)
                         .ToList(),
-
                     LikeCount = x.Post.LikeCount ?? 0,
                     CommentCount = x.Post.CommentCount ?? 0,
                     ShareCount = x.Post.ShareCount ?? 0,
-
-                    IsLiked = _db.Reactions
-                        .Any(r => r.PostId == x.PostId && r.AccountId == accountId),
-
+                    IsLiked = _db.Reactions.Any(r => r.PostId == x.PostId && r.AccountId == accountId),
                     IsSaved = true,
-
                     CreatedAt = x.Post.CreatedAt ?? DateTime.UtcNow,
                     SavedAt = x.CreatedAt
                 })
                 .ToListAsync();
+
+            return new PagedResultDto<SavedPostDto>
+            {
+                Items = items,
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                HasMore = page * pageSize < totalCount
+            };
         }
     }
 }

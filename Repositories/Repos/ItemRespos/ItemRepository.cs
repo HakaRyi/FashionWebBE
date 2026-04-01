@@ -27,6 +27,14 @@ namespace Repositories.Repos.ItemRespos
                 .FirstOrDefaultAsync(i => i.ItemId == id);
         }
 
+        public async Task<Item?> GetByIdForUpdateAsync(int id)
+        {
+            return await _context.Items
+                .Include(i => i.Images)
+                .Include(i => i.Wardrobe)
+                .FirstOrDefaultAsync(i => i.ItemId == id);
+        }
+
         public async Task<List<Item>> GetItemsByIds(List<int> itemIds)
         {
             return await _context.Items
@@ -71,9 +79,6 @@ namespace Repositories.Repos.ItemRespos
             int page,
             int pageSize)
         {
-            if (page <= 0) page = 1;
-            if (pageSize <= 0) pageSize = 12;
-
             return await _context.Items
                 .AsNoTracking()
                 .Where(i =>
@@ -107,6 +112,49 @@ namespace Repositories.Repos.ItemRespos
                         .FirstOrDefault()
                 })
                 .ToListAsync();
+        }
+
+        public async Task<PublicWardrobeItemDetailDto?> GetPublicItemDetailAsync(int itemId)
+        {
+            return await _context.Items
+                .AsNoTracking()
+                .Where(i =>
+                    i.ItemId == itemId &&
+                    i.IsPublic == true &&
+                    i.Status == ItemStatus.Active)
+                .Select(i => new PublicWardrobeItemDetailDto
+                {
+                    ItemId = i.ItemId,
+                    WardrobeId = i.WardrobeId,
+                    AccountId = i.Wardrobe.AccountId,
+
+                    ItemName = i.ItemName,
+                    ItemType = i.ItemType,
+                    Category = i.Category,
+                    SubCategory = i.SubCategory,
+                    Style = i.Style,
+                    Gender = i.Gender,
+                    MainColor = i.MainColor,
+                    SubColor = i.SubColor,
+                    Material = i.Material,
+                    Pattern = i.Pattern,
+                    Fit = i.Fit,
+                    Neckline = i.Neckline,
+                    SleeveLength = i.SleeveLength,
+                    Length = i.Length,
+                    Size = i.Size,
+                    Brand = i.Brand,
+                    Description = i.Description,
+                    CreatedAt = i.CreatedAt,
+
+                    ImageUrls = i.Images
+                        .OrderBy(img => img.CreatedAt)
+                        .Select(img => img.ImageUrl)
+                        .ToList(),
+
+                    OwnerUserName = i.Wardrobe.Account.UserName
+                })
+                .FirstOrDefaultAsync();
         }
 
         public async Task<List<Item>> GetByVectorSimilarityAsync(Vector embedding, int limit = 20)

@@ -21,14 +21,17 @@ namespace WebAPIs.Controllers
         public async Task<IActionResult> SavePost(int postId)
         {
             var userId = User.GetUserId();
-
-            await _postSaveService.SavePostAsync(postId, userId);
+            var created = await _postSaveService.SavePostAsync(postId, userId);
 
             return Ok(new
             {
-                postId,
-                isSaved = true,
-                message = "Saved post successfully"
+                message = created ? "Saved post successfully." : "Post already saved.",
+                data = new
+                {
+                    postId,
+                    isSaved = true,
+                    created
+                }
             });
         }
 
@@ -36,30 +39,31 @@ namespace WebAPIs.Controllers
         public async Task<IActionResult> UnsavePost(int postId)
         {
             var userId = User.GetUserId();
-
-            await _postSaveService.UnsavePostAsync(postId, userId);
+            var removed = await _postSaveService.UnsavePostAsync(postId, userId);
 
             return Ok(new
             {
-                postId,
-                isSaved = false,
-                message = "Unsaved post successfully"
+                message = removed ? "Unsaved post successfully." : "Post was not saved.",
+                data = new
+                {
+                    postId,
+                    isSaved = false,
+                    removed
+                }
             });
         }
 
         [HttpGet("saved")]
-        public async Task<IActionResult> GetSavedPosts(
-            [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 10)
+        public async Task<IActionResult> GetSavedPosts([FromQuery] int page = 1, [FromQuery] int pageSize = 10)
         {
             var userId = User.GetUserId();
+            var result = await _postSaveService.GetSavedPostsAsync(userId, page, pageSize);
 
-            var posts = await _postSaveService.GetSavedPostsAsync(
-                userId,
-                page,
-                pageSize);
-
-            return Ok(posts);
+            return Ok(new
+            {
+                message = "Get saved posts successfully.",
+                data = result
+            });
         }
     }
 }

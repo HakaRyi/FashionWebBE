@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Repositories.Dto.Wardrobe;
 using Services.Implements.Auth;
 using Services.Implements.Items;
 using Services.Request.ItemReq;
@@ -49,6 +50,8 @@ namespace WebAPIs.Controllers
             });
         }
 
+        // Route này chỉ nên dùng cho internal / owner / admin nếu bạn muốn giữ.
+        // Không nên cho FE public detail dùng route này.
         [HttpGet("{id:int}")]
         public async Task<ActionResult<ItemResponseDto>> GetById(int id)
         {
@@ -65,6 +68,26 @@ namespace WebAPIs.Controllers
             return Ok(new
             {
                 message = "Lấy chi tiết item thành công.",
+                data = result
+            });
+        }
+
+        [HttpGet("public/{itemId:int}")]
+        public async Task<ActionResult<PublicWardrobeItemDetailDto>> GetPublicItemDetail(int itemId)
+        {
+            var result = await _itemService.GetPublicItemDetailAsync(itemId);
+
+            if (result == null)
+            {
+                return NotFound(new
+                {
+                    message = "Không tìm thấy món đồ công khai."
+                });
+            }
+
+            return Ok(new
+            {
+                message = "Lấy chi tiết món đồ công khai thành công.",
                 data = result
             });
         }

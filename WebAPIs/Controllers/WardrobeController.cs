@@ -34,7 +34,7 @@ namespace WebAPIs.Controllers
         }
 
         [HttpGet("account/{accountId:int}")]
-        public async Task<ActionResult> GetByAccountId(int accountId)
+        public async Task<IActionResult> GetByAccountId(int accountId)
         {
             var result = await _wardrobeService.GetByAccountIdAsync(accountId);
 
@@ -55,7 +55,7 @@ namespace WebAPIs.Controllers
 
         [Authorize]
         [HttpPost]
-        public async Task<ActionResult> Create([FromBody] WardrobeRequest wardrobeRequest)
+        public async Task<IActionResult> Create([FromBody] WardrobeRequest wardrobeRequest)
         {
             try
             {
@@ -101,6 +101,49 @@ namespace WebAPIs.Controllers
             return Ok(new
             {
                 message = "Lấy danh sách item trong tủ đồ của tôi thành công.",
+                data = result
+            });
+        }
+
+        [HttpGet("public/{accountId:int}/profile")]
+        public async Task<IActionResult> GetPublicProfile(int accountId)
+        {
+            var result = await _wardrobeService.GetPublicProfileAsync(accountId);
+
+            if (result == null)
+            {
+                return NotFound(new
+                {
+                    message = "Không tìm thấy người dùng."
+                });
+            }
+
+            return Ok(new
+            {
+                message = "Lấy thông tin trang cá nhân công khai thành công.",
+                data = result
+            });
+        }
+
+        [HttpGet("public/{accountId:int}/items")]
+        public async Task<IActionResult> GetPublicWardrobeItems(
+            int accountId,
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 12)
+        {
+            var result = await _wardrobeService.GetPublicWardrobeAsync(accountId, page, pageSize);
+
+            if (result == null)
+            {
+                return NotFound(new
+                {
+                    message = "Không tìm thấy người dùng hoặc tủ đồ."
+                });
+            }
+
+            return Ok(new
+            {
+                message = "Lấy danh sách item public thành công.",
                 data = result
             });
         }

@@ -14,10 +14,6 @@ namespace Repositories.Repos.OrderRepos
         Task<List<Order>> GetShippingOrdersAsync();
         Order Update(Order order);
         IQueryable<Order> Query();
-        Task<List<Order>> GetPaidOrdersAsync();
-        Task<List<Order>> GetCompletedOrdersAsync();
-        Task<List<Order>> GetCancelledOrdersAsync();
-        Task<List<Order>> GetShippingOrdersAsync();
         Task<Order> UpdateAsync(Order order);
     }
 }

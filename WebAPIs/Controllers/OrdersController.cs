@@ -190,46 +190,6 @@ namespace WebAPIs.Controllers
         }
 
         [AllowAnonymous]
-        [HttpGet("detail/{id}")]
-        public async Task<IActionResult> GetOrderDetailById(int id)
-        {
-            try
-            {
-                var result = await _orderService.GetOrderDetailByIdAsync(id);
-
-                if (result == null)
-                {
-                    return NotFound();
-                }
-
-                return Ok(result);
-            }
-            catch (UnauthorizedAccessException)
-            {
-                return Forbid();
-            }
-        }
-
-        [AllowAnonymous]
-        [HttpPut("shipper/{id}/status")]
-        public async Task<IActionResult> UpdateOrderByShipperStatus(int id, [FromBody] UpdateOrderStatusRequest request)
-        {
-            try
-            {
-                var result = await _orderService.UpdateOrderStatusByShipperAsync(id, request.Status);
-                return Ok(result);
-            }
-            catch (UnauthorizedAccessException)
-            {
-                return Forbid();
-            }
-            catch (Exception ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-        }
-
-        [AllowAnonymous]
         [HttpGet("paid")]
         public async Task<IActionResult> GetPaidOrders()
         {

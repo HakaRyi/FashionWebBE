@@ -9,6 +9,7 @@ using Repositories.Repos.ImageRepos;
 using Repositories.Repos.PostRepos;
 using Repositories.Repos.WalletRepos;
 using Repositories.UnitOfWork;
+using Services.Implements.Auth;
 using Services.RabbitMQ;
 using Services.Request.PostReq;
 using Services.Response.PostResp;
@@ -25,6 +26,7 @@ namespace Services.Implements.PostImp
         private readonly IUnitOfWork _uow;
         private readonly IWalletRepository _walletRepo;
         private readonly IEventRepository _eventRepo;
+        private readonly ICurrentUserService _currentUserService;
 
         private const int MAX_IMAGES = 5;
 
@@ -35,7 +37,8 @@ namespace Services.Implements.PostImp
             IRabbitMQProducer producer,
             IUnitOfWork uow,
             IWalletRepository walletRepository,
-            IEventRepository eventRepository)
+            IEventRepository eventRepository,
+            ICurrentUserService currentUserService)
         {
             _postRepo = postRepo;
             _imageRepo = imageRepo;
@@ -44,6 +47,7 @@ namespace Services.Implements.PostImp
             _uow = uow;
             _walletRepo = walletRepository;
             _eventRepo = eventRepository;
+            _currentUserService = currentUserService;
         }
 
 
@@ -237,6 +241,9 @@ namespace Services.Implements.PostImp
                 IsExpertPost = post.IsExpertPost,
                 Status = post.Status,
                 Score = post.Score,
+
+                IsLiked = post.Reactions.Any(r => r.AccountId == _currentUserService.GetUserId()),
+                IsSaved = post.Saves.Any(s => s.AccountId == _currentUserService.GetUserId()),
 
                 LikeCount = post.LikeCount,
                 CommentCount = post.CommentCount,
@@ -586,6 +593,25 @@ namespace Services.Implements.PostImp
             return MapToResponse(updatedPost);
         }
 
+        public async Task<int> SharePostAsync(int postId)
+        {
+            var post = await _postRepo.GetByIdAsync(postId)
+                ?? throw new KeyNotFoundException("Post not found.");
+
+            if (post.Status != PostStatus.Published)
+                throw new Exception("Only published posts can be shared.");
+
+            if (post.Visibility != PostVisibility.Visible)
+                throw new Exception("Only visible posts can be shared.");
+
+            post.ShareCount = (post.ShareCount ?? 0) + 1;
+            post.UpdatedAt = DateTime.UtcNow;
+
+            _postRepo.Update(post);
+            await _uow.SaveChangesAsync();
+
+            return post.ShareCount ?? 0;
+        }
 
         public async Task DeletePostAsync(int postId)
         {
@@ -613,6 +639,7 @@ namespace Services.Implements.PostImp
             _postRepo.Update(post);
             await _uow.SaveChangesAsync();
         }
+
         public async Task<PostResponse> JoinEventByPostAsync(int accountId, CreatePostDto dto)
         {
             if (!dto.EventId.HasValue) throw new Exception("Thiếu EventId để tham gia sự kiện.");
@@ -673,6 +700,5 @@ namespace Services.Implements.PostImp
                 throw;
             }
         }
-
     }
 }
