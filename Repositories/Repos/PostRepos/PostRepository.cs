@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Repositories.Constants;
 using Repositories.Data;
+using Repositories.Dto.Admin;
 using Repositories.Dto.Common;
 using Repositories.Dto.Social.Post;
 using Repositories.Entities;
@@ -61,7 +62,8 @@ namespace Repositories.Repos.PostRepos
                         .OrderByDescending(a => a.CreatedAt)
                         .Select(a => a.ImageUrl)
                         .FirstOrDefault(),
-
+                    IsEvent = p.EventId.HasValue ? true : false,
+                    EventName = p.EventId.HasValue ? p.Event!.Title : null,
                     Title = p.Title,
                     Content = p.Content,
 
@@ -162,7 +164,8 @@ namespace Repositories.Repos.PostRepos
                         .OrderByDescending(a => a.CreatedAt)
                         .Select(a => a.ImageUrl)
                         .FirstOrDefault(),
-
+                    IsEvent = p.EventId.HasValue ? true : false,
+                    EventName = p.EventId.HasValue ? p.Event!.Title : null,
                     Title = p.Title,
                     Content = p.Content,
 
@@ -474,7 +477,7 @@ namespace Repositories.Repos.PostRepos
                 .Include(p => p.Account)
                 .Include(p => p.Images)
                 .Include(p => p.ExpertRatings)
-                .Where(p => p.EventId == eventId && p.Status == "Active")
+                .Where(p => p.EventId == eventId && p.Status == "Published")
                 .ToListAsync();
         }
 

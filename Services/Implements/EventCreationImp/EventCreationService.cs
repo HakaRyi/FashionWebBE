@@ -18,16 +18,12 @@ using Services.Implements.Auth;
 using Services.Jobs;
 using Services.Request.EventReq;
 using Services.Request.PrizeReq;
+using Services.Utils;
 using Services.Utils.File;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Services.Implements.EventCreationImp
 {
-    public class EventCreationService: IEventCreationService
+    public class EventCreationService : IEventCreationService
     {
         private readonly IEventRepository _eventRepo;
         private readonly IWalletRepository _walletRepo;
@@ -45,6 +41,7 @@ namespace Services.Implements.EventCreationImp
         private readonly IFileService _fileService;
         private readonly ISchedulerFactory _schedulerFactory;
         private readonly ISystemSettingRepository _settingRepo;
+        private readonly ICloudStorageService _cloudStorageService;
 
         public EventCreationService(
             IEventRepository eventRepo,
@@ -62,7 +59,8 @@ namespace Services.Implements.EventCreationImp
             ISystemSettingRepository settingRepo,
             IFileService fileService,
             ISchedulerFactory schedulerFactory,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            ICloudStorageService cloudStorageService)
         {
             _eventRepo = eventRepo;
             _walletRepo = walletRepo;
@@ -80,6 +78,7 @@ namespace Services.Implements.EventCreationImp
             _imageRepo = imageRepo;
             _fileService = fileService;
             _schedulerFactory = schedulerFactory;
+            _cloudStorageService = cloudStorageService;
         }
 
         public async Task<Event> CreateEventAsync(CreateEventRequest dto)
@@ -97,7 +96,7 @@ namespace Services.Implements.EventCreationImp
             using var transaction = await _unitOfWork.BeginTransactionAsync();
             try
             {
-                string? imageUrl = dto.ImageFile != null ? await _fileService.UploadAsync(dto.ImageFile) : null;
+                string? imageUrl = dto.ImageFile != null ? await _cloudStorageService.UploadImageAsync(dto.ImageFile) : null;
 
                 var eventData = dto.Adapt<Event>();
 

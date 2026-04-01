@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Repositories.Data;
 using Repositories.Entities;
 
@@ -20,7 +15,7 @@ namespace Repositories.Repos.AdminRepos
         public async Task<List<Account>> Get3NewestUser()
         {
             return await _db.Accounts
-                .Include(a=>a.Avatars)
+                .Include(a => a.Avatars)
                 .Where(p => p.Status == "Active" && _db.UserRoles.Any(ur => ur.UserId == p.Id && ur.RoleId == 2))
                 .OrderByDescending(a => a.CreatedAt)
                 .Take(5)
@@ -39,7 +34,7 @@ namespace Repositories.Repos.AdminRepos
             return _db.Notifications
                 .Include(n => n.Sender).ThenInclude(n => n.Avatars)
                 .Where(n => n.TargetUserId == 1)
-                .OrderByDescending(n => n.CreatedAt); 
+                .OrderByDescending(n => n.CreatedAt);
         }
         public IQueryable<Event> GetEvents()
         {
@@ -47,9 +42,9 @@ namespace Repositories.Repos.AdminRepos
                 .Include(e => e.Creator)
                 .Include(e => e.Images)
                 .Include(e => e.Posts)
-                .Include(e=>e.PrizeEvents)
-                .Include(e=>e.EventExperts)
-                    .ThenInclude(ee=>ee.Expert)
+                .Include(e => e.PrizeEvents)
+                .Include(e => e.EventExperts)
+                    .ThenInclude(ee => ee.Expert)
                 .OrderByDescending(e => e.StartTime);
         }
 
@@ -62,7 +57,7 @@ namespace Repositories.Repos.AdminRepos
         public async Task<List<Transaction>> GetRevenueSystem()
         {
             return await _db.Transactions
-                .Include(a => a.Wallet).ThenInclude(w=>w.Account)
+                .Include(a => a.Wallet).ThenInclude(w => w.Account)
                 .Where(t => (t.Type == "PayForVTON" || t.Type == "PayForAISuggest") && t.Status == "Success")
                 .OrderByDescending(a => a.CreatedAt)
                 .ToListAsync();

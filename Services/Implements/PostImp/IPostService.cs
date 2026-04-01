@@ -1,4 +1,5 @@
-﻿using Repositories.Dto.Common;
+﻿using Repositories.Dto.Admin;
+using Repositories.Dto.Common;
 using Repositories.Dto.Social.Post;
 using Services.Request.PostReq;
 using Services.Response.PostResp;
@@ -32,6 +33,8 @@ namespace Services.Implements.PostImp
         Task DeletePostAsync(int postId);
         Task SetPostDeleteStatus(int postId);
         Task SetPostBannedStatus(int postId);
+
+        Task<PostResponse> JoinEventByPostAsync(int accountId, CreatePostDto dto);
 
     }
 }

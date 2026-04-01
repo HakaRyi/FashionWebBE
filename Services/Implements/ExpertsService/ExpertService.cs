@@ -9,7 +9,7 @@ using Services.Implements.Auth;
 using Services.Request.ExpertReq;
 using Services.Response.ExpertResp;
 
-namespace Services.Implements.Experts
+namespace Services.Implements.ExpertsService
 {
     public class ExpertService : IExpertService
     {
@@ -45,7 +45,7 @@ namespace Services.Implements.Experts
             try
             {
                 var profile = await _profileRepo.GetByAccountIdAsync(userId.Value);
-                bool isNewProfile = (profile == null);
+                bool isNewProfile = profile == null;
 
                 if (isNewProfile)
                 {

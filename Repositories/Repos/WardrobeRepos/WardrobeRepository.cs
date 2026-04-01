@@ -12,6 +12,7 @@ namespace Repositories.Repos.WardrobeRepos
         {
             _db = db;
         }
+
         public async Task<int> CreateWardrobe(Wardrobe wardrobe)
         {
             _db.Wardrobes.Add(wardrobe);
@@ -20,21 +21,23 @@ namespace Repositories.Repos.WardrobeRepos
 
         public async Task<List<Wardrobe>> GetAll()
         {
-            return await _db.Wardrobes.ToListAsync();
+            return await _db.Wardrobes
+                .AsNoTracking()
+                .ToListAsync();
         }
 
         public async Task<Wardrobe?> GetById(int accountId)
         {
-            return await _db.Wardrobes.FirstOrDefaultAsync(w => w.AccountId == accountId);
+            return await _db.Wardrobes
+                .AsNoTracking()
+                .FirstOrDefaultAsync(w => w.AccountId == accountId);
         }
 
-        public async Task<Wardrobe?> GetWardrobeByAccount(int accountId)
+        public async Task<Wardrobe?> GetByAccountIdAsync(int accountId)
         {
-            var result = await _db.Wardrobes
-                .Include(w => w.Items)
-                .ThenInclude(i => i.Images)
+            return await _db.Wardrobes
+                .AsNoTracking()
                 .FirstOrDefaultAsync(w => w.AccountId == accountId);
-            return result;
         }
     }
 }

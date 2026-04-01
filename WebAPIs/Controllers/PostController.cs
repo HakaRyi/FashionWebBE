@@ -150,5 +150,21 @@ namespace WebAPIs.Controllers
 
             return Ok(posts);
         }
+        [HttpPost("event-participation")]
+        [Authorize]
+        public async Task<IActionResult> JoinEventWithPost([FromForm] CreatePostDto request)
+        {
+            var accountId = User.GetUserId();
+            try
+            {
+                var result = await _postService.JoinEventByPostAsync(accountId, request);
+
+                return Created($"/api/post/{result.PostId}", result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 }

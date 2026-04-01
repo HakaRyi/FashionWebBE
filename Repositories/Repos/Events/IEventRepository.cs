@@ -21,5 +21,10 @@ namespace Repositories.Repos.Events
         Task<IEnumerable<Event>> GetAnalyticsDataAsync(int creatorId, DateTime startDate);
         Task<IEnumerable<Event>> GetAllByCreatorIdAsync(int creatorId);
 
+        Task<List<Scoreboard>> GetLeaderboardAsync(int eventId);
+        Task<Scoreboard?> GetUserScoreAsync(int eventId, int accountId);
+        Task<List<ExpertRating>> GetExpertRatingsForPostAsync(int postId);
+        Task<List<Reaction>> GetPostVotersAsync(int postId);
+
     }
 }

@@ -1,19 +1,12 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 using Repositories.Entities;
 using Repositories.Repos.AccountRepos;
 using Repositories.Repos.ChatRepos;
 using Repositories.Repos.GroupRepos;
 using Repositories.UnitOfWork;
-using Service.DTO.Request;
 using Services.Implements.Auth;
 using Services.RabbitMQ;
+using Services.Request.MessageReq;
 using Services.Response.MessageResp;
 using Services.Response.MessReactResp;
 using Services.Utils;
@@ -34,7 +27,7 @@ namespace Services.Implements.ChatImp
         private readonly IRabbitMQProducer _rabbitMQProducer;
         private readonly IHubContext<ChatHub> _hubContext;
         public ChatService(IUnitOfWork unitOfWork,
-            IChatRepository chatrepo, 
+            IChatRepository chatrepo,
             IGroupRepository groupRepository,
             ICurrentUserService userService,
             IAccountRepository accountRepository,

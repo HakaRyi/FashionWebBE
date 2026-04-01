@@ -388,6 +388,12 @@ namespace Services.Implements.OrderImp
             return response;
         }
 
+        public async Task<List<OrderResponse>> GetPaidOrdersAsync()
+        {
+            var orders = await _orderRepo.GetPaidOrdersAsync();
+            return orders.Select(MapToResponse).ToList();
+        }
+
         private OrderResponse MapToResponse(Order order)
         {
             return new OrderResponse

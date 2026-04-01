@@ -57,7 +57,7 @@ namespace Repositories.Repos.AccountRepos
         {
             return await _db.Accounts
                 .Include(a => a.Avatars)
-                .Where(p => p.Status != "" && _db.UserRoles.Any(ur => ur.UserId == p.Id && ur.RoleId == 2))
+                .Where(p => p.Status != "" && _db.UserRoles.Any(ur => ur.UserId == p.Id && ur.RoleId != 1))
                 .OrderByDescending(a => a.CreatedAt)
                 .ToListAsync();
         }

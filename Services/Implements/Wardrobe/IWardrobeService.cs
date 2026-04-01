@@ -6,9 +6,9 @@ namespace Services.Implements.Wardrobe
 {
     public interface IWardrobeService
     {
-        Task<List<WardrobeResponse>> GetAll();
-        Task<WardrobeResponse> GetById(int id);
-        Task<int> Create(WardrobeRequest request);
+        Task<int> CreateAsync(WardrobeRequest request);
+        Task<List<WardrobeResponse>> GetAllAsync();
+        Task<WardrobeResponse?> GetByAccountIdAsync(int accountId);
         Task<List<ItemDto>> GetMyWardrobeItemsAsync(int accountId);
     }
 }

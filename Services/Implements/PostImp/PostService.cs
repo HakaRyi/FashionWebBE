@@ -1,10 +1,13 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Repositories.Constants;
+using Repositories.Dto.Admin;
 using Repositories.Dto.Common;
 using Repositories.Dto.Social.Post;
 using Repositories.Entities;
+using Repositories.Repos.Events;
 using Repositories.Repos.ImageRepos;
 using Repositories.Repos.PostRepos;
+using Repositories.Repos.WalletRepos;
 using Repositories.UnitOfWork;
 using Services.RabbitMQ;
 using Services.Request.PostReq;
@@ -20,6 +23,8 @@ namespace Services.Implements.PostImp
         private readonly ICloudStorageService _storage;
         private readonly IRabbitMQProducer _producer;
         private readonly IUnitOfWork _uow;
+        private readonly IWalletRepository _walletRepo;
+        private readonly IEventRepository _eventRepo;
 
         private const int MAX_IMAGES = 5;
 
@@ -28,13 +33,17 @@ namespace Services.Implements.PostImp
             IImageRepository imageRepo,
             ICloudStorageService storage,
             IRabbitMQProducer producer,
-            IUnitOfWork uow)
+            IUnitOfWork uow,
+            IWalletRepository walletRepository,
+            IEventRepository eventRepository)
         {
             _postRepo = postRepo;
             _imageRepo = imageRepo;
             _storage = storage;
             _producer = producer;
             _uow = uow;
+            _walletRepo = walletRepository;
+            _eventRepo = eventRepository;
         }
 
 
@@ -432,7 +441,7 @@ namespace Services.Implements.PostImp
         }
 
 
-        
+
 
         public async Task<List<PostResponse>> GetPostsByEventIdAsync(int eventId)
         {
@@ -603,6 +612,66 @@ namespace Services.Implements.PostImp
             post.UpdatedAt = DateTime.UtcNow;
             _postRepo.Update(post);
             await _uow.SaveChangesAsync();
+        }
+        public async Task<PostResponse> JoinEventByPostAsync(int accountId, CreatePostDto dto)
+        {
+            if (!dto.EventId.HasValue) throw new Exception("Thiếu EventId để tham gia sự kiện.");
+
+            var ev = await _eventRepo.GetByIdAsync(dto.EventId.Value);
+
+            if (ev == null) throw new Exception("Sự kiện không tồn tại.");
+            if (ev.Status != "Active") throw new Exception("Sự kiện không còn mở để tham gia.");
+
+
+            using var transaction = await _uow.BeginTransactionAsync();
+            try
+            {
+                //var wallet = await _walletRepo.GetByAccountIdAsync(accountId);
+                //if (wallet == null || wallet.Balance < ev.AppliedFee)
+                //    throw new Exception("Số dư ví không đủ để nộp lệ phí tham gia.");
+
+                //wallet.Balance -= ev.AppliedFee;
+                //_walletRepo.Update(wallet);
+
+                var now = DateTime.UtcNow;
+                var imageUrls = await UploadImages(dto.Images!.ToList());
+
+                var post = new Post
+                {
+                    AccountId = accountId,
+                    Title = dto.Title?.Trim(),
+                    Content = dto.Content?.Trim(),
+                    EventId = dto.EventId,
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                    Status = PostStatus.Published,
+                    Visibility = PostVisibility.Visible,
+                    LikeCount = 0,
+                    CommentCount = 0,
+                    ShareCount = 0,
+                    Score = 0
+                };
+
+                await _postRepo.AddAsync(post);
+                await _uow.SaveChangesAsync();
+                var images = imageUrls.Select(url => new Image
+                {
+                    PostId = post.PostId,
+                    ImageUrl = url,
+                    OwnerType = "Post",
+                    CreatedAt = now
+                }).ToList();
+                await _imageRepo.AddRangeAsync(images);
+
+                await _uow.CommitAsync();
+                post.Images = images;
+                return MapToResponse(post);
+            }
+            catch (Exception)
+            {
+                await _uow.RollbackAsync();
+                throw;
+            }
         }
 
     }

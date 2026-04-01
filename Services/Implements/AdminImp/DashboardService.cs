@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Microsoft.AspNetCore.Identity;
+﻿using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Repositories.Repos.AdminRepos;
 using Repositories.Repos.Events;
@@ -22,8 +17,8 @@ namespace Services.Implements.AdminImp
         private readonly IUnitOfWork _unitOfWork;
         private readonly UserManager<Repositories.Entities.Account> _userManager;
         private readonly IEventRepository _eventRepository;
-        public DashboardService(IDashboardRepository dashboardRepository, 
-            IUnitOfWork unitOfWork, 
+        public DashboardService(IDashboardRepository dashboardRepository,
+            IUnitOfWork unitOfWork,
             UserManager<Repositories.Entities.Account> userManager,
             IEventRepository eventRepository)
         {
@@ -33,7 +28,7 @@ namespace Services.Implements.AdminImp
             _eventRepository = eventRepository;
         }
 
-        public async Task AdminCheckEvent(int eventId,AdminCheckRequest request)
+        public async Task AdminCheckEvent(int eventId, AdminCheckRequest request)
         {
             var entity = await _eventRepository.GetByIdAsync(eventId);
             if (entity == null) throw new Exception("ko thay su kien");

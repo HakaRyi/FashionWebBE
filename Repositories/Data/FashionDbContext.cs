@@ -248,7 +248,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        
+
 
         modelBuilder.Entity<IdentityRole<int>>(entity =>
         {
@@ -787,7 +787,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasConstraintName("Expert_Profile_account_id_fkey");
         });
 
-       
+
 
         modelBuilder.Entity<Follow>(entity =>
         {
@@ -1283,7 +1283,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .OnDelete(DeleteBehavior.ClientSetNull)
                 .HasConstraintName("Payment_account_id_fkey");
 
-           
+
         });
 
         modelBuilder.Entity<Photo>(entity =>

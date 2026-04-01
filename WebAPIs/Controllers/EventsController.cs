@@ -255,10 +255,40 @@ namespace WebAPIs.Controllers
         }
 
         #endregion
+
+
+        [HttpGet("{id}/leaderboard")]
+        public async Task<IActionResult> GetLeaderboard(int id)
+        {
+            var result = await _eventService.GetEventLeaderboardAsync(id);
+            return Ok(result);
+        }
+
+
+        [HttpGet("{id}/my-result")]
+        [Authorize]
+        public async Task<IActionResult> GetMyResult(int id)
+        {
+
+
+            var result = await _eventService.GetMyResultDetailAsync(id);
+            if (result == null) return NotFound(new { message = "Bạn chưa tham gia hoặc chưa có điểm trong sự kiện này." });
+
+            return Ok(result);
+        }
+
+        //[HttpGet("{id}/posts")]
+        //public async Task<IActionResult> GetEventPosts(int id)
+        //{
+        //    // Tận dụng hàm đã có của PostRepo
+        //    var posts = await _postRepo.GetPostsByEventIdAsync(id);
+        //    // Chuyển đổi sang PostResponse hoặc Dto tùy ý
+        //    return Ok(posts);
+        //}
     }
 }
 
-    public class RejectEventRequest
-    {
-        public string Reason { get; set; } = null!;
-    }
+public class RejectEventRequest
+{
+    public string Reason { get; set; } = null!;
+}

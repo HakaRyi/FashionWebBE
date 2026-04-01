@@ -1,9 +1,4 @@
-using Microsoft.EntityFrameworkCore;
 using Repositories.Entities;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-﻿using Repositories.Entities;
 
 using System.Linq.Expressions;
 

@@ -1,5 +1,4 @@
-using System.Text;
-﻿using Mapster;
+using Mapster;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.SignalR;
@@ -7,7 +6,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Quartz;
-using Quartz.Impl.Matchers;
 using Repositories.Data;
 using Repositories.Entities;
 using Repositories.Repos.AccountRepos;
@@ -57,7 +55,7 @@ using Services.Implements.EventCreationImp;
 using Services.Implements.EventExpertSer;
 using Services.Implements.Events;
 using Services.Implements.ExpertRatingImp;
-using Services.Implements.Experts;
+using Services.Implements.ExpertsService;
 using Services.Implements.ExpertsService.ExpertRequestImp;
 using Services.Implements.Follow;
 using Services.Implements.ImageImp;
@@ -489,7 +487,7 @@ using (var scope = app.Services.CreateScope())
 #endregion
 
 
-app.MapQuartzEndpoints();
+//app.MapQuartzEndpoints();
 
 app.Run();
 

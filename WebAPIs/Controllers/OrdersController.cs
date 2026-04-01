@@ -2,7 +2,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Services.Implements.OrderImp;
 using Services.Request.OrderReq;
-using Services.Utils;
 using System.Security.Claims;
 
 namespace WebAPIs.Controllers
@@ -60,6 +59,31 @@ namespace WebAPIs.Controllers
             }
         }
 
+        [AllowAnonymous]
+        [HttpGet("detail/{id}")]
+        public async Task<IActionResult> GetOrderDetailById(int id)
+        {
+            try
+            {
+                var result = await _orderService.GetOrderDetailByIdAsync(id);
+
+                if (result == null)
+                {
+                    return NotFound();
+                }
+
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+        }
+
+        /*Tui Chia Phần Đơn hàng ra làm 2 tab
+         1 Tab sài api sales để lấy đơn hàng đã bán
+         1 Tab sài api purchares để lấy đơn hàng đã mua
+         */
         [HttpGet("sales")]
         public async Task<IActionResult> GetSalesOrders()
         {
@@ -115,7 +139,26 @@ namespace WebAPIs.Controllers
             }
         }
 
-        [HttpPost("{id:int}/pay")]
+        [AllowAnonymous]
+        [HttpPut("shipper/{id}/status")]
+        public async Task<IActionResult> UpdateOrderByShipperStatus(int id, [FromBody] UpdateOrderStatusRequest request)
+        {
+            try
+            {
+                var result = await _orderService.UpdateOrderStatusByShipperAsync(id, request.Status);
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+        /* Tui có 1 màn hình dùng ví để thanh toán hóa đơn, api này dùng ở màn hình đó */
+        [HttpPost("{id}/pay")]
         public async Task<IActionResult> PayOrder(int id)
         {
             if (!TryGetCurrentUserId(out int buyerId))
