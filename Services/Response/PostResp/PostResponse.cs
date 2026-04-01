@@ -14,6 +14,7 @@
         public bool? IsExpertPost { get; set; }
         public string? Status { get; set; }
         public double? Score { get; set; }
+        public string? Reason { get; set; }
         public int? LikeCount { get; set; }
         public int? CommentCount { get; set; }
         public int? ShareCount { get; set; }

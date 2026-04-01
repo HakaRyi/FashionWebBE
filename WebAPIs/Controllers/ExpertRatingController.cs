@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Services.Implements.ExpertRatingImp;
+using Services.Implements.PostImp;
 using Services.Request.ExpertRatingReq;
+using System.Security.Claims;
 
 namespace WebAPIs.Controllers
 {
@@ -9,11 +11,14 @@ namespace WebAPIs.Controllers
     public class ExpertRatingController : ControllerBase
     {
         private readonly IExpertRatingService _eventRatingService;
+        private readonly IPostService _postService;
 
 
-        public ExpertRatingController(IExpertRatingService eventRatingService)
+
+        public ExpertRatingController(IExpertRatingService eventRatingService, IPostService postService)
         {
             _eventRatingService = eventRatingService;
+            _postService = postService;
         }
 
         /// <summary>
@@ -31,6 +36,14 @@ namespace WebAPIs.Controllers
             {
                 return BadRequest(new { message = ex.Message });
             }
+        }
+
+        [HttpGet("my-reviews/{eventId}")]
+        //[Authorize(Roles = "Expert")]
+        public async Task<IActionResult> GetMyReviews(int eventId)
+        {
+            var data = await _postService.GetPostsForExpertReviewAsync(eventId);
+            return Ok(data);
         }
     }
 }

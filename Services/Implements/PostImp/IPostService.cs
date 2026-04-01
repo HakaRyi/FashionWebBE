@@ -27,6 +27,7 @@ namespace Services.Implements.PostImp
 
 
         Task<List<PostResponse>> GetPostsByEventIdAsync(int eventId);
+        Task<List<PostResponse>> GetPostsForExpertReviewAsync(int eventId);
         Task<PostResponse> UpdatePostAsync(int postId, int accountId, UpdatePostRequest request);
 
         Task DeletePostAsync(int postId);

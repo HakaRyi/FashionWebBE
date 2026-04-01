@@ -52,6 +52,20 @@ namespace WebAPIs.Controllers
             }
         }
 
+        [HttpPost("{id}/cancel")]
+        public async Task<IActionResult> CancelEvent(int id)
+        {
+            try
+            {
+                await _eventCreationService.CancelEventAsync(id);
+                return Ok(new { Message = "Sự kiện đã được hủy và hoàn tiền thành công." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { Message = ex.Message });
+            }
+        }
+
         /// <summary>
         /// Chốt sự kiện, công bố kết quả và tự động giải ngân tiền thưởng
         /// </summary>
