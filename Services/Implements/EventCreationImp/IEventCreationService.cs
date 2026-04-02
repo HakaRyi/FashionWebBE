@@ -8,5 +8,6 @@ namespace Services.Implements.EventCreationImp
         Task<Event> CreateEventAsync(CreateEventRequest dto);
         Task ActivateEventWithEscrowAsync(int eventId);
         Task ManualStartEventAsync(int eventId);
+        Task CancelEventAsync(int eventId);
     }
 }

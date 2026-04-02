@@ -113,7 +113,7 @@ namespace Services.Implements.EventAwardingImp
         private async Task<List<Post>> CalculateAndRankPostsAsync(int eventId, Event ev)
         {
             var allPosts = await _postRepo.GetPostsByEventIdAsync(eventId);
-            if (!allPosts.Any()) return new List<Post>(); // Không có bài nộp nào
+            if (!allPosts.Any()) return new List<Post>();
 
             double maxRawScore = await _postRepo.GetMaxRawCommunityScoreAsync(eventId, ev.PointPerLike, ev.PointPerShare);
             if (maxRawScore == 0) maxRawScore = 1;

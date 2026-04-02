@@ -1,4 +1,5 @@
-﻿using Repositories.Entities;
+﻿using Mapster;
+using Repositories.Entities;
 using Repositories.Repos.EventExpertRepos;
 using Repositories.Repos.Events;
 using Repositories.Repos.ExpertRatingRepos;
@@ -91,12 +92,6 @@ namespace Services.Implements.EventExpertSer
 
             _eventExpertRepo.Update(invite);
 
-            // Nếu Expert chấp nhận, kiểm tra xem sự kiện có đủ điều kiện để Bắt đầu (Active) không
-            if (accept)
-            {
-                await CheckAndActivateEventAsync(eventId);
-            }
-
             return await _unitOfWork.SaveChangesAsync() > 0;
         }
 
@@ -112,11 +107,36 @@ namespace Services.Implements.EventExpertSer
             int currentExpertId = _currentUser.GetRequiredUserId();
             var relatedEvents = await _eventRepo.GetExpertRelatedEventsAsync(currentExpertId);
 
-            return relatedEvents
+            // 1. Lọc các sự kiện có lời mời đang ở trạng thái Pending
+            var filteredEvents = relatedEvents
                 .Where(e => e.CreatorId != currentExpertId &&
                             e.EventExperts.Any(ee => ee.ExpertId == currentExpertId && ee.Status == "Pending") &&
-                            e.Status == "Inviting") // Chỉ hiện lời mời khi sự kiện vẫn đang kêu gọi
-                .Select(MapToEventListDto);
+                            e.Status == "Inviting")
+                .ToList();
+
+            // 2. Sử dụng Mapster để map các trường chung đã cấu hình
+            var dtos = filteredEvents.Adapt<List<EventListDto>>();
+
+            // 3. Map tay các trường đặc thù theo ngữ cảnh "Pending"
+            for (int i = 0; i < filteredEvents.Count; i++)
+            {
+                var original = filteredEvents[i];
+                var dto = dtos[i];
+
+                dto.MyExpertStatus = "Pending";
+                dto.IsJoined = false; // Đang chờ thì chưa tính là đã tham gia chính thức
+
+                // Map tay danh sách giải thưởng rút gọn
+                dto.Prizes = original.PrizeEvents?
+                    .OrderBy(p => p.Ranked)
+                    .Select(p => new PrizeBriefDto
+                    {
+                        Ranked = p.Ranked,
+                        RewardAmount = p.RewardAmount
+                    }).ToList() ?? new List<PrizeBriefDto>();
+            }
+
+            return dtos;
         }
 
         /// <summary>
@@ -127,56 +147,35 @@ namespace Services.Implements.EventExpertSer
             int currentExpertId = _currentUser.GetRequiredUserId();
             var events = await _eventRepo.GetExpertRelatedEventsAsync(currentExpertId);
 
-            return events
+            // 1. Lọc các sự kiện Expert đã chấp nhận lời mời (Accepted)
+            var filteredEvents = events
                 .Where(e => e.CreatorId != currentExpertId &&
                             e.EventExperts.Any(ee => ee.ExpertId == currentExpertId && ee.Status == "Accepted"))
-                .Select(MapToEventListDto);
-        }
+                .ToList();
 
-        #endregion
+            // 2. Sử dụng Mapster để map các trường chung
+            var dtos = filteredEvents.Adapt<List<EventListDto>>();
 
-        #region Private Helpers
-
-        /// <summary>
-        /// Tự động chuyển trạng thái sự kiện sang Active nếu đủ số lượng Expert tối thiểu
-        /// </summary>
-        private async Task CheckAndActivateEventAsync(int eventId)
-        {
-            var ev = await _eventRepo.GetByIdAsync(eventId);
-            if (ev == null || ev.Status != "Inviting") return;
-
-            int acceptedCount = ev.EventExperts.Count(ee => ee.Status == "Accepted");
-
-            // Nếu số lượng expert đã đồng ý >= số lượng tối thiểu cấu hình trong Event
-            if (acceptedCount >= ev.MinExpertsToStart)
+            // 3. Map tay các trường đặc thù theo ngữ cảnh "Accepted"
+            for (int i = 0; i < filteredEvents.Count; i++)
             {
-                ev.Status = "Active";
-                ev.Note = $"Sự kiện tự động kích hoạt vào {DateTime.Now} vì đã đủ {acceptedCount} chuyên gia.";
-                _eventRepo.Update(ev);
+                var original = filteredEvents[i];
+                var dto = dtos[i];
+
+                dto.MyExpertStatus = "Accepted";
+                dto.IsJoined = true; // Đã chấp nhận lời mời
+
+                // Map tay danh sách giải thưởng rút gọn
+                dto.Prizes = original.PrizeEvents?
+                    .OrderBy(p => p.Ranked)
+                    .Select(p => new PrizeBriefDto
+                    {
+                        Ranked = p.Ranked,
+                        RewardAmount = p.RewardAmount
+                    }).ToList() ?? new List<PrizeBriefDto>();
             }
-        }
 
-        private EventListDto MapToEventListDto(Event e)
-        {
-            return new EventListDto
-            {
-                EventId = e.EventId,
-                Title = e.Title,
-                Description = e.Description,
-                Status = e.Status,
-                StartTime = e.StartTime,
-                EndTime = e.EndTime,
-                CreatorName = e.Creator?.UserName,
-                ParticipantCount = e.Posts?.Count ?? 0,
-                ThumbnailUrl = e.Images?.FirstOrDefault()?.ImageUrl,
-                TotalPrizePool = e.PrizeEvents?.Sum(p => p.RewardAmount) ?? 0,
-                // Trả về danh sách giải thưởng để Expert thấy tầm cỡ sự kiện
-                Prizes = e.PrizeEvents?.OrderBy(p => p.Ranked).Select(p => new PrizeBriefDto
-                {
-                    Ranked = p.Ranked,
-                    RewardAmount = p.RewardAmount
-                }).ToList() ?? new List<PrizeBriefDto>()
-            };
+            return dtos;
         }
 
         #endregion

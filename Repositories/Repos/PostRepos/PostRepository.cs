@@ -477,6 +477,19 @@ namespace Repositories.Repos.PostRepos
                 .Include(p => p.Account)
                 .Include(p => p.Images)
                 .Include(p => p.ExpertRatings)
+                .Include(p => p.Event)
+                .Where(p => p.EventId == eventId && p.Status == "Published")
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Post>> GetPostsForReview(int eventId, int? accountId)
+        {
+            return await _db.Posts
+                .Include(p => p.Account)
+                .Include(p => p.Images)
+                .Include(p => p.Event)
+                .Include(p => p.ExpertRatings
+                    .Where(r => !accountId.HasValue || r.ExpertId == accountId))
                 .Where(p => p.EventId == eventId && p.Status == "Published")
                 .ToListAsync();
         }

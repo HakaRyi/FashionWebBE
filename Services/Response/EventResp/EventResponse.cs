@@ -54,16 +54,19 @@
         public decimal TotalPrizePool { get; set; }
         public int ParticipantCount { get; set; }
 
-        public bool IsJoined { get; set; }
-
         // Thông tin người tạo
         public int CreatorId { get; set; }
         public string? CreatorName { get; set; }
 
-        // Danh sách giải thưởng (Đã lọc bỏ thông tin EscrowSession nhạy cảm)
-        public List<PrizeDtoV1> Prizes { get; set; } = new();
+        // --- CÁC TRƯỜNG MỚI ĐỂ FE XỬ LÝ NÚT BẤM VÀ TIẾN ĐỘ ---
+        public bool IsJoined { get; set; }
+        public bool IsAutoStart { get; set; }
+        public int MinExpertsToStart { get; set; }
+        public int AcceptedExpertsCount { get; set; }
+        public bool CanManualStart { get; set; }
+        public bool CanFinalize { get; set; }
 
-        // Danh sách chuyên gia/giám khảo
+        public List<PrizeDtoV1> Prizes { get; set; } = new();
         public List<ExpertInEventDto> Experts { get; set; } = new();
     }
 

@@ -32,6 +32,8 @@ namespace Services.Response.ItemResp
 
         public string? SleeveLength { get; set; }
 
+        public string? Size { get; set; }
+
         public string? Length { get; set; }
 
         public string? Brand { get; set; }
