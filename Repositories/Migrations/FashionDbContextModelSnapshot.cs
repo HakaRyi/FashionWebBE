@@ -2061,6 +2061,32 @@ namespace Repositories.Migrations
                     b.ToTable("Scoreboard", "public");
                 });
 
+            modelBuilder.Entity("Repositories.Entities.SearchHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Keyword")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.ToTable("SearchHistories");
+                });
+
             modelBuilder.Entity("Repositories.Entities.SystemSetting", b =>
                 {
                     b.Property<string>("SettingKey")
@@ -3024,6 +3050,17 @@ namespace Repositories.Migrations
                         .HasConstraintName("Scoreboard_post_id_fkey");
 
                     b.Navigation("Post");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.SearchHistory", b =>
+                {
+                    b.HasOne("Repositories.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Account");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Transaction", b =>

@@ -344,7 +344,7 @@ namespace Services.Implements.Auth
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
                 new Claim("AccountId", user.Id.ToString()),
-                new Claim("Username", user.UserName ?? string.Empty)
+                new Claim("Username", user.UserName ?? string.Empty),
             };
 
             foreach (var role in roles)
