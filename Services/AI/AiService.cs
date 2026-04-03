@@ -40,7 +40,8 @@ namespace Services.AI
 
             void AddField(string key, string? value)
             {
-                content.Add(new StringContent(value ?? "unknown"), key);
+                var finalValue = string.IsNullOrWhiteSpace(value) ? "none" : value;
+                content.Add(new StringContent(finalValue), key);
             }
 
             AddField("item", dto.ItemType ?? dto.ItemName);

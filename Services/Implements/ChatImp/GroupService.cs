@@ -1,4 +1,5 @@
-﻿using Repositories.Entities;
+﻿using Microsoft.EntityFrameworkCore;
+using Repositories.Entities;
 using Repositories.Repos.AccountRepos;
 using Repositories.Repos.GroupRepos;
 using Repositories.UnitOfWork;
@@ -93,12 +94,20 @@ namespace Services.Implements.ChatImp
             await _groupRepository.KickMemberFromGroup(account);
             await _unitOfWork.CommitAsync();
         }
-        public async Task CreateGroup2User(int targetUserId)
+        public async Task<int?> CheckExisting1v1Group(int targetUserId)
         {
             var currentUserId = _currentUserService.GetUserId() ?? 0;
             if (currentUserId == 0) throw new Exception("User not authenticated");
-            var isExisted = await _groupRepository.CheckIsRoomExist(currentUserId, targetUserId);
-            if (isExisted) throw new Exception("You and this user have already private room");
+
+            var room = await _groupRepository.GetExisting1v1Room(currentUserId, targetUserId);
+            return room?.GroupId;
+        }
+        public async Task<int> CreateGroup2User(int targetUserId)
+        {
+            var currentUserId = _currentUserService.GetUserId() ?? 0;
+            if (currentUserId == 0) throw new Exception("User not authenticated");
+            var existingRoom = await _groupRepository.GetExisting1v1Room(currentUserId, targetUserId);
+            if (existingRoom!=null) return existingRoom.GroupId;
             var group = new Group
             {
                 Name = "Private Chat",
@@ -112,6 +121,7 @@ namespace Services.Implements.ChatImp
             };
             _groupRepository.CreateGroup(group);
             await _unitOfWork.CommitAsync();
+            return group.GroupId;
         }
 
 
@@ -217,5 +227,6 @@ namespace Services.Implements.ChatImp
                 return response;
             }).ToList();
         }
+        
     }
 }

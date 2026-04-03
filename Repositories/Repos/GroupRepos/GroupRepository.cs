@@ -24,7 +24,14 @@ namespace Repositories.Repos.GroupRepos
          .AnyAsync(g => g.GroupUsers.Any(gu => gu.AccountId == userId)
                      && g.GroupUsers.Any(gu => gu.AccountId == targetId));
         }
-
+        public async Task<Group?> GetExisting1v1Room(int userId, int targetId)
+        {
+            return await _context.Groups
+                .Include(g => g.GroupUsers)
+                .Where(g => g.IsGroup == false)
+                .FirstOrDefaultAsync(g => g.GroupUsers.Any(gu => gu.AccountId == userId)
+                                       && g.GroupUsers.Any(gu => gu.AccountId == targetId));
+        }
         public async Task CreateGroup(Entities.Group group)
         {
             _context.Groups.Add(group);

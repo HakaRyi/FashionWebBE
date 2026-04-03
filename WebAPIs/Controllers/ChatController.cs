@@ -122,6 +122,13 @@ namespace WebAPIs.Controllers
             }
             return Ok(result);
         }
+        [HttpPost("consult/{itemId}")]
+        [Authorize]
+        public async Task<IActionResult> ConsultItem(int itemId)
+        {
+            var groupId = await _service.SendConsultationRequest(itemId);
+            return Ok(new { groupId = groupId });
+        }
 
     }
 }

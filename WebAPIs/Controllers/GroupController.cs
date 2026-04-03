@@ -22,6 +22,17 @@ namespace WebAPIs.Controllers
             return Ok(result);
 
         }
+        [HttpPost("check-exist-group/{targetId}")]
+        [Authorize]
+        public async Task<IActionResult> CheckExisting1v1Group([FromRoute] int targetId)
+        {
+            var groupId = await _groupService.CheckExisting1v1Group(targetId);
+            return Ok(new
+            {
+                isExisted = groupId.HasValue,
+                groupId = groupId
+            });
+        }
         [HttpPost("create-group")]
         [Authorize]
         public async Task<IActionResult> CreateGroup([FromForm] GroupRequest request)
@@ -48,10 +59,11 @@ namespace WebAPIs.Controllers
         [Authorize]
         public async Task<IActionResult> CreateRoom1v1([FromRoute] int targetUserId)
         {
-            await _groupService.CreateGroup2User(targetUserId);
+            var groupId = await _groupService.CreateGroup2User(targetUserId);
             return Ok(new
             {
-                message = "create 1v1 success"
+                message = "create 1v1 success",
+                groupId = groupId
             });
 
         }

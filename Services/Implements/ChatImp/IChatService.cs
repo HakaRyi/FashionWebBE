@@ -17,6 +17,7 @@ namespace Services.Implements.ChatImp
         Task UnPinMessage(int pinMsg);
         Task<List<PinMessageResponse>> GetPinnedMessagesByGroupId(int groupId);
         Task<List<MessReactResponse>> GetReactorByMessId(int messId);
+        Task<int> SendConsultationRequest(int itemId);
 
     }
 }

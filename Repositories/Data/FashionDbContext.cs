@@ -231,7 +231,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.HasOne(a => a.Wallet)
                 .WithOne(w => w.Account)
                 .HasForeignKey<Wallet>(w => w.AccountId);
-
+                
             entity.HasMany(a => a.SentEscrows)
                 .WithOne(e => e.Sender)
                 .HasForeignKey(e => e.SenderId)

@@ -1,8 +1,10 @@
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 using Repositories.Entities;
 using Repositories.Repos.AccountRepos;
 using Repositories.Repos.ChatRepos;
 using Repositories.Repos.GroupRepos;
+using Repositories.Repos.ItemRespos;
 using Repositories.UnitOfWork;
 using Services.Implements.Auth;
 using Services.RabbitMQ;
@@ -26,6 +28,8 @@ namespace Services.Implements.ChatImp
         private readonly ICloudStorageService _storage;
         private readonly IRabbitMQProducer _rabbitMQProducer;
         private readonly IHubContext<ChatHub> _hubContext;
+        private readonly IItemRepository _itemRepository;
+        private readonly IGroupService _groupService;
         public ChatService(IUnitOfWork unitOfWork,
             IChatRepository chatrepo,
             IGroupRepository groupRepository,
@@ -35,7 +39,9 @@ namespace Services.Implements.ChatImp
             IPinMessageRepository pinMessageRepository,
             ICloudStorageService storage,
             IRabbitMQProducer rabbitMQProducer,
-            IHubContext<ChatHub> hubContext
+            IHubContext<ChatHub> hubContext,
+            IItemRepository itemRepository,
+            IGroupService groupService
             )
         {
             _unitOfWork = unitOfWork;
@@ -48,6 +54,8 @@ namespace Services.Implements.ChatImp
             _storage = storage;
             _rabbitMQProducer = rabbitMQProducer;
             _hubContext = hubContext;
+            _itemRepository = itemRepository;
+            _groupService = groupService;
         }
 
         public async Task DeleteMessage(int messageId)
@@ -242,7 +250,35 @@ namespace Services.Implements.ChatImp
                 MessageId = r.MessageId ?? 0
             }).ToList() ?? null;
         }
+        public async Task<int> SendConsultationRequest(int itemId)
+        {
+            var currentUserId = _currentUserService.GetUserId() ?? 0;
+            if (currentUserId == 0) throw new Exception("User not authenticated");
+            var currentUser = await _accountRepository.GetAccountById(currentUserId);
 
+            var item = await _itemRepository.GetByIdAsync(itemId);
+            if (item == null) throw new Exception("Item not found");
+
+            int targetUserId = item.Wardrobe.AccountId;
+            if (currentUserId == targetUserId) throw new Exception("You cannot consult yourself");
+
+            var groupId = await _groupService.CreateGroup2User(targetUserId);
+
+            string messageContent = $"Xin chào, mình là {currentUser.UserName}! Mình xin hỏi tư vấn về món đồ '{item.ItemName}' của bạn được không ạ?";
+            var existingImageUrls = item.Images.Select(img => img.ImageUrl).ToList();
+            var chatData = new ChatMessageQueueDto
+            {
+                SenderId = currentUserId,
+                GroupId = groupId,
+                Content = messageContent,
+                ImageUrls = existingImageUrls,
+                ReplyToId = 0
+            };
+
+            await _rabbitMQProducer.SendMessage(chatData);
+
+            return groupId;
+        }
 
     }
 }

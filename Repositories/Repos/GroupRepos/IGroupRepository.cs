@@ -13,5 +13,6 @@ namespace Repositories.Repos.GroupRepos
         Task KickMemberFromGroup(GroupUser groupUser);
         Task UpdateGroup(Group group);
         Task DeleteGroup(Group group);
+        Task<Group?> GetExisting1v1Room(int userId, int targetId);
     }
 }
