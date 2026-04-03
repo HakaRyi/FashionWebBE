@@ -108,26 +108,25 @@ namespace WebAPIs.Controllers
             }
         }
 
-        [HttpPost("check/{followerId}")]
+        [HttpPost("check/{targetUserId}")]
         [Authorize]
-        public async Task<IActionResult> CheckFollow([FromRoute] int followerId)
+        public async Task<IActionResult> CheckFollow([FromRoute] int targetUserId)
         {
-            var userId = User.FindFirst("AccountId")?.Value;
-            var result = await service.IsFollowingAsync(int.Parse(userId), followerId);
-            if (result)
+            var currentUserIdStr = User.FindFirst("AccountId")?.Value;
+
+            if (string.IsNullOrEmpty(currentUserIdStr))
             {
-                return Ok(new
-                {
-                    isFollowing = true
-                });
+                return Unauthorized(new { message = "Không xác định được người dùng." });
             }
-            else
+
+            var followerId = int.Parse(currentUserIdStr);
+
+            var result = await service.IsFollowingAsync(followerId, targetUserId);
+
+            return Ok(new
             {
-                return Ok(new
-                {
-                    isFollowing = false
-                });
-            }
+                isFollowing = result
+            });
         }
         // DELETE api/<FollowController>/5
         [HttpDelete("{id}")]

@@ -151,6 +151,9 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
             entity.HasKey(e => e.Id).HasName("Account_pkey");
 
+            entity.HasIndex(e => e.Email)
+                .IsUnique();
+
             entity.Property(e => e.Id)
                 .HasColumnName("account_id");
 

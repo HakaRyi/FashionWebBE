@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Services.Implements.Auth;
 using Services.Request.AccountReq;
+using Services.Response.AccountRep;
 
 namespace WebAPIs.Controllers
 {
@@ -124,6 +125,30 @@ namespace WebAPIs.Controllers
         public class RefreshTokenRequest
         {
             public string RefreshToken { get; set; } = null!;
+        }
+
+        [HttpPost("google-login")]
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
+        {
+            try
+            {
+                var authResponse = await _authService.LoginWithGoogleAsync(request);
+                return Ok(new
+                {
+                    success = true,
+                    accessToken = authResponse.AccessToken,
+                    refreshToken = authResponse.RefreshToken,
+                    data = authResponse
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new
+                {
+                    success = false,
+                    message = "Xác thực Google thất bại: " + ex.Message
+                });
+            }
         }
     }
 }

@@ -303,6 +303,9 @@ namespace Repositories.Migrations
                     b.HasKey("Id")
                         .HasName("Account_pkey");
 
+                    b.HasIndex("Email")
+                        .IsUnique();
+
                     b.HasIndex("NormalizedEmail")
                         .IsUnique()
                         .HasDatabaseName("EmailIndex");
