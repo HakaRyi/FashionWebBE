@@ -130,8 +130,18 @@ namespace Services.Implements.ExpertsService
 
         public async Task<bool> ProcessApplicationAsync(int fileId, string status, string? reason)
         {
+            var validStatuses = new[] { "Approved", "Rejected" };
+            if (!validStatuses.Contains(status))
+                throw new ArgumentException("Trạng thái không hợp lệ.");
+
             var file = await _fileRepo.GetById(fileId);
             if (file == null) return false;
+
+            if (file.Status != "Pending")
+                throw new InvalidOperationException("Đơn đăng ký này đã được xử lý trước đó.");
+
+            int? accountId = null;
+            bool isApproved = status.Equals("Approved", StringComparison.OrdinalIgnoreCase);
 
             using (var transaction = await _unitOfWork.BeginTransactionAsync())
             {
@@ -142,56 +152,53 @@ namespace Services.Implements.ExpertsService
                     file.ProcessedAt = DateTime.UtcNow;
                     _fileRepo.Update(file);
 
-                    if (status.Equals("Approved", StringComparison.OrdinalIgnoreCase))
+                    if (isApproved)
                     {
                         var profile = await _profileRepo.GetById(file.ExpertProfileId);
-                        if (profile != null)
+                        if (profile == null) throw new Exception("Không tìm thấy hồ sơ chuyên gia.");
+
+                        accountId = profile.AccountId;
+                        profile.Verified = true;
+                        profile.UpdatedAt = DateTime.UtcNow;
+                        profile.ReputationScore = 10;
+
+                        var history = new ReputationHistory
                         {
-                            profile.Verified = true;
-                            profile.UpdatedAt = DateTime.UtcNow;
-                            profile.ReputationScore = 10;
-                            profile.Verified = true;
+                            ExpertProfileId = profile.ExpertProfileId,
+                            PointChange = 10,
+                            CurrentPoint = 10,
+                            Reason = "Hệ thống cấp điểm uy tín khởi tạo khi duyệt hồ sơ Expert.",
+                            CreatedAt = DateTime.UtcNow
+                        };
 
-                            var history = new ReputationHistory
-                            {
-                                ExpertProfileId = profile.ExpertProfileId,
-                                PointChange = 10,
-                                CurrentPoint = 10,
-                                Reason = "Hệ thống cấp điểm uy tín khởi tạo khi duyệt hồ sơ Expert.",
-                                CreatedAt = DateTime.UtcNow
-                            };
-
-                            await _reputationHistory.AddAsync(history);
-                            _profileRepo.Update(profile);
-
-                            var account = await _userManager.FindByIdAsync(profile.AccountId.ToString());
-                            if (account != null)
-                            {
-                                if (!await _userManager.IsInRoleAsync(account, "Expert"))
-                                {
-                                    var removeResult = await _userManager.RemoveFromRoleAsync(account, "User");
-                                    var addResult = await _userManager.AddToRoleAsync(account, "Expert");
-
-                                    if (!addResult.Succeeded)
-                                    {
-                                        throw new Exception("Unable to update Expert privileges for the user.");
-                                    }
-                                }
-                            }
-                        }
+                        await _reputationHistory.AddAsync(history);
+                        _profileRepo.Update(profile);
                     }
 
-                    var saveResult = await _unitOfWork.SaveChangesAsync() > 0;
-
+                    await _unitOfWork.SaveChangesAsync();
                     await transaction.CommitAsync();
-                    return saveResult;
                 }
-                catch (Exception)
+                catch
                 {
                     await transaction.RollbackAsync();
                     throw;
                 }
             }
+
+            if (isApproved && accountId.HasValue)
+            {
+                var account = await _userManager.FindByIdAsync(accountId.Value.ToString());
+                if (account != null)
+                {
+                    if (!await _userManager.IsInRoleAsync(account, "Expert"))
+                    {
+                        await _userManager.RemoveFromRoleAsync(account, "User");
+                        var addResult = await _userManager.AddToRoleAsync(account, "Expert");
+                    }
+                }
+            }
+
+            return true;
         }
 
         public async Task<bool> ReviewApplicationAsync(int fileId, bool isApproved, string? feedback)

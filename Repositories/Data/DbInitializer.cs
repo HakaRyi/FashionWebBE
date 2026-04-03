@@ -67,22 +67,22 @@ namespace Repositories.Data
                 }
 
                 var settings = new List<SystemSetting>
-        {
-            new SystemSetting
-            {
-                SettingKey = "SystemAdminAccountId",
-                SettingValue = adminUser.Id.ToString(),
-                DataType = "Int",
-                Description = "ID của tài khoản Admin nhận phí hệ thống"
-            },
-            new SystemSetting
-            {
-                SettingKey = "EventCreationFee",
-                SettingValue = "10000",
-                DataType = "Decimal",
-                Description = "Phí Expert phải trả khi tạo sự kiện thành công"
-            }
-        };
+                {
+                    new SystemSetting
+                    {
+                        SettingKey = "EventFeePercentage",
+                        SettingValue = "5",
+                        DataType = "Decimal",
+                        Description = "Tỷ lệ phần trăm thu phí tạo sự kiện (%)"
+                    },
+                    new SystemSetting
+                    {
+                        SettingKey = "EventMinFee",
+                        SettingValue = "10000",
+                        DataType = "Decimal",
+                        Description = "Phí tạo sự kiện tối thiểu (VNĐ)"
+                    }
+                };
 
                 foreach (var setting in settings)
                 {

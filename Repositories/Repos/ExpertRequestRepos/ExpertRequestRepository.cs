@@ -19,7 +19,10 @@ namespace Repositories.Repos.ExpertRequestRepos
 
         public async Task<ExpertRequest?> GetById(int id)
         {
-            return await _db.ExpertRequests.FindAsync(id);
+            return await _db.ExpertRequests
+                .Include(p => p.ExpertProfile)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(x => x.ExpertFileId == id);
         }
 
         public async Task<ExpertRequest?> GetByProfileIdAsync(int profileId)

@@ -119,6 +119,7 @@ namespace Services.Implements.WalletImp
                 {
                     WalletId = wallet.WalletId,
                     PaymentId = payment.PaymentId,
+                    TransactionCode = "TX" + DateTime.Now.Ticks.ToString(),
                     Amount = request.Amount,
                     BalanceBefore = balanceBefore,
                     BalanceAfter = wallet.Balance,
@@ -193,14 +194,20 @@ namespace Services.Implements.WalletImp
     };
 
             // 2. Map Transactions (Dữ liệu cho WalletTransactionTable.js)
-            response.Transactions = transactions.Select(t => new TransactionDto
-            {
-                Id = $"GD{t.TransactionId:D5}",
-                Detail = t.Description,
-                Date = t.CreatedAt.ToString("dd/MM/yyyy HH:mm"),
-                Amount = t.Amount,
-                Type = t.Type?.ToLower() == "deposit" ? "deposit" : "expense",
-                Status = t.Status // FE sẽ dùng .toLowerCase() để map class CSS
+            response.Transactions = transactions.Select(t => {
+                // Xác định các loại type nào là cộng tiền
+                var positiveTypes = new[] { "deposit", "credit", "event_cancel_refund" };
+                bool isPositive = positiveTypes.Contains(t.Type?.ToLower());
+
+                return new TransactionDto
+                {
+                    Id = $"GD{t.TransactionId:D5}",
+                    Detail = t.Description,
+                    Date = t.CreatedAt.ToString("dd/MM/yyyy HH:mm"),
+                    Amount = t.Amount,
+                    Type = isPositive ? "deposit" : "expense",
+                    Status = t.Status
+                };
             }).ToList();
 
             return response;

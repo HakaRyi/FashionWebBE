@@ -67,6 +67,7 @@ using Services.Implements.OutfitImp;
 using Services.Implements.PaymentService;
 using Services.Implements.PostImp;
 using Services.Implements.SocialImp;
+using Services.Implements.SystemSettingImp;
 using Services.Implements.TransactionImp;
 using Services.Implements.TryOn;
 using Services.Implements.UserReportImp;
@@ -79,6 +80,7 @@ using Services.Utils.AIDectection;
 using Services.Utils.CloundStorage;
 using Services.Utils.File;
 using Services.Utils.SignalR;
+using System.Text;
 using System.Text;
 using WebAPIs.Endpoints;
 using WebAPIs.Services;
@@ -262,6 +264,8 @@ builder.Services.AddScoped<ISearchService, SearchService>();
 builder.Services.AddScoped<IVnPayGatewayService, VnPayGatewayService>();
 builder.Services.AddScoped<IZaloPayGatewayService, ZaloPayGatewayService>();
 builder.Services.AddScoped<ITopUpPaymentProcessor, TopUpPaymentProcessor>();
+builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
+
 
 #endregion
 
