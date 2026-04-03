@@ -91,8 +91,15 @@ namespace Services.Implements.EventCreationImp
             int creatorId = _currentUserService.GetRequiredUserId();
             ValidateEventRequest(dto);
 
-            decimal currentFee = await _settingRepo.GetDecimalValueAsync("EventCreationFee", 10000);
+            decimal feePercentage = await _settingRepo.GetDecimalValueAsync("EventFeePercentage", 5.0m);
+
+            decimal minFee = await _settingRepo.GetDecimalValueAsync("EventMinFee", 10000m);
+
             var totalPrize = dto.Prizes.Sum(p => p.RewardAmount);
+
+            decimal calculatedFee = totalPrize * (feePercentage / 100m);
+
+            decimal currentFee = Math.Max(calculatedFee, minFee);
 
             var wallet = await _walletRepo.GetByAccountIdAsync(creatorId);
             if (wallet == null || wallet.Balance < (totalPrize + currentFee))
@@ -435,7 +442,7 @@ namespace Services.Implements.EventCreationImp
                 var experts = await _eventExpertRepo.GetByEventIdAsync(eventId);
                 foreach (var exp in experts)
                 {
-                    if (exp.Status == "Pending" || exp.Status == "Accepted")
+                    if (exp.Status == "Pending" || exp.Status == "Accepted" || exp.Status == "Awaiting_Review")
                     {
                         exp.Status = "Event_Cancelled";
                         _eventExpertRepo.Update(exp);

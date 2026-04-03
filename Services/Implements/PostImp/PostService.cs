@@ -94,7 +94,7 @@ namespace Services.Implements.PostImp
 
             post.Images = images;
 
-            return post.Adapt<PostResponse>();
+            return MapToResponse(post);
         }
 
         public async Task UpdatePostAsync(int postId, int accountId, UpdatePostDto dto)
@@ -201,19 +201,55 @@ namespace Services.Implements.PostImp
         public async Task<List<PostResponse>> GetAllPostAsync()
         {
             var posts = await _postRepo.GetAllPostAsync();
-            return posts.Adapt<List<PostResponse>>();
+            return posts.Select(MapToResponse).ToList();
         }
 
         public async Task<List<PostResponse>> GetAllMyPostAsync(int userId)
         {
             var posts = await _postRepo.GetAllByUserAsync(userId);
-            return posts.Adapt<List<PostResponse>>();
+            return posts.Select(MapToResponse).ToList();
         }
 
         public async Task<PostResponse?> GetPostByIdAsync(int postId)
         {
             var post = await _postRepo.GetByIdAsync(postId);
-            return post.Adapt<PostResponse>();
+            return post == null ? null : MapToResponse(post);
+        }
+
+        private PostResponse MapToResponse(Post post)
+        {
+            return new PostResponse
+            {
+                PostId = post.PostId,
+                AccountId = post.AccountId,
+
+                UserName = post.Account?.UserName,
+                AvatarUrl = post.Account?.Avatars?
+                    .OrderByDescending(a => a.CreatedAt)
+                    .FirstOrDefault()?.ImageUrl,
+
+                EventId = post.EventId,
+                EventName = post.Event?.Title,
+
+                Title = post.Title,
+                Content = post.Content,
+
+                ImageUrls = post.Images?
+                    .OrderBy(i => i.CreatedAt)
+                    .Select(i => i.ImageUrl)
+                    .ToList() ?? new List<string>(),
+
+                IsExpertPost = post.IsExpertPost,
+                Status = post.Status,
+                Score = post.Score,
+
+                LikeCount = post.LikeCount,
+                CommentCount = post.CommentCount,
+                ShareCount = post.ShareCount,
+
+                CreatedAt = post.CreatedAt,
+                UpdatedAt = post.UpdatedAt
+            };
         }
 
         public Task<List<PostFeedDto>> GetFeedAsync(int userId, DateTime? cursor, int pageSize)
@@ -446,7 +482,7 @@ namespace Services.Implements.PostImp
         public async Task<List<PostResponse>> GetAllPendingAdminAsync()
         {
             List<Post> posts = await _postRepo.GetAllPendingAdminPostAsync();
-            return posts.Adapt<List<PostResponse>>();
+            return posts.Select(MapToResponse).ToList();
         }
 
         public async Task<int> UpdatePostStatus(int postId, string status)
@@ -525,7 +561,7 @@ namespace Services.Implements.PostImp
                     ImageUrls = imageUrls
                 });
             }
-            return post.Adapt<PostResponse>();
+            return MapToResponse(post);
         }
 
         public async Task<PostResponse> UpdatePostAsync(int postId, int accountId, UpdatePostRequest request)
@@ -573,7 +609,7 @@ namespace Services.Implements.PostImp
             }
 
             var updatedPost = await _postRepo.GetByIdAsync(postId);
-            return updatedPost.Adapt<PostResponse>();
+            return MapToResponse(updatedPost);
 
         }
 
@@ -656,7 +692,7 @@ namespace Services.Implements.PostImp
 
                 await _uow.CommitAsync();
                 post.Images = images;
-                return post.Adapt<PostResponse>();
+                return MapToResponse(post);
 
             }
             catch (Exception)

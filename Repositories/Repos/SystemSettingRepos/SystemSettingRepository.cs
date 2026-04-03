@@ -1,5 +1,6 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Repositories.Data;
+using Repositories.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -41,6 +42,25 @@ namespace Repositories.Repos.SystemSettingRepos
         {
             var val = await GetStringValueAsync(key, defaultValue.ToString());
             return double.TryParse(val, out double result) ? result : defaultValue;
+        }
+
+        public async Task<SystemSetting?> GetByKeyAsync(string key)
+        => await _context.SystemSettings.FindAsync(key);
+
+        public async Task<List<SystemSetting>> GetAllAsync()
+            => await _context.SystemSettings.ToListAsync();
+
+        public async Task AddAsync(SystemSetting setting)
+        {
+            _context.SystemSettings.Add(setting);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task UpdateAsync(SystemSetting setting)
+        {
+            setting.UpdatedAt = DateTime.Now;
+            _context.SystemSettings.Update(setting);
+            await _context.SaveChangesAsync();
         }
     }
 }
