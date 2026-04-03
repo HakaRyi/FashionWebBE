@@ -488,7 +488,7 @@ namespace Repositories.Seeders
                     IsExpertPost = false,
                     Status = PostStatus.Published,
                     Visibility = PostVisibility.Visible,
-                    Score = 10 + i,
+                    //Score = 10 + i,
                     LikeCount = 3 + i,
                     CommentCount = i,
                     ShareCount = i % 2
@@ -513,7 +513,7 @@ namespace Repositories.Seeders
                         IsExpertPost = false,
                         Status = j % 6 == 0 ? PostStatus.Draft : PostStatus.Published,
                         Visibility = j % 5 == 0 ? PostVisibility.Hidden : PostVisibility.Visible,
-                        Score = 5 + j,
+                        //Score = 5 + j,
                         LikeCount = 2 + j + i,
                         CommentCount = j,
                         ShareCount = j % 3

@@ -244,6 +244,7 @@ namespace Services.Implements.EventAwardingImp
                     await _transactionRepo.AddAsync(new Transaction
                     {
                         WalletId = creatorWallet.WalletId,
+                        TransactionCode = $"AWARDING_FEE_{ev.EventId}_{DateTime.Now.Ticks}",
                         Amount = refundAmount,
                         BalanceBefore = creatorBalanceBefore,
                         BalanceAfter = creatorWallet.Balance,
