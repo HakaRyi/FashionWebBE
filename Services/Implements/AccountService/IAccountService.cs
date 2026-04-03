@@ -13,5 +13,6 @@ namespace Services.Implements.AccountService
         Task<string> updateAccountRequest(int accountId, UpdateAccountRequest request);
         Task<int> CountAccount();
         Task<int> CountExpert();
+        Task<bool> CompleteOnboardingAsync(int accountId, OnboardingRequest request);
     }
 }

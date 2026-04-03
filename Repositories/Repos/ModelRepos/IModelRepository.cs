@@ -7,5 +7,7 @@ namespace Repositories.Repos.ModelRepos
         Task DeleteModelAsync(int modelId);
 
         Task<IEnumerable<Model>> GetModelsByAccountIdAsync(int accountId);
+        Task<Model?> GetModelByIdAsync(int modelId);
+        Task UpdateModelAsync(Model model);
     }
 }

@@ -9,7 +9,8 @@ namespace Services.Utils.SignalR
         {
             return connection.User?.FindFirst("nameid")?.Value
                 ?? connection.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                ?? connection.User?.FindFirst("sub")?.Value;
+                ?? connection.User?.FindFirst("sub")?.Value
+                ?? connection.User?.FindFirst("AccountId")?.Value;
         }
     }
 }

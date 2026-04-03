@@ -40,10 +40,21 @@ namespace Repositories.Repos.ModelRepos
             }
         }
 
+        public async Task<Model?> GetModelByIdAsync(int modelId)
+        {
+            return await _context.Models.FindAsync(modelId);
+        }
+
         public async Task<IEnumerable<Model>> GetModelsByAccountIdAsync(int accountId)
         {
             var result = await _context.Models.Where(m => m.AccountId == accountId).ToListAsync();
             return result;
+        }
+
+        public async Task UpdateModelAsync(Model model)
+        {
+            _context.Models.Update(model);
+            await _context.SaveChangesAsync();
         }
     }
 }

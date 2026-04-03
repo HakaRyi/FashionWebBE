@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Services.Implements.AccountService;
 using Services.Request.AccountReq;
 
@@ -93,6 +94,23 @@ namespace WebAPIs.Controllers
             {
                 return BadRequest(new { message = "Update fail" });
             }
+        }
+
+        [Authorize]
+        [HttpPut("onboarding")]
+        public async Task<IActionResult> CompleteOnboarding([FromBody] OnboardingRequest request)
+        {
+            var accountIdClaim = User.Claims.FirstOrDefault(c => c.Type == "AccountId")?.Value;
+            if (string.IsNullOrEmpty(accountIdClaim)) return Unauthorized();
+
+            var success = await service.CompleteOnboardingAsync(int.Parse(accountIdClaim), request);
+
+            if (success)
+            {
+                return Ok(new { success = true });
+            }
+
+            return BadRequest(new { success = false, message = "Cập nhật hồ sơ thất bại" });
         }
     }
 }

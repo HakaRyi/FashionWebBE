@@ -161,17 +161,10 @@ namespace Services.Implements.Follow
             }
         }
 
-        public async Task<bool> IsFollowingAsync(int userId, int followerId)
+        public async Task<bool> IsFollowingAsync(int followerId, int targetUserId)
         {
-            var follow = await _followRepository.GetFollowerByIdAsync(userId, followerId);
-            if (follow != null)
-            {
-                return true;
-            }
-            else
-            {
-                return false;
-            }
+            var isFollowing = await _followRepository.IsFollowingAsync(followerId, targetUserId);
+            return isFollowing;
         }
 
         public async Task<bool> UnfollowUserAsync(int currentUserId, int targetUserId)

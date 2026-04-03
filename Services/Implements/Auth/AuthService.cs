@@ -1,9 +1,12 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿
+using Google.Apis.Auth;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using Repositories.Entities;
 using Repositories.Repos.AccountRepos;
+using Repositories.Repos.ImageRepos;
 using Repositories.Repos.WalletRepos;
 using Repositories.Repos.WardrobeRepos;
 using Repositories.UnitOfWork;
@@ -13,6 +16,7 @@ using Services.Response.AccountRep;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
+using System.Security.Principal;
 using System.Text;
 
 namespace Services.Implements.Auth
@@ -29,6 +33,7 @@ namespace Services.Implements.Auth
         private readonly IWalletRepository _walletRepository;
         private readonly ICurrentUserService _currentUserService;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IImageRepository _imageRepository;
 
         public AuthService(
             UserManager<Account> userManager,
@@ -40,7 +45,8 @@ namespace Services.Implements.Auth
             IHttpContextAccessor httpContextAccessor,
             IWalletRepository walletRepository,
             ICurrentUserService currentUserService,
-            IUnitOfWork unitOfWork)
+            IUnitOfWork unitOfWork,
+            IImageRepository imageRepository)
         {
             _userManager = userManager;
             _roleManager = roleManager;
@@ -52,6 +58,7 @@ namespace Services.Implements.Auth
             _walletRepository = walletRepository;
             _currentUserService = currentUserService;
             _unitOfWork = unitOfWork;
+            _imageRepository = imageRepository;
         }
 
         #region Helper Methods
@@ -336,6 +343,7 @@ namespace Services.Implements.Auth
         private async Task<string> GenerateAccessToken(Account user)
         {
             var roles = await _userManager.GetRolesAsync(user);
+            var avatarUrl = user.Avatars?.FirstOrDefault()?.ImageUrl ?? "";
 
             var claims = new List<Claim>
             {
@@ -345,6 +353,7 @@ namespace Services.Implements.Auth
                 new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
                 new Claim("AccountId", user.Id.ToString()),
                 new Claim("Username", user.UserName ?? string.Empty),
+                new Claim("Avatar", avatarUrl)
             };
 
             foreach (var role in roles)
@@ -409,6 +418,131 @@ namespace Services.Implements.Auth
                 AccessToken = newAccessToken,
                 RefreshToken = newRefreshTokenString,
                 Message = "Làm mới token thành công."
+            };
+        }
+
+        public async Task<AuthResponse> LoginWithGoogleAsync(GoogleLoginRequest request)
+        {
+            var settings = new GoogleJsonWebSignature.ValidationSettings()
+            {
+                Audience = new[] { _configuration["Google:ClientId"] }
+            };
+
+            GoogleJsonWebSignature.Payload payload;
+
+            try
+            {
+                payload = await GoogleJsonWebSignature.ValidateAsync(request.IdToken, settings);
+            }
+            catch
+            {
+                throw new Exception("Google token không hợp lệ");
+            }
+
+            if (!payload.EmailVerified)
+            {
+                throw new Exception("Email chưa được xác thực bởi Google");
+            }
+            bool isNewUser = false;
+            var user = await _userManager.FindByEmailAsync(payload.Email);
+
+            if (user == null)
+            {
+                isNewUser = true;
+                user = new Account
+                {
+                    UserName = $"{payload.Email.Split('@')[0]}_{Guid.NewGuid():N}".Substring(0, 20),
+                    Email = payload.Email,
+                    CreatedAt = DateTime.UtcNow,
+                    Status = "Active",
+                    FreeTryOn = 3,
+                    CountPost = 0,
+                    CountFollower = 0,
+                    CountFollowing = 0,
+                    EmailConfirmed = true,
+                    SecurityStamp = Guid.NewGuid().ToString(),
+                };
+
+                if (!string.IsNullOrEmpty(payload.Picture))
+                {
+                    if (!string.IsNullOrEmpty(payload.Picture))
+                    {
+                        user.Avatars.Add(new Image
+                        {
+                            ImageUrl = payload.Picture,
+                            CreatedAt = DateTime.UtcNow
+                        });
+                    }
+                }
+                var createResult = await _userManager.CreateAsync(user);
+                if (!createResult.Succeeded)
+                {
+                    var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
+                    throw new Exception(errors);
+                }
+                await _userManager.AddToRoleAsync(user, "User");
+
+                await _walletRepository.AddAsync(new Wallet
+                {
+                    AccountId = user.Id,
+                    Balance = 0,
+                    LockedBalance = 0,
+                    Currency = "VND",
+                    UpdatedAt = DateTime.UtcNow
+                });
+
+                await _wardrobeRepository.CreateWardrobe(new Repositories.Entities.Wardrobe
+                {
+                    AccountId = user.Id,
+                    Name = $"Tủ đồ của {user.UserName}",
+                    CreatedAt = DateTime.UtcNow
+                });
+
+                await _unitOfWork.SaveChangesAsync();
+            }
+
+            user.IsOnline = "Online";
+            await _userManager.UpdateAsync(user);
+            var accessToken = await GenerateAccessToken(user);
+            var refreshTokenString = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
+
+            var deviceInfo = GetClientDeviceInfo();
+            var ipAddress = GetClientIpAddress();
+
+            var existingToken = await _accountRepository.GetRefreshTokenByAccountIdAsync(user.Id);
+
+            if (existingToken != null)
+            {
+                existingToken.Token = refreshTokenString;
+                existingToken.ExpiryDate = DateTime.UtcNow.AddDays(7);
+                existingToken.CreatedAt = DateTime.UtcNow;
+                existingToken.DeviceInfo = deviceInfo;
+                existingToken.IpAddress = ipAddress;
+                existingToken.IsAvailable = true;
+
+                await _accountRepository.UpdateRefreshTokenAsync(existingToken);
+            }
+            else
+            {
+                await _accountRepository.AddRefreshTokenAsync(new RefreshToken
+                {
+                    Token = refreshTokenString,
+                    AccountId = user.Id,
+                    ExpiryDate = DateTime.UtcNow.AddDays(7),
+                    CreatedAt = DateTime.UtcNow,
+                    IsAvailable = true,
+                    DeviceInfo = deviceInfo,
+                    IpAddress = ipAddress
+                });
+            }
+
+            return new AuthResponse
+            {
+                Success = true,
+                AccessToken = accessToken,
+                RefreshToken = refreshTokenString,
+                Message = "Đăng nhập thành công.",
+                IsNewUser = isNewUser
             };
         }
     }
