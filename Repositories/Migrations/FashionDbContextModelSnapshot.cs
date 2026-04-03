@@ -1668,10 +1668,6 @@ namespace Repositories.Migrations
                         .HasDefaultValue(0)
                         .HasColumnName("like_count");
 
-                    b.Property<double?>("Score")
-                        .HasColumnType("double precision")
-                        .HasColumnName("score");
-
                     b.Property<int?>("ShareCount")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("integer")

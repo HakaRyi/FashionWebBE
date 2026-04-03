@@ -1373,9 +1373,6 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                   .HasDefaultValue(PostVisibility.Visible)
                   .HasColumnName("visibility");
 
-            entity.Property(e => e.Score)
-                  .HasColumnName("score");
-
             entity.Property(e => e.LikeCount)
                   .HasDefaultValue(0)
                   .HasColumnName("like_count");

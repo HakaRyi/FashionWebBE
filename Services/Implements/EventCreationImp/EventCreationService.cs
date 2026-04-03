@@ -84,11 +84,19 @@ namespace Services.Implements.EventCreationImp
         public async Task<Event> CreateEventAsync(CreateEventRequest dto)
         {
             int creatorId = _currentUserService.GetRequiredUserId();
-            ValidateEventRequest(dto);
 
-            decimal feePercentage = await _settingRepo.GetDecimalValueAsync("EventFeePercentage", 5.0m);
+            int minExpertsSystemConfig = await _settingRepo.GetIntValueAsync("MIN_EXPERTS_PER_EVENT", 2);
 
-            decimal minFee = await _settingRepo.GetDecimalValueAsync("EventMinFee", 10000m);
+            if (dto.MinExpertsRequired < minExpertsSystemConfig)
+            {
+                dto.MinExpertsRequired = minExpertsSystemConfig;
+            }
+
+            ValidateEventRequest(dto, minExpertsSystemConfig);
+
+            decimal feePercentage = await _settingRepo.GetDecimalValueAsync("EVENT_FEE_PERCENTAGE", 5.0m);
+
+            decimal minFee = await _settingRepo.GetDecimalValueAsync("EVENT_MIN_FEE", 10000m);
 
             var totalPrize = dto.Prizes.Sum(p => p.RewardAmount);
 
@@ -491,7 +499,7 @@ namespace Services.Implements.EventCreationImp
             await scheduler.ScheduleJob(job, trigger);
         }
 
-        private void ValidateEventRequest(CreateEventRequest dto)
+        private void ValidateEventRequest(CreateEventRequest dto, int minExpertsRequiredBySystem)
         {
             if (dto.StartTime >= dto.SubmissionDeadline)
             {
@@ -506,8 +514,10 @@ namespace Services.Implements.EventCreationImp
             if (Math.Abs(dto.ExpertWeight + dto.UserWeight - 1.0) > 0.001)
                 throw new Exception("Tổng trọng số Expert và User phải bằng 1.0.");
 
-            if (dto.MinExpertsRequired < 2)
-                throw new Exception("Số lượng Expert yêu cầu tối thiểu không được dưới 1.");
+            if (dto.MinExpertsRequired < minExpertsRequiredBySystem)
+            {
+                throw new Exception($"Số lượng Expert yêu cầu tối thiểu cho mỗi sự kiện theo quy định hệ thống là {minExpertsRequiredBySystem} người.");
+            }
         }
 
         private async Task CreatePrizesAsync(int eventId, List<PrizeRequest> prizeRequests)
