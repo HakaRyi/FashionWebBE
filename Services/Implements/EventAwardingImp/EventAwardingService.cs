@@ -214,6 +214,7 @@ namespace Services.Implements.EventAwardingImp
                 await _transactionRepo.AddAsync(new Transaction
                 {
                     WalletId = winnerWallet.WalletId,
+                    TransactionCode = $"RW-{eventId}-{post.AccountId}-{DateTime.UtcNow.Ticks}",
                     Amount = rewardAmount,
                     BalanceBefore = balanceBefore,
                     BalanceAfter = winnerWallet.Balance,
@@ -249,6 +250,7 @@ namespace Services.Implements.EventAwardingImp
                     await _transactionRepo.AddAsync(new Transaction
                     {
                         WalletId = creatorWallet.WalletId,
+                        TransactionCode = $"RF-{ev.EventId}-{DateTime.UtcNow.Ticks}",
                         Amount = refundAmount,
                         BalanceBefore = creatorBalanceBefore,
                         BalanceAfter = creatorWallet.Balance,

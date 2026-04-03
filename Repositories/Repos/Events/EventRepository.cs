@@ -85,6 +85,7 @@ namespace Repositories.Repos.Events
             return await _db.Events
                 .Include(e => e.Creator)
                 .Include(e => e.Posts)
+                .Include(e => e.Images)
                 .Include(e => e.EventExperts)
                 .Where(e => e.CreatorId == expertId || e.EventExperts.Any(ee => ee.ExpertId == expertId))
                 .OrderByDescending(e => e.CreatedAt)
