@@ -70,17 +70,24 @@ namespace Repositories.Data
                 {
                     new SystemSetting
                     {
-                        SettingKey = "EventFeePercentage",
+                        SettingKey = "EVENT_FEE_PERCENTAGE",
                         SettingValue = "5",
                         DataType = "Decimal",
                         Description = "Tỷ lệ phần trăm thu phí tạo sự kiện (%)"
                     },
                     new SystemSetting
                     {
-                        SettingKey = "EventMinFee",
+                        SettingKey = "EVENT_MIN_FEE",
                         SettingValue = "10000",
                         DataType = "Decimal",
                         Description = "Phí tạo sự kiện tối thiểu (VNĐ)"
+                    },
+                    new SystemSetting
+                    {
+                        SettingKey = "MIN_EXPERTS_PER_EVENT",
+                        SettingValue = "2",
+                        DataType = "Number",
+                        Description = "Số lượng chuyên gia tối thiểu để sự kiện có thể bắt đầu"
                     }
                 };
 

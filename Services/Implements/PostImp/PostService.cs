@@ -72,7 +72,6 @@ namespace Services.Implements.PostImp
                 LikeCount = 0,
                 CommentCount = 0,
                 ShareCount = 0,
-                Score = 0,
                 IsExpertPost = false
             };
 
@@ -241,7 +240,7 @@ namespace Services.Implements.PostImp
 
                 IsExpertPost = post.IsExpertPost,
                 Status = post.Status,
-                Score = post.Score,
+                //Score = post.Score,
 
                 LikeCount = post.LikeCount,
                 CommentCount = post.CommentCount,
@@ -539,7 +538,7 @@ namespace Services.Implements.PostImp
                 Status = initialStatus,
                 LikeCount = 0,
                 ShareCount = 0,
-                Score = 0,
+                //Score = 0,
                 IsExpertPost = false,
 
                 Images = imageUrls.Select(url => new Image
@@ -676,7 +675,7 @@ namespace Services.Implements.PostImp
                     LikeCount = 0,
                     CommentCount = 0,
                     ShareCount = 0,
-                    Score = 0
+                    //Score = 0
                 };
 
                 await _postRepo.AddAsync(post);

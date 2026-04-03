@@ -29,7 +29,6 @@ namespace Services.Request.EventReq
 
         public double PointPerShare { get; set; }
 
-        //[Range(2, 20, ErrorMessage = "Số lượng Expert tối thiểu để bắt đầu phải từ 2 trở lên.")]
         public int MinExpertsRequired { get; set; }
 
         public bool IsAutoStart { get; set; }

@@ -24,8 +24,6 @@ namespace Repositories.Entities
 
         public string Visibility { get; set; } = PostVisibility.Visible;
 
-        public double? Score { get; set; }
-
         public int? LikeCount { get; set; }
 
         public int? CommentCount { get; set; }
