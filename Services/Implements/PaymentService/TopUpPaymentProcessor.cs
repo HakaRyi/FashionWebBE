@@ -34,30 +34,61 @@ namespace Services.Implements.PaymentService
 
         public async Task<bool> ProcessAsync(string orderCode, bool isSuccess)
         {
+            if (string.IsNullOrWhiteSpace(orderCode))
+                return false;
+
             await _unitOfWork.BeginTransactionAsync();
+
             try
             {
                 var payment = await _paymentRepo.GetPaymentWithWalletAsync(orderCode);
-                if (payment == null) return false;
-                if (payment.Status != PaymentStatus.Pending) return false;
+                if (payment == null)
+                {
+                    await _unitOfWork.RollbackAsync();
+                    return false;
+                }
+
+                // Idempotent:
+                // - Nếu payment đã success trước đó => coi như xử lý thành công
+                // - Nếu payment đã failed/cancelled => không xử lý lại
+                if (payment.Status == PaymentStatus.Success)
+                {
+                    await _unitOfWork.RollbackAsync();
+                    return true;
+                }
+
+                if (payment.Status == PaymentStatus.Failed ||
+                    payment.Status == PaymentStatus.Cancelled)
+                {
+                    await _unitOfWork.RollbackAsync();
+                    return false;
+                }
+
+                if (payment.Status != PaymentStatus.Pending)
+                {
+                    await _unitOfWork.RollbackAsync();
+                    return false;
+                }
 
                 if (!isSuccess)
                 {
                     payment.Status = PaymentStatus.Failed;
                     _paymentRepo.Update(payment);
+
                     await _unitOfWork.CommitAsync();
                     return false;
                 }
-
-                payment.Status = PaymentStatus.Success;
-                payment.PaidAt = DateTime.UtcNow;
-                _paymentRepo.Update(payment);
 
                 var wallet = payment.Account?.Wallet;
                 if (wallet == null)
                     throw new Exception("Ví không tồn tại.");
 
                 decimal balanceBefore = wallet.Balance;
+
+                payment.Status = PaymentStatus.Success;
+                payment.PaidAt = DateTime.UtcNow;
+                _paymentRepo.Update(payment);
+
                 wallet.Balance += payment.Amount;
                 wallet.UpdatedAt = DateTime.UtcNow;
                 _walletRepo.Update(wallet);

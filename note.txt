@@ -2,12 +2,12 @@
 
 dotnet ef database update --project Repositories --startup-project WebAPIs
 
-dotnet ef migrations add InitialIdentity --project Repositories --startup-project WebAPIs --output-dir Migrations
+dotnet ef migrations add InitialIdentity4 --project Repositories --startup-project WebAPIs --output-dir Migrations
 
 123456Aa@
 
 {
-  "email": "nvhoang0975@gmail.com",
+  "email": "publictester1@example.com",
   "password": "123456Aa@",
   "username": "mk12345",
   "roleId": 2
@@ -15,9 +15,9 @@ dotnet ef migrations add InitialIdentity --project Repositories --startup-projec
 
 {
   "message": "Đăng nhập thành công",
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI2OGQ4ODQ2ZC1jYjg5LTQ3YTAtOTZiMS1jMDAwYmRmN2IwZWYiLCJzdWIiOiIyIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZWlkZW50aWZpZXIiOiIyIiwiZW1haWwiOiJudmhvYW5nMDk3NUBnbWFpbC5jb20iLCJBY2NvdW50SWQiOiIyIiwiVXNlcm5hbWUiOiJtazEyMzQ1IiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy9yb2xlIjoiVXNlciIsImV4cCI6MTc3NDk0MjQzMCwiaXNzIjoiRmFzaGlvbkJhY2tlbmQiLCJhdWQiOiJGYXNoaW9uRnJvbnRlbmQifQ.ZgfFeAyqGRUgd6Wi6Olxo7oWqAJl-Fn8ZVDM6bbVo2c",
-  "refreshToken": "TycOAeyEJOkEdQ222MQk97jCEYCntcxxynjViSHeysfH7LjPiPtnveE9UZTlrdbfzEqcc6rA9Ux1doJ/IJRyfA==",
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJkYmFjZmM0OC01ZTEwLTQ0NGMtOTFmMi0wYmFiM2FkNzE0ODYiLCJzdWIiOiIxNSIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL25hbWVpZGVudGlmaWVyIjoiMTUiLCJlbWFpbCI6InNoaXBwZXJAZmFzaGlvbi5jb20iLCJBY2NvdW50SWQiOiIxNSIsIlVzZXJuYW1lIjoic2hpcHBlciIsImh0dHA6Ly9zY2hlbWFzLm1pY3Jvc29mdC5jb20vd3MvMjAwOC8wNi9pZGVudGl0eS9jbGFpbXMvcm9sZSI6IlNoaXBwZXIiLCJleHAiOjE3NzUyNDkyMjgsImlzcyI6IkZhc2hpb25CYWNrZW5kIiwiYXVkIjoiRmFzaGlvbkZyb250ZW5kIn0.I8F-Dt7KcgQQQJsEfzS3S0MZQmETbzgETaY71OqBHmI",
+  "refreshToken": "kbBCir2i5YyRqqpUTeb0DzcLhryoa7ae047VYERi4tU8AtW333tIwS446K47VzYaMHZ6gOOBUtE6O/nlmYa2tQ==",
   "user": {
-    "email": "nvhoang0975@gmail.com"
+    "email": "shipper@fashion.com"
   }
 }

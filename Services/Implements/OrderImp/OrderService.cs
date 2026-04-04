@@ -464,7 +464,7 @@ namespace Services.Implements.OrderImp
             if (order == null) throw new Exception("Order not found");
 
             order.Status = status;
-            await _orderRepo.UpdateAsync(order);
+            _orderRepo.Update(order);
 
             var response = MapToResponse(order);
 
