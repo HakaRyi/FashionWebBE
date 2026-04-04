@@ -11,6 +11,7 @@ namespace Services.Implements.AccountService
         Task<AccountResponse?> GetAccountById(int accountId);
         Task<AccountResponse?> GetAccountByMe();
         Task<string> updateAccountRequest(int accountId, UpdateAccountRequest request);
+        Task<int> updateProfile(UpdateProfileRequest request);
         Task<int> CountAccount();
         Task<int> CountExpert();
         Task<bool> CompleteOnboardingAsync(int accountId, OnboardingRequest request);

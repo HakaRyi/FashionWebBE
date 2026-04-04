@@ -6,6 +6,7 @@ using Repositories.Repos.ImageRepos;
 using Services.Implements.Auth;
 using Services.Request.AccountReq;
 using Services.Response.AccountRep;
+using Services.Utils;
 
 namespace Services.Implements.AccountService
 {
@@ -16,19 +17,22 @@ namespace Services.Implements.AccountService
         private readonly UserManager<Repositories.Entities.Account> _userManager;
         private readonly IImageRepository _imageRepository;
         private readonly ICurrentUserService _currentUserService;
+        private readonly ICloudStorageService _cloudStorageService;
 
         public AccountService(
             IAccountRepository accountRepository,
             IExpertProfileRepository expertProfileRepository,
             IImageRepository imageRepository,
             UserManager<Repositories.Entities.Account> userManager,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            ICloudStorageService cloudStorageService)
         {
             _accountRepository = accountRepository;
             _expertProfileRepository = expertProfileRepository;
             _userManager = userManager;
             _imageRepository = imageRepository;
             _currentUserService = currentUserService;
+            _cloudStorageService = cloudStorageService;
 
         }
 
@@ -202,6 +206,41 @@ namespace Services.Implements.AccountService
 
             var result = await _userManager.UpdateAsync(user);
             return result.Succeeded;
+        }
+
+        public async Task<int> updateProfile(UpdateProfileRequest request)
+        {
+            var currentUserId = _currentUserService.GetUserId()??0;
+            if(currentUserId == 0) return -1;
+            var user = await _userManager.FindByIdAsync(currentUserId.ToString());
+            if (user == null) return 0;
+            var existingEmailUser = await _userManager.FindByEmailAsync(request.Email);
+            if(existingEmailUser != null && existingEmailUser.Id != user.Id) return -2;
+            var existingUserName = await _userManager.FindByNameAsync(request.Username);
+            if (existingUserName != null && existingUserName.Id != user.Id) return -3;
+            user.UserName = request.Username ?? user.UserName;
+            user.NormalizedUserName = (request.Username ?? user.UserName).ToUpper();
+            user.Email = request.Email ?? user.Email;
+            user.NormalizedEmail = (request.Email ?? user.Email).ToUpper();
+            user.Description = request.Description ?? user.Description;
+            string? finalAvatarUrl = null;
+            if (request.Avatar != null && request.Avatar.Length > 0)
+            {
+                finalAvatarUrl = await _cloudStorageService.UploadImageAsync(request.Avatar);
+            }
+            if (!string.IsNullOrEmpty(finalAvatarUrl))
+            {
+                user.Avatars.Add(new Repositories.Entities.Image
+                {
+                    ImageUrl = finalAvatarUrl,
+                    CreatedAt = DateTime.UtcNow,
+                    OwnerType = "AccountAvatar",
+                    AccountAvatarId = user.Id
+                });
+            }
+            var result = await _userManager.UpdateAsync(user);
+            return result.Succeeded ? user.Id : 0;
+
         }
     }
 }

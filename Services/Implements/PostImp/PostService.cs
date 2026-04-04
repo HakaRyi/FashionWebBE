@@ -1,5 +1,6 @@
 ﻿using Mapster;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Hosting;
 using Repositories.Constants;
 using Repositories.Dto.Admin;
@@ -29,6 +30,7 @@ namespace Services.Implements.PostImp
         private readonly IWalletRepository _walletRepo;
         private readonly IEventRepository _eventRepo;
         private readonly ICurrentUserService _currentUserService;
+        private readonly UserManager<Account> _userManager;
 
         private const int MAX_IMAGES = 5;
 
@@ -40,7 +42,8 @@ namespace Services.Implements.PostImp
             IUnitOfWork uow,
             IWalletRepository walletRepository,
             IEventRepository eventRepository,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            UserManager<Account> userManager)
         {
             _postRepo = postRepo;
             _imageRepo = imageRepo;
@@ -50,6 +53,7 @@ namespace Services.Implements.PostImp
             _walletRepo = walletRepository;
             _eventRepo = eventRepository;
             _currentUserService = currentUserService;
+            _userManager = userManager;
         }
 
 
@@ -158,8 +162,11 @@ namespace Services.Implements.PostImp
 
             _imageRepo.DeleteRange(images);
             _postRepo.Delete(post);
-
+            var account = await _userManager.FindByIdAsync(accountId.ToString());
+            account.CountPost -= 1;
+            await _userManager.UpdateAsync(account);
             await _uow.SaveChangesAsync();
+
         }
 
         public async Task<string> AdminCheckTheStatusPost(CheckPostRequest request, int id)
@@ -716,6 +723,9 @@ namespace Services.Implements.PostImp
 
                 await _uow.CommitAsync();
                 post.Images = images;
+                var account = await _userManager.FindByIdAsync(accountId.ToString());
+                account.CountPost += 1;
+                await _userManager.UpdateAsync(account);
                 return MapToResponse(post);
 
             }

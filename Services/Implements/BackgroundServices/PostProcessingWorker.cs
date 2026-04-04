@@ -1,16 +1,18 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using System.Text;
+using System.Text.Json;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 using Repositories.Constants;
+using Repositories.Entities;
 using Repositories.Repos.PostRepos;
 using Repositories.UnitOfWork;
 using Services.RabbitMQ;
 using Services.Utils.AIDectection;
-using System.Text;
-using System.Text.Json;
 
 namespace Services.Implements.BackgroundServices
 {
@@ -113,7 +115,7 @@ namespace Services.Implements.BackgroundServices
             var postRepo = scope.ServiceProvider.GetRequiredService<IPostRepository>();
             var unitOfWork = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
             var aiService = scope.ServiceProvider.GetRequiredService<IAIDetectionService>();
-
+            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<Account>>();
             var post = await postRepo.GetByIdAsync(message.PostId);
 
             if (post == null)
@@ -167,6 +169,10 @@ namespace Services.Implements.BackgroundServices
 
             postRepo.Update(post);
             await unitOfWork.SaveChangesAsync();
+
+            var account = await userManager.FindByIdAsync(post.AccountId.ToString());
+            account.CountPost += 1;
+            await userManager.UpdateAsync(account);
 
             _logger.LogInformation(
                 "Processed Post {PostId} -> {Status}",

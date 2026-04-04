@@ -95,6 +95,46 @@ namespace WebAPIs.Controllers
                 return BadRequest(new { message = "Update fail" });
             }
         }
+        [HttpPut("update-profile")]
+        public async Task<IActionResult> Put2([FromForm] UpdateProfileRequest request)
+        {
+            var result = await service.updateProfile(request);
+            if (result == -1)
+            {
+                return StatusCode(401, new
+                {
+                    message = "Unauthorized"
+                });
+            }
+            else if (result == -2)
+            {
+                return StatusCode(409, new
+                {
+                    message = "Email is existed"
+                });
+            }
+            else if (result == -3)
+            {
+                return StatusCode(409, new
+                {
+                    message = "Username is existed"
+                });
+            }
+            else if (result == 0)
+            {
+                return BadRequest(new
+                {
+                    message = "Update failed"
+                });
+            }
+            else
+            {
+                return Ok(new
+                {
+                    message = "Update success"
+                });
+            }
+        }
 
         [Authorize]
         [HttpPut("onboarding")]
