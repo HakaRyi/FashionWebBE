@@ -13,9 +13,9 @@ namespace Services.Response.AiResp
         public bool IsClothing { get; set; }
 
         [JsonPropertyName("label")]
-        public string Label { get; set; }
+        public string? Label { get; set; }
 
         [JsonPropertyName("confidence")]
-        public double Confidence { get; set; }
+        public double? Confidence { get; set; }
     }
 }
