@@ -35,6 +35,8 @@ using Repositories.Repos.PrizeEventRepos;
 using Repositories.Repos.ReactionRepos;
 using Repositories.Repos.ReputationHistoryRepos;
 using Repositories.Repos.ScoreboardRepos;
+using Repositories.Repos.SearchRepos;
+using Repositories.Repos.ShipmentRepos;
 using Repositories.Repos.SocialRepos;
 using Repositories.Repos.SystemSettingRepos;
 using Repositories.Repos.TransactionRepos;
@@ -42,6 +44,7 @@ using Repositories.Repos.TryOn;
 using Repositories.Repos.UserReportRepos;
 using Repositories.Repos.WalletRepos;
 using Repositories.Repos.WardrobeRepos;
+using Repositories.Seeders;
 using Repositories.UnitOfWork;
 using Services.AI;
 using Services.Helpers;
@@ -66,6 +69,8 @@ using Services.Implements.OrderImp;
 using Services.Implements.OutfitImp;
 using Services.Implements.PaymentService;
 using Services.Implements.PostImp;
+using Services.Implements.SearchImp;
+using Services.Implements.ShipmentImp;
 using Services.Implements.SocialImp;
 using Services.Implements.TransactionImp;
 using Services.Implements.TryOn;
@@ -78,14 +83,11 @@ using Services.Utils;
 using Services.Utils.AIDectection;
 using Services.Utils.CloundStorage;
 using Services.Utils.File;
+using Services.Utils.Gateways;
 using Services.Utils.SignalR;
 using System.Text;
 using WebAPIs.Endpoints;
 using WebAPIs.Services;
-using Services.Implements.SearchImp;
-using Repositories.Repos.SearchRepos;
-using Repositories.Seeders;
-using Services.Utils.Gateways;
 
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -97,6 +99,16 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddHttpContextAccessor();
+
+#endregion
+
+#region OPTIONS
+
+builder.Services.Configure<VnPayOptions>(
+    builder.Configuration.GetSection("VnPaySettings"));
+
+builder.Services.Configure<ZaloPayOptions>(
+    builder.Configuration.GetSection("ZaloPaySettings"));
 
 #endregion
 
@@ -116,8 +128,6 @@ builder.Services.AddDbContext<FashionDbContext>(options =>
 
 #region IDENTITY
 
-
-//background service
 var quartzConfig = builder.Configuration.GetSection("Quartz");
 
 builder.Services.AddQuartz(q =>
@@ -134,20 +144,14 @@ builder.Services.AddQuartz(q =>
         });
 
         s.UseNewtonsoftJsonSerializer();
-
         s.UseClustering();
     });
 });
 
-// 2. Chạy Quartz dưới dạng Hosted Service
 builder.Services.AddQuartzHostedService(opt =>
 {
     opt.WaitForJobsToComplete = bool.Parse(quartzConfig["WaitForJobsToComplete"] ?? "true");
 });
-
-
-
-//identity
 
 builder.Services.AddIdentity<Account, IdentityRole<int>>(options =>
 {
@@ -218,10 +222,12 @@ builder.Services.AddScoped<IScoreboardRepository, ScoreboardRepository>();
 builder.Services.AddScoped<IEventWinnerRepository, EventWinnerRepository>();
 builder.Services.AddScoped<ISystemSettingRepository, SystemSettingRepository>();
 builder.Services.AddScoped<ISearchHistoryRepository, SearchHistoryRepository>();
+builder.Services.AddScoped<IShipmentRepository, ShipmentRepository>();
 
 #endregion
 
 #region SERVICES
+
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IGroupService, GroupService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -231,7 +237,6 @@ builder.Services.AddScoped<IWardrobeService, WardrobeService>();
 builder.Services.AddScoped<IItemService, ItemService>();
 builder.Services.AddScoped<IExpertService, ExpertService>();
 builder.Services.AddScoped<IGeminiService, GeminiService>();
-//builder.Services.AddScoped<IFileService, LocalFileService>();
 builder.Services.AddScoped<IAIDetectionService, AIDetectionService>();
 builder.Services.AddScoped<IExpertRequestService, ExpertRequestService>();
 builder.Services.AddScoped<IEventService, EventService>();
@@ -262,6 +267,7 @@ builder.Services.AddScoped<ISearchService, SearchService>();
 builder.Services.AddScoped<IVnPayGatewayService, VnPayGatewayService>();
 builder.Services.AddScoped<IZaloPayGatewayService, ZaloPayGatewayService>();
 builder.Services.AddScoped<ITopUpPaymentProcessor, TopUpPaymentProcessor>();
+builder.Services.AddScoped<IShipmentService, ShipmentService>();
 
 #endregion
 
@@ -411,16 +417,6 @@ builder.Services.AddCors(options =>
               .AllowCredentials();
     });
 });
-//builder.Services.AddCors(options =>
-//{
-//    options.AddPolicy("AllowFrontend", policy =>
-//    {
-//        policy.WithOrigins("http://localhost:5500")
-//              .AllowAnyHeader()
-//              .AllowAnyMethod()
-//              .AllowCredentials();
-//    });
-//});
 
 #endregion
 
@@ -429,8 +425,6 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<FashionDbContext>();
-    //await ExpenseTestDataSeeder.SeedAsync(dbContext);
-    //await MarketplaceTestDataSeeder.SeedAsync(dbContext);
     await PublicProfileWardrobeSeeder.SeedAsync(dbContext);
 }
 
@@ -443,7 +437,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowAll");
-//app.UseCors("AllowFrontend");
 
 app.Use(async (context, next) =>
 {
@@ -481,11 +474,8 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-
 #endregion
-
 
 app.MapQuartzEndpoints();
 
 app.Run();
-

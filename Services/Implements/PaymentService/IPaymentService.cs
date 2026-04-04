@@ -6,12 +6,12 @@ namespace Services.Implements.PaymentService
 {
     public interface IPaymentService
     {
-        Task<PaymentResponse?> CreateTopUpPaymentAsync(decimal amount);
-        Task<object> CreateVnPayOrderAsync(CreateOrderRequest request, string ipAddress);
-        Task<object> CreateOrderAsync(CreateOrderRequest request);
-        Task HandleCallbackAsync(ZaloCallbackRequest request);
-        Task<bool> ProcessPaymentCallbackAsync(string orderCode, bool isSuccess);
-        Task<bool> ProcessPaymentReturn(IQueryCollection query);
-        Task<PaymentResponse?> CreatePackagePaymentAsync(PaymentRequest request);
+        Task<PaymentResponse> CreateTopUpVnPayAsync(CreateTopUpRequest request, string ipAddress);
+        Task<PaymentResponse> CreateTopUpZaloPayAsync(CreateTopUpRequest request);
+
+        Task<bool> HandleVnPayReturnAsync(IQueryCollection query);
+        Task<bool> ProcessTopUpCallbackAsync(string orderCode, bool isSuccess);
+
+        Task HandleZaloPayCallbackAsync(ZaloCallbackRequest request);
     }
 }

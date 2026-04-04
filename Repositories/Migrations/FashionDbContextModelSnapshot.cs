@@ -1415,6 +1415,10 @@ namespace Repositories.Migrations
                         .HasColumnType("text")
                         .HasColumnName("image_url");
 
+                    b.Property<string>("ImageUrlsJson")
+                        .HasColumnType("text")
+                        .HasColumnName("image_urls_json");
+
                     b.Property<int?>("ItemId")
                         .HasColumnType("integer")
                         .HasColumnName("item_id");
@@ -2059,6 +2063,99 @@ namespace Repositories.Migrations
                         .IsUnique();
 
                     b.ToTable("Scoreboard", "public");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.SearchHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Keyword")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.ToTable("SearchHistories");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.Shipment", b =>
+                {
+                    b.Property<int>("ShipmentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("shipment_id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ShipmentId"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<DateTime?>("DeliveredAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("delivered_at");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("note");
+
+                    b.Property<int>("OrderId")
+                        .HasColumnType("integer")
+                        .HasColumnName("order_id");
+
+                    b.Property<DateTime?>("PickedUpAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("picked_up_at");
+
+                    b.Property<int?>("ShipperId")
+                        .HasColumnType("integer")
+                        .HasColumnName("shipper_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("TrackingCode")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("tracking_code");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("ShipmentId")
+                        .HasName("Shipment_pkey");
+
+                    b.HasIndex("OrderId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Shipment_order_id");
+
+                    b.HasIndex("ShipperId");
+
+                    b.HasIndex("TrackingCode")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Shipment_tracking_code");
+
+                    b.ToTable("Shipment", "public");
                 });
 
             modelBuilder.Entity("Repositories.Entities.SystemSetting", b =>
@@ -3026,6 +3123,37 @@ namespace Repositories.Migrations
                     b.Navigation("Post");
                 });
 
+            modelBuilder.Entity("Repositories.Entities.SearchHistory", b =>
+                {
+                    b.HasOne("Repositories.Entities.Account", "Account")
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Account");
+                });
+
+            modelBuilder.Entity("Repositories.Entities.Shipment", b =>
+                {
+                    b.HasOne("Repositories.Entities.Order", "Order")
+                        .WithOne("Shipment")
+                        .HasForeignKey("Repositories.Entities.Shipment", "OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("Shipment_order_id_fkey");
+
+                    b.HasOne("Repositories.Entities.Account", "Shipper")
+                        .WithMany("Shipments")
+                        .HasForeignKey("ShipperId")
+                        .OnDelete(DeleteBehavior.SetNull)
+                        .HasConstraintName("Shipment_shipper_id_fkey");
+
+                    b.Navigation("Order");
+
+                    b.Navigation("Shipper");
+                });
+
             modelBuilder.Entity("Repositories.Entities.Transaction", b =>
                 {
                     b.HasOne("Repositories.Entities.Account", null)
@@ -3170,6 +3298,8 @@ namespace Repositories.Migrations
 
                     b.Navigation("SentEscrows");
 
+                    b.Navigation("Shipments");
+
                     b.Navigation("Transactions");
 
                     b.Navigation("TryOnHistories");
@@ -3245,6 +3375,8 @@ namespace Repositories.Migrations
                     b.Navigation("EscrowSession");
 
                     b.Navigation("OrderDetails");
+
+                    b.Navigation("Shipment");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Outfit", b =>

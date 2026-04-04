@@ -43,6 +43,16 @@ namespace Repositories.Repos.ItemRespos
                 .ToListAsync();
         }
 
+        public async Task<List<Item>> GetItemsWithDetailsByIdsAsync(List<int> itemIds)
+        {
+            return await _context.Items
+                .AsNoTracking()
+                .Where(i => itemIds.Contains(i.ItemId))
+                .Include(i => i.Images)
+                .Include(i => i.Wardrobe)
+                .ToListAsync();
+        }
+
         public async Task<IEnumerable<Item>> GetAllAsync()
         {
             return await _context.Items

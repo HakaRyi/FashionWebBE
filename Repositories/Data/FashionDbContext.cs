@@ -103,6 +103,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
     public virtual DbSet<Wallet> Wallets { get; set; }
 
     public virtual DbSet<Wardrobe> Wardrobes { get; set; }
+
     public DbSet<SearchHistory> SearchHistories { get; set; }
 
     public static string GetConnectionString(string connectionStringName)
@@ -248,8 +249,6 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-
-
         modelBuilder.Entity<IdentityRole<int>>(entity =>
         {
             entity.ToTable("Roles");
@@ -258,6 +257,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.NormalizedName).HasColumnName("normalized_name");
             entity.Property(e => e.ConcurrencyStamp).HasColumnName("concurrency_stamp");
         });
+
         modelBuilder.Entity<Model>(entity =>
         {
             entity.ToTable("AccountModels", "public");
