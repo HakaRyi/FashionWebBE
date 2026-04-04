@@ -2146,7 +2146,7 @@ namespace Repositories.Migrations
                         .HasColumnName("balance_before");
 
                     b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp without time zone")
+                        .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
                     b.Property<string>("Description")

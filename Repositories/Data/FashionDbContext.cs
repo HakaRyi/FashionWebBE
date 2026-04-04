@@ -1767,7 +1767,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasColumnName("balance_after");
 
             entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
+                .HasColumnType("timestamp with time zone")
                 .HasColumnName("created_at");
 
             entity.Property(e => e.Description).HasColumnName("description");

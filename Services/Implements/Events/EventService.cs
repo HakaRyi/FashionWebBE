@@ -343,11 +343,18 @@ namespace Services.Implements.Events
                                  !e.IsAutoStart &&
                                  dto.AcceptedExpertsCount >= e.MinExpertsToStart;
 
+            dto.CanFinalize = isCreator &&
+                  (e.Status == "Active" || e.Status == "Judging") &&
+                  e.EndTime.HasValue &&
+                  DateTime.UtcNow >= e.EndTime.Value.ToUniversalTime();
+
             if (!isCreator)
             {
                 dto.AppliedFee = 0;
 
                 dto.Experts = dto.Experts.Where(ex => ex.Status == "Accepted").ToList();
+                dto.CanManualStart = false;
+                dto.CanFinalize = false;
             }
 
             return dto;
