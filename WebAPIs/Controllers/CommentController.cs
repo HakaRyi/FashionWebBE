@@ -1,10 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Repositories.Dto.Social.Comment;
-using Services.Implements.SocialImp;
-using Services.Utils;
+using Domain.Dto.Social.Comment;
+using Application.Utils;
+using Application.Services.SocialImp;
 
-namespace WebAPIs.Controllers
+namespace Presentation.Controllers
 {
     [ApiController]
     [Authorize]

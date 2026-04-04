@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 
-namespace Services.Request.PostReq
+namespace Application.Request.PostReq
 {
     public class CreatePostRequest
     {

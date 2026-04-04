@@ -1,4 +1,4 @@
-﻿namespace Services.Response.FeatureResp
+﻿namespace Application.Response.FeatureResp
 {
     public class FeatureResponse
     {

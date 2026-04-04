@@ -1,4 +1,4 @@
-﻿namespace Services.Request.NotificationReq
+﻿namespace Application.Request.NotificationReq
 {
     public class SendNotificationRequest
     {

@@ -1,4 +1,4 @@
-﻿namespace Services.Request.AccountReq
+﻿namespace Application.Request.AccountReq
 {
     public class VerifyRequest
     {

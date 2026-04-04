@@ -1,4 +1,4 @@
-﻿namespace Services.Response.OrderResp
+﻿namespace Application.Response.OrderResp
 {
     public class OrderPaymentActionResponse
     {

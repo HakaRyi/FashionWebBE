@@ -1,4 +1,4 @@
-﻿namespace Services.Response.GroupResp
+﻿namespace Application.Response.GroupResp
 {
     public class GroupResponse
     {

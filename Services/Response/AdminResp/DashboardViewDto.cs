@@ -1,4 +1,4 @@
-﻿namespace Services.Response.AdminResp
+﻿namespace Application.Response.AdminResp
 {
     public class DashboardViewDto
     {

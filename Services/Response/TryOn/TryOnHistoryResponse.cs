@@ -1,4 +1,4 @@
-﻿namespace Services.Response.TryOn
+﻿namespace Application.Response.TryOn
 {
     public class TryOnHistoryResponse
     {

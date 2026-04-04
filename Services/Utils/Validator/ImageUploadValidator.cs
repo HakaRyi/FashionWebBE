@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 
-namespace Services.Utils.Validator
+namespace Application.Utils.Validator
 {
     public static class ImageUploadValidator
     {

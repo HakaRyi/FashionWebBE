@@ -1,11 +1,11 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Application.Services.ImageImp;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Services.Implements.ImageImp;
-using Services.Request.ImageReq;
-using Services.Utils;
-using Services.Utils.Validator;
+using Application.Request.ImageReq;
+using Application.Utils;
+using Application.Utils.Validator;
 
-namespace WebAPIs.Controllers
+namespace Presentation.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]

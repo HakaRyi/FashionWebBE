@@ -1,10 +1,10 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
-using Services.Helpers;
-using Services.Request.PaymentReq;
+using Application.Helpers;
+using Application.Request.PaymentReq;
 using System.Text;
 
-namespace Services.Utils.Gateways
+namespace Application.Utils.Gateways
 {
     public class VnPayGatewayService : IVnPayGatewayService
     {

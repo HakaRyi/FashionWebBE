@@ -1,9 +1,9 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Services.Implements.WalletImp;
-using Services.Request.WalletReq;
+using Application.Request.WalletReq;
 
-namespace WebAPIs.Controllers
+namespace Presentation.Controllers
 {
     [ApiController]
     [Route("api/wallets")]

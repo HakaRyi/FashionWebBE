@@ -1,8 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Services.Implements.TryOn;
-using Services.Request.TryOn;
+﻿using Application.Services.TryOn;
+using Microsoft.AspNetCore.Mvc;
+using Application.Request.TryOn;
 
-namespace WebAPIs.Controllers
+namespace Presentation.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]

@@ -1,4 +1,4 @@
-﻿namespace Services.Response.JobResp
+﻿namespace Application.Response.JobResp
 {
     public record JobResponse(
         string Name,

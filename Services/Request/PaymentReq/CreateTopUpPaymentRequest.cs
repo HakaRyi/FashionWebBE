@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace Services.Request.PaymentReq
+namespace Application.Request.PaymentReq
 {
     public class CreateTopUpPaymentRequest
     {

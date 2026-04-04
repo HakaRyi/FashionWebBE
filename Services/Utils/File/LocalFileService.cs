@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 
-namespace Services.Utils.File
+namespace Application.Utils.File
 {
     public class LocalFileService : IFileService
     {

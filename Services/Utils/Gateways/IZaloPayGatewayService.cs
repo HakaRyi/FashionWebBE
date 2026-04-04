@@ -1,4 +1,4 @@
-﻿namespace Services.Utils.Gateways
+﻿namespace Application.Utils.Gateways
 {
     public interface IZaloPayGatewayService
     {

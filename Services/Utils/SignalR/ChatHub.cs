@@ -1,9 +1,9 @@
-﻿using Microsoft.AspNetCore.SignalR;
-using Services.Implements.Auth;
-using Services.Implements.ChatImp;
-using Services.Request.MessageReq;
+﻿using Application.Interfaces;
+using Application.Services.ChatImp;
+using Microsoft.AspNetCore.SignalR;
+using Application.Request.MessageReq;
 
-namespace Services.Utils.SignalR
+namespace Application.Utils.SignalR
 {
     public class ChatHub : Hub
     {

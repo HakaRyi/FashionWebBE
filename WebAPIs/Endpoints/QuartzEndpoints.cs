@@ -1,9 +1,9 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Quartz;
 using Quartz.Impl.Matchers;
-using Services.Response.JobResp;
+using Application.Response.JobResp;
 
-namespace WebAPIs.Endpoints
+namespace Presentation.Endpoints
 {
     public static class QuartzEndpoints
     {

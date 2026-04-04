@@ -1,7 +1,7 @@
-﻿using Services.Implements.Auth;
+﻿using Application.Interfaces;
 using System.Security.Claims;
 
-namespace WebAPIs.Services
+namespace Presentation.Services
 {
     public class CurrentUserService : ICurrentUserService
     {

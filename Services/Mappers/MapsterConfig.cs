@@ -1,13 +1,13 @@
 ﻿using Mapster;
-using Repositories.Entities;
-using Services.Request.EventReq;
-using Services.Response.EventResp;
-using Services.Response.ExpertResp;
-using Services.Response.ItemResp;
-using Services.Response.PostResp;
+using Domain.Entities;
+using Application.Request.EventReq;
+using Application.Response.EventResp;
+using Application.Response.ExpertResp;
+using Application.Response.ItemResp;
+using Application.Response.PostResp;
 
 
-namespace Services.Mappers
+namespace Application.Mappers
 {
     public static class MapsterConfig
     {

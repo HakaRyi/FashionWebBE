@@ -1,10 +1,10 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Services.Implements.EventExpertSer;
-using Services.Request.ExpertRatingReq;
-using Services.Response.EventResp;
+using Application.Request.ExpertRatingReq;
+using Application.Response.EventResp;
 
-namespace WebAPIs.Controllers
+namespace Presentation.Controllers
 {
     [ApiController]
     [Route("api/event-expert")]

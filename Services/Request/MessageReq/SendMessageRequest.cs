@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 
-namespace Services.Request.MessageReq
+namespace Application.Request.MessageReq
 {
     public class SendMessageRequest
     {

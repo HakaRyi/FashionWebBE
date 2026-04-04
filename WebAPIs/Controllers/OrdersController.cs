@@ -1,10 +1,10 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Application.Services.OrderImp;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Services.Implements.OrderImp;
-using Services.Request.OrderReq;
+using Application.Request.OrderReq;
 using System.Security.Claims;
 
-namespace WebAPIs.Controllers
+namespace Presentation.Controllers
 {
     [ApiController]
     [Route("api/orders")]

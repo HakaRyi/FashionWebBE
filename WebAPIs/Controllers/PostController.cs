@@ -1,10 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Repositories.Dto.Social.Post;
-using Services.Implements.PostImp;
-using Services.Utils;
+using Domain.Dto.Social.Post;
+using Application.Utils;
+using Application.Services.PostImp;
 
-namespace WebAPIs.Controllers
+namespace Presentation.Controllers
 {
     [ApiController]
     [Route("api/post")]

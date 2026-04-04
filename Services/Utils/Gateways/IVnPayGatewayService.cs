@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
-using Services.Request.PaymentReq;
+using Application.Request.PaymentReq;
 
-namespace Services.Utils.Gateways
+namespace Application.Utils.Gateways
 {
     public interface IVnPayGatewayService
     {

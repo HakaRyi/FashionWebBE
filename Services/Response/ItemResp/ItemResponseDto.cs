@@ -1,6 +1,6 @@
-using Repositories.Entities;
+using Domain.Entities;
 
-namespace Services.Response.ItemResp
+namespace Application.Response.ItemResp
 
 {
     public class ItemResponseDto

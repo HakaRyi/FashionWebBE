@@ -1,10 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Repositories.Dto.Wallet;
-using Services.Implements.WalletImp;
-using Services.Utils;
+using Domain.Dto.Wallet;
+using Application.Utils;
+using Application.Services.WalletImp;
 
-namespace WebAPIs.Controllers
+namespace Presentation.Controllers
 {
     [Authorize]
     [ApiController]

@@ -1,10 +1,9 @@
 ﻿using Microsoft.Extensions.Configuration;
-using Repositories.Repos.AI;
 using System.Net.Http.Json;
-using Services.Response.AiResp;
-using AIFashionDetectReponse = Services.Response.AiResp.AIFashionDetectReponse;
+using Application.Response.AiResp;
+using AIFashionDetectReponse = Application.Response.AiResp.AIFashionDetectReponse;
 
-namespace Services.Utils.AIDectection
+namespace Application.Utils.AIDectection
 {
     public class AIDetectionService : IAIDetectionService
     {

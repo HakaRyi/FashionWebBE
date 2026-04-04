@@ -1,10 +1,10 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Repositories.Dto.Social.Report;
-using Services.Implements.Report;
-using Services.Utils;
+using Domain.Dto.Social.Report;
+using Application.Utils;
+using Application.Services.Report;
 
-namespace WebAPIs.Controllers
+namespace Presentation.Controllers
 {
     [ApiController]
     [Route("api")]

@@ -1,7 +1,7 @@
-﻿using Repositories.Dto.Social.Comment;
-using Repositories.Entities;
+﻿using Domain.Dto.Social.Comment;
+using Domain.Entities;
 
-namespace Services.Utils.Mapper
+namespace Application.Utils.Mapper
 {
     public static class CommentMapper
     {

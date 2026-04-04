@@ -1,10 +1,10 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Application.Interfaces;
+using Application.Services.ChatImp;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Services.Implements.AccountService;
-using Services.Implements.ChatImp;
-using Services.Request.MessageReq;
+using Application.Request.MessageReq;
 
-namespace WebAPIs.Controllers
+namespace Presentation.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]

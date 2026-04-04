@@ -1,10 +1,10 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Application.Services.OutfitImp;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Services.Implements.OutfitImp;
-using Services.Request.OufitReq;
+using Application.Request.OufitReq;
 using System.Security.Claims;
 
-namespace WebAPIs.Controllers
+namespace Presentation.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]

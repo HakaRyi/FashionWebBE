@@ -1,4 +1,4 @@
-﻿namespace Services.Utils.AIDectection
+﻿namespace Application.Utils.AIDectection
 {
     public interface IAIDetectionService
     {

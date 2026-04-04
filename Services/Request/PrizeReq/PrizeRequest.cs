@@ -1,4 +1,4 @@
-﻿namespace Services.Request.PrizeReq
+﻿namespace Application.Request.PrizeReq
 {
     public class PrizeRequest
     {

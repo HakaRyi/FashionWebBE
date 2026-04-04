@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Services.Request.AccountReq
+namespace Application.Request.AccountReq
 {
     public class GoogleLoginRequest
     {

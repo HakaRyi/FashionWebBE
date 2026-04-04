@@ -1,12 +1,10 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Services.Implements.EventAwardingImp;
-using Services.Implements.EventCreationImp;
-using Services.Implements.Events;
-using Services.Request.EventReq;
+using Application.Request.EventReq;
 
 
-namespace WebAPIs.Controllers
+namespace Presentation.Controllers
 {
     [ApiController]
     [Route("api/events")]

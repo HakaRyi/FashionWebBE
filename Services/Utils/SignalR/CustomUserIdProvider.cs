@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 using System.Security.Claims;
 
-namespace Services.Utils.SignalR
+namespace Application.Utils.SignalR
 {
     public class CustomUserIdProvider : IUserIdProvider
     {

@@ -1,4 +1,4 @@
-﻿namespace Services.Response.PostResp
+﻿namespace Application.Response.PostResp
 {
     public class PostResponse
     {

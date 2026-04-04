@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using System.ComponentModel.DataAnnotations;
 
-namespace Services.Request.ExpertReq
+namespace Application.Request.ExpertReq
 {
     public class ExpertRequest
     {

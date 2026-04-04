@@ -1,4 +1,4 @@
-﻿namespace Services.RabbitMQ
+﻿namespace Application.RabbitMQ
 {
     public class ChatMessageQueueDto
     {

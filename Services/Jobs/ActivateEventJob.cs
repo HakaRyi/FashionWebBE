@@ -1,10 +1,9 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Application.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Quartz;
-using Services.Implements.EventCreationImp;
-using Services.Implements.Events;
 
-namespace Services.Jobs
+namespace Application.Jobs
 {
     /// <summary>
     /// Job xử lý kích hoạt sự kiện tự động: Kiểm tra số lượng Expert và thực hiện ký quỹ.

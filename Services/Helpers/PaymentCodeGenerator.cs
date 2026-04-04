@@ -1,4 +1,4 @@
-﻿namespace Services.Helpers
+﻿namespace Application.Helpers
 {
     public static class PaymentCodeGenerator
     {

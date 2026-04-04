@@ -1,4 +1,4 @@
-﻿namespace Services.Request.ExpertRatingReq
+﻿namespace Application.Request.ExpertRatingReq
 {
     public class ExpertRatingRequest
     {

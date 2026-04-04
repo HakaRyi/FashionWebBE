@@ -1,7 +1,7 @@
-﻿using Repositories.Dto.Social.Post;
-using Repositories.Entities;
+﻿using Domain.Dto.Social.Post;
+using Domain.Entities;
 
-namespace Services.Utils.Mapper
+namespace Application.Utils.Mapper
 {
     public static class PostMapper
     {

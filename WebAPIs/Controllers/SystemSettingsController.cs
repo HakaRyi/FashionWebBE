@@ -1,9 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Repositories.Repos.SystemSettingRepos;
-using Services.Implements.SystemSettingImp;
+using Application.Interfaces;
 
-namespace WebAPIs.Controllers
+namespace Presentation.Controllers
 {
     [Route("api/system-settings")]
     [ApiController]
@@ -11,12 +10,10 @@ namespace WebAPIs.Controllers
     public class SystemSettingsController : ControllerBase
     {
         private readonly ISystemSettingService _settingService;
-        private readonly ISystemSettingRepository _repository;
 
-        public SystemSettingsController(ISystemSettingService settingService, ISystemSettingRepository repository)
+        public SystemSettingsController(ISystemSettingService settingService)
         {
             _settingService = settingService;
-            _repository = repository;
         }
 
         /// <summary>
@@ -25,7 +22,7 @@ namespace WebAPIs.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAllSettings()
         {
-            var settings = await _repository.GetAllAsync();
+            var settings = await _settingService.GetAllSettingsAsync();
             return Ok(settings);
         }
 
@@ -35,7 +32,7 @@ namespace WebAPIs.Controllers
         [HttpGet("{key}")]
         public async Task<IActionResult> GetSetting(string key)
         {
-            var setting = await _repository.GetByKeyAsync(key);
+            var setting = await _settingService.GetByKeyAsync(key);
             if (setting == null) return NotFound($"Không tìm thấy cấu hình với key: {key}");
             return Ok(setting);
         }
@@ -48,7 +45,7 @@ namespace WebAPIs.Controllers
         {
             if (string.IsNullOrEmpty(newValue)) return BadRequest("Giá trị không được để trống");
 
-            var setting = await _repository.GetByKeyAsync(key);
+            var setting = await _settingService.GetByKeyAsync(key);
             if (setting == null) return NotFound("Cấu hình không tồn tại");
 
             await _settingService.UpdateSettingAsync(key, newValue);

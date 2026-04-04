@@ -1,8 +1,8 @@
 ﻿using Microsoft.Extensions.Options;
-using Services.Helpers;
+using Application.Helpers;
 using System.Text.Json;
 
-namespace Services.Utils.Gateways
+namespace Application.Utils.Gateways
 {
     public class ZaloPayGatewayService : IZaloPayGatewayService
     {

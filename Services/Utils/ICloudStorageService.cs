@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 
-namespace Services.Utils
+namespace Application.Utils
 {
     public interface ICloudStorageService
     {

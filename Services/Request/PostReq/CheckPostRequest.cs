@@ -1,4 +1,4 @@
-﻿namespace Services.Request.PostReq
+﻿namespace Application.Request.PostReq
 {
     public class CheckPostRequest
     {

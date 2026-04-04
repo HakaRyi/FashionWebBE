@@ -1,19 +1,19 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Repositories.Repos.SystemSettingRepos;
 
-namespace WebAPIs.Controllers
+namespace Presentation.Controllers
 {
     [Route("api/configurations")]
     [ApiController]
     [AllowAnonymous]
     public class ConfigurationController : ControllerBase
     {
-        private readonly ISystemSettingRepository _repository;
+        private readonly ISystemSettingService _settingService;
 
-        public ConfigurationController(ISystemSettingRepository repository)
+        public ConfigurationController(ISystemSettingService settingService)
         {
-            _repository = repository;
+            _settingService = settingService;
         }
 
         /// <summary>
@@ -22,22 +22,8 @@ namespace WebAPIs.Controllers
         [HttpGet("event-creation-metadata")]
         public async Task<IActionResult> GetEventMetadata()
         {
-            var settings = await _repository.GetAllAsync();
-
-            var metadata = new
-            {
-                ExpertRules = new
-                {
-                    MinRequired = int.Parse(settings.FirstOrDefault(s => s.SettingKey == "MIN_EXPERTS_PER_EVENT")?.SettingValue ?? "2"),
-                },
-
-                FinancialRules = new
-                {
-                    FeePercentage = double.Parse(settings.FirstOrDefault(s => s.SettingKey == "EVENT_FEE_PERCENTAGE")?.SettingValue ?? "5"),
-                    MinFee = double.Parse(settings.FirstOrDefault(s => s.SettingKey == "EVENT_MIN_FEE")?.SettingValue ?? "0"),
-                    Currency = "VND"
-                },
-            };
+            // Gọi service xử lý logic
+            var metadata = await _settingService.GetEventCreationMetadataAsync();
 
             return Ok(metadata);
         }

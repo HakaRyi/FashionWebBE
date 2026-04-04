@@ -1,10 +1,10 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Application.Services.AdminImp;
+using Application.Services.PostImp;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Services.Implements.AdminImp;
-using Services.Implements.PostImp;
-using Services.Request.PostReq;
+using Application.Request.PostReq;
 
-namespace WebAPIs.Controllers
+namespace Presentation.Controllers
 {
     [ApiController]
     [Authorize(Roles = "Admin")]

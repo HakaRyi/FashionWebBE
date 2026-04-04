@@ -1,7 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore.Storage;
-using Repositories.Data;
+using Infrastructure.Persistence;
+using Domain.Entities;
+using Domain.Interfaces;
+using Application.Interfaces;
 
-namespace Repositories.UnitOfWork
+namespace Infrastructure.UnitOfWork
 {
     public class UnitOfWork : IUnitOfWork
     {
@@ -18,10 +21,10 @@ namespace Repositories.UnitOfWork
             return await _context.SaveChangesAsync();
         }
 
-        public async Task<IDbContextTransaction> BeginTransactionAsync()
+        public async Task BeginTransactionAsync()
         {
-            _transaction ??= await _context.Database.BeginTransactionAsync();
-            return _transaction;
+            if (_transaction != null) return;
+            _transaction = await _context.Database.BeginTransactionAsync();
         }
 
         public async Task CommitAsync()

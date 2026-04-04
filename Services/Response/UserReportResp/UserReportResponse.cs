@@ -1,4 +1,4 @@
-﻿namespace Services.Response.UserReportResp
+﻿namespace Application.Response.UserReportResp
 {
     public class UserReportResponse
     {

@@ -1,7 +1,7 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
 
-namespace Services.Helpers
+namespace Application.Helpers
 {
     public static class VnPayHelper
     {

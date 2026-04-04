@@ -3,7 +3,7 @@ using RabbitMQ.Client;
 using System.Text;
 using System.Text.Json;
 
-namespace Services.RabbitMQ
+namespace Application.RabbitMQ
 {
     public class RabbitMQProducer : IRabbitMQProducer
     {

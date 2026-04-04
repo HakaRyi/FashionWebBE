@@ -1,4 +1,4 @@
-﻿namespace Services.Response.OutfitResp
+﻿namespace Application.Response.OutfitResp
 {
     public class OutfitResponse
     {

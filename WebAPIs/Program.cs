@@ -1,93 +1,49 @@
+using Domain.Interfaces;
+using Infrastructure.Persistence.Seeders;
+using Infrastructure.Repositories;
 using Mapster;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using Quartz;
-using Repositories.Data;
-using Repositories.Entities;
-using Repositories.Repos.AccountRepos;
-using Repositories.Repos.AdminRepos;
-using Repositories.Repos.ChatRepos;
-using Repositories.Repos.CommentReactionRepos;
-using Repositories.Repos.CommentRepos;
-using Repositories.Repos.EscrowSessionRepos;
-using Repositories.Repos.EventExpertRepos;
-using Repositories.Repos.Events;
-using Repositories.Repos.EventWinnerRepos;
-using Repositories.Repos.ExpertProfileRepos;
-using Repositories.Repos.ExpertRatingRepos;
-using Repositories.Repos.ExpertRequestRepos;
-using Repositories.Repos.FollowRepos;
-using Repositories.Repos.GroupRepos;
-using Repositories.Repos.ImageRepos;
-using Repositories.Repos.ItemRespos;
-using Repositories.Repos.ModelRepos;
-using Repositories.Repos.NotificationRepos;
-using Repositories.Repos.OrderRepos;
-using Repositories.Repos.OutfitRepos;
-using Repositories.Repos.PaymentsRespo;
-using Repositories.Repos.PostRepos;
-using Repositories.Repos.PostSaveRepos;
-using Repositories.Repos.PrizeEventRepos;
-using Repositories.Repos.ReactionRepos;
-using Repositories.Repos.ReputationHistoryRepos;
-using Repositories.Repos.ScoreboardRepos;
-using Repositories.Repos.SearchRepos;
-using Repositories.Repos.SocialRepos;
-using Repositories.Repos.SystemSettingRepos;
-using Repositories.Repos.TransactionRepos;
-using Repositories.Repos.TryOn;
-using Repositories.Repos.UserReportRepos;
-using Repositories.Repos.WalletRepos;
-using Repositories.Repos.WardrobeRepos;
-using Repositories.Seeders;
-using Repositories.UnitOfWork;
-using Services.AI;
-using Services.Helpers;
-using Services.Implements.AccountService;
-using Services.Implements.AdminImp;
-using Services.Implements.Auth;
-using Services.Implements.BackgroundServices;
-using Services.Implements.ChatImp;
-using Services.Implements.EventAwardingImp;
-using Services.Implements.EventCreationImp;
-using Services.Implements.EventExpertSer;
-using Services.Implements.Events;
-using Services.Implements.ExpertRatingImp;
-using Services.Implements.ExpertsService;
-using Services.Implements.ExpertsService.ExpertRequestImp;
-using Services.Implements.Follow;
-using Services.Implements.ImageImp;
-using Services.Implements.Items;
-using Services.Implements.ModelImp;
-using Services.Implements.NotificationImp;
-using Services.Implements.OrderImp;
-using Services.Implements.OutfitImp;
-using Services.Implements.PaymentService;
-using Services.Implements.PostImp;
-using Services.Implements.SearchImp;
-using Services.Implements.SocialImp;
-using Services.Implements.SystemSettingImp;
-using Services.Implements.TransactionImp;
-using Services.Implements.TryOn;
-using Services.Implements.UserReportImp;
-using Services.Implements.WalletImp;
-using Services.Implements.Wardrobe;
-using Services.Mappers;
-using Services.RabbitMQ;
-using Services.Utils;
-using Services.Utils.AIDectection;
-using Services.Utils.CloundStorage;
-using Services.Utils.File;
-using Services.Utils.Gateways;
-using Services.Utils.SignalR;
+using Application.Helpers;
+using Application.Mappers;
+using Application.RabbitMQ;
+using Application.Utils;
+using Application.Utils.AIDectection;
+using Application.Utils.CloundStorage;
+using Application.Utils.File;
+using Application.Utils.Gateways;
+using Application.Utils.SignalR;
 using System.Text;
-using System.Text;
-using WebAPIs.Endpoints;
-using WebAPIs.Services;
+using Presentation.Endpoints;
+using Presentation.Services;
+using Infrastructure;
+using Application.Interfaces;
+using Application.Services;
+using Application.Services.Wardrobe;
+using Application.Services.WalletImp;
+using Application.Services.AdminImp;
+using Application.Services.BackgroundServices;
+using Application.Services.NotificationImp;
+using Application.Services.ModelImp;
+using Application.Services.UserReportImp;
+using Application.Services.TryOn;
+using Application.Services.SocialImp;
+using Application.Services.PostImp;
+using Application.Services.SearchImp;
+using Application.Services.EventServices;
+using Application.Services.ChatImp;
+using Application.Services.ImageImp;
+using Application.Services.Follow;
+using Application.Services.OutfitImp;
+using Application.Services.PaymentService;
+using Application.Services.OrderImp;
+using Application.Services.Items;
+using Application.Services.AI;
+using Infrastructure.UnitOfWork;
 
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -114,61 +70,7 @@ builder.Services.Configure<ZaloPayOptions>(
 
 #region DATABASE
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-
-builder.Services.AddDbContext<FashionDbContext>(options =>
-{
-    options.UseNpgsql(connectionString, npgsql =>
-    {
-        npgsql.UseVector();
-    });
-});
-
-#endregion
-
-#region IDENTITY
-
-var quartzConfig = builder.Configuration.GetSection("Quartz");
-
-builder.Services.AddQuartz(q =>
-{
-    q.SchedulerId = quartzConfig["SchedulerId"] ?? "AUTO";
-    q.SchedulerName = quartzConfig["SchedulerName"] ?? "FashionShop-Scheduler";
-
-    q.UsePersistentStore(s =>
-    {
-        s.UsePostgres(postgres =>
-        {
-            postgres.ConnectionString = builder.Configuration.GetConnectionString("QuartzDb")
-                ?? throw new InvalidOperationException("ConnectionString 'QuartzDb' không tìm thấy!");
-        });
-
-        s.UseNewtonsoftJsonSerializer();
-        s.UseClustering();
-    });
-});
-
-builder.Services.AddQuartzHostedService(opt =>
-{
-    opt.WaitForJobsToComplete = bool.Parse(quartzConfig["WaitForJobsToComplete"] ?? "true");
-});
-
-builder.Services.AddIdentity<Account, IdentityRole<int>>(options =>
-{
-    options.Password.RequireDigit = false;
-    options.Password.RequiredLength = 6;
-    options.Password.RequireNonAlphanumeric = false;
-    options.Password.RequireUppercase = false;
-    options.Password.RequireLowercase = false;
-
-    options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(5);
-    options.Lockout.MaxFailedAccessAttempts = 5;
-
-    options.User.RequireUniqueEmail = true;
-    options.SignIn.RequireConfirmedEmail = true;
-})
-.AddEntityFrameworkStores<FashionDbContext>()
-.AddDefaultTokenProviders();
+builder.Services.AddInfrastructureServices(builder.Configuration);
 
 #endregion
 
@@ -204,7 +106,7 @@ builder.Services.AddScoped<IScoreboardRepository, ScoreboardRepository>();
 builder.Services.AddScoped<ISocialRepository, SocialRepository>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<ITryOnHistoryRepository, TryOnHistoryRepository>();
-builder.Services.AddScoped<IUserReportRepository, UserReportRepository>();
+builder.Services.AddScoped<Domain.Interfaces.IUserReportRepository, Infrastructure.Repositories.UserReportRepository>();
 builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<IWardrobeRepository, WardrobeRepository>();
 builder.Services.AddScoped<IOrderRepository, OrderRepository>();
@@ -299,6 +201,31 @@ builder.Services.AddHostedService<PostProcessingWorker>();
 builder.Services.AddHostedService<ChatConsumerWorker>();
 builder.Services.AddSingleton<IBackgroundTaskQueue>(ctx => new BackgroundTaskQueue(100));
 builder.Services.AddHostedService<ModelProgessingWorker>();
+
+var quartzConfig = builder.Configuration.GetSection("Quartz");
+
+builder.Services.AddQuartz(q =>
+{
+    q.SchedulerId = quartzConfig["SchedulerId"] ?? "AUTO";
+    q.SchedulerName = quartzConfig["SchedulerName"] ?? "FashionShop-Scheduler";
+
+    q.UsePersistentStore(s =>
+    {
+        s.UsePostgres(postgres =>
+        {
+            postgres.ConnectionString = builder.Configuration.GetConnectionString("QuartzDb")
+                ?? throw new InvalidOperationException("ConnectionString 'QuartzDb' không tìm thấy!");
+        });
+
+        s.UseNewtonsoftJsonSerializer();
+        s.UseClustering();
+    });
+});
+
+builder.Services.AddQuartzHostedService(opt =>
+{
+    opt.WaitForJobsToComplete = bool.Parse(quartzConfig["WaitForJobsToComplete"] ?? "true");
+});
 
 #endregion
 
@@ -424,10 +351,9 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
+if (app.Environment.IsDevelopment())
 {
-    var dbContext = scope.ServiceProvider.GetRequiredService<FashionDbContext>();
-    await PublicProfileWardrobeSeeder.SeedAsync(dbContext);
+    await app.Services.SeedDatabase();
 }
 
 #region MIDDLEWARE
@@ -455,26 +381,6 @@ app.MapHub<NotificationHub>("/notificationHub");
 app.MapHub<ChatHub>("/chatHub");
 app.MapHub<OrderHub>("/orderHub");
 app.MapControllers();
-
-#endregion
-
-#region SEED DATA
-
-using (var scope = app.Services.CreateScope())
-{
-    var services = scope.ServiceProvider;
-    var configuration = services.GetRequiredService<IConfiguration>();
-
-    try
-    {
-        await DbInitializer.SeedRolesAndAdminAsync(services, configuration);
-    }
-    catch (Exception ex)
-    {
-        var logger = services.GetRequiredService<ILogger<Program>>();
-        logger.LogError(ex, "Error seeding roles");
-    }
-}
 
 #endregion
 

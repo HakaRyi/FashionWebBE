@@ -1,9 +1,9 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+﻿using Application.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Quartz;
-using Services.Implements.EventAwardingImp;
 
-namespace Services.Jobs
+namespace Application.Jobs
 {
     /// <summary>
     /// Job xử lý tự động chốt điểm, kết thúc sự kiện và trao tiền thưởng (Escrow -> Ví người thắng).

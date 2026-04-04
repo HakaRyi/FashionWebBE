@@ -1,4 +1,4 @@
-﻿namespace Services.Response.FollowResp
+﻿namespace Application.Response.FollowResp
 {
     public class FollowResponse
     {

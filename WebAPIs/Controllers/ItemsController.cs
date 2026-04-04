@@ -1,13 +1,13 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Repositories.Dto.Wardrobe;
-using Services.Implements.Auth;
-using Services.Implements.Items;
-using Services.Request.ItemReq;
-using Services.Request.ItemRequest;
-using Services.Response.ItemResp;
+using Domain.Dto.Wardrobe;
+using Application.Request.ItemReq;
+using Application.Request.ItemRequest;
+using Application.Response.ItemResp;
+using Application.Interfaces;
+using Application.Services.Items;
 
-namespace WebAPIs.Controllers
+namespace Presentation.Controllers
 {
     [ApiController]
     [Route("api/items")]

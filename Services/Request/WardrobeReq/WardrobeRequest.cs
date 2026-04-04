@@ -1,4 +1,4 @@
-﻿namespace Services.Request.WardrobeReq
+﻿namespace Application.Request.WardrobeReq
 {
     public class WardrobeRequest
     {

@@ -1,6 +1,6 @@
-﻿using Repositories.Entities;
+﻿using Domain.Entities;
 
-namespace Services.Request.ItemReq
+namespace Application.Request.ItemReq
 {
     public class ItemRequest
     {

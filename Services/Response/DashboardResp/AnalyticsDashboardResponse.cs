@@ -1,4 +1,4 @@
-﻿namespace Services.Response.DashboardResp
+﻿namespace Application.Response.DashboardResp
 {
     public class AnalyticsDashboardResponse
     {

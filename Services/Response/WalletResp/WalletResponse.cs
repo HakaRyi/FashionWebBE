@@ -1,4 +1,4 @@
-﻿namespace Services.Response.WalletResp
+﻿namespace Application.Response.WalletResp
 {
     public class WalletResponse
     {

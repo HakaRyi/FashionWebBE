@@ -1,4 +1,4 @@
-﻿namespace Services.Response.MessageResp
+﻿namespace Application.Response.MessageResp
 {
     public class MessageResponse
     {

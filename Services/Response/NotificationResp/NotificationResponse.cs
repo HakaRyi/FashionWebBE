@@ -1,4 +1,4 @@
-﻿namespace Services.Response.NotificationResp
+﻿namespace Application.Response.NotificationResp
 {
     public class NotificationResponse
     {

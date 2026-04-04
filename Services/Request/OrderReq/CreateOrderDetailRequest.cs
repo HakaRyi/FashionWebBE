@@ -1,4 +1,4 @@
-﻿namespace Services.Request.OrderReq
+﻿namespace Application.Request.OrderReq
 {
     public class CreateOrderDetailRequest
     {

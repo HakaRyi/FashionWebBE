@@ -1,9 +1,9 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Services.Implements.TransactionImp;
+﻿using Application.Interfaces;
+using Microsoft.AspNetCore.Mvc;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
 
-namespace WebAPIs.Controllers
+namespace Presentation.Controllers
 {
     [Route("api/transaction")]
     [ApiController]

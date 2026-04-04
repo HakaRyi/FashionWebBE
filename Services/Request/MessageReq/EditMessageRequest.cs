@@ -1,4 +1,4 @@
-﻿namespace Services.Request.MessageReq
+﻿namespace Application.Request.MessageReq
 {
     public class EditMessageRequest
     {

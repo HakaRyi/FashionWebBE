@@ -1,4 +1,4 @@
-﻿namespace Services.Response.EventResp
+﻿namespace Application.Response.EventResp
 {
     public class EventResponse
     {

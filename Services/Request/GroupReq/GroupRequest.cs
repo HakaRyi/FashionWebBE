@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 
-namespace Services.Request.GroupReq
+namespace Application.Request.GroupReq
 {
     public class GroupRequest
     {

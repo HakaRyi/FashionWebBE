@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 
-namespace Services.Request.ImageReq
+namespace Application.Request.ImageReq
 {
     public class UploadAvatarRequest
     {

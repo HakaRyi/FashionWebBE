@@ -1,6 +1,6 @@
-﻿using Repositories.Entities;
+﻿using Domain.Entities;
 
-namespace Services.Request.ItemRequest
+namespace Application.Request.ItemRequest
 {
     public class UpdateItemRequest
     {

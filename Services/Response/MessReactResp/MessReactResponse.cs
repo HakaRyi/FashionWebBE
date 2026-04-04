@@ -1,4 +1,4 @@
-﻿namespace Services.Response.MessReactResp
+﻿namespace Application.Response.MessReactResp
 {
     public class MessReactResponse
     {

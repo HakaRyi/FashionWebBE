@@ -2,7 +2,7 @@
 using System.Net;
 using System.Net.Mail;
 
-namespace Services.Helpers
+namespace Application.Helpers
 {
     public class EmailService
     {

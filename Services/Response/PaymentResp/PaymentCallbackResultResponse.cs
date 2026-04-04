@@ -1,4 +1,4 @@
-﻿namespace Services.Response.PaymentResp
+﻿namespace Application.Response.PaymentResp
 {
     public class PaymentCallbackResultResponse
     {

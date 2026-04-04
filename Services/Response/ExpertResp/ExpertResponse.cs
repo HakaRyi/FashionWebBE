@@ -1,4 +1,4 @@
-﻿namespace Services.Response.ExpertResp
+﻿namespace Application.Response.ExpertResp
 {
     public class ExpertResponse
     {

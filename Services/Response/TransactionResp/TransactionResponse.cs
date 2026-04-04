@@ -1,4 +1,4 @@
-﻿namespace Services.Response.TransactionResp
+﻿namespace Application.Response.TransactionResp
 {
     public class TransactionResponse
     {

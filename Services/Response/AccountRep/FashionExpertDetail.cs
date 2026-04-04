@@ -1,4 +1,4 @@
-﻿namespace Services.Response.AccountRep
+﻿namespace Application.Response.AccountRep
 {
     public class FashionExpertDetail
     {

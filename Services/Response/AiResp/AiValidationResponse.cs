@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
-namespace Services.Response.AiResp
+namespace Application.Response.AiResp
 {
     public class AiValidationResponse
     {

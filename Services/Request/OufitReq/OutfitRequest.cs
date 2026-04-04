@@ -1,4 +1,4 @@
-﻿namespace Services.Request.OufitReq
+﻿namespace Application.Request.OufitReq
 {
     public class OutfitRequest
     {

@@ -1,4 +1,4 @@
-﻿namespace Services.Response.WardrobeResp
+﻿namespace Application.Response.WardrobeResp
 {
     public class WardrobeResponse
     {

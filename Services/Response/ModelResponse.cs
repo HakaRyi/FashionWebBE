@@ -1,4 +1,4 @@
-﻿namespace Services.Response
+﻿namespace Application.Response
 {
     public class ModelResponse
     {

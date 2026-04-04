@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Services.Request.TryOn
+namespace Application.Request.TryOn
 {
     public class TryOnRequest
     {

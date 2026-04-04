@@ -1,24 +1,19 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Application.Services.Wardrobe;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Services.Implements.Auth;
-using Services.Implements.Wardrobe;
-using Services.Request.WardrobeReq;
+using Application.Request.WardrobeReq;
 
-namespace WebAPIs.Controllers
+namespace Presentation.Controllers
 {
     [ApiController]
     [Route("api/wardrobes")]
     public class WardrobeController : ControllerBase
     {
         private readonly IWardrobeService _wardrobeService;
-        private readonly ICurrentUserService _currentUserService;
 
-        public WardrobeController(
-            IWardrobeService wardrobeService,
-            ICurrentUserService currentUserService)
+        public WardrobeController(IWardrobeService wardrobeService)
         {
             _wardrobeService = wardrobeService;
-            _currentUserService = currentUserService;
         }
 
         [HttpGet]
@@ -95,8 +90,7 @@ namespace WebAPIs.Controllers
         [HttpGet("me/items")]
         public async Task<IActionResult> GetMyWardrobeItems()
         {
-            var accountId = _currentUserService.GetRequiredUserId();
-            var result = await _wardrobeService.GetMyWardrobeItemsAsync(accountId);
+            var result = await _wardrobeService.GetMyWardrobeItemsAsync();
 
             return Ok(new
             {

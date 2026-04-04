@@ -1,4 +1,4 @@
-﻿namespace Services.Response.CommentResp
+﻿namespace Application.Response.CommentResp
 {
     public class CommentResponse
     {

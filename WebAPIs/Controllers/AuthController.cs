@@ -1,10 +1,10 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿using Application.Interfaces;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Services.Implements.Auth;
-using Services.Request.AccountReq;
-using Services.Response.AccountRep;
+using Application.Request.AccountReq;
+using Application.Response.AccountRep;
 
-namespace WebAPIs.Controllers
+namespace Presentation.Controllers
 {
     [Route("api/auth")]
     [ApiController]

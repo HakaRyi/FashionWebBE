@@ -1,8 +1,8 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Services.Implements.AdminImp;
-using Services.Request.AdminReq;
+﻿using Application.Services.AdminImp;
+using Microsoft.AspNetCore.Mvc;
+using Application.Request.AdminReq;
 
-namespace WebAPIs.Controllers
+namespace Presentation.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]

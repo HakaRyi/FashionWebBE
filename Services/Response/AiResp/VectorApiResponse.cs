@@ -1,4 +1,4 @@
-﻿namespace Services.Response.AiResp
+﻿namespace Application.Response.AiResp
 {
     public class VectorApiResponse
     {

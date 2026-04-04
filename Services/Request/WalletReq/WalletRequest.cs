@@ -1,4 +1,4 @@
-﻿namespace Services.Request.WalletReq
+﻿namespace Application.Request.WalletReq
 {
     public class WalletRequest
     {

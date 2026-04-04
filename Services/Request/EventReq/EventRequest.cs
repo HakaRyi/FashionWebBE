@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Http;
-using Services.Request.PrizeReq;
+using Application.Request.PrizeReq;
 
 
 
-namespace Services.Request.EventReq
+namespace Application.Request.EventReq
 {
     public class EventRequest
     {

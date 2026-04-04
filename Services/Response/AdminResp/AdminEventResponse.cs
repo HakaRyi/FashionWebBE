@@ -1,6 +1,6 @@
-﻿using Services.Response.EventResp;
+﻿using Application.Response.EventResp;
 
-namespace Services.Response.AdminResp
+namespace Application.Response.AdminResp
 {
     public class AdminEventResponse
     {

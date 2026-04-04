@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http.Connections;
 using Microsoft.AspNetCore.SignalR;
 
-namespace Services.Utils.SignalR
+namespace Application.Utils.SignalR
 {
     public class OrderHub : Hub
     {

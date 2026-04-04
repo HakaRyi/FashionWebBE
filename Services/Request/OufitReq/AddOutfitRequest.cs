@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 
-namespace Services.Request.OufitReq
+namespace Application.Request.OufitReq
 {
     public class AddOutfitRequest
     {

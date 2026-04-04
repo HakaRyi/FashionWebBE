@@ -1,10 +1,10 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Services.Implements.ExpertRatingImp;
-using Services.Implements.PostImp;
-using Services.Request.ExpertRatingReq;
+﻿using Application.Interfaces;
+using Application.Services.PostImp;
+using Microsoft.AspNetCore.Mvc;
+using Application.Request.ExpertRatingReq;
 using System.Security.Claims;
 
-namespace WebAPIs.Controllers
+namespace Presentation.Controllers
 {
     [ApiController]
     [Route("api/expert-rating")]

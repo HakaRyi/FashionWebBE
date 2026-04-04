@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using System.ComponentModel.DataAnnotations;
 
-namespace Services.Request.TryOn
+namespace Application.Request.TryOn
 {
     public class CreateHistoryTryOnRequest
     {

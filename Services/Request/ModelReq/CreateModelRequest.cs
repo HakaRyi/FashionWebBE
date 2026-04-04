@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Http;
 using System.ComponentModel.DataAnnotations;
 
-namespace Services.Request.ModelReq
+namespace Application.Request.ModelReq
 {
     public class CreateModelRequest
     {

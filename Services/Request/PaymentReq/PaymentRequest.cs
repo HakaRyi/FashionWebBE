@@ -1,4 +1,4 @@
-﻿namespace Services.Request.PaymentReq
+﻿namespace Application.Request.PaymentReq
 {
     public class PaymentRequest
     {

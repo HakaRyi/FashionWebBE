@@ -3,7 +3,7 @@ using CloudinaryDotNet.Actions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 
-namespace Services.Utils.CloundStorage
+namespace Application.Utils.CloundStorage
 {
     public class CloudStorageService : ICloudStorageService
     {

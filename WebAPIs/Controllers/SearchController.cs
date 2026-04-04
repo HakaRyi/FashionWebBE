@@ -1,11 +1,11 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Application.Services.SearchImp;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Services.Implements.SearchImp;
-using Services.Request.SearchReq;
-using Services.Utils;
+using Application.Request.SearchReq;
+using Application.Utils;
 using System.Security.Claims;
 
-namespace WebAPIs.Controllers
+namespace Presentation.Controllers
 {
     [Route("api/searchs")]
     [ApiController]

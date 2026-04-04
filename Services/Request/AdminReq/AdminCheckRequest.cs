@@ -1,4 +1,4 @@
-﻿namespace Services.Request.AdminReq
+﻿namespace Application.Request.AdminReq
 {
     public class AdminCheckRequest
     {
