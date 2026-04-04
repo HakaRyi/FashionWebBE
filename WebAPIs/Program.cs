@@ -36,7 +36,6 @@ using Repositories.Repos.ReactionRepos;
 using Repositories.Repos.ReputationHistoryRepos;
 using Repositories.Repos.ScoreboardRepos;
 using Repositories.Repos.SearchRepos;
-using Repositories.Repos.ShipmentRepos;
 using Repositories.Repos.SocialRepos;
 using Repositories.Repos.SystemSettingRepos;
 using Repositories.Repos.TransactionRepos;
@@ -70,7 +69,6 @@ using Services.Implements.OutfitImp;
 using Services.Implements.PaymentService;
 using Services.Implements.PostImp;
 using Services.Implements.SearchImp;
-using Services.Implements.ShipmentImp;
 using Services.Implements.SocialImp;
 using Services.Implements.TransactionImp;
 using Services.Implements.TryOn;
@@ -222,7 +220,6 @@ builder.Services.AddScoped<IScoreboardRepository, ScoreboardRepository>();
 builder.Services.AddScoped<IEventWinnerRepository, EventWinnerRepository>();
 builder.Services.AddScoped<ISystemSettingRepository, SystemSettingRepository>();
 builder.Services.AddScoped<ISearchHistoryRepository, SearchHistoryRepository>();
-builder.Services.AddScoped<IShipmentRepository, ShipmentRepository>();
 
 #endregion
 
@@ -267,7 +264,6 @@ builder.Services.AddScoped<ISearchService, SearchService>();
 builder.Services.AddScoped<IVnPayGatewayService, VnPayGatewayService>();
 builder.Services.AddScoped<IZaloPayGatewayService, ZaloPayGatewayService>();
 builder.Services.AddScoped<ITopUpPaymentProcessor, TopUpPaymentProcessor>();
-builder.Services.AddScoped<IShipmentService, ShipmentService>();
 
 #endregion
 

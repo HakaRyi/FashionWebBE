@@ -108,8 +108,7 @@ namespace Repositories.Repos.OrderRepos
                 .Include(o => o.Buyer)
                 .Include(o => o.Seller)
                 .Include(o => o.OrderDetails)
-                .Include(o => o.EscrowSession)
-                .Include(o => o.Shipment);
+                .Include(o => o.EscrowSession);
         }
     }
 }
