@@ -10,7 +10,7 @@ namespace Services.Request.ItemReq
     {
         public string? ItemName { get; set; }
 
-        public int WardrobeId { get; set; }
+        //public int WardrobeId { get; set; }
 
         public string? ItemType { get; set; }
 

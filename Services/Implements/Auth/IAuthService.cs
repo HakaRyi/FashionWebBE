@@ -10,6 +10,7 @@ namespace Services.Implements.Auth
         Task<AuthResponse> VerifyAccountAsync(string email, string code);
         Task<AuthResponse> LogoutAsync();
         Task<AuthResponse> RefreshTokenAsync(string refreshToken);
+        Task<AuthResponse> LoginWithGoogleAsync(GoogleLoginRequest request);
 
     }
 }

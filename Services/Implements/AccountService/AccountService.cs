@@ -191,5 +191,17 @@ namespace Services.Implements.AccountService
             var result = await _userManager.UpdateAsync(account);
             return result.Succeeded ? "Update success" : string.Join(", ", result.Errors.Select(e => e.Description));
         }
+
+        public async Task<bool> CompleteOnboardingAsync(int accountId, OnboardingRequest request)
+        {
+            var user = await _userManager.FindByIdAsync(accountId.ToString());
+            if (user == null) return false;
+
+            user.UserName = request.UserName;
+            user.NormalizedUserName = request.UserName.ToUpper();
+
+            var result = await _userManager.UpdateAsync(user);
+            return result.Succeeded;
+        }
     }
 }

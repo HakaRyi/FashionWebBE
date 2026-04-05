@@ -303,6 +303,9 @@ namespace Repositories.Migrations
                     b.HasKey("Id")
                         .HasName("Account_pkey");
 
+                    b.HasIndex("Email")
+                        .IsUnique();
+
                     b.HasIndex("NormalizedEmail")
                         .IsUnique()
                         .HasDatabaseName("EmailIndex");
@@ -2091,73 +2094,6 @@ namespace Repositories.Migrations
                     b.ToTable("SearchHistories");
                 });
 
-            modelBuilder.Entity("Repositories.Entities.Shipment", b =>
-                {
-                    b.Property<int>("ShipmentId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("shipment_id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ShipmentId"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<DateTime?>("DeliveredAt")
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("delivered_at");
-
-                    b.Property<string>("Note")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)")
-                        .HasColumnName("note");
-
-                    b.Property<int>("OrderId")
-                        .HasColumnType("integer")
-                        .HasColumnName("order_id");
-
-                    b.Property<DateTime?>("PickedUpAt")
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("picked_up_at");
-
-                    b.Property<int?>("ShipperId")
-                        .HasColumnType("integer")
-                        .HasColumnName("shipper_id");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(30)
-                        .HasColumnType("character varying(30)")
-                        .HasColumnName("status");
-
-                    b.Property<string>("TrackingCode")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("tracking_code");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp without time zone")
-                        .HasColumnName("updated_at");
-
-                    b.HasKey("ShipmentId")
-                        .HasName("Shipment_pkey");
-
-                    b.HasIndex("OrderId")
-                        .IsUnique()
-                        .HasDatabaseName("IX_Shipment_order_id");
-
-                    b.HasIndex("ShipperId");
-
-                    b.HasIndex("TrackingCode")
-                        .IsUnique()
-                        .HasDatabaseName("IX_Shipment_tracking_code");
-
-                    b.ToTable("Shipment", "public");
-                });
-
             modelBuilder.Entity("Repositories.Entities.SystemSetting", b =>
                 {
                     b.Property<string>("SettingKey")
@@ -3132,26 +3068,6 @@ namespace Repositories.Migrations
                         .IsRequired();
 
                     b.Navigation("Account");
-                });
-
-            modelBuilder.Entity("Repositories.Entities.Shipment", b =>
-                {
-                    b.HasOne("Repositories.Entities.Order", "Order")
-                        .WithOne("Shipment")
-                        .HasForeignKey("Repositories.Entities.Shipment", "OrderId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("Shipment_order_id_fkey");
-
-                    b.HasOne("Repositories.Entities.Account", "Shipper")
-                        .WithMany("Shipments")
-                        .HasForeignKey("ShipperId")
-                        .OnDelete(DeleteBehavior.SetNull)
-                        .HasConstraintName("Shipment_shipper_id_fkey");
-
-                    b.Navigation("Order");
-
-                    b.Navigation("Shipper");
                 });
 
             modelBuilder.Entity("Repositories.Entities.Transaction", b =>
