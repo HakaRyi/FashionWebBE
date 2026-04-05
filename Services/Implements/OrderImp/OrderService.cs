@@ -48,8 +48,8 @@ namespace Services.Implements.OrderImp
             if (request.Details == null || !request.Details.Any())
                 throw new Exception("Đơn hàng phải có ít nhất 1 sản phẩm.");
 
-            if (request.Details.Any(d => d.OutfitId == null && d.ItemId == null))
-                throw new Exception("Mỗi dòng đơn hàng phải có ít nhất OutfitId hoặc ItemId.");
+            if (request.Details.Any(d => d.ProductId == null))
+                throw new Exception("Mỗi dòng đơn hàng phải có ít nhất 1 Item.");
 
             if (request.Details.Any(d => d.Quantity <= 0))
                 throw new Exception("Số lượng sản phẩm phải lớn hơn 0.");
@@ -75,8 +75,8 @@ namespace Services.Implements.OrderImp
                 CreatedAt = DateTime.UtcNow,
                 OrderDetails = request.Details.Select(d => new OrderDetail
                 {
-                    OutfitId = d.OutfitId,
-                    ItemId = d.ItemId,
+                    OutfitId = null,
+                    ItemId = d.ProductId,
                     Quantity = d.Quantity,
                     UnitPrice = d.UnitPrice,
                     ImageUrl = d.ImageUrl,

@@ -2,8 +2,7 @@
 {
     public class CreateOrderDetailRequest
     {
-        public int? OutfitId { get; set; }
-        public int? ItemId { get; set; }
+        public int? ProductId { get; set; }
         public int Quantity { get; set; }
         public decimal UnitPrice { get; set; }
         public string? ImageUrl { get; set; }

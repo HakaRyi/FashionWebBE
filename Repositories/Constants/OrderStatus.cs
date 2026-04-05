@@ -1,22 +1,28 @@
-﻿namespace Repositories.Constants
+﻿using System.Runtime.CompilerServices;
+
+namespace Repositories.Constants
 {
     public static class OrderStatus
     {
-        public const string PendingPayment = "PendingPayment";
-        public const string Processing = "Processing";
-        public const string Shipping = "Shipping";
-        public const string Completed = "Completed";
-        public const string Cancelled = "Cancelled";
-        public const string Refunded = "Refunded";
+        public const string PendingPayment = "PENDING";
+        public const string Confirm = "CONFIRMED";
+        public const string Processing = "PROCESSING";
+        public const string Shipping = "SHIPPING";
+        public const string Completed = "COMPLETED";
+        public const string Cancelled = "CANCELLED";
+        public const string Refunded = "REFUNDED";
+        public const string Done = "DONE";
 
         public static readonly List<string> All = new()
         {
             PendingPayment,
+            Confirm,
             Processing,
             Shipping,
             Completed,
             Cancelled,
-            Refunded
+            Refunded,
+            Done,
         };
 
         public static bool IsValid(string? status)
