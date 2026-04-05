@@ -66,9 +66,9 @@ namespace Application.Services.PostImp
                 Title = dto.Title?.Trim(),
                 Content = dto.Content?.Trim(),
                 EventId = dto.EventId,
-                CreatedAt = now,
-                UpdatedAt = now,
-                Status = PostStatus.Verifying,
+                CreatedAt = DateTime.Now,
+                UpdatedAt = DateTime.Now,
+                Status = PostStatus.Published,
                 Visibility = PostVisibility.Visible,
                 LikeCount = 0,
                 CommentCount = 0,
@@ -90,10 +90,12 @@ namespace Application.Services.PostImp
             await _imageRepo.AddRangeAsync(images);
             await _uow.SaveChangesAsync();
 
-            await SendModeration(post.PostId, imageUrls);
-
+            //await SendModeration(post.PostId, imageUrls);
+            
             post.Images = images;
-
+            var account = await _userManager.FindByIdAsync(post.AccountId.ToString());
+            account.CountPost += 1;
+            await _userManager.UpdateAsync(account);
             return MapToResponse(post);
         }
 
@@ -128,7 +130,7 @@ namespace Application.Services.PostImp
             if (!changed)
                 throw new Exception("No changes detected.");
 
-            post.UpdatedAt = DateTime.UtcNow;
+            post.UpdatedAt = DateTime.Now;
             post.Status = PostStatus.Verifying;
 
             _postRepo.Update(post);
@@ -696,8 +698,8 @@ namespace Application.Services.PostImp
                     Title = dto.Title?.Trim(),
                     Content = dto.Content?.Trim(),
                     EventId = dto.EventId,
-                    CreatedAt = now,
-                    UpdatedAt = now,
+                    CreatedAt = DateTime.Now,
+                    UpdatedAt = DateTime.Now,
                     Status = PostStatus.Published,
                     Visibility = PostVisibility.Visible,
                     LikeCount = 0,
