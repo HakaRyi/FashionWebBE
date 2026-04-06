@@ -20,24 +20,6 @@ namespace Presentation.Controllers
             _dashboardService = dashboardService;
         }
 
-        [HttpGet("pending-admin")]
-        public async Task<IActionResult> GetPendingAdminPosts(
-            [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 10)
-        {
-            var result = await _postService.GetPendingAdminPostsAsync(page, pageSize);
-            return Ok(result);
-        }
-
-        [HttpGet("rejected")]
-        public async Task<IActionResult> GetRejectedPosts(
-            [FromQuery] int page = 1,
-            [FromQuery] int pageSize = 10)
-        {
-            var result = await _postService.GetRejectedPostsAsync(page, pageSize);
-            return Ok(result);
-        }
-
         [HttpPut("{postId:int}/status")]
         public async Task<IActionResult> UpdatePostStatus(
             int postId,

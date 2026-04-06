@@ -336,94 +336,6 @@ namespace Infrastructure.Repositories
                 .ToListAsync();
         }
 
-        public async Task<PagedResultDto<AdminReviewPostDto>> GetPendingAdminPostsPagedAsync(int page, int pageSize)
-        {
-            var query = _db.Posts
-                .AsNoTracking()
-                .Where(p => p.Status == PostStatus.PendingAdmin);
-
-            var total = await query.CountAsync();
-
-            var items = await query
-                .OrderByDescending(p => p.CreatedAt)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .Select(p => new AdminReviewPostDto
-                {
-                    PostId = p.PostId,
-                    AccountId = p.AccountId,
-                    UserName = p.Account.UserName!,
-                    AvatarUrl = p.Account.Avatars
-                        .OrderByDescending(a => a.CreatedAt)
-                        .Select(a => a.ImageUrl)
-                        .FirstOrDefault(),
-                    Title = p.Title,
-                    Content = p.Content,
-                    Images = p.Images
-                        .OrderBy(i => i.CreatedAt)
-                        .Select(i => i.ImageUrl)
-                        .ToList(),
-                    Status = p.Status,
-                    Visibility = p.Visibility,
-                    CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
-                    UpdatedAt = p.UpdatedAt
-                })
-                .ToListAsync();
-
-            return new PagedResultDto<AdminReviewPostDto>
-            {
-                Items = items,
-                Page = page,
-                PageSize = pageSize,
-                TotalCount = total,
-                HasMore = page * pageSize < total
-            };
-        }
-
-        public async Task<PagedResultDto<AdminReviewPostDto>> GetRejectedPostsPagedAsync(int page, int pageSize)
-        {
-            var query = _db.Posts
-                .AsNoTracking()
-                .Where(p => p.Status == PostStatus.Rejected);
-
-            var total = await query.CountAsync();
-
-            var items = await query
-                .OrderByDescending(p => p.UpdatedAt ?? p.CreatedAt)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .Select(p => new AdminReviewPostDto
-                {
-                    PostId = p.PostId,
-                    AccountId = p.AccountId,
-                    UserName = p.Account.UserName!,
-                    AvatarUrl = p.Account.Avatars
-                        .OrderByDescending(a => a.CreatedAt)
-                        .Select(a => a.ImageUrl)
-                        .FirstOrDefault(),
-                    Title = p.Title,
-                    Content = p.Content,
-                    Images = p.Images
-                        .OrderBy(i => i.CreatedAt)
-                        .Select(i => i.ImageUrl)
-                        .ToList(),
-                    Status = p.Status,
-                    Visibility = p.Visibility,
-                    CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
-                    UpdatedAt = p.UpdatedAt
-                })
-                .ToListAsync();
-
-            return new PagedResultDto<AdminReviewPostDto>
-            {
-                Items = items,
-                Page = page,
-                PageSize = pageSize,
-                TotalCount = total,
-                HasMore = page * pageSize < total
-            };
-        }
-
         public async Task AddAsync(Post post)
         {
             await _db.Posts.AddAsync(post);
@@ -510,6 +422,12 @@ namespace Infrastructure.Repositories
                 .Include(p => p.Scoreboard)
                 .Where(p => p.EventId == eventId && p.Scoreboard != null)
                 .ToListAsync();
+        }
+
+        public async Task<Post?> GetPostForShareAsync(int postId)
+        {
+            return await _db.Posts
+                .FirstOrDefaultAsync(p => p.PostId == postId);
         }
     }
 }

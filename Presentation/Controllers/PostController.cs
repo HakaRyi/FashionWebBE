@@ -164,6 +164,7 @@ namespace Presentation.Controllers
 
             return Ok(posts);
         }
+
         [HttpPost("event-participation")]
         [Authorize]
         public async Task<IActionResult> JoinEventWithPost([FromForm] CreatePostDto request)

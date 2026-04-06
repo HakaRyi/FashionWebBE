@@ -4,8 +4,8 @@
     {
         public const string Pending = "Pending";
         public const string Reviewing = "Reviewing";
-        public const string Resolved = "Resolved";
-        public const string Rejected = "Rejected";
+        public const string Resolved = "Resolved";  // report đúng, đã xử lý
+        public const string Rejected = "Rejected";  // report sai / bị bác bỏ
 
         public static readonly List<string> AllStatuses = new()
         {
@@ -24,22 +24,12 @@
         {
             return currentStatus switch
             {
-                Pending => newStatus == Reviewing || newStatus == Rejected,
+                Pending => newStatus == Reviewing || newStatus == Resolved || newStatus == Rejected,
                 Reviewing => newStatus == Resolved || newStatus == Rejected,
                 Resolved => false,
                 Rejected => false,
                 _ => false
             };
         }
-
-
-        //Pending -> Reviewing
-        //Reviewing -> Resolved
-        //Reviewing -> Rejected
-
-        //Pending: mới tạo
-        //Reviewing: admin đang xem
-        //Resolved: đã xử lý
-        //Rejected: report không hợp lệ
     }
 }
