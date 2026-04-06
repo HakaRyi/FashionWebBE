@@ -205,21 +205,21 @@ namespace Application.Services.OrderImp
                     order.UpdatedAt = DateTime.UtcNow;
                     _orderRepo.Update(order);
 
-                    await _transactionRepo.AddAsync(new Transaction
-                    {
-                        WalletId = buyerWallet.WalletId,
-                        PaymentId = null,
-                        TransactionCode = GenerateTransactionCode("TRX"),
-                        Amount = order.TotalAmount,
-                        BalanceBefore = buyerBefore,
-                        BalanceAfter = buyerWallet.Balance,
-                        Type = TransactionType.Debit,
-                        ReferenceType = TransactionReferenceType.OrderPayment,
-                        ReferenceId = order.OrderId,
-                        Description = $"Hoàn tất thanh toán đơn hàng #{order.OrderId}",
-                        CreatedAt = DateTime.UtcNow,
-                        Status = TransactionStatus.Success
-                    });
+                    //await _transactionRepo.AddAsync(new Transaction
+                    //{
+                    //    WalletId = buyerWallet.WalletId,
+                    //    PaymentId = null,
+                    //    TransactionCode = GenerateTransactionCode("TRX"),
+                    //    Amount = order.TotalAmount,
+                    //    BalanceBefore = buyerBefore,
+                    //    BalanceAfter = buyerWallet.Balance,
+                    //    Type = TransactionType.Debit,
+                    //    ReferenceType = TransactionReferenceType.OrderPayment,
+                    //    ReferenceId = order.OrderId,
+                    //    Description = $"Hoàn tất thanh toán đơn hàng #{order.OrderId}",
+                    //    CreatedAt = DateTime.UtcNow,
+                    //    Status = TransactionStatus.Success
+                    //});
 
                     await _transactionRepo.AddAsync(new Transaction
                     {
