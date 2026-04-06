@@ -169,7 +169,7 @@ builder.Services.AddScoped<IVnPayGatewayService, VnPayGatewayService>();
 builder.Services.AddScoped<IZaloPayGatewayService, ZaloPayGatewayService>();
 builder.Services.AddScoped<ITopUpPaymentProcessor, TopUpPaymentProcessor>();
 builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
-
+builder.Services.AddScoped<IRefundRequestRepository, RefundRequestRepository>();
 
 #endregion
 

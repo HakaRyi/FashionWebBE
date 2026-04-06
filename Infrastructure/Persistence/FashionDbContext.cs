@@ -105,6 +105,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
     public virtual DbSet<Wardrobe> Wardrobes { get; set; }
 
     public DbSet<SearchHistory> SearchHistories { get; set; }
+    public virtual DbSet<RefundRequest> RefundRequests { get; set; }
 
     public static string GetConnectionString(string connectionStringName)
     {
@@ -131,6 +132,16 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
         modelBuilder.HasPostgresExtension("vector");
 
         base.OnModelCreating(modelBuilder);
+
+        modelBuilder.Entity<RefundRequest>(entity =>
+        {
+            entity.HasKey(e => e.RefundRequestId);
+
+            entity.HasOne(d => d.Order)
+                .WithOne(p => p.RefundRequest)
+                .HasForeignKey<RefundRequest>(d => d.OrderId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
 
         modelBuilder.Entity<SearchHistory>(entity =>
         {
