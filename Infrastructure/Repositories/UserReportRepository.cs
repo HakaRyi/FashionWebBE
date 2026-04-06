@@ -1,9 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Domain.Contracts.UserReport;
 using Domain.Dto.Common;
-using Domain.Dto.Social.Report;
-using Infrastructure.Persistence;
 using Domain.Entities;
 using Domain.Interfaces;
+using Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Repositories
 {
@@ -14,21 +14,6 @@ namespace Infrastructure.Repositories
         public UserReportRepository(FashionDbContext context)
         {
             _context = context;
-        }
-
-        public async Task<UserReport> GetById(int id)
-        {
-            return await _context.UserReports.FindAsync(id);
-        }
-
-        public async Task<List<UserReport>> GetUserReports()
-        {
-            return await _context.UserReports
-                .Include(ur => ur.Account)
-                .Include(ur => ur.Post)
-                .Include(ur => ur.ReportType)
-                .OrderByDescending(ur => ur.CreatedAt)
-                .ToListAsync();
         }
 
         public async Task<PostReportValidationInfoDto?> GetPostValidationInfoAsync(int postId)
@@ -97,17 +82,26 @@ namespace Infrastructure.Repositories
                 {
                     UserReportId = x.UserReportId,
                     PostId = x.PostId,
+
                     ReportedByAccountId = x.AccountId,
-                    ReportedByUserName = x.Account.UserName ?? "",
+                    ReportedByUserName = x.Account.UserName ?? string.Empty,
+
                     PostOwnerAccountId = x.Post.AccountId,
-                    PostOwnerUserName = x.Post.Account.UserName ?? "",
+                    PostOwnerUserName = x.Post.Account.UserName ?? string.Empty,
+
                     PostTitle = x.Post.Title,
                     PostContent = x.Post.Content,
                     PostStatus = x.Post.Status,
                     PostVisibility = x.Post.Visibility,
+
+                    ImageUrls = x.Post.Images
+                        .Select(i => i.ImageUrl)
+                        .ToList(),
+
                     ReportTypeId = x.ReportTypeId,
                     ReportTypeName = x.ReportType.TypeName,
                     ReportTypeDescription = x.ReportType.Description,
+
                     Reason = x.Reason,
                     CreatedAt = x.CreatedAt,
                     Status = x.Status,
@@ -142,14 +136,23 @@ namespace Infrastructure.Repositories
                 {
                     UserReportId = x.UserReportId,
                     PostId = x.PostId,
+
                     ReportedByAccountId = x.AccountId,
-                    ReportedByUserName = x.Account.UserName ?? "",
+                    ReportedByUserName = x.Account.UserName ?? string.Empty,
+
                     PostOwnerAccountId = x.Post.AccountId,
-                    PostOwnerUserName = x.Post.Account.UserName ?? "",
+                    PostOwnerUserName = x.Post.Account.UserName ?? string.Empty,
+
                     PostStatus = x.Post.Status,
                     PostVisibility = x.Post.Visibility,
+
+                    ThumbnailUrl = x.Post.Images
+                        .Select(i => i.ImageUrl)
+                        .FirstOrDefault(),
+
                     ReportTypeId = x.ReportTypeId,
                     ReportTypeName = x.ReportType.TypeName,
+
                     Reason = x.Reason,
                     CreatedAt = x.CreatedAt,
                     Status = x.Status,

@@ -22,8 +22,6 @@ namespace Application.Services.PostImp
         Task<List<PostFeedDto>> GetTrendingPostsAsync(int userId, int limit);
         Task<PostVisibilityResponseDto> HidePostAsync(int postId, int accountId);
         Task<PostVisibilityResponseDto> UnhidePostAsync(int postId, int accountId);
-        Task<PagedResultDto<AdminReviewPostDto>> GetPendingAdminPostsAsync(int page, int pageSize);
-        Task<PagedResultDto<AdminReviewPostDto>> GetRejectedPostsAsync(int page, int pageSize);
         Task<int> SharePostAsync(int postId);
         Task<List<PostResponse>> GetPostsByEventIdAsync(int eventId);
         Task<List<PostResponse>> GetPostsForExpertReviewAsync(int eventId);

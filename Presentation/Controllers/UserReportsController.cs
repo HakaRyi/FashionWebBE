@@ -1,13 +1,14 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Domain.Dto.Social.Report;
+﻿using Application.Request.UserReportReq;
+using Application.Services.UserReportImp;
 using Application.Utils;
-using Application.Services.Report;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Presentation.Controllers
 {
     [ApiController]
     [Route("api/reports")]
+    [Authorize]
     public class UserReportsController : ControllerBase
     {
         private readonly IUserReportService _userReportService;
@@ -18,27 +19,46 @@ namespace Presentation.Controllers
         }
 
         [HttpGet("types")]
-        [Authorize]
         public async Task<IActionResult> GetReportTypes()
         {
             var items = await _userReportService.GetReportTypesAsync();
-            return Ok(items);
+
+            return Ok(new
+            {
+                message = "Lấy danh sách loại báo cáo thành công.",
+                data = items
+            });
         }
 
         [HttpPost("posts/{postId:int}")]
-        [Authorize]
         public async Task<IActionResult> ReportPost(
-            int postId,
-            [FromBody] CreatePostReportDto request)
+            [FromRoute] int postId,
+            [FromBody] CreateUserReportRequestDto request)
         {
+            if (request == null)
+            {
+                return BadRequest(new
+                {
+                    message = "Dữ liệu báo cáo không hợp lệ."
+                });
+            }
+
             var userId = User.GetUserId();
 
-            var result = await _userReportService.ReportPostAsync(
-                postId,
-                userId,
-                request);
+            var dto = new CreateUserReportRequestDto
+            {
+                PostId = postId,
+                ReportTypeId = request.ReportTypeId,
+                Reason = request.Reason
+            };
 
-            return Ok(result);
+            var result = await _userReportService.CreateReportAsync(dto, userId);
+
+            return Ok(new
+            {
+                message = result.Message,
+                data = result
+            });
         }
     }
 }

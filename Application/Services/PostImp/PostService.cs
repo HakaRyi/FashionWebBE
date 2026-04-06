@@ -380,24 +380,6 @@ namespace Application.Services.PostImp
             };
         }
 
-        public Task<PagedResultDto<AdminReviewPostDto>> GetPendingAdminPostsAsync(int page, int pageSize)
-        {
-            if (page <= 0) page = 1;
-            if (pageSize <= 0) pageSize = 10;
-            if (pageSize > 50) pageSize = 50;
-
-            return _postRepo.GetPendingAdminPostsPagedAsync(page, pageSize);
-        }
-
-        public Task<PagedResultDto<AdminReviewPostDto>> GetRejectedPostsAsync(int page, int pageSize)
-        {
-            if (page <= 0) page = 1;
-            if (pageSize <= 0) pageSize = 10;
-            if (pageSize > 50) pageSize = 50;
-
-            return _postRepo.GetRejectedPostsPagedAsync(page, pageSize);
-        }
-
         private async Task<List<string>> UploadImages(List<IFormFile> files)
         {
             if (files == null || files.Count == 0)

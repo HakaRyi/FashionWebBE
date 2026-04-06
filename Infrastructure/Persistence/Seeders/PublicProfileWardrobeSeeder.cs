@@ -5,7 +5,7 @@ using Domain.Entities;
 using System.Globalization;
 using Domain.Constants;
 
-namespace Infrastructure.Seeders
+namespace Infrastructure.Persistence.Seeders
 {
     public static class PublicProfileWardrobeSeeder
     {
@@ -151,7 +151,7 @@ namespace Infrastructure.Seeders
                     Status = "Active",
                     VerificationCode = null,
                     CodeExpiredAt = null,
-                    FreeTryOn = 10 + (i % 5),
+                    FreeTryOn = 10 + i % 5,
                     Description = $"{SeedMarker} - tài khoản demo số {i}",
                     CountPost = 0,
                     CountFollower = 0,
@@ -251,7 +251,7 @@ namespace Infrastructure.Seeders
                     Category = categoryNames[idx % categoryNames.Count],
                     SubCategory = $"Sub-{idx + 1}",
                     Style = i % 2 == 0 ? "Casual" : "Streetwear",
-                    Gender = i % 3 == 0 ? "Unisex" : (i % 2 == 0 ? "Male" : "Female"),
+                    Gender = i % 3 == 0 ? "Unisex" : i % 2 == 0 ? "Male" : "Female",
                     MainColor = mainColors[i % mainColors.Length],
                     SubColor = mainColors[(i + 2) % mainColors.Length],
                     Material = i % 2 == 0 ? "Cotton" : "Polyester",
@@ -259,7 +259,7 @@ namespace Infrastructure.Seeders
                     Fit = i % 3 == 0 ? "Regular" : "Slim",
                     Neckline = itemTypes[idx] == "Top" ? "Round Neck" : null,
                     SleeveLength = itemTypes[idx] == "Top" || itemTypes[idx] == "Outer"
-                        ? (i % 2 == 0 ? "Short Sleeve" : "Long Sleeve")
+                        ? i % 2 == 0 ? "Short Sleeve" : "Long Sleeve"
                         : null,
                     Length = itemTypes[idx] == "Bottom" ? "Long" : null,
                     Size = i % 4 == 0 ? "S" : i % 4 == 1 ? "M" : i % 4 == 2 ? "L" : "XL",
@@ -304,7 +304,7 @@ namespace Infrastructure.Seeders
                 var acc = demoAccounts[userIndex];
                 var wardrobe = demoWardrobes[userIndex];
 
-                int totalItems = 8 + (userIndex % 5); // 8 -> 12 item / user
+                int totalItems = 8 + userIndex % 5; // 8 -> 12 item / user
 
                 for (int j = 0; j < totalItems; j++)
                 {
@@ -319,7 +319,7 @@ namespace Infrastructure.Seeders
                         Category = categoryNames[idx % categoryNames.Count],
                         SubCategory = $"Demo-{idx + 1}",
                         Style = j % 2 == 0 ? "Minimal" : "Korean",
-                        Gender = j % 3 == 0 ? "Unisex" : (j % 2 == 0 ? "Female" : "Male"),
+                        Gender = j % 3 == 0 ? "Unisex" : j % 2 == 0 ? "Female" : "Male",
                         MainColor = mainColors[(userIndex + j) % mainColors.Length],
                         SubColor = mainColors[(userIndex + j + 3) % mainColors.Length],
                         Material = j % 2 == 0 ? "Cotton" : "Denim",
@@ -327,9 +327,9 @@ namespace Infrastructure.Seeders
                         Fit = j % 2 == 0 ? "Regular" : "Loose",
                         Neckline = itemTypes[idx] == "Top" ? "Round Neck" : null,
                         SleeveLength = itemTypes[idx] == "Top" || itemTypes[idx] == "Outer"
-                            ? (j % 2 == 0 ? "Short Sleeve" : "Long Sleeve")
+                            ? j % 2 == 0 ? "Short Sleeve" : "Long Sleeve"
                             : null,
-                        Length = itemTypes[idx] == "Bottom" ? (j % 2 == 0 ? "Long" : "Short") : null,
+                        Length = itemTypes[idx] == "Bottom" ? j % 2 == 0 ? "Long" : "Short" : null,
                         Size = j % 4 == 0 ? "S" : j % 4 == 1 ? "M" : j % 4 == 2 ? "L" : "XL",
                         Brand = brands[(userIndex + j) % brands.Length],
                         Description = $"{SeedMarker} - item demo user {userIndex + 1}, item {j + 1}",
@@ -381,7 +381,7 @@ namespace Infrastructure.Seeders
             // Outfit cho demo users
             for (int i = 0; i < demoAccounts.Count; i++)
             {
-                int outfitCount = 2 + (i % 2);
+                int outfitCount = 2 + i % 2;
                 for (int j = 0; j < outfitCount; j++)
                 {
                     allOutfits.Add(new Outfit
@@ -499,7 +499,7 @@ namespace Infrastructure.Seeders
             // Post cho demo accounts
             for (int i = 0; i < demoAccounts.Count; i++)
             {
-                int postCount = 3 + (i % 4);
+                int postCount = 3 + i % 4;
 
                 for (int j = 0; j < postCount; j++)
                 {
@@ -629,7 +629,7 @@ namespace Infrastructure.Seeders
             var values = new float[768];
             for (int i = 0; i < values.Length; i++)
             {
-                values[i] = ((seed + i) % 17) / 17f;
+                values[i] = (seed + i) % 17 / 17f;
             }
             return new Vector(values);
         }

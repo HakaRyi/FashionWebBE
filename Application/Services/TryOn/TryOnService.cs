@@ -1,6 +1,6 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using Application.Response.AiResp;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
-using Services.Response.AiResp;
 using System.Net.Http.Headers;
 using System.Text.Json;
 

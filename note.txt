@@ -1,8 +1,14 @@
 ﻿dotnet ef database drop --project Repositories --startup-project WebAPIs
-
 dotnet ef database update --project Repositories --startup-project WebAPIs
-
 dotnet ef migrations add InitialIdentity4 --project Repositories --startup-project WebAPIs --output-dir Migrations
+=====================================
+
+
+dotnet ef database drop --project Infrastructure --startup-project Presentation
+
+dotnet ef database update --project Infrastructure --startup-project Presentation
+
+dotnet ef migrations add InitialIdentity --project Infrastructure --startup-project Presentation --output-dir Migrations
 
 123456Aa@
 
