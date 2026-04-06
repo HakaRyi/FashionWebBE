@@ -90,7 +90,7 @@ namespace Application.Services.PostImp
             await _imageRepo.AddRangeAsync(images);
             await _uow.SaveChangesAsync();
 
-            //await SendModeration(post.PostId, imageUrls);
+            await SendModeration(post.PostId, imageUrls);
             
             post.Images = images;
             var account = await _userManager.FindByIdAsync(post.AccountId.ToString());

@@ -44,6 +44,7 @@ using Application.Services.OrderImp;
 using Application.Services.Items;
 using Application.Services.AI;
 using Infrastructure.UnitOfWork;
+using Application.Services.ItemSaveImp;
 
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -124,6 +125,8 @@ builder.Services.AddScoped<IScoreboardRepository, ScoreboardRepository>();
 builder.Services.AddScoped<IEventWinnerRepository, EventWinnerRepository>();
 builder.Services.AddScoped<ISystemSettingRepository, SystemSettingRepository>();
 builder.Services.AddScoped<ISearchHistoryRepository, SearchHistoryRepository>();
+builder.Services.AddScoped<IItemSaveRepository, ItemSaveRepository>();
+
 
 #endregion
 
@@ -169,6 +172,8 @@ builder.Services.AddScoped<IVnPayGatewayService, VnPayGatewayService>();
 builder.Services.AddScoped<IZaloPayGatewayService, ZaloPayGatewayService>();
 builder.Services.AddScoped<ITopUpPaymentProcessor, TopUpPaymentProcessor>();
 builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
+builder.Services.AddScoped<IItemSaveService, ItemSaveService>();
+
 
 
 #endregion
@@ -197,7 +202,7 @@ builder.Services.AddScoped<EmailService>();
 #region BACKGROUND
 
 builder.Services.AddScoped<IRabbitMQProducer, RabbitMQProducer>();
-builder.Services.AddHostedService<PostProcessingWorker>();
+//builder.Services.AddHostedService<PostProcessingWorker>();
 builder.Services.AddHostedService<ChatConsumerWorker>();
 builder.Services.AddSingleton<IBackgroundTaskQueue>(ctx => new BackgroundTaskQueue(100));
 builder.Services.AddHostedService<ModelProgessingWorker>();

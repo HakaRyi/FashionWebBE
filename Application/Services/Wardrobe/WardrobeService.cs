@@ -1,10 +1,12 @@
-﻿using Application.Interfaces;
-using Domain.Dto.Common;
-using Domain.Dto.Wardrobe;
-using Domain.Interfaces;
+﻿using System.Linq;
+using Application.Interfaces;
 using Application.Request.WardrobeReq;
 using Application.Response.ItemResp;
 using Application.Response.WardrobeResp;
+using Domain.Dto.Common;
+using Domain.Dto.Wardrobe;
+using Domain.Entities;
+using Domain.Interfaces;
 
 namespace Application.Services.Wardrobe
 {
@@ -15,19 +17,22 @@ namespace Application.Services.Wardrobe
         private readonly IAccountRepository _accountRepository;
         private readonly IImageRepository _imageRepository;
         private readonly ICurrentUserService _currentUserService;
+        private readonly IItemSaveRepository _itemSaveRepository;
 
         public WardrobeService(
             IWardrobeRepository wardrobeRepository,
             IItemRepository itemRepository,
             IAccountRepository accountRepository,
             ICurrentUserService currentUserService,
-            IImageRepository imageRepository)
+            IImageRepository imageRepository,
+            IItemSaveRepository itemSaveRepository)
         {
             _wardrobeRepository = wardrobeRepository;
             _itemRepository = itemRepository;
             _accountRepository = accountRepository;
             _imageRepository = imageRepository;
             _currentUserService = currentUserService;
+            _itemSaveRepository = itemSaveRepository;
         }
 
         public async Task<int> CreateAsync(WardrobeRequest request)
@@ -134,10 +139,26 @@ namespace Application.Services.Wardrobe
             var wardrobe = await _wardrobeRepository.GetByAccountIdAsync(accountId);
             if (wardrobe == null)
                 return null;
+            var currentUserId = _currentUserService.GetUserId()??0;
+            if (currentUserId==0)
+            {
+                throw new UnauthorizedAccessException("Bạn cần đăng nhập để xem tủ đồ công khai.");
+            }
 
             var totalPublicItems = await _itemRepository.CountPublicItemsByAccountIdAsync(accountId);
             var items = await _itemRepository.GetPublicItemsByAccountIdAsync(accountId, page, pageSize);
+            var savedItemIds = new HashSet<int>();
+            if (currentUserId!=0)
+            {
+                var savedItems = await _itemSaveRepository.GetMySaveItems(currentUserId);
+                savedItemIds = savedItems.Select(s => s.ItemId).ToHashSet();
+            }
 
+            foreach (var item in items)
+            {
+                item.IsSaved = savedItemIds.Contains(item.ItemId);
+                item.IsOwner = currentUserId !=0 && currentUserId == accountId;
+            }
             return new PublicWardrobeResponseDto
             {
                 AccountId = accountId,

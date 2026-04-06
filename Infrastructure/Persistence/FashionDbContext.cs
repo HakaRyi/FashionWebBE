@@ -1470,7 +1470,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasForeignKey(d => d.AccountId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
-
+      
         modelBuilder.Entity<PostVector>(entity =>
         {
             entity.HasKey(e => e.PostId).HasName("Post_Vector_pkey");
