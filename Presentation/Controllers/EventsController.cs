@@ -266,6 +266,23 @@ namespace Presentation.Controllers
             return Ok(events);
         }
 
+        [HttpPut("{id}/admin")]
+        public async Task<IActionResult> UpdateEvent(int id, [FromBody] UpdateEventRequestAdmin dto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
+
+            var isUpdated = await _eventService.UpdateEventByAdmin(id, dto);
+
+            if (!isUpdated)
+            {
+                return NotFound(new { Message = $"Không tìm thấy sự kiện với ID {id} hoặc không có thay đổi nào được thực hiện." });
+            }
+
+            return Ok(new { Message = "Cập nhật sự kiện thành công." });
+        }
         #endregion
 
 

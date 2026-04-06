@@ -479,6 +479,7 @@ namespace Infrastructure.Repositories
                 .Include(p => p.Images)
                 .Include(p => p.ExpertRatings)
                 .Include(p => p.Event)
+                .Include(p => p.Scoreboard)
                 .Where(p => p.EventId == eventId && p.Status == "Published")
                 .ToListAsync();
         }

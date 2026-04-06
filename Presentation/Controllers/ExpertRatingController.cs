@@ -1,7 +1,8 @@
 ﻿using Application.Interfaces;
+using Application.Request.ExpertRatingReq;
+using Application.Response.EventResp;
 using Application.Services.PostImp;
 using Microsoft.AspNetCore.Mvc;
-using Application.Request.ExpertRatingReq;
 using System.Security.Claims;
 
 namespace Presentation.Controllers
@@ -25,6 +26,7 @@ namespace Presentation.Controllers
         /// Chuyên gia chấm điểm cho bài thi trong sự kiện
         /// </summary>
         [HttpPost("submit-rating")]
+        //[Authorize(Roles = "Expert")]
         public async Task<IActionResult> SubmitRating([FromBody] ExpertRatingRequest request)
         {
             try
@@ -36,6 +38,14 @@ namespace Presentation.Controllers
             {
                 return BadRequest(new { message = ex.Message });
             }
+        }
+
+        [HttpGet("event-criteria/{eventId}")]
+        public async Task<IActionResult> GetEventCriteriaForRatingAsync(int eventId)
+        {
+            var data = await _eventRatingService.GetEventCriteriaForRating(eventId);
+
+            return Ok(data);
         }
 
         [HttpGet("my-reviews/{eventId}")]

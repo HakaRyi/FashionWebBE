@@ -37,6 +37,12 @@ namespace Infrastructure.Repositories
                 .Where(e => e.CreatorId == creatorId && e.CreatedAt >= startDate)
                 .Include(e => e.Posts)
                     .ThenInclude(p => p.Scoreboard)
+                .Include(e => e.Posts)
+                    .ThenInclude(p => p.ExpertRatings)
+                        .ThenInclude(er => er.CriterionRatings)
+                .Include(e => e.EventExperts)
+                    .ThenInclude(ee => ee.Expert)
+                .Include(e => e.PrizeEvents)
                 .OrderByDescending(e => e.CreatedAt)
                 .ToListAsync();
         }

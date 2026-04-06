@@ -26,7 +26,6 @@ namespace Application.Services.EventServices
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICurrentUserService _currentUserService;
         private readonly IImageRepository _imageRepo;
-        private readonly IFileService _fileService;
         private readonly ISchedulerFactory _schedulerFactory;
         private readonly ISystemSettingRepository _settingRepo;
         private readonly ICloudStorageService _cloudStorageService;
@@ -45,7 +44,6 @@ namespace Application.Services.EventServices
             IUnitOfWork unitOfWork,
             IImageRepository imageRepo,
             ISystemSettingRepository settingRepo,
-            IFileService fileService,
             ISchedulerFactory schedulerFactory,
             ICurrentUserService currentUserService,
             ICloudStorageService cloudStorageService)
@@ -64,7 +62,6 @@ namespace Application.Services.EventServices
             _unitOfWork = unitOfWork;
             _currentUserService = currentUserService;
             _imageRepo = imageRepo;
-            _fileService = fileService;
             _schedulerFactory = schedulerFactory;
             _cloudStorageService = cloudStorageService;
         }
@@ -116,6 +113,16 @@ namespace Application.Services.EventServices
                         ImageUrl = imageUrl,
                         OwnerType = "Event_Thumbnail",
                         CreatedAt = DateTime.UtcNow
+                    });
+                }
+
+                foreach (var criteriaDto in dto.Criteria)
+                {
+                    eventData.EventCriteria.Add(new EventCriterion
+                    {
+                        Name = criteriaDto.Name,
+                        Description = criteriaDto.Description,
+                        WeightPercentage = criteriaDto.WeightPercentage
                     });
                 }
 
@@ -506,6 +513,10 @@ namespace Application.Services.EventServices
             {
                 throw new Exception($"Số lượng Expert yêu cầu tối thiểu cho mỗi sự kiện theo quy định hệ thống là {minExpertsRequiredBySystem} người.");
             }
+            if (dto.Criteria == null || !dto.Criteria.Any())
+            {
+                throw new Exception("Sự kiện cần có ít nhất một tiêu chí chấm điểm.");
+            }   
         }
 
         private async Task CreatePrizesAsync(int eventId, List<PrizeRequest> prizeRequests)

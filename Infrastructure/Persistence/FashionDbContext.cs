@@ -28,6 +28,10 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
     public virtual DbSet<Event> Events { get; set; }
 
+    public virtual DbSet<EventCriterion> EventCriterions { get; set; }
+
+    public virtual DbSet<ExpertCriterionRating> ExpertCriterionRatings { get; set; }
+
     public virtual DbSet<EventExpert> EventExperts { get; set; }
 
     public virtual DbSet<EventWinner> EventWinners { get; set; }
@@ -468,12 +472,12 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                   .HasColumnName("description");
 
             entity.Property(e => e.CreatedAt)
-                  .HasColumnType("timestamp without time zone")
+                  .HasColumnType("timestamp with time zone")
                   .HasDefaultValueSql("CURRENT_TIMESTAMP")
                   .HasColumnName("created_at");
 
             entity.Property(e => e.ResolvedAt)
-                  .HasColumnType("timestamp without time zone")
+                  .HasColumnType("timestamp with time zone")
                   .HasColumnName("resolved_at");
 
             entity.Property(e => e.SenderId)
@@ -565,6 +569,73 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasConstraintName("Events_creator_id_fkey");
         });
 
+        modelBuilder.Entity<EventCriterion>(entity =>
+        {
+            entity.ToTable("Event_criteria", "public");
+
+            entity.HasKey(e => e.EventCriterionId);
+
+            entity.Property(e => e.EventCriterionId)
+                .HasColumnName("event_criterion_id");
+
+            entity.Property(e => e.EventId)
+                .HasColumnName("event_id")
+                .IsRequired();
+
+            entity.Property(e => e.Name)
+                .HasColumnName("name")
+                .HasMaxLength(255)
+                .IsRequired();
+
+            entity.Property(e => e.Description)
+                .HasColumnName("description")
+                .HasColumnType("text");
+
+            entity.Property(e => e.WeightPercentage)
+                .HasColumnName("weight_percentage")
+                .IsRequired();
+
+            entity.HasOne(d => d.Event)
+                .WithMany(p => p.EventCriteria)
+                .HasForeignKey(d => d.EventId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_event_criteria_event");
+        });
+
+        modelBuilder.Entity<ExpertCriterionRating>(entity =>
+        {
+            entity.ToTable("Expert_criterion_ratings", "public");
+
+            entity.HasKey(e => e.ExpertCriterionRatingId);
+
+            entity.Property(e => e.ExpertCriterionRatingId)
+                .HasColumnName("expert_criterion_rating_id");
+
+            entity.Property(e => e.ExpertRatingId)
+                .HasColumnName("expert_rating_id")
+                .IsRequired();
+
+            entity.Property(e => e.EventCriterionId)
+                .HasColumnName("event_criterion_id")
+                .IsRequired();
+
+            entity.Property(e => e.Score)
+                .HasColumnName("score")
+                .IsRequired();
+
+            entity.HasOne(d => d.ExpertRating)
+                .WithMany(p => p.CriterionRatings)
+                .HasForeignKey(d => d.ExpertRatingId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_expert_criterion_ratings_rating");
+
+            entity.HasOne(d => d.EventCriterion)
+                .WithMany(p => p.CriterionRatings)
+                .HasForeignKey(d => d.EventCriterionId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_expert_criterion_ratings_criterion");
+        });
+
         modelBuilder.Entity<EventExpert>(entity =>
         {
             entity.ToTable("EventExpert", "public");
@@ -579,7 +650,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasDatabaseName("IX_EventExpert_Event_Expert");
 
             entity.Property(e => e.JoinedAt)
-                .HasColumnType("timestamp without time zone")
+                .HasColumnType("timestamp with time zone")
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnName("joined_at");
 
@@ -623,12 +694,12 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasColumnName("reason");
 
             entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
+                .HasColumnType("timestamp with time zone")
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnName("created_at");
 
             entity.Property(e => e.UpdatedAt)
-                .HasColumnType("timestamp without time zone")
+                .HasColumnType("timestamp with time zone")
                 .HasColumnName("updated_at");
 
             entity.HasOne(d => d.Post)
@@ -667,12 +738,12 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasColumnName("status");
 
             entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
+                .HasColumnType("timestamp with time zone")
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnName("created_at");
 
             entity.Property(e => e.UpdatedAt)
-                .HasColumnType("timestamp without time zone")
+                .HasColumnType("timestamp with time zone")
                 .HasColumnName("updated_at");
 
             entity.HasOne(d => d.Account)
@@ -778,10 +849,10 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.ReputationScore)
                 .HasColumnName("reputation_score");
             entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
+                .HasColumnType("timestamp with time zone")
                 .HasColumnName("created_at");
             entity.Property(e => e.UpdatedAt)
-                .HasColumnType("timestamp without time zone")
+                .HasColumnType("timestamp with time zone")
                 .HasColumnName("updated_at");
 
             entity.HasOne(d => d.Account).WithOne(p => p.ExpertProfile)
@@ -1440,37 +1511,6 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
-        modelBuilder.Entity<PostSave>(entity =>
-        {
-            entity.ToTable("PostSaves", "public");
-
-            entity.HasKey(e => e.Id);
-
-            entity.Property(e => e.Id)
-                .HasColumnName("id");
-
-            entity.Property(e => e.PostId)
-                .HasColumnName("post_id");
-
-            entity.Property(e => e.AccountId)
-                .HasColumnName("account_id");
-
-
-            entity.HasIndex(e => new { e.AccountId, e.PostId })
-                .IsUnique()
-                .HasDatabaseName("ix_postsaves_account_post");
-
-            entity.HasOne(d => d.Post)
-                .WithMany(p => p.Saves)
-                .HasForeignKey(d => d.PostId)
-                .OnDelete(DeleteBehavior.Cascade);
-
-            entity.HasOne(d => d.Account)
-                .WithMany(a => a.SavedPosts)
-                .HasForeignKey(d => d.AccountId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
         modelBuilder.Entity<PostVector>(entity =>
         {
             entity.HasKey(e => e.PostId).HasName("Post_Vector_pkey");
@@ -1632,7 +1672,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.AccountId).HasColumnName("account_id");
 
             entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
+                .HasColumnType("timestamp with time zone")
                 .HasColumnName("created_at");
 
             entity.Property(e => e.DeviceInfo)
@@ -1640,7 +1680,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasColumnName("device_info");
 
             entity.Property(e => e.ExpiryDate)
-                .HasColumnType("timestamp without time zone")
+                .HasColumnType("timestamp with time zone")
                 .HasColumnName("expiry_date");
 
             entity.Property(e => e.IpAddress)
@@ -1735,7 +1775,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasColumnName("description");
 
             entity.Property(e => e.UpdatedAt)
-                .HasColumnType("timestamp without time zone")
+                .HasColumnType("timestamp with time zone")
                 .HasColumnName("updated_at")
                 .HasDefaultValueSql("CURRENT_TIMESTAMP");
         });
@@ -1908,7 +1948,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasColumnName("currency");
 
             entity.Property(e => e.UpdatedAt)
-                .HasColumnType("timestamp without time zone")
+                .HasColumnType("timestamp with time zone")
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnName("updated_at");
 

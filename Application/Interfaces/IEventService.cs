@@ -1,3 +1,4 @@
+using Application.Request.EventReq;
 using Application.Response.DashboardResp;
 using Application.Response.EventResp;
 
@@ -18,6 +19,7 @@ namespace Application.Interfaces
         Task<IEnumerable<EventAdminListDto>> GetAllEventsForAdminAsync();
         Task RejectEventAsync(int eventId, string reason);
         Task ApproveEventAsync(int eventId);
+        Task<bool> UpdateEventByAdmin(int eventId, UpdateEventRequestAdmin dto);
 
         // Common
         Task<EventDetailDto?> GetEventDetailsAsync(int eventId);
