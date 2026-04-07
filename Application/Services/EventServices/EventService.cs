@@ -1,13 +1,14 @@
 ﻿using Application.Interfaces;
-using Mapster;
-using Quartz;
-using Domain.Entities;
 using Application.Jobs;
+using Application.Request.EventReq;
 using Application.Response.DashboardResp;
 using Application.Response.EventResp;
 using Application.Response.PostResp;
 using Application.Utils.File;
+using Domain.Entities;
 using Domain.Interfaces;
+using Mapster;
+using Quartz;
 
 namespace Application.Services.EventServices
 {
@@ -15,54 +16,27 @@ namespace Application.Services.EventServices
     {
         private readonly IEventRepository _eventRepo;
         private readonly IWalletRepository _walletRepo;
-        private readonly IPrizeEventRepository _prizeRepo;
-        private readonly ITransactionRepository _transactionRepo;
-        private readonly IEscrowSessionRepository _escrowRepo;
         private readonly IEventExpertRepository _eventExpertRepo;
-        private readonly IExpertRatingRepository _ratingRepo;
-        private readonly IScoreboardRepository _scoreboardRepo;
         private readonly IPostRepository _postRepo;
-        private readonly IEventWinnerRepository _winnerRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICurrentUserService _currentUserService;
-        private readonly IImageRepository _imageRepo;
-        private readonly IFileService _fileService;
         private readonly ISchedulerFactory _schedulerFactory;
-        private readonly ISystemSettingRepository _settingRepo;
 
         public EventService(
             IEventRepository eventRepo,
             IWalletRepository walletRepo,
-            IPrizeEventRepository prizeRepo,
-            ITransactionRepository transactionRepo,
-            IEscrowSessionRepository escrowRepo,
             IEventExpertRepository eventExpertRepo,
-            IExpertRatingRepository ratingRepo,
-            IScoreboardRepository scoreboardRepo,
             IPostRepository postRepo,
-            IEventWinnerRepository winnerRepo,
             IUnitOfWork unitOfWork,
-            IImageRepository imageRepo,
-            ISystemSettingRepository settingRepo,
-            IFileService fileService,
             ISchedulerFactory schedulerFactory,
             ICurrentUserService currentUserService)
         {
             _eventRepo = eventRepo;
             _walletRepo = walletRepo;
-            _prizeRepo = prizeRepo;
-            _transactionRepo = transactionRepo;
-            _escrowRepo = escrowRepo;
             _eventExpertRepo = eventExpertRepo;
-            _ratingRepo = ratingRepo;
-            _scoreboardRepo = scoreboardRepo;
             _postRepo = postRepo;
-            _winnerRepo = winnerRepo;
-            _settingRepo = settingRepo;
             _unitOfWork = unitOfWork;
             _currentUserService = currentUserService;
-            _imageRepo = imageRepo;
-            _fileService = fileService;
             _schedulerFactory = schedulerFactory;
         }
 
@@ -156,9 +130,6 @@ namespace Application.Services.EventServices
             }
         }
 
-        #endregion
-
-        #region Helpers
         private async Task ScheduleEventActivation(Event ev)
         {
             // 1. Lấy bộ lập lịch từ Factory (đã inject ở Constructor)
@@ -188,6 +159,26 @@ namespace Application.Services.EventServices
                 .Build();
 
             await scheduler.ScheduleJob(job, trigger);
+        }
+
+        public async Task<bool> UpdateEventByAdmin(int eventId, UpdateEventRequestAdmin dto)
+        {
+            var existingEvent = await _eventRepo.GetByIdAsync(eventId);
+            if (existingEvent == null)
+            {
+                return false;
+            }
+
+            existingEvent.Title = dto.Title;
+            existingEvent.Description = dto.Description;
+            existingEvent.StartTime = dto.StartTime;
+            existingEvent.SubmissionDeadline = dto.SubmissionDeadline;
+            existingEvent.EndTime = dto.EndTime;
+
+            _eventRepo.Update(existingEvent);
+
+            var result = await _unitOfWork.SaveChangesAsync();
+            return result > 0;
         }
         #endregion
 
@@ -227,71 +218,101 @@ namespace Application.Services.EventServices
 
         public async Task<AnalyticsDashboardResponse> GetAnalyticsAsync(string period)
         {
-            int creatorId = _currentUserService.GetRequiredUserId();
+            int expertId = _currentUserService.GetRequiredUserId();
 
-            // 1. Xác định mốc thời gian (Period)
+            // 1. Xác định mốc thời gian khớp với FE truyền lên ("30d", "90d")
             DateTime startDate = period.ToLower() switch
             {
-                "7days" => DateTime.Now.AddDays(-7),
-                "30days" => DateTime.Now.AddDays(-30),
-                "90days" => DateTime.Now.AddDays(-90),
-                _ => DateTime.Now.AddDays(-30)
+                "30d" => DateTime.Now.AddDays(-30),
+                "90d" => DateTime.Now.AddDays(-90),
+                _ => DateTime.Now.AddDays(-30) // Mặc định 30 ngày
             };
 
-            // Lấy dữ liệu từ Repo (Đảm bảo Repo đã Include Posts và PrizeEvents)
-            var events = await _eventRepo.GetAnalyticsDataAsync(creatorId, startDate);
+            // Lấy dữ liệu từ Repo (Nhớ Include Posts và Posts.ExpertRatings)
+            var events = await _eventRepo.GetAnalyticsDataAsync(expertId, startDate);
             var eventList = events.ToList();
 
             var response = new AnalyticsDashboardResponse();
 
-            // 2. Xử lý StatCards (Tổng hợp số liệu)
-            int totalEvents = eventList.Count;
-            int totalParticipants = eventList.Sum(e => e.Posts.Count);
-            decimal totalPrizes = eventList.Sum(e => e.PrizeEvents.Sum(p => p.RewardAmount));
+            // 2. Tính toán tổng quan cho StatCards
+            int totalPosts = eventList.SelectMany(e => e.Posts).Count();
+
+            // Đếm số lượng bài thi ĐÃ ĐƯỢC CHẤM BỞI CHUYÊN GIA NÀY
+            int totalRatedPosts = eventList.SelectMany(e => e.Posts)
+                .Count(p => p.ExpertRatings.Any(er => er.ExpertId == expertId));
+
+            // Tổng số lượng Like + Share + Comment từ tất cả các bài thi
+            int totalEngagements = eventList.SelectMany(e => e.Posts)
+                .Sum(p => (p.LikeCount ?? 0) + (p.ShareCount ?? 0) + (p.CommentCount ?? 0));
+
+            // Tổng chi phí (AppliedFee) chuyên gia đã trả để tạo sự kiện
+            decimal totalCost = eventList.Sum(e => e.AppliedFee);
+
+            // Tính % tiến độ chấm bài
+            string gradingProgress = totalPosts > 0
+                ? $"{(totalRatedPosts * 100.0 / totalPosts):0.0}%"
+                : "0%";
 
             response.Stats = new List<StatCardDto>
     {
         new StatCardDto {
-            Label = "Tổng sự kiện",
-            Value = totalEvents.ToString(),
-            Change = "+12%", // Phần trăm này thường so sánh với kỳ trước (logic nâng cao)
+            Label = "Tổng bài dự thi", // Text này phải khớp với iconMap ở FE
+            Value = totalPosts.ToString("N0"),
+            Change = "+0%", // Có thể làm logic so sánh kỳ trước sau
             IsUp = true
         },
         new StatCardDto {
-            Label = "Người tham gia",
-            Value = totalParticipants.ToString(),
-            Change = "+5.4%",
+            Label = "Tiến độ chấm điểm",
+            Value = gradingProgress,
+            Change = "+0%",
             IsUp = true
         },
         new StatCardDto {
-            Label = "Ngân sách giải thưởng",
-            Value = totalPrizes.ToString("N0") + " VNĐ",
-            Change = "-2.1%",
+            Label = "Tương tác cộng đồng",
+            Value = totalEngagements.ToString("N0"),
+            Change = "+0%",
+            IsUp = true
+        },
+        new StatCardDto {
+            Label = "Chi phí tạo sự kiện",
+            Value = totalCost.ToString("N0") + "đ",
+            Change = "-0%", // Chi phí thì đi xuống (giảm) là tốt
             IsUp = false
         }
     };
 
-            // 3. Xử lý TopEvents (Sắp xếp theo số lượng bài tham gia nhiều nhất)
+            // 3. Xử lý TopEvents (Ưu tiên những sự kiện có nhiều bài thi nhất)
             response.TopEvents = eventList
                 .OrderByDescending(e => e.Posts.Count)
                 .Take(5)
-                .Select(e => new TopEventDto
+                .Select(e =>
                 {
-                    Id = e.EventId,
-                    Title = e.Title,
-                    Views = (e.Posts.Count * 1.5).ToString("N0"), // Giả định view dựa trên post
-                    Progress = e.Status == "Completed" ? 100 : 75 // Giả định tiến độ dựa trên trạng thái
+                    int ePosts = e.Posts.Count;
+                    int eRated = e.Posts.Count(p => p.ExpertRatings.Any(er => er.ExpertId == expertId));
+                    int eEngagements = e.Posts.Sum(p => (p.LikeCount ?? 0) + (p.ShareCount ?? 0) + (p.CommentCount ?? 0));
+
+                    return new TopEventDto
+                    {
+                        Id = e.EventId,
+                        Title = e.Title,
+                        Posts = ePosts,
+                        Rated = eRated,
+                        Engagements = eEngagements >= 1000 ? (eEngagements / 1000.0).ToString("0.1") + "K" : eEngagements.ToString()
+                    };
                 }).ToList();
 
-            // 4. Xử lý ChartData (Gom nhóm theo ngày để vẽ biểu đồ tăng trưởng)
-            response.ChartData = eventList
-                .GroupBy(e => e.CreatedAt?.ToString("dd/MM"))
+            // 4. Xử lý ChartData (Gom nhóm BÀI THI theo ngày để xem biểu đồ tăng trưởng)
+            // Lấy tất cả Posts trong sự kiện được tạo sau startDate
+            response.ChartData = eventList.SelectMany(e => e.Posts)
+                .Where(p => p.CreatedAt.HasValue && p.CreatedAt.Value >= startDate)
+                .GroupBy(p => p.CreatedAt.Value.Date) // Group bằng Date gốc để sắp xếp theo thời gian cho chuẩn
+                .OrderBy(g => g.Key) // Sắp xếp từ ngày cũ -> ngày mới
                 .Select(g => new ChartDataDto
                 {
-                    Name = g.Key ?? "N/A",
-                    Value = g.Count() // Số lượng sự kiện tạo mới mỗi ngày
+                    Date = g.Key.ToString("dd/MM"), // Format chuỗi để hiển thị trục X
+                    Submissions = g.Count(),
+                    Engagements = g.Sum(p => (p.LikeCount ?? 0) + (p.ShareCount ?? 0) + (p.CommentCount ?? 0))
                 })
-                .OrderBy(g => g.Name)
                 .ToList();
 
             return response;
@@ -320,80 +341,49 @@ namespace Application.Services.EventServices
             if (e == null) return null;
 
             var dto = e.Adapt<EventDetailDto>();
-
             bool isCreator = currentUserId == e.CreatorId;
 
             dto.IsJoined = currentUserId != 0 && e.Posts.Any(p => p.AccountId == currentUserId);
             dto.AcceptedExpertsCount = e.EventExperts?.Count(ex => ex.Status == "Accepted") ?? 0;
 
-            dto.CanManualStart = isCreator &&
-                                 e.Status == "Inviting" &&
-                                 !e.IsAutoStart &&
-                                 dto.AcceptedExpertsCount >= e.MinExpertsToStart;
+            if (isCreator)
+            {
+                dto.CanManualStart = e.Status == "Inviting" && !e.IsAutoStart && dto.AcceptedExpertsCount >= e.MinExpertsToStart;
 
-            dto.CanFinalize = isCreator &&
-                  (e.Status == "Active" || e.Status == "Judging") &&
-                  e.EndTime.HasValue &&
-                  DateTime.UtcNow >= e.EndTime.Value.ToUniversalTime();
+                if (dto.CanManualStart && dto.StartTime.HasValue)
+                {
+                    var startTimeUtc = dto.StartTime.Value.ToUniversalTime();
+                    var nowUtc = DateTime.UtcNow;
+                    var timeUntilStart = startTimeUtc - nowUtc;
 
-            if (!isCreator)
+                    if (nowUtc >= startTimeUtc)
+                        dto.ReasonManualStart = "Sự kiện đã đến thời gian bắt đầu nhưng chưa kích hoạt.";
+                    else if (timeUntilStart.TotalHours > 24)
+                    {
+                        dto.ReasonManualStart = $"Chỉ có thể kích hoạt thủ công trước giờ bắt đầu tối đa 24 tiếng. (Còn {Math.Round(timeUntilStart.TotalHours, 1)}h nữa mới được phép).";
+                        dto.CanManualStart = false;
+                    }
+                    else
+                        dto.ReasonManualStart = "Có thể bắt đầu sự kiện ngay bây giờ.";
+                }
+
+                dto.CanFinalize = (e.Status == "Active" || e.Status == "Judging") &&
+                                   e.EndTime.HasValue &&
+                                   DateTime.UtcNow >= e.EndTime.Value.ToUniversalTime();
+
+                dto.IsCreator = isCreator;
+            }
+            else
             {
                 dto.AppliedFee = 0;
-
                 dto.Experts = dto.Experts.Where(ex => ex.Status == "Accepted").ToList();
                 dto.CanManualStart = false;
                 dto.CanFinalize = false;
+                dto.IsCreator = false;
             }
 
             return dto;
         }
-        //public async Task<EventDetailDto?> GetEventDetailsAsync(int eventId)
-        //{
-        //    int currentUserId = _currentUserService.GetUserId() ?? 0;
-        //    var e = await _eventRepo.GetByIdAsync(eventId);
-        //    if (e == null) return null;
-
-        //    return new EventDetailDto
-        //    {
-        //        EventId = e.EventId,
-        //        Title = e.Title,
-        //        Description = e.Description,
-        //        ExpertWeight = e.ExpertWeight,
-        //        UserWeight = e.UserWeight,
-        //        AppliedFee = e.AppliedFee,
-        //        StartTime = e.StartTime,
-        //        SubmissionDeadline = e.SubmissionDeadline,
-        //        ThumbnailUrl = e.Images.OrderBy(i => i.ImageId).FirstOrDefault()?.ImageUrl,
-        //        EndTime = e.EndTime,
-        //        Status = e.Status,
-        //        CreatorId = e.CreatorId,
-        //        CreatorName = e.Creator?.UserName,
-        //        IsJoined = currentUserId != 0 && e.Posts.Any(p => p.AccountId == currentUserId),
-        //        ParticipantCount = e.Posts?.Count ?? 0,
-        //        TotalPrizePool = e.PrizeEvents?.Sum(p => p.RewardAmount) ?? 0,
-
-
-        //        // Map List Prize
-        //        Prizes = e.PrizeEvents.Select(p => new PrizeDtoV1
-        //        {
-        //            PrizeEventId = p.PrizeEventId,
-        //            Ranked = p.Ranked,
-        //            RewardAmount = p.RewardAmount,
-        //            Status = p.Status
-        //        }).OrderBy(p => p.Ranked).ToList(),
-
-        //        // Map List Experts
-        //        Experts = e.EventExperts.Select(ex => new ExpertInEventDto
-        //        {
-        //            ExpertId = ex.ExpertId,
-        //            FullName = ex.Expert?.UserName,
-        //            AvatarUrl = ex.Expert?.Avatars.OrderByDescending(img => img.CreatedAt)
-        //              .Select(img => img.ImageUrl)
-        //              .FirstOrDefault() ?? null,
-        //            Status = ex.Status,
-        //        }).ToList()
-        //    };
-        //}
 
         /// <summary>
         /// DÀNH CHO USER: Chỉ thấy sự kiện đang mời, đang chạy hoặc đã xong
@@ -440,6 +430,7 @@ namespace Application.Services.EventServices
                 MinExperts = e.MinExpertsToStart,
                 CurrentAcceptedExperts = e.EventExperts?.Count(ee => ee.Status == "Accepted") ?? 0,
                 StartTime = e.StartTime,
+                SubmissionDeadline = e.SubmissionDeadline,
                 EndTime = e.EndTime,
                 CreatedAt = e.CreatedAt,
                 ParticipantCount = e.Posts?.Count ?? 0,
@@ -467,13 +458,10 @@ namespace Application.Services.EventServices
                     .FirstOrDefault() ?? null,
 
 
-                // 1. Đếm số lượng bài tham gia
                 ParticipantCount = e.Posts?.Count ?? 0,
 
-                // 2. Lấy ảnh đầu tiên làm thumbnail
                 ThumbnailUrl = e.Images?.OrderBy(i => i.ImageId).FirstOrDefault()?.ImageUrl,
 
-                // 3. Tính toán giải thưởng rõ ràng
                 TotalPrizePool = e.PrizeEvents?.Sum(p => p.RewardAmount) ?? 0,
                 Prizes = e.PrizeEvents?
                     .OrderBy(p => p.Ranked)
@@ -483,7 +471,6 @@ namespace Application.Services.EventServices
                         RewardAmount = p.RewardAmount
                     }).ToList() ?? new List<PrizeBriefDto>(),
 
-                // 4. Kiểm tra trạng thái cá nhân hóa
                 IsJoined = currentUserId.HasValue && e.Posts.Any(p => p.AccountId == currentUserId.Value),
 
                 MyExpertStatus = currentUserId.HasValue
@@ -491,8 +478,6 @@ namespace Application.Services.EventServices
                     : null
             };
         }
-
-        #endregion
 
         public async Task<List<EventLeaderboardDto>> GetEventLeaderboardAsync(int eventId)
         {
@@ -551,5 +536,6 @@ namespace Application.Services.EventServices
                 }).ToList()
             };
         }
+        #endregion
     }
 }

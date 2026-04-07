@@ -38,5 +38,21 @@ namespace Application.Request.EventReq
         public List<int>? InvitedExpertIds { get; set; }
 
         public IFormFile? ImageFile { get; set; }
+
+        public List<EventCriterionRequest> Criteria { get; set; } = new();
+    }
+
+    public class UpdateEventRequestAdmin
+    {
+        public string Title { get; set; } = null!;
+
+        public string? Description { get; set; }
+
+        public DateTime StartTime { get; set; }
+
+        public DateTime SubmissionDeadline { get; set; }
+
+        public DateTime EndTime { get; set; }
+
     }
 }

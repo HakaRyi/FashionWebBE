@@ -119,9 +119,10 @@ namespace Application.Services.EventServices
                 var ratings = (await _ratingRepo.GetRatingsByPostIdAsync(post.PostId)).ToList();
                 double avgExpertScore = ratings.Sum(r => r.Score) / totalExpertsInEvent;
 
-                double finalScore = totalWeight > 0
+                double rawFinalScore = totalWeight > 0
                     ? (avgExpertScore * ev.ExpertWeight + normalizedCommunityScore * ev.UserWeight) / totalWeight
                     : 0;
+                double finalScore = Math.Round(rawFinalScore, 3);
 
                 var sb = await _scoreboardRepo.GetByPostIdAsync(post.PostId) ?? new Scoreboard();
 
@@ -133,7 +134,7 @@ namespace Application.Services.EventServices
                 sb.FinalShareCount = post.ShareCount ?? 0;
                 sb.Status = "Completed";
 
-                if (sb.ScoreboardId == 0) // Chưa có trong DB
+                if (sb.ScoreboardId == 0)
                 {
                     sb.CreatedAt = DateTime.UtcNow;
                     await _scoreboardRepo.AddAsync(sb);

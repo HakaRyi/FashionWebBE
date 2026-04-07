@@ -362,8 +362,4 @@ MigrationBackup/
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
 EVSwapping/appsettings.Development.json
-<<<<<<< HEAD
-
-=======
-/Repositories/Migrations
->>>>>>> feature/auth
+/Infrastructure/Migrations

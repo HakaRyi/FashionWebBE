@@ -6,7 +6,6 @@ using Application.Jobs;
 using Application.Request.EventReq;
 using Application.Request.PrizeReq;
 using Application.Utils;
-using Application.Utils.File;
 using Domain.Interfaces;
 
 namespace Application.Services.EventServices
@@ -19,14 +18,8 @@ namespace Application.Services.EventServices
         private readonly ITransactionRepository _transactionRepo;
         private readonly IEscrowSessionRepository _escrowRepo;
         private readonly IEventExpertRepository _eventExpertRepo;
-        private readonly IExpertRatingRepository _ratingRepo;
-        private readonly IScoreboardRepository _scoreboardRepo;
-        private readonly IPostRepository _postRepo;
-        private readonly IEventWinnerRepository _winnerRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICurrentUserService _currentUserService;
-        private readonly IImageRepository _imageRepo;
-        private readonly IFileService _fileService;
         private readonly ISchedulerFactory _schedulerFactory;
         private readonly ISystemSettingRepository _settingRepo;
         private readonly ICloudStorageService _cloudStorageService;
@@ -38,14 +31,8 @@ namespace Application.Services.EventServices
             ITransactionRepository transactionRepo,
             IEscrowSessionRepository escrowRepo,
             IEventExpertRepository eventExpertRepo,
-            IExpertRatingRepository ratingRepo,
-            IScoreboardRepository scoreboardRepo,
-            IPostRepository postRepo,
-            IEventWinnerRepository winnerRepo,
             IUnitOfWork unitOfWork,
-            IImageRepository imageRepo,
             ISystemSettingRepository settingRepo,
-            IFileService fileService,
             ISchedulerFactory schedulerFactory,
             ICurrentUserService currentUserService,
             ICloudStorageService cloudStorageService)
@@ -56,15 +43,9 @@ namespace Application.Services.EventServices
             _transactionRepo = transactionRepo;
             _escrowRepo = escrowRepo;
             _eventExpertRepo = eventExpertRepo;
-            _ratingRepo = ratingRepo;
-            _scoreboardRepo = scoreboardRepo;
-            _postRepo = postRepo;
-            _winnerRepo = winnerRepo;
             _settingRepo = settingRepo;
             _unitOfWork = unitOfWork;
             _currentUserService = currentUserService;
-            _imageRepo = imageRepo;
-            _fileService = fileService;
             _schedulerFactory = schedulerFactory;
             _cloudStorageService = cloudStorageService;
         }
@@ -116,6 +97,16 @@ namespace Application.Services.EventServices
                         ImageUrl = imageUrl,
                         OwnerType = "Event_Thumbnail",
                         CreatedAt = DateTime.UtcNow
+                    });
+                }
+
+                foreach (var criteriaDto in dto.Criteria)
+                {
+                    eventData.EventCriteria.Add(new EventCriterion
+                    {
+                        Name = criteriaDto.Name,
+                        Description = criteriaDto.Description,
+                        WeightPercentage = criteriaDto.WeightPercentage
                     });
                 }
 
@@ -506,6 +497,10 @@ namespace Application.Services.EventServices
             {
                 throw new Exception($"Số lượng Expert yêu cầu tối thiểu cho mỗi sự kiện theo quy định hệ thống là {minExpertsRequiredBySystem} người.");
             }
+            if (dto.Criteria == null || !dto.Criteria.Any())
+            {
+                throw new Exception("Sự kiện cần có ít nhất một tiêu chí chấm điểm.");
+            }   
         }
 
         private async Task CreatePrizesAsync(int eventId, List<PrizeRequest> prizeRequests)

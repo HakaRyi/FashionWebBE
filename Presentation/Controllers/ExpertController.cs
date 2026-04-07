@@ -89,6 +89,7 @@ namespace Presentation.Controllers
             return Ok(experts);
         }
 
+        //ko xài hàm này
         [HttpGet("admin/pending")]
         public async Task<IActionResult> GetPending()
         {

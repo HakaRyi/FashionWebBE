@@ -36,41 +36,6 @@ namespace Application.Services.EventServices
             _currentUser = currentUser;
         }
 
-        #region Expert Commands (Actions)
-
-        /// <summary>
-        /// Chủ sự kiện mời danh sách Expert tham gia hội đồng chấm điểm
-        /// </summary>
-        public async Task<bool> InviteExpertsAsync(int eventId, List<int> expertIds)
-        {
-            int creatorId = _currentUser.GetRequiredUserId();
-            var ev = await _eventRepo.GetByIdAsync(eventId);
-
-            if (ev == null) throw new Exception("Sự kiện không tồn tại.");
-            if (ev.CreatorId != creatorId) throw new Exception("Bạn không có quyền mời chuyên gia cho sự kiện này.");
-            if (ev.Status != "Pending_Review" && ev.Status != "Inviting")
-                throw new Exception("Sự kiện hiện không ở trạng thái có thể mời thêm chuyên gia.");
-
-            var existingExperts = await _eventExpertRepo.GetByEventIdAsync(eventId);
-            var existingIds = existingExperts.Select(e => e.ExpertId).ToList();
-
-            var newInvites = expertIds
-                .Distinct()
-                .Where(id => id != creatorId && !existingIds.Contains(id))
-                .Select(id => new EventExpert
-                {
-                    EventId = eventId,
-                    ExpertId = id,
-                    JoinedAt = DateTime.Now,
-                    Status = "Pending" // Thống nhất dùng Pending cho lời mời mới
-                }).ToList();
-
-            if (!newInvites.Any()) return false;
-
-            await _eventExpertRepo.AddRangeAsync(newInvites);
-            return await _unitOfWork.SaveChangesAsync() > 0;
-        }
-
         /// <summary>
         /// Expert phản hồi lời mời: Chấp nhận hoặc Từ chối
         /// </summary>
@@ -90,9 +55,6 @@ namespace Application.Services.EventServices
             return await _unitOfWork.SaveChangesAsync() > 0;
         }
 
-        #endregion
-
-        #region Expert Queries (Display)
 
         /// <summary>
         /// Lấy danh sách LỜI MỜI MỚI (Chưa trả lời) - Hiện ở thông báo/hộp thư
@@ -173,9 +135,41 @@ namespace Application.Services.EventServices
             return dtos;
         }
 
-        #endregion
+        #region Expert Commands (Actions) - Không xài các hàm này, xài hàm bên experating
+        //ko xài
 
-        #region Expert Commands (Actions) - Phần bổ sung
+        /// <summary>
+        /// Chủ sự kiện mời danh sách Expert tham gia hội đồng chấm điểm
+        /// </summary>
+        public async Task<bool> InviteExpertsAsync(int eventId, List<int> expertIds)
+        {
+            int creatorId = _currentUser.GetRequiredUserId();
+            var ev = await _eventRepo.GetByIdAsync(eventId);
+
+            if (ev == null) throw new Exception("Sự kiện không tồn tại.");
+            if (ev.CreatorId != creatorId) throw new Exception("Bạn không có quyền mời chuyên gia cho sự kiện này.");
+            if (ev.Status != "Pending_Review" && ev.Status != "Inviting")
+                throw new Exception("Sự kiện hiện không ở trạng thái có thể mời thêm chuyên gia.");
+
+            var existingExperts = await _eventExpertRepo.GetByEventIdAsync(eventId);
+            var existingIds = existingExperts.Select(e => e.ExpertId).ToList();
+
+            var newInvites = expertIds
+                .Distinct()
+                .Where(id => id != creatorId && !existingIds.Contains(id))
+                .Select(id => new EventExpert
+                {
+                    EventId = eventId,
+                    ExpertId = id,
+                    JoinedAt = DateTime.Now,
+                    Status = "Pending" // Thống nhất dùng Pending cho lời mời mới
+                }).ToList();
+
+            if (!newInvites.Any()) return false;
+
+            await _eventExpertRepo.AddRangeAsync(newInvites);
+            return await _unitOfWork.SaveChangesAsync() > 0;
+        }
 
         /// <summary>
         /// Expert thực hiện chấm điểm cho một bài viết
