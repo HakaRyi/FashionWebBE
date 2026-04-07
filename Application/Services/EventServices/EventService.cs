@@ -16,54 +16,27 @@ namespace Application.Services.EventServices
     {
         private readonly IEventRepository _eventRepo;
         private readonly IWalletRepository _walletRepo;
-        private readonly IPrizeEventRepository _prizeRepo;
-        private readonly ITransactionRepository _transactionRepo;
-        private readonly IEscrowSessionRepository _escrowRepo;
         private readonly IEventExpertRepository _eventExpertRepo;
-        private readonly IExpertRatingRepository _ratingRepo;
-        private readonly IScoreboardRepository _scoreboardRepo;
         private readonly IPostRepository _postRepo;
-        private readonly IEventWinnerRepository _winnerRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICurrentUserService _currentUserService;
-        private readonly IImageRepository _imageRepo;
-        private readonly IFileService _fileService;
         private readonly ISchedulerFactory _schedulerFactory;
-        private readonly ISystemSettingRepository _settingRepo;
 
         public EventService(
             IEventRepository eventRepo,
             IWalletRepository walletRepo,
-            IPrizeEventRepository prizeRepo,
-            ITransactionRepository transactionRepo,
-            IEscrowSessionRepository escrowRepo,
             IEventExpertRepository eventExpertRepo,
-            IExpertRatingRepository ratingRepo,
-            IScoreboardRepository scoreboardRepo,
             IPostRepository postRepo,
-            IEventWinnerRepository winnerRepo,
             IUnitOfWork unitOfWork,
-            IImageRepository imageRepo,
-            ISystemSettingRepository settingRepo,
-            IFileService fileService,
             ISchedulerFactory schedulerFactory,
             ICurrentUserService currentUserService)
         {
             _eventRepo = eventRepo;
             _walletRepo = walletRepo;
-            _prizeRepo = prizeRepo;
-            _transactionRepo = transactionRepo;
-            _escrowRepo = escrowRepo;
             _eventExpertRepo = eventExpertRepo;
-            _ratingRepo = ratingRepo;
-            _scoreboardRepo = scoreboardRepo;
             _postRepo = postRepo;
-            _winnerRepo = winnerRepo;
-            _settingRepo = settingRepo;
             _unitOfWork = unitOfWork;
             _currentUserService = currentUserService;
-            _imageRepo = imageRepo;
-            _fileService = fileService;
             _schedulerFactory = schedulerFactory;
         }
 

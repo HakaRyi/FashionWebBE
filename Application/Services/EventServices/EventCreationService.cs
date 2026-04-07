@@ -6,7 +6,6 @@ using Application.Jobs;
 using Application.Request.EventReq;
 using Application.Request.PrizeReq;
 using Application.Utils;
-using Application.Utils.File;
 using Domain.Interfaces;
 
 namespace Application.Services.EventServices
@@ -19,13 +18,8 @@ namespace Application.Services.EventServices
         private readonly ITransactionRepository _transactionRepo;
         private readonly IEscrowSessionRepository _escrowRepo;
         private readonly IEventExpertRepository _eventExpertRepo;
-        private readonly IExpertRatingRepository _ratingRepo;
-        private readonly IScoreboardRepository _scoreboardRepo;
-        private readonly IPostRepository _postRepo;
-        private readonly IEventWinnerRepository _winnerRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICurrentUserService _currentUserService;
-        private readonly IImageRepository _imageRepo;
         private readonly ISchedulerFactory _schedulerFactory;
         private readonly ISystemSettingRepository _settingRepo;
         private readonly ICloudStorageService _cloudStorageService;
@@ -37,12 +31,7 @@ namespace Application.Services.EventServices
             ITransactionRepository transactionRepo,
             IEscrowSessionRepository escrowRepo,
             IEventExpertRepository eventExpertRepo,
-            IExpertRatingRepository ratingRepo,
-            IScoreboardRepository scoreboardRepo,
-            IPostRepository postRepo,
-            IEventWinnerRepository winnerRepo,
             IUnitOfWork unitOfWork,
-            IImageRepository imageRepo,
             ISystemSettingRepository settingRepo,
             ISchedulerFactory schedulerFactory,
             ICurrentUserService currentUserService,
@@ -54,14 +43,9 @@ namespace Application.Services.EventServices
             _transactionRepo = transactionRepo;
             _escrowRepo = escrowRepo;
             _eventExpertRepo = eventExpertRepo;
-            _ratingRepo = ratingRepo;
-            _scoreboardRepo = scoreboardRepo;
-            _postRepo = postRepo;
-            _winnerRepo = winnerRepo;
             _settingRepo = settingRepo;
             _unitOfWork = unitOfWork;
             _currentUserService = currentUserService;
-            _imageRepo = imageRepo;
             _schedulerFactory = schedulerFactory;
             _cloudStorageService = cloudStorageService;
         }
