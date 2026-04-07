@@ -1,50 +1,52 @@
-using Domain.Interfaces;
-using Infrastructure.Persistence.Seeders;
-using Infrastructure.Repositories;
-using Mapster;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.AspNetCore.SignalR;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.Tokens;
-using Microsoft.OpenApi.Models;
-using Quartz;
 using Application.Helpers;
+using Application.Interfaces;
 using Application.Mappers;
 using Application.RabbitMQ;
+using Application.Services;
+using Application.Services.AdminImp;
+using Application.Services.AI;
+using Application.Services.BackgroundServices;
+using Application.Services.ChatImp;
+using Application.Services.EventServices;
+using Application.Services.Follow;
+using Application.Services.ImageImp;
+using Application.Services.Items;
+using Application.Services.ModelImp;
+using Application.Services.NotificationImp;
+using Application.Services.OrderImp;
+using Application.Services.OutfitImp;
+using Application.Services.PaymentService;
+using Application.Services.PostImp;
+using Application.Services.SearchImp;
+using Application.Services.SocialImp;
+using Application.Services.TryOn;
+using Application.Services.UserReportImp;
+using Application.Services.WalletImp;
+using Application.Services.Wardrobe;
 using Application.Utils;
 using Application.Utils.AIDectection;
 using Application.Utils.CloundStorage;
 using Application.Utils.File;
 using Application.Utils.Gateways;
 using Application.Utils.SignalR;
-using System.Text;
-using Presentation.Endpoints;
-using Presentation.Services;
+using Domain.Interfaces;
 using Infrastructure;
-using Application.Interfaces;
-using Application.Services;
-using Application.Services.Wardrobe;
-using Application.Services.WalletImp;
-using Application.Services.AdminImp;
-using Application.Services.BackgroundServices;
-using Application.Services.NotificationImp;
-using Application.Services.ModelImp;
-using Application.Services.UserReportImp;
-using Application.Services.TryOn;
-using Application.Services.SocialImp;
-using Application.Services.PostImp;
-using Application.Services.SearchImp;
-using Application.Services.EventServices;
-using Application.Services.ChatImp;
-using Application.Services.ImageImp;
-using Application.Services.Follow;
-using Application.Services.OutfitImp;
-using Application.Services.PaymentService;
-using Application.Services.OrderImp;
-using Application.Services.Items;
-using Application.Services.AI;
+using Infrastructure.Persistence.Seeders;
+using Infrastructure.Repositories;
 using Infrastructure.UnitOfWork;
 using Application.Services.ItemSaveImp;
+using Mapster;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using Presentation.Endpoints;
+using Presentation.Middlewares;
+using Presentation.Services;
+using Quartz;
+using System.Text;
+
 
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -174,7 +176,7 @@ builder.Services.AddScoped<IZaloPayGatewayService, ZaloPayGatewayService>();
 builder.Services.AddScoped<ITopUpPaymentProcessor, TopUpPaymentProcessor>();
 builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
 builder.Services.AddScoped<IItemSaveService, ItemSaveService>();
-
+builder.Services.AddScoped<IRefundRequestRepository, RefundRequestRepository>();
 
 
 #endregion
@@ -350,6 +352,11 @@ builder.Services.AddCors(options =>
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials();
+
+        policy.WithOrigins("http://localhost:5174")
+              .AllowAnyMethod()
+              .AllowAnyHeader()
+              .AllowCredentials();
     });
 });
 
@@ -371,6 +378,8 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("AllowAll");
+
+app.UseMiddleware<ExceptionMiddleware>();
 
 app.Use(async (context, next) =>
 {

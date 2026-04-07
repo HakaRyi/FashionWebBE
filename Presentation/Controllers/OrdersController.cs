@@ -1,7 +1,8 @@
-﻿using Application.Services.OrderImp;
+﻿using Application.Request.OrderReq;
+using Application.Request.RefundReq;
+using Application.Services.OrderImp;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Application.Request.OrderReq;
 using System.Security.Claims;
 
 namespace Presentation.Controllers
@@ -241,6 +242,90 @@ namespace Presentation.Controllers
             try
             {
                 var result = await _orderService.GetShippingOrdersAsync();
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("{id}/refund-request")]
+        public async Task<IActionResult> CreateRefundRequest(int id, [FromBody] CreateRefundRequest dto)
+        {
+            if (!TryGetCurrentUserId(out int buyerId))
+                return Unauthorized();
+
+            try
+            {
+                var result = await _orderService.CreateRefundRequestAsync(
+                    id, buyerId, dto.Reason, dto.ProofImage1, dto.ProofImage2);
+                return Ok(result);
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("{id}/process-refund")]
+        public async Task<IActionResult> ProcessRefund(int id)
+        {
+            try
+            {
+                var result = await _orderService.ProcessRefundAsync(id);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpGet("refund-requests")]
+        public async Task<IActionResult> GetAllRefundRequests()
+        {
+            try
+            {
+                var result = await _orderService.GetAllRefundRequestsAsync();
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("{id}/reject-refund")]
+        public async Task<IActionResult> RejectRefund(int id, [FromBody] RejectRefundRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(request.AdminNote))
+                    return BadRequest(new { message = "Vui lòng cung cấp lý do từ chối." });
+
+                var result = await _orderService.RejectRefundAsync(id, request.AdminNote);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpGet("my-refunds")]
+        public async Task<IActionResult> GetMyRefundRequests()
+        {
+            if (!TryGetCurrentUserId(out int buyerId))
+                return Unauthorized();
+
+            try
+            {
+                var result = await _orderService.GetMyRefundRequestsAsync(buyerId);
                 return Ok(result);
             }
             catch (Exception ex)

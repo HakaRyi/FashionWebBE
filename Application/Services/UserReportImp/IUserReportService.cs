@@ -1,10 +1,26 @@
-﻿using Application.Response.UserReportResp;
+﻿using Application.Request.UserReportReq;
+using Application.Response.UserReportResp;
+using Domain.Contracts.UserReport;
+using Domain.Dto.Common;
 
 namespace Application.Services.UserReportImp
 {
     public interface IUserReportService
     {
-        Task<UserReportResponse> GetById(int id);
-        Task<List<UserReportResponse>> GetAll();
+        Task<CreateUserReportResponseDto> CreateReportAsync(CreateUserReportRequestDto request, int currentUserId);
+
+        Task<List<ReportTypeDto>> GetReportTypesAsync();
+
+        Task<PagedResultDto<AdminReportListItemDto>> GetAdminReportsAsync(
+            string? status,
+            int pageNumber,
+            int pageSize);
+
+        Task<AdminReportDetailDto?> GetAdminReportDetailAsync(int userReportId);
+
+        Task<ReviewUserReportResponseDto> ReviewReportAsync(
+            int userReportId,
+            ReviewUserReportRequestDto request,
+            int adminId);
     }
 }

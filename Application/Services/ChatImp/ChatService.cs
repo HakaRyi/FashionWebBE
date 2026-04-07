@@ -78,6 +78,10 @@ namespace Application.Services.ChatImp
                 MessageId = m.MessageId,
                 GroupName = m.Group.Name,
                 SenderName = m.Account.UserName,
+                SenderAvatar = m.Account.Avatars
+                  .OrderByDescending(img => img.CreatedAt)
+                  .Select(img => img.ImageUrl)
+                  .FirstOrDefault() ?? null,
                 SenderId = m.Account.Id,
                 Content = m.Content,
                 SentAt = m.SentAt,
@@ -101,6 +105,10 @@ namespace Application.Services.ChatImp
                 MessageId = message.MessageId,
                 GroupName = message.Group.Name,
                 SenderName = message.Account.UserName,
+                SenderAvatar = message.Account.Avatars
+                  .OrderByDescending(img => img.CreatedAt)
+                  .Select(img => img.ImageUrl)
+                  .FirstOrDefault() ?? null,
                 SenderId = message.Account.Id,
                 Content = message.Content,
                 SentAt = message.SentAt,
@@ -230,6 +238,10 @@ namespace Application.Services.ChatImp
                 AccountPinnedId = pm.AccountPinnedId,
                 PinnedAt = pm.PinnedAt,
                 AccountPinnedName = pm.AccountPinned.UserName,
+                AccountPinnedAvatar = pm.AccountPinned.Avatars
+                  .OrderByDescending(img => img.CreatedAt)
+                  .Select(img => img.ImageUrl)
+                  .FirstOrDefault() ?? null,
                 MessageContent = pm.Message.Content,
                 MessagePhotos = pm.Message.Photos.Select(p => p.PhotoUrl).ToList()
             }).ToList();
@@ -242,6 +254,10 @@ namespace Application.Services.ChatImp
                 ReactId = r.ReactId,
                 AccountId = r.AccountReactId ?? 0,
                 AccountName = r.AccountReact.UserName,
+                AccountAvatar = r.AccountReact.Avatars
+                  .OrderByDescending(img => img.CreatedAt)
+                  .Select(img => img.ImageUrl)
+                  .FirstOrDefault() ?? null,
                 ReactType = r.Type,
                 MessageId = r.MessageId ?? 0
             }).ToList() ?? null;

@@ -24,4 +24,5 @@ public partial class Order
     public virtual Account Seller { get; set; } = null!;
     public virtual ICollection<OrderDetail> OrderDetails { get; set; } = new List<OrderDetail>();
     public virtual EscrowSession? EscrowSession { get; set; }
+    public virtual RefundRequest? RefundRequest { get; set; }
 }
