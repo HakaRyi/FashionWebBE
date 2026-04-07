@@ -1,22 +1,29 @@
 ﻿dotnet ef database drop --project Repositories --startup-project WebAPIs
-
 dotnet ef database update --project Repositories --startup-project WebAPIs
+dotnet ef migrations add InitialIdentity4 --project Repositories --startup-project WebAPIs --output-dir Migrations
+=====================================
 
-dotnet ef migrations add InitialIdentity --project Repositories --startup-project WebAPIs --output-dir Migrations
+
+dotnet ef database drop --project Infrastructure --startup-project Presentation
+
+dotnet ef database update --project Infrastructure --startup-project Presentation
+
+dotnet ef migrations add InitialIdentity --project Infrastructure --startup-project Presentation --output-dir Migrations
+
+123456Aa@
 
 {
-  "email": "nvhoang0975@gmail.com",
-  "password": "mk12345",
+  "email": "publictester1@example.com",
+  "password": "123456Aa@",
   "username": "mk12345",
   "roleId": 2
 }
 
-
 {
   "message": "Đăng nhập thành công",
-  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI0MmJlMmE2OC1kNWNiLTQ0NjYtOWMwNC01ZmI4NGJiNzY1OWEiLCJzdWIiOiIyIiwiaHR0cDovL3NjaGVtYXMueG1sc29hcC5vcmcvd3MvMjAwNS8wNS9pZGVudGl0eS9jbGFpbXMvbmFtZWlkZW50aWZpZXIiOiIyIiwiZW1haWwiOiJudmhvYW5nMDk3NUBnbWFpbC5jb20iLCJBY2NvdW50SWQiOiIyIiwiVXNlcm5hbWUiOiJtazEyMzQ1IiwiaHR0cDovL3NjaGVtYXMubWljcm9zb2Z0LmNvbS93cy8yMDA4LzA2L2lkZW50aXR5L2NsYWltcy9yb2xlIjoiVXNlciIsImV4cCI6MTc3NDUzMzY2NiwiaXNzIjoiRmFzaGlvbkJhY2tlbmQiLCJhdWQiOiJGYXNoaW9uRnJvbnRlbmQifQ.cpMgDnH83JjX5co3oSiDp-CjbdR4YkB0lbra2Q-BcDc",
-  "refreshToken": "l+97A/5F30Mb3VqppGu2qI4EE2I+74iDkDujIjUFinJfek7Ptv0diWd51cT1Zm01XY0ttbRSVHixNFJ7pOq8gA==",
+  "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJkYmFjZmM0OC01ZTEwLTQ0NGMtOTFmMi0wYmFiM2FkNzE0ODYiLCJzdWIiOiIxNSIsImh0dHA6Ly9zY2hlbWFzLnhtbHNvYXAub3JnL3dzLzIwMDUvMDUvaWRlbnRpdHkvY2xhaW1zL25hbWVpZGVudGlmaWVyIjoiMTUiLCJlbWFpbCI6InNoaXBwZXJAZmFzaGlvbi5jb20iLCJBY2NvdW50SWQiOiIxNSIsIlVzZXJuYW1lIjoic2hpcHBlciIsImh0dHA6Ly9zY2hlbWFzLm1pY3Jvc29mdC5jb20vd3MvMjAwOC8wNi9pZGVudGl0eS9jbGFpbXMvcm9sZSI6IlNoaXBwZXIiLCJleHAiOjE3NzUyNDkyMjgsImlzcyI6IkZhc2hpb25CYWNrZW5kIiwiYXVkIjoiRmFzaGlvbkZyb250ZW5kIn0.I8F-Dt7KcgQQQJsEfzS3S0MZQmETbzgETaY71OqBHmI",
+  "refreshToken": "kbBCir2i5YyRqqpUTeb0DzcLhryoa7ae047VYERi4tU8AtW333tIwS446K47VzYaMHZ6gOOBUtE6O/nlmYa2tQ==",
   "user": {
-    "email": "nvhoang0975@gmail.com"
+    "email": "shipper@fashion.com"
   }
 }
