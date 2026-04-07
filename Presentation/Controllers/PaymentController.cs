@@ -66,7 +66,17 @@ namespace Presentation.Controllers
         {
             try
             {
+                string? orderCode = Request.Query["vnp_TxnRef"];
+
                 bool isSuccess = await _paymentService.HandleVnPayReturnAsync(Request.Query);
+
+                if (!string.IsNullOrEmpty(orderCode) && orderCode.StartsWith("W_"))
+                {
+                    string status = isSuccess ? "00" : "99";
+                    string frontendUrl = "http://localhost:5173";
+                    return Redirect($"{frontendUrl}/payment-result?status={status}&orderCode={orderCode}");
+                }
+
                 return BuildMobileRedirectPage(isSuccess ? MobileDeepLinkSuccess : MobileDeepLinkFailed);
             }
             catch
