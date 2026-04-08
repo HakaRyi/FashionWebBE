@@ -13,8 +13,8 @@ using Pgvector;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(FashionDbContext))]
-    [Migration("20260406101805_AddAdminNoteToRefund")]
-    partial class AddAdminNoteToRefund
+    [Migration("20260408113157_InitialIdentity")]
+    partial class InitialIdentity
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

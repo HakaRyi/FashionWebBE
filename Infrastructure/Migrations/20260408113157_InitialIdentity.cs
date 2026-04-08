@@ -837,6 +837,33 @@ namespace Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "RefundRequests",
+                columns: table => new
+                {
+                    RefundRequestId = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    OrderId = table.Column<int>(type: "integer", nullable: false),
+                    Reason = table.Column<string>(type: "text", nullable: false),
+                    ProofImage1 = table.Column<string>(type: "text", nullable: false),
+                    ProofImage2 = table.Column<string>(type: "text", nullable: false),
+                    Status = table.Column<string>(type: "text", nullable: false),
+                    AdminNote = table.Column<string>(type: "text", nullable: true),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp without time zone", nullable: false),
+                    ProcessedAt = table.Column<DateTime>(type: "timestamp without time zone", nullable: true)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_RefundRequests", x => x.RefundRequestId);
+                    table.ForeignKey(
+                        name: "FK_RefundRequests_Order_OrderId",
+                        column: x => x.OrderId,
+                        principalSchema: "public",
+                        principalTable: "Order",
+                        principalColumn: "order_id",
+                        onDelete: ReferentialAction.Cascade);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "Transaction",
                 schema: "public",
                 columns: table => new
@@ -1902,6 +1929,12 @@ namespace Infrastructure.Migrations
                 unique: true);
 
             migrationBuilder.CreateIndex(
+                name: "IX_RefundRequests_OrderId",
+                table: "RefundRequests",
+                column: "OrderId",
+                unique: true);
+
+            migrationBuilder.CreateIndex(
                 name: "Report_Type_type_name_key",
                 schema: "public",
                 table: "Report_Type",
@@ -2092,6 +2125,9 @@ namespace Infrastructure.Migrations
             migrationBuilder.DropTable(
                 name: "RefreshToken",
                 schema: "public");
+
+            migrationBuilder.DropTable(
+                name: "RefundRequests");
 
             migrationBuilder.DropTable(
                 name: "Reputation_History",

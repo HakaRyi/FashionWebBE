@@ -1,9 +1,9 @@
-﻿using Domain.Entities;
+﻿using Application.Interfaces;
 using Application.Request.TryOn;
 using Application.Response.TryOn;
 using Application.Utils;
+using Domain.Entities;
 using Domain.Interfaces;
-using Application.Interfaces;
 
 namespace Application.Services.TryOn
 {
@@ -13,7 +13,10 @@ namespace Application.Services.TryOn
         private readonly ICloudStorageService _storageService;
         private readonly IUnitOfWork _unitOfWork;
 
-        public TryOnHistoryService(ITryOnHistoryRepository historyRepo, ICloudStorageService storageService, IUnitOfWork unitOfWork)
+        public TryOnHistoryService(
+            ITryOnHistoryRepository historyRepo,
+            ICloudStorageService storageService,
+            IUnitOfWork unitOfWork)
         {
             _historyRepo = historyRepo;
             _storageService = storageService;
@@ -22,19 +25,33 @@ namespace Application.Services.TryOn
 
         public async Task<int> CreateTryOnHistoryAsync(int accountId, CreateHistoryTryOnRequest request)
         {
-            var imageUrl = await _storageService.UploadImageAsync(request.Image);
+            if (request == null || request.Image == null || request.Image.Length == 0)
+                throw new ArgumentException("Ảnh kết quả thử đồ không hợp lệ.");
 
-            var newHistory = new TryOnHistory
+            await _unitOfWork.BeginTransactionAsync();
+
+            try
             {
-                AccountId = accountId,
-                ImageUrl = imageUrl,
-                Status = "Success",
-                CreatedAt = DateTime.UtcNow
-            };
+                var imageUrl = await _storageService.UploadImageAsync(request.Image);
 
-            var result = await _historyRepo.CreateTryOnHistoryAsync(newHistory);
+                var newHistory = new TryOnHistory
+                {
+                    AccountId = accountId,
+                    ImageUrl = imageUrl,
+                    Status = "Success",
+                    CreatedAt = DateTime.UtcNow
+                };
 
-            return result;
+                await _historyRepo.AddAsync(newHistory);
+                await _unitOfWork.CommitAsync();
+
+                return newHistory.TryOnId;
+            }
+            catch
+            {
+                await _unitOfWork.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task<List<TryOnHistoryResponse>> GetTryOnHistoryByAccountIdAsync(int accountId)
@@ -48,6 +65,36 @@ namespace Application.Services.TryOn
                 Status = h.Status,
                 CreatedAt = h.CreatedAt
             }).ToList();
+        }
+
+        public async Task DeleteTryOnHistoryAsync(int accountId, int tryOnId)
+        {
+            await _unitOfWork.BeginTransactionAsync();
+
+            try
+            {
+                var history = await _historyRepo.GetByIdAsync(tryOnId);
+
+                if (history == null)
+                    throw new KeyNotFoundException("Không tìm thấy lịch sử thử đồ.");
+
+                if (history.AccountId != accountId)
+                    throw new UnauthorizedAccessException("Bạn không có quyền xóa lịch sử này.");
+
+                if (!string.IsNullOrWhiteSpace(history.ImageUrl))
+                {
+                    await _storageService.DeleteImageAsync(history.ImageUrl);
+                }
+
+                _historyRepo.Remove(history);
+
+                await _unitOfWork.CommitAsync();
+            }
+            catch
+            {
+                await _unitOfWork.RollbackAsync();
+                throw;
+            }
         }
     }
 }
