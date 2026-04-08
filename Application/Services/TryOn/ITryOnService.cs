@@ -4,6 +4,6 @@ namespace Application.Services.TryOn
 {
     public interface ITryOnService
     {
-        Task<Stream> ProcessTryOnAsync(IFormFile modelImage, IFormFile clothImage);
+        Task<Stream> ProcessTryOnAsync(IFormFile modelImage, IFormFile clothImage, int? category);
     }
 }

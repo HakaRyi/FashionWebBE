@@ -12,5 +12,7 @@ namespace Application.Request.TryOn
         // Lưu ý: Mình để là "cloth_image" (không có chữ e) cho khớp với code Python của bạn
         [FromForm(Name = "cloth_image")]
         public IFormFile ClothImage { get; set; }
+        [FromForm(Name = "category")]
+        public int? Category { get; set; }
     }
 }

@@ -24,9 +24,9 @@ namespace Application.Services.TryOn
                 ?? "https://habenular-unrigidly-fidelia.ngrok-free.dev/predict";
         }
 
-        public async Task<Stream> ProcessTryOnAsync(IFormFile modelImage, IFormFile clothImage)
+        public async Task<Stream> ProcessTryOnAsync(IFormFile modelImage, IFormFile clothImage, int? category)
         {
-            int categoryId = await GetClothCategoryAsync(clothImage);
+            int finalCategory = category ?? await GetClothCategoryAsync(clothImage);
 
             using var content = new MultipartFormDataContent();
 
@@ -54,7 +54,7 @@ namespace Application.Services.TryOn
             );
             content.Add(clothContent, "cloth_image", clothImage.FileName);
 
-            content.Add(new StringContent(categoryId.ToString()), "category");
+            content.Add(new StringContent(finalCategory.ToString()), "category");
 
             var response = await _httpClient.PostAsync(_ootdUrl, content);
 

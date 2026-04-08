@@ -24,7 +24,7 @@ namespace Presentation.Controllers
                 if (request.ModelImage == null || request.ClothImage == null)
                     return BadRequest("Thiếu ảnh input");
 
-                var networkStream = await _tryOnService.ProcessTryOnAsync(request.ModelImage, request.ClothImage);
+                var networkStream = await _tryOnService.ProcessTryOnAsync(request.ModelImage, request.ClothImage, request.Category);
                 var memoryStream = new MemoryStream();
                 await networkStream.CopyToAsync(memoryStream);
                 memoryStream.Position = 0;
