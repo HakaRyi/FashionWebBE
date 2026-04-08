@@ -110,6 +110,8 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
     public DbSet<SearchHistory> SearchHistories { get; set; }
     public virtual DbSet<RefundRequest> RefundRequests { get; set; }
+    public virtual DbSet<RecommendationHistory> RecommendationHistories { get; set; }
+    public virtual DbSet<RecommendationDetail> RecommendationDetails { get; set; }
 
     public static string GetConnectionString(string connectionStringName)
     {
@@ -2040,6 +2042,35 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasForeignKey<Scoreboard>(d => d.PostId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("Scoreboard_post_id_fkey");
+        });
+        modelBuilder.Entity<RecommendationHistory>(entity =>
+        {
+            entity.ToTable("RecommendationHistory", "public");
+            entity.HasKey(e => e.Id);
+
+            entity.HasOne(d => d.Account)
+                .WithMany() 
+                .HasForeignKey(d => d.AccountId);
+
+            entity.HasOne(d => d.ReferenceItem)
+                .WithMany()
+                .HasForeignKey(d => d.ReferenceItemId)
+                .OnDelete(DeleteBehavior.SetNull); 
+        });
+
+        modelBuilder.Entity<RecommendationDetail>(entity =>
+        {
+            entity.ToTable("RecommendationDetail", "public");
+            entity.HasKey(e => e.Id);
+
+            entity.HasOne(d => d.RecommendationHistory)
+                .WithMany(p => p.RecommendedItems)
+                .HasForeignKey(d => d.RecommendationHistoryId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.Item)
+                .WithMany()
+                .HasForeignKey(d => d.ItemId);
         });
 
         OnModelCreatingPartial(modelBuilder);

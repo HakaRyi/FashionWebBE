@@ -7,5 +7,6 @@ namespace Application.Services.TryOn
     {
         Task<int> CreateTryOnHistoryAsync(int accountId, CreateHistoryTryOnRequest request);
         Task<List<TryOnHistoryResponse>> GetTryOnHistoryByAccountIdAsync(int accountId);
+        Task DeleteTryOnHistoryAsync(int accountId, int tryOnId);
     }
 }

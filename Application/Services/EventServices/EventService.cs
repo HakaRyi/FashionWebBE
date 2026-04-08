@@ -18,6 +18,7 @@ namespace Application.Services.EventServices
         private readonly IWalletRepository _walletRepo;
         private readonly IEventExpertRepository _eventExpertRepo;
         private readonly IPostRepository _postRepo;
+        private readonly ITransactionRepository _transactionRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICurrentUserService _currentUserService;
         private readonly ISchedulerFactory _schedulerFactory;
@@ -27,6 +28,7 @@ namespace Application.Services.EventServices
             IWalletRepository walletRepo,
             IEventExpertRepository eventExpertRepo,
             IPostRepository postRepo,
+            ITransactionRepository transactionRepo,
             IUnitOfWork unitOfWork,
             ISchedulerFactory schedulerFactory,
             ICurrentUserService currentUserService)
@@ -35,6 +37,7 @@ namespace Application.Services.EventServices
             _walletRepo = walletRepo;
             _eventExpertRepo = eventExpertRepo;
             _postRepo = postRepo;
+            _transactionRepo = transactionRepo;
             _unitOfWork = unitOfWork;
             _currentUserService = currentUserService;
             _schedulerFactory = schedulerFactory;
@@ -107,6 +110,8 @@ namespace Application.Services.EventServices
                 if (wallet.LockedBalance < totalToRefund)
                     throw new Exception("Số dư bị khóa không đủ để thực hiện hoàn tiền (Lỗi logic dữ liệu).");
 
+                decimal balanceBefore = wallet.Balance;
+
                 // Chuyển tiền từ 'Bị khóa' về lại 'Số dư khả dụng'
                 wallet.LockedBalance -= totalToRefund;
                 wallet.Balance += totalToRefund;
@@ -114,8 +119,24 @@ namespace Application.Services.EventServices
                 ev.Status = "Rejected";
                 ev.Note = reason;
 
+                var refundTransaction = new Domain.Entities.Transaction
+                {
+                    WalletId = wallet.WalletId,
+                    TransactionCode = $"REFUND_EV_{ev.EventId}_{DateTime.Now.Ticks}",
+                    Amount = totalToRefund,
+                    BalanceBefore = balanceBefore,
+                    BalanceAfter = wallet.Balance,
+                    Type = "Refund",
+                    ReferenceType = "Event_Reject",
+                    ReferenceId = ev.EventId,
+                    Description = $"Hoàn tiền sự kiện bị từ chối: {ev.Title}. Lý do: {reason}",
+                    Status = "Success",
+                    CreatedAt = DateTime.Now
+                };
+
                 _eventRepo.Update(ev);
                 _walletRepo.Update(wallet);
+                await _transactionRepo.AddAsync(refundTransaction);
 
                 await _unitOfWork.SaveChangesAsync();
 
@@ -372,6 +393,7 @@ namespace Application.Services.EventServices
                                    DateTime.UtcNow >= e.EndTime.Value.ToUniversalTime();
 
                 dto.IsCreator = isCreator;
+                dto.ReasonRejectEvent = e.Note;
             }
             else
             {

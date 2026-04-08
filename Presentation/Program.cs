@@ -129,6 +129,7 @@ builder.Services.AddScoped<ISystemSettingRepository, SystemSettingRepository>();
 builder.Services.AddScoped<ISearchHistoryRepository, SearchHistoryRepository>();
 builder.Services.AddScoped<IItemSaveRepository, ItemSaveRepository>();
 builder.Services.AddScoped<IEventCriterionRepository, EventCriterionRepository>();
+builder.Services.AddScoped<IRecommendationHistoryRepository, RecommendationHistoryRepository>();
 
 
 #endregion
