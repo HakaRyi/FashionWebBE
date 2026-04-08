@@ -19,5 +19,7 @@
         public virtual Post Post { get; set; } = null!;
 
         public virtual Account Expert { get; set; } = null!;
+
+        public virtual ICollection<ExpertCriterionRating> CriterionRatings { get; set; } = new List<ExpertCriterionRating>();
     }
 }

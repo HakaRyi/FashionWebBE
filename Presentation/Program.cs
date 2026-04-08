@@ -34,6 +34,7 @@ using Infrastructure;
 using Infrastructure.Persistence.Seeders;
 using Infrastructure.Repositories;
 using Infrastructure.UnitOfWork;
+using Application.Services.ItemSaveImp;
 using Mapster;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.SignalR;
@@ -45,6 +46,7 @@ using Presentation.Middlewares;
 using Presentation.Services;
 using Quartz;
 using System.Text;
+
 
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
@@ -125,6 +127,10 @@ builder.Services.AddScoped<IScoreboardRepository, ScoreboardRepository>();
 builder.Services.AddScoped<IEventWinnerRepository, EventWinnerRepository>();
 builder.Services.AddScoped<ISystemSettingRepository, SystemSettingRepository>();
 builder.Services.AddScoped<ISearchHistoryRepository, SearchHistoryRepository>();
+builder.Services.AddScoped<IItemSaveRepository, ItemSaveRepository>();
+builder.Services.AddScoped<IEventCriterionRepository, EventCriterionRepository>();
+builder.Services.AddScoped<IRecommendationHistoryRepository, RecommendationHistoryRepository>();
+
 
 #endregion
 
@@ -170,7 +176,9 @@ builder.Services.AddScoped<IVnPayGatewayService, VnPayGatewayService>();
 builder.Services.AddScoped<IZaloPayGatewayService, ZaloPayGatewayService>();
 builder.Services.AddScoped<ITopUpPaymentProcessor, TopUpPaymentProcessor>();
 builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
+builder.Services.AddScoped<IItemSaveService, ItemSaveService>();
 builder.Services.AddScoped<IRefundRequestRepository, RefundRequestRepository>();
+
 
 #endregion
 
@@ -198,7 +206,7 @@ builder.Services.AddScoped<EmailService>();
 #region BACKGROUND
 
 builder.Services.AddScoped<IRabbitMQProducer, RabbitMQProducer>();
-builder.Services.AddHostedService<PostProcessingWorker>();
+//builder.Services.AddHostedService<PostProcessingWorker>();
 builder.Services.AddHostedService<ChatConsumerWorker>();
 builder.Services.AddSingleton<IBackgroundTaskQueue>(ctx => new BackgroundTaskQueue(100));
 builder.Services.AddHostedService<ModelProgessingWorker>();

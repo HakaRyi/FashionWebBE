@@ -19,7 +19,9 @@ namespace Infrastructure.Repositories
         }
         public async Task<Account> GetAccountById(int id)
         {
-            var entity = await _context.Users.FirstOrDefaultAsync(u => u.Id == id);
+            var entity = await _context.Users
+                .Include(u => u.Avatars)
+                .FirstOrDefaultAsync(u => u.Id == id);
             return entity ?? new Account();
         }
 

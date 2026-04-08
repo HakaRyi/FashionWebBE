@@ -48,6 +48,11 @@ namespace Application.Services.PaymentService
             int accountId = _currentUserService.GetRequiredUserId();
             string orderCode = PaymentCodeGenerator.GenerateTopUpOrderCode();
 
+            if (request.Source?.ToUpper() == "WEB")
+            {
+                orderCode = "W_" + orderCode;
+            }
+
             var payment = await CreatePendingPaymentAsync(
                 accountId: accountId,
                 amount: request.Amount,

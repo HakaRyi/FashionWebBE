@@ -10,6 +10,7 @@ namespace Application.Interfaces
         Task<FashionExpertDetail> GetFashionExpertDetail(int id);
         Task<AccountResponse?> GetAccountById(int accountId);
         Task<AccountResponse?> GetAccountByMe();
+        Task<AccountUserResponse?> GetUserAccountById(int accountId);
         Task<string> updateAccountRequest(int accountId, UpdateAccountRequest request);
         Task<int> updateProfile(UpdateProfileRequest request);
         Task<int> CountAccount();

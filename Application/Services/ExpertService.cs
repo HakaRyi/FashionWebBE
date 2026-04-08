@@ -106,20 +106,45 @@ namespace Application.Services
             }
         }
 
-        public async Task<string> GetCurrentApplicationStatusAsync()
+        public async Task<ExpertApplicationStatusDto> GetCurrentApplicationStatusAsync()
         {
             var userId = _currentUser.GetUserId();
-            if (userId == null) return "None";
+            if (userId == null) return new ExpertApplicationStatusDto { Status = "None" };
 
             var profile = await _profileRepo.GetByAccountIdAsync(userId.Value);
-            if (profile == null) return "None";
+            if (profile == null) return new ExpertApplicationStatusDto { Status = "None" };
 
-            var hasPending = await _fileRepo.AnyPendingRequestAsync(profile.ExpertProfileId);
-            if (hasPending) return "Pending";
+            var requests = await _fileRepo.GetListByProfileId(profile.ExpertProfileId);
+            var latestRequest = requests.OrderByDescending(r => r.CreatedAt).FirstOrDefault();
 
-            if ((bool)profile.Verified) return "Approved";
+            if (latestRequest != null)
+            {
+                return new ExpertApplicationStatusDto
+                {
+                    Status = latestRequest.Status ?? "Pending",
+                    Reason = latestRequest.Reason,
+                    ProcessedAt = latestRequest.ProcessedAt,
+                    Style = latestRequest.ExpertiseField,
+                    StyleAesthetic = latestRequest.StyleAesthetic,
+                    YearsOfExperience = latestRequest.YearsOfExperience,
+                    Bio = latestRequest.Bio,
+                    PortfolioUrl = latestRequest.CertificateUrl ?? latestRequest.LicenseUrl
+                };
+            }
 
-            return "None";
+            if (profile.Verified == true)
+            {
+                return new ExpertApplicationStatusDto
+                {
+                    Status = "Approved",
+                    Style = profile.ExpertiseField,
+                    StyleAesthetic = profile.StyleAesthetic,
+                    YearsOfExperience = profile.YearsOfExperience,
+                    Bio = profile.Bio
+                };
+            }
+
+            return new ExpertApplicationStatusDto { Status = "None" };
         }
         #endregion
 
@@ -162,8 +187,8 @@ namespace Application.Services
                         var history = new ReputationHistory
                         {
                             ExpertProfileId = profile.ExpertProfileId,
-                            PointChange = 10,
-                            CurrentPoint = 10,
+                            PointChange = 100,
+                            CurrentPoint = 100,
                             Reason = "Hệ thống cấp điểm uy tín khởi tạo khi duyệt hồ sơ Expert.",
                             CreatedAt = DateTime.UtcNow
                         };

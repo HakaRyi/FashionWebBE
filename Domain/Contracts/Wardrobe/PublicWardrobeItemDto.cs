@@ -19,5 +19,7 @@
         public string? Description { get; set; }
         public DateTime? CreatedAt { get; set; }
         public string? ThumbnailUrl { get; set; }
+        public bool IsSaved { get; set; }
+        public bool IsOwner { get; set; }
     }
 }

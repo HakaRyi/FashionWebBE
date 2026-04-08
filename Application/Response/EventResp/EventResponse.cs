@@ -59,11 +59,14 @@
         public string? CreatorName { get; set; }
 
         // --- CÁC TRƯỜNG MỚI ĐỂ FE XỬ LÝ NÚT BẤM VÀ TIẾN ĐỘ ---
+        public string? ReasonRejectEvent { get; set; }
+        public bool IsCreator { get; set; }
         public bool IsJoined { get; set; }
         public bool IsAutoStart { get; set; }
         public int MinExpertsToStart { get; set; }
         public int AcceptedExpertsCount { get; set; }
         public bool CanManualStart { get; set; }
+        public string? ReasonManualStart { get; set; }
         public bool CanFinalize { get; set; }
 
         public List<PrizeDtoV1> Prizes { get; set; } = new();
@@ -107,6 +110,7 @@
 
         // Thời gian
         public DateTime? StartTime { get; set; }
+        public DateTime? SubmissionDeadline { get; set; }
         public DateTime? EndTime { get; set; }
         public DateTime? CreatedAt { get; set; }
 

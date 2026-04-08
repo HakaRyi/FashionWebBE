@@ -90,7 +90,7 @@ namespace Application.Services.PostImp
             await _imageRepo.AddRangeAsync(images);
             await _uow.SaveChangesAsync();
 
-            //await SendModeration(post.PostId, imageUrls);
+            await SendModeration(post.PostId, imageUrls);
             
             post.Images = images;
             var account = await _userManager.FindByIdAsync(post.AccountId.ToString());
@@ -440,7 +440,19 @@ namespace Application.Services.PostImp
         {
             var posts = await _postRepo.GetPostsByEventIdAsync(eventId);
 
-            return posts.Adapt<List<PostResponse>>();
+            var response = posts.Adapt<List<PostResponse>>();
+
+            foreach (var res in response)
+            {
+                var originalPost = posts.FirstOrDefault(p => p.PostId == res.PostId);
+                if (originalPost?.Scoreboard != null)
+                {
+                    res.Score = originalPost.Scoreboard.FinalScore;
+                    res.Reason = originalPost.Scoreboard.ExpertReason; 
+                }
+            }
+
+            return response;
         }
 
         public async Task<List<PostResponse>> GetPostsForExpertReviewAsync(int eventId)

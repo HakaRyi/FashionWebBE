@@ -77,6 +77,10 @@ namespace Application.Services.BackgroundServices
                             MessageId = newMessage.MessageId,
                             Content = newMessage.Content,
                             SenderName = senderName.UserName,
+                            SenderAvatar = senderName.Avatars
+                              .OrderByDescending(img => img.CreatedAt)
+                              .Select(img => img.ImageUrl)
+                              .FirstOrDefault() ?? null,
                             SenderId = chatData.SenderId,
                             SentAt = newMessage.SentAt,
                             Photos = chatData.ImageUrls

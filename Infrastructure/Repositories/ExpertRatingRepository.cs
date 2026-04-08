@@ -18,11 +18,20 @@ namespace Infrastructure.Repositories
 
         public async Task<ExpertRating?> GetByPostAndExpertAsync(int postId, int expertId) =>
             await _context.ExpertRatings
+                .Include(r => r.CriterionRatings)
                 .FirstOrDefaultAsync(r => r.PostId == postId && r.ExpertId == expertId);
 
         public async Task<IEnumerable<ExpertRating>> GetRatingsByPostIdAsync(int postId) =>
             await _context.ExpertRatings
                 .Where(r => r.PostId == postId)
+                .ToListAsync();
+
+        public async Task<IEnumerable<ExpertRating>> GetDetailedRatingsByPostIdAsync(int postId) =>
+            await _context.ExpertRatings
+                .Where(x => x.PostId == postId)
+                .Include(x => x.Expert)
+                .Include(x => x.CriterionRatings)
+                    .ThenInclude(cr => cr.EventCriterion)
                 .ToListAsync();
     }
 }

@@ -44,5 +44,7 @@
         public virtual ICollection<EventExpert> EventExperts { get; set; } = new List<EventExpert>();
 
         public virtual ICollection<Image> Images { get; set; } = new List<Image>();
+
+        public virtual ICollection<EventCriterion> EventCriteria { get; set; } = new List<EventCriterion>();
     }
 }

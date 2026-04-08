@@ -19,13 +19,15 @@
     {
         public int Id { get; set; }
         public string Title { get; set; } = "";
-        public string Views { get; set; } = "";
-        public int Progress { get; set; }
+        public int Posts { get; set; }
+        public int Rated { get; set; }
+        public string Engagements { get; set; } = "";
     }
 
     public class ChartDataDto
     {
-        public string Name { get; set; } = "";
-        public double Value { get; set; }
+        public string Date { get; set; } = "";
+        public int Submissions { get; set; }
+        public int Engagements { get; set; }
     }
 }

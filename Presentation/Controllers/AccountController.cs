@@ -72,6 +72,15 @@ namespace Presentation.Controllers
                 ? Ok(account)
                 : NotFound();
         }
+
+        [HttpGet("/api/profile/{id}")]
+        public async Task<IActionResult> GetAccountIdByUser([FromRoute] int id)
+        {
+            return await service.GetUserAccountById(id) is var account && account != null
+                ? Ok(account)
+                : NotFound();
+        }
+
         [HttpGet("expertDetail/{id}")]
         public async Task<IActionResult> GetByExpertId([FromRoute] int id)
         {

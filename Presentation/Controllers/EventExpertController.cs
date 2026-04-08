@@ -18,32 +18,6 @@ namespace Presentation.Controllers
             _eventExpertService = eventExpertService;
         }
 
-        #region Actions (Post)
-
-        /// <summary>
-        /// CHỦ EVENT: Mời danh sách Expert khác tham gia Hội đồng chấm điểm.
-        /// </summary>
-        [HttpPost("invite/{eventId}")]
-        public async Task<IActionResult> InviteExperts(int eventId, [FromBody] List<int> expertIds)
-        {
-            try
-            {
-                if (expertIds == null || expertIds.Count == 0)
-                    return BadRequest(new { message = "Danh sách Expert mời không được để trống." });
-
-                var result = await _eventExpertService.InviteExpertsAsync(eventId, expertIds);
-
-                if (result)
-                    return Ok(new { message = "Gửi lời mời thành công." });
-
-                return BadRequest(new { message = "Không có lời mời mới nào được gửi (có thể họ đã được mời hoặc là chính bạn)." });
-            }
-            catch (System.Exception ex)
-            {
-                return BadRequest(new { message = ex.Message });
-            }
-        }
-
         /// <summary>
         /// EXPERT: Phản hồi lời mời (Chấp nhận hoặc Từ chối).
         /// </summary>
@@ -67,10 +41,6 @@ namespace Presentation.Controllers
                 return BadRequest(new { message = ex.Message });
             }
         }
-
-        #endregion
-
-        #region Queries (Get)
 
         /// <summary>
         /// EXPERT: Lấy danh sách LỜI MỜI MỚI (Trạng thái Pending).
@@ -109,7 +79,31 @@ namespace Presentation.Controllers
             }
         }
 
-        #endregion
+        //ko xài
+        /*
+        /// <summary>
+        /// CHỦ EVENT: Mời danh sách Expert khác tham gia Hội đồng chấm điểm.
+        /// </summary>
+        [HttpPost("invite/{eventId}")]
+        public async Task<IActionResult> InviteExperts(int eventId, [FromBody] List<int> expertIds)
+        {
+            try
+            {
+                if (expertIds == null || expertIds.Count == 0)
+                    return BadRequest(new { message = "Danh sách Expert mời không được để trống." });
+
+                var result = await _eventExpertService.InviteExpertsAsync(eventId, expertIds);
+
+                if (result)
+                    return Ok(new { message = "Gửi lời mời thành công." });
+
+                return BadRequest(new { message = "Không có lời mời mới nào được gửi (có thể họ đã được mời hoặc là chính bạn)." });
+            }
+            catch (System.Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
 
         [HttpPost("rate-post")]
         [Authorize(Roles = "Expert")]
@@ -133,5 +127,6 @@ namespace Presentation.Controllers
             var posts = await _eventExpertService.GetPostsForReviewAsync(eventId);
             return Ok(posts);
         }
+        */
     }
 }
