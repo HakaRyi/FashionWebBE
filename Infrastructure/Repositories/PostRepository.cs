@@ -32,6 +32,7 @@ namespace Infrastructure.Repositories
         {
             return await _db.Posts
                 .Include(p => p.Images)
+                .Include(p => p.Scoreboard)
                 .Include(p => p.Account).ThenInclude(a => a.Avatars)
                 .Include(p => p.Event)
                 .FirstOrDefaultAsync(p => p.PostId == postId);
@@ -429,6 +430,11 @@ namespace Infrastructure.Repositories
         {
             return await _db.Posts
                 .FirstOrDefaultAsync(p => p.PostId == postId);
+        }
+
+        public async Task<int> CountAccountPostsAsync(int accountId)
+        {
+            return await _db.Posts.CountAsync(p => p.AccountId == accountId && p.Status == PostStatus.Published);
         }
     }
 }

@@ -12,6 +12,7 @@ namespace Application.Services
     {
         private readonly IAccountRepository _accountRepository;
         private readonly IExpertProfileRepository _expertProfileRepository;
+        private readonly IPostRepository _postRepository;
         private readonly UserManager<Domain.Entities.Account> _userManager;
         private readonly IImageRepository _imageRepository;
         private readonly ICurrentUserService _currentUserService;
@@ -21,6 +22,7 @@ namespace Application.Services
             IAccountRepository accountRepository,
             IExpertProfileRepository expertProfileRepository,
             IImageRepository imageRepository,
+            IPostRepository postRepository,
             UserManager<Domain.Entities.Account> userManager,
             ICurrentUserService currentUserService,
             ICloudStorageService cloudStorageService)
@@ -29,6 +31,7 @@ namespace Application.Services
             _expertProfileRepository = expertProfileRepository;
             _userManager = userManager;
             _imageRepository = imageRepository;
+            _postRepository = postRepository;
             _currentUserService = currentUserService;
             _cloudStorageService = cloudStorageService;
 
@@ -68,6 +71,57 @@ namespace Application.Services
                 IsOnline = account.IsOnline
 
             };
+        }
+
+        public async Task<AccountUserResponse?> GetUserAccountById(int accountId)
+        {
+            var account = await _accountRepository.GetAccountWithProfileAndAvatarsAsync(accountId);
+
+            if (account == null) return null;
+
+            var actualPostCount = await _postRepository.CountAccountPostsAsync(accountId);
+
+            if (account.CountPost != actualPostCount)
+            {
+                account.CountPost = actualPostCount;
+                _accountRepository.UpdateAccount(account);
+            }
+
+            var roles = await _userManager.GetRolesAsync(account);
+
+            var avatarUrl = account.Avatars
+                .OrderByDescending(img => img.CreatedAt)
+                .FirstOrDefault()?.ImageUrl;
+
+            var response = new AccountUserResponse
+            {
+                Id = account.Id,
+                Username = account.UserName ?? string.Empty,
+                Email = account.Email ?? string.Empty,
+                Avatar = avatarUrl,
+                Role = roles.FirstOrDefault() ?? "User",
+                CreatedAt = account.CreatedAt,
+                Status = account.Status,
+                FollowerCount = account.CountFollower,
+                FollowingCount = account.CountFollowing,
+                PostCount = account.CountPost,
+                Description = account.Description,
+                IsOnline = account.IsOnline,
+                IsExpert = account.ExpertProfile != null
+            };
+
+            if (account.ExpertProfile != null)
+            {
+                var profile = account.ExpertProfile;
+                response.ReputationScore = profile.ReputationScore;
+                response.ExpertiseField = profile.ExpertiseField;
+                response.YearsOfExperience = profile.YearsOfExperience;
+                response.Rating = profile.RatingAvg;
+                response.Bio = profile.Bio;
+                response.Verified = profile.Verified;
+            }
+
+            return response;
         }
 
         public async Task<AccountResponse?> GetAccountByMe()

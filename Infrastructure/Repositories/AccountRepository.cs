@@ -68,5 +68,13 @@ namespace Infrastructure.Repositories
                 .Include(rt => rt.Account)
                 .FirstOrDefaultAsync(x => x.Token == token);
         }
+
+        public async Task<Account?> GetAccountWithProfileAndAvatarsAsync(int accountId)
+        {
+            return await _db.Accounts
+                .Include(a => a.ExpertProfile)
+                .Include(a => a.Avatars)
+                .FirstOrDefaultAsync(a => a.Id == accountId);
+        }
     }
 }
