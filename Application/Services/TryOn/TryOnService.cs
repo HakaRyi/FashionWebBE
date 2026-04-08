@@ -74,13 +74,10 @@ namespace Application.Services.TryOn
             if (availableBalance < _tryOnPrice)
                 throw new InvalidOperationException("Số dư không đủ.");
 
-            // 1) Predict category trước
             int categoryId = await GetClothCategoryAsync(clothImage);
 
-            // 2) Gọi AI try-on trước
             var resultBytes = await CallTryOnAI(modelImage, clothImage, categoryId);
 
-            // 3) Upload ảnh kết quả trước
             var fileName = $"tryon_{userId}_{DateTime.UtcNow:yyyyMMddHHmmssfff}.png";
             string imageUrl;
 
@@ -89,12 +86,10 @@ namespace Application.Services.TryOn
                 imageUrl = await _cloudStorageService.UploadImageFromStreamAsync(uploadStream, fileName);
             }
 
-            // 4) Chỉ khi tất cả thành công mới bắt đầu transaction DB
             await _unitOfWork.BeginTransactionAsync();
 
             try
             {
-                // Lấy lại wallet trong transaction để giảm rủi ro dữ liệu cũ
                 wallet = await _walletRepository.GetByAccountIdAsync(userId)
                     ?? throw new KeyNotFoundException("Không tìm thấy ví.");
 
