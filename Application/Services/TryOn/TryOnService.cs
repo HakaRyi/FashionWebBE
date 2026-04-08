@@ -57,8 +57,9 @@ namespace Application.Services.TryOn
             _cloudStorageService = cloudStorageService;
         }
 
-        public async Task<Stream> ProcessTryOnAsync(IFormFile modelImage, IFormFile clothImage)
+        public async Task<Stream> ProcessTryOnAsync(IFormFile modelImage, IFormFile clothImage, int? category)
         {
+
             if (modelImage == null || modelImage.Length == 0)
                 throw new ArgumentException("Ảnh người mẫu không hợp lệ.");
 
@@ -74,9 +75,9 @@ namespace Application.Services.TryOn
             if (availableBalance < _tryOnPrice)
                 throw new InvalidOperationException("Số dư không đủ.");
 
-            int categoryId = await GetClothCategoryAsync(clothImage);
+            int finalCategory = category ?? await GetClothCategoryAsync(clothImage);
 
-            var resultBytes = await CallTryOnAI(modelImage, clothImage, categoryId);
+            var resultBytes = await CallTryOnAI(modelImage, clothImage, finalCategory);
 
             var fileName = $"tryon_{userId}_{DateTime.UtcNow:yyyyMMddHHmmssfff}.png";
             string imageUrl;
@@ -149,9 +150,37 @@ namespace Application.Services.TryOn
         {
             using var content = new MultipartFormDataContent();
 
+
             content.Add(await ToStreamContent(modelImage), "model_image", modelImage.FileName);
             content.Add(await ToStreamContent(clothImage), "cloth_image", clothImage.FileName);
             content.Add(new StringContent(categoryId.ToString()), "category");
+
+            //var modelStream = new MemoryStream();
+            //await modelImage.CopyToAsync(modelStream);
+            //modelStream.Position = 0;
+
+            //var modelContent = new StreamContent(modelStream);
+            //modelContent.Headers.ContentType = new MediaTypeHeaderValue(
+            //    string.IsNullOrWhiteSpace(modelImage.ContentType)
+            //        ? "application/octet-stream"
+            //        : modelImage.ContentType
+            //);
+            //content.Add(modelContent, "model_image", modelImage.FileName);
+
+            //var clothStream = new MemoryStream();
+            //await clothImage.CopyToAsync(clothStream);
+            //clothStream.Position = 0;
+
+            //var clothContent = new StreamContent(clothStream);
+            //clothContent.Headers.ContentType = new MediaTypeHeaderValue(
+            //    string.IsNullOrWhiteSpace(clothImage.ContentType)
+            //        ? "application/octet-stream"
+            //        : clothImage.ContentType
+            //);
+            //content.Add(clothContent, "cloth_image", clothImage.FileName);
+
+            //content.Add(new StringContent(finalCategory.ToString()), "category");
+
 
             var response = await _httpClient.PostAsync(_ootdUrl, content);
 

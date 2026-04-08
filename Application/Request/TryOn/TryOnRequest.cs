@@ -10,5 +10,7 @@ namespace Application.Request.TryOn
 
         [FromForm(Name = "cloth_image")]
         public IFormFile ClothImage { get; set; }
+        [FromForm(Name = "category")]
+        public int? Category { get; set; }
     }
 }

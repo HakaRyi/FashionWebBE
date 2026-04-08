@@ -39,11 +39,26 @@ namespace Presentation.Controllers
 
             var resultStream = await _tryOnService.ProcessTryOnAsync(
                 request.ModelImage,
-                request.ClothImage
+                request.ClothImage,
+                request.Category
             );
 
             resultStream.Position = 0;
             return File(resultStream, "image/png");
+
+            //    var networkStream = await _tryOnService.ProcessTryOnAsync(request.ModelImage, request.ClothImage, request.Category);
+            //    var memoryStream = new MemoryStream();
+            //    await networkStream.CopyToAsync(memoryStream);
+            //    memoryStream.Position = 0;
+            //    return File(memoryStream, "image/png");
+            //}
+            //catch (Exception ex)
+            //{
+            //    // Log lỗi ra để xem
+            //    Console.WriteLine(ex.ToString());
+            //    return StatusCode(500, new { error = ex.Message });
+            //}
+
         }
     }
 }
