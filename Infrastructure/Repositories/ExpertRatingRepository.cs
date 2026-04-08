@@ -25,5 +25,13 @@ namespace Infrastructure.Repositories
             await _context.ExpertRatings
                 .Where(r => r.PostId == postId)
                 .ToListAsync();
+
+        public async Task<IEnumerable<ExpertRating>> GetDetailedRatingsByPostIdAsync(int postId) =>
+            await _context.ExpertRatings
+                .Where(x => x.PostId == postId)
+                .Include(x => x.Expert)
+                .Include(x => x.CriterionRatings)
+                    .ThenInclude(cr => cr.EventCriterion)
+                .ToListAsync();
     }
 }

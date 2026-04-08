@@ -71,4 +71,18 @@
 
         public DateTime? ProcessedAt { get; set; }
     }
+
+    public class ExpertApplicationStatusDto
+    {
+        public string Status { get; set; } = "None";
+        public string? Reason { get; set; }
+        public DateTime? ProcessedAt { get; set; }
+
+        // Thêm các trường này để Frontend ReviewModal hiển thị
+        public string? Style { get; set; }
+        public string? StyleAesthetic { get; set; }
+        public int? YearsOfExperience { get; set; }
+        public string? Bio { get; set; }
+        public string? PortfolioUrl { get; set; }
+    }
 }

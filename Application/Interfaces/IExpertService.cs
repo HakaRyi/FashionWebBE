@@ -8,7 +8,7 @@ namespace Application.Interfaces
     {
         Task<IEnumerable<ExpertManagementByAdminDto>> GetAllExpertsAsync();
         Task<bool> RegisterExpertAsync(ExpertRegistrationDto dto);
-        Task<string> GetCurrentApplicationStatusAsync();
+        Task<ExpertApplicationStatusDto> GetCurrentApplicationStatusAsync();
         Task<ExpertProfile?> GetProfileByAccountId(int accountId);
         Task<IEnumerable<Domain.Entities.ExpertRequest>> GetPendingApplicationsAsync();
         Task<IEnumerable<ExpertManagementDto>> GetActiveExpertsForUserAsync();

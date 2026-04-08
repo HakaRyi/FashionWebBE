@@ -32,6 +32,13 @@ namespace Infrastructure.Repositories
                 .FirstOrDefaultAsync(f => f.ExpertProfileId == profileId);
         }
 
+        public async Task<IEnumerable<ExpertRequest>> GetListByProfileId(int profileId)
+        {
+            return await _db.ExpertRequests
+                .Where(r => r.ExpertProfileId == profileId)
+                .ToListAsync();
+        }
+
         public async Task<IEnumerable<ExpertRequest>> GetStatusApplicationsAsync(string status)
         {
             return await _db.ExpertRequests

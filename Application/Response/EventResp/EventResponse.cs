@@ -59,6 +59,7 @@
         public string? CreatorName { get; set; }
 
         // --- CÁC TRƯỜNG MỚI ĐỂ FE XỬ LÝ NÚT BẤM VÀ TIẾN ĐỘ ---
+        public string? ReasonRejectEvent { get; set; }
         public bool IsCreator { get; set; }
         public bool IsJoined { get; set; }
         public bool IsAutoStart { get; set; }

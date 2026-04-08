@@ -26,6 +26,7 @@ namespace Domain.Interfaces
         Task<Post?> GetPostForShareAsync(int postId);
         Task<double> GetMaxRawCommunityScoreAsync(int eventId, double pointPerLike, double pointPerShare);
         Task<List<Post>> GetGradedPostsByEventIdAsync(int eventId);
+        Task<int> CountAccountPostsAsync(int accountId);
 
     }
 }

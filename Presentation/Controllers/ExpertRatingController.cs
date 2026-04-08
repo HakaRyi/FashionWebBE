@@ -55,5 +55,23 @@ namespace Presentation.Controllers
             var data = await _postService.GetPostsForExpertReviewAsync(eventId);
             return Ok(data);
         }
+
+        /// <summary>
+        /// Xem chi tiết quá trình chấm điểm (của tất cả chuyên gia) cho một bài viết cụ thể
+        /// </summary>
+        [HttpGet("post/{postId}/details")]
+        // [Authorize(Roles = "Expert, Admin")] // Mở comment nếu cần phân quyền
+        public async Task<IActionResult> GetPostRatingDetails(int postId)
+        {
+            try
+            {
+                var data = await _eventRatingService.GetPostRatingDetailsAsync(postId);
+                return Ok(data);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
     }
 }
