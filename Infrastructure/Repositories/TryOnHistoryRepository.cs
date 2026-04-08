@@ -1,4 +1,5 @@
-﻿using Infrastructure.Persistence;
+﻿using Microsoft.EntityFrameworkCore;
+using Infrastructure.Persistence;
 using Domain.Entities;
 using Domain.Interfaces;
 
@@ -7,19 +8,35 @@ namespace Infrastructure.Repositories
     public class TryOnHistoryRepository : ITryOnHistoryRepository
     {
         private readonly FashionDbContext _context;
+
         public TryOnHistoryRepository(FashionDbContext context)
         {
             _context = context;
         }
-        public async Task<int> CreateTryOnHistoryAsync(TryOnHistory tryOnHistory)
+
+        public async Task AddAsync(TryOnHistory tryOnHistory)
         {
-            var result = await _context.TryOnHistories.AddAsync(tryOnHistory);
-            return await _context.SaveChangesAsync();
+            await _context.TryOnHistories.AddAsync(tryOnHistory);
         }
 
-        public Task<List<TryOnHistory>> GetTryOnHistoryByAccountIdAsync(int accountId)
+        public async Task<List<TryOnHistory>> GetTryOnHistoryByAccountIdAsync(int accountId)
         {
-            return Task.FromResult(_context.TryOnHistories.Where(t => t.AccountId == accountId).ToList());
+            return await _context.TryOnHistories
+                .AsNoTracking()
+                .Where(t => t.AccountId == accountId)
+                .OrderByDescending(t => t.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<TryOnHistory?> GetByIdAsync(int tryOnId)
+        {
+            return await _context.TryOnHistories
+                .FirstOrDefaultAsync(t => t.TryOnId == tryOnId);
+        }
+
+        public void Remove(TryOnHistory tryOnHistory)
+        {
+            _context.TryOnHistories.Remove(tryOnHistory);
         }
     }
 }

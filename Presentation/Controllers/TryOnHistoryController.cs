@@ -1,7 +1,7 @@
-﻿using Application.Services.TryOn;
+﻿using Application.Request.TryOn;
+using Application.Services.TryOn;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Application.Request.TryOn;
 
 namespace Presentation.Controllers
 {
@@ -21,31 +21,60 @@ namespace Presentation.Controllers
         [Consumes("multipart/form-data")]
         public async Task<IActionResult> SaveHistory([FromForm] CreateHistoryTryOnRequest request)
         {
-            try
+            var accountIdClaim = User.FindFirst("AccountId")?.Value;
+            if (string.IsNullOrWhiteSpace(accountIdClaim))
+                throw new UnauthorizedAccessException("Không xác định được người dùng.");
+
+            var accountId = int.Parse(accountIdClaim);
+
+            var tryOnId = await _historyService.CreateTryOnHistoryAsync(accountId, request);
+
+            return Ok(new
             {
-                var accountId = int.Parse(User.FindFirst("AccountId")?.Value!);
-                var result = await _historyService.CreateTryOnHistoryAsync(accountId, request);
-                return Ok(new { success = result });
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { message = ex.Message });
-            }
+                success = true,
+                message = "Lưu lịch sử thử đồ thành công.",
+                data = new
+                {
+                    tryOnId
+                }
+            });
         }
 
         [HttpGet("my-history")]
         public async Task<IActionResult> GetMyHistory()
         {
-            try
+            var accountIdClaim = User.FindFirst("AccountId")?.Value;
+            if (string.IsNullOrWhiteSpace(accountIdClaim))
+                throw new UnauthorizedAccessException("Không xác định được người dùng.");
+
+            var accountId = int.Parse(accountIdClaim);
+
+            var result = await _historyService.GetTryOnHistoryByAccountIdAsync(accountId);
+
+            return Ok(new
             {
-                var accountId = int.Parse(User.FindFirst("AccountId")?.Value!);
-                var result = await _historyService.GetTryOnHistoryByAccountIdAsync(accountId);
-                return Ok(result);
-            }
-            catch (Exception ex)
+                success = true,
+                message = "Lấy lịch sử thử đồ thành công.",
+                data = result
+            });
+        }
+
+        [HttpDelete("{tryOnId:int}")]
+        public async Task<IActionResult> DeleteHistory(int tryOnId)
+        {
+            var accountIdClaim = User.FindFirst("AccountId")?.Value;
+            if (string.IsNullOrWhiteSpace(accountIdClaim))
+                throw new UnauthorizedAccessException("Không xác định được người dùng.");
+
+            var accountId = int.Parse(accountIdClaim);
+
+            await _historyService.DeleteTryOnHistoryAsync(accountId, tryOnId);
+
+            return Ok(new
             {
-                return StatusCode(500, new { message = ex.Message });
-            }
+                success = true,
+                message = "Xóa lịch sử thử đồ thành công."
+            });
         }
     }
 }

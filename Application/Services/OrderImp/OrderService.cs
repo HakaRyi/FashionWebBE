@@ -37,6 +37,7 @@ namespace Application.Services.OrderImp
             _unitOfWork = unitOfWork;
             _refundRepo = refundRepo;
         }
+
         const decimal serviceFee = 15000m;
 
         public async Task<OrderResponse> CreateOrderAsync(int sellerId, CreateOrderRequest request)
@@ -178,19 +179,11 @@ namespace Application.Services.OrderImp
                     var sellerWallet = await _walletRepo.GetByAccountIdAsync(order.SellerId)
                                        ?? throw new Exception("Ví seller không tồn tại.");
 
-                    if (buyerWallet.LockedBalance < order.TotalAmount)
-                        throw new Exception("Số dư khóa không đủ để giải ngân.");
-
                     decimal buyerBefore = buyerWallet.Balance;
                     decimal sellerBefore = sellerWallet.Balance;
 
-                    buyerWallet.LockedBalance -= order.TotalAmount;
-                    buyerWallet.UpdatedAt = DateTime.UtcNow;
-
                     sellerWallet.Balance += order.TotalAmount - serviceFee;
                     sellerWallet.UpdatedAt = DateTime.UtcNow;
-
-                    _walletRepo.Update(buyerWallet);
                     _walletRepo.Update(sellerWallet);
 
                     var escrow = order.EscrowSession ?? await _escrowRepo.GetByOrderIdAsync(order.OrderId);
@@ -205,28 +198,28 @@ namespace Application.Services.OrderImp
                     order.UpdatedAt = DateTime.UtcNow;
                     _orderRepo.Update(order);
 
-                    //await _transactionRepo.AddAsync(new Transaction
-                    //{
-                    //    WalletId = buyerWallet.WalletId,
-                    //    PaymentId = null,
-                    //    TransactionCode = GenerateTransactionCode("TRX"),
-                    //    Amount = order.TotalAmount,
-                    //    BalanceBefore = buyerBefore,
-                    //    BalanceAfter = buyerWallet.Balance,
-                    //    Type = TransactionType.Debit,
-                    //    ReferenceType = TransactionReferenceType.OrderPayment,
-                    //    ReferenceId = order.OrderId,
-                    //    Description = $"Hoàn tất thanh toán đơn hàng #{order.OrderId}",
-                    //    CreatedAt = DateTime.UtcNow,
-                    //    Status = TransactionStatus.Success
-                    //});
+                    await _transactionRepo.AddAsync(new Transaction
+                    {
+                        WalletId = buyerWallet.WalletId,
+                        PaymentId = null,
+                        TransactionCode = GenerateTransactionCode("TRX"),
+                        Amount = order.TotalAmount,
+                        BalanceBefore = buyerBefore,
+                        BalanceAfter = buyerWallet.Balance,
+                        Type = TransactionType.Debit,
+                        ReferenceType = TransactionReferenceType.OrderPayment,
+                        ReferenceId = order.OrderId,
+                        Description = $"Hoàn tất thanh toán đơn hàng #{order.OrderId}",
+                        CreatedAt = DateTime.UtcNow,
+                        Status = TransactionStatus.Success
+                    });
 
                     await _transactionRepo.AddAsync(new Transaction
                     {
                         WalletId = sellerWallet.WalletId,
                         PaymentId = null,
                         TransactionCode = GenerateTransactionCode("TRX"),
-                        Amount = order.TotalAmount,
+                        Amount = order.TotalAmount - serviceFee,
                         BalanceBefore = sellerBefore,
                         BalanceAfter = sellerWallet.Balance,
                         Type = TransactionType.Credit,
@@ -244,10 +237,8 @@ namespace Application.Services.OrderImp
                         var buyerWallet = await _walletRepo.GetByAccountIdAsync(order.BuyerId)
                                           ?? throw new Exception("Ví buyer không tồn tại.");
 
-                        if (buyerWallet.LockedBalance < order.TotalAmount)
-                            throw new Exception("Số dư khóa không đủ để hoàn tiền.");
+                        decimal buyerBefore = buyerWallet.Balance;
 
-                        buyerWallet.LockedBalance -= order.TotalAmount;
                         buyerWallet.Balance += order.TotalAmount;
                         buyerWallet.UpdatedAt = DateTime.UtcNow;
                         _walletRepo.Update(buyerWallet);
@@ -266,7 +257,7 @@ namespace Application.Services.OrderImp
                             PaymentId = null,
                             TransactionCode = GenerateTransactionCode("TRX"),
                             Amount = order.TotalAmount,
-                            BalanceBefore = buyerWallet.Balance,
+                            BalanceBefore = buyerBefore,
                             BalanceAfter = buyerWallet.Balance,
                             Type = TransactionType.Credit,
                             ReferenceType = TransactionReferenceType.OrderRefund,
@@ -322,18 +313,15 @@ namespace Application.Services.OrderImp
             var buyerWallet = await _walletRepo.GetByAccountIdAsync(buyerId);
             if (buyerWallet == null) throw new Exception("Buyer wallet not found");
 
-            decimal availableBalance = buyerWallet.Balance - buyerWallet.LockedBalance;
-            if (availableBalance < order.TotalAmount)
-                throw new Exception("Insufficient available balance");
+            if (buyerWallet.Balance < order.TotalAmount)
+                throw new Exception("Insufficient balance");
 
             await _unitOfWork.BeginTransactionAsync();
             try
             {
-                buyerWallet.Balance -= order.TotalAmount;
-                buyerWallet.UpdatedAt = DateTime.UtcNow;
-                _walletRepo.Update(buyerWallet);
+                decimal buyerBefore = buyerWallet.Balance;
 
-                buyerWallet.LockedBalance += order.TotalAmount;
+                buyerWallet.Balance -= order.TotalAmount;
                 buyerWallet.UpdatedAt = DateTime.UtcNow;
                 _walletRepo.Update(buyerWallet);
 
@@ -361,12 +349,12 @@ namespace Application.Services.OrderImp
                     PaymentId = null,
                     TransactionCode = GenerateTransactionCode("TRX"),
                     Amount = order.TotalAmount,
-                    BalanceBefore = buyerWallet.Balance,
+                    BalanceBefore = buyerBefore,
                     BalanceAfter = buyerWallet.Balance,
                     Type = TransactionType.Debit,
                     ReferenceType = TransactionReferenceType.OrderPayment,
                     ReferenceId = order.OrderId,
-                    Description = $"Giữ tiền thanh toán đơn hàng #{order.OrderId}",
+                    Description = $"Thanh toán đơn hàng #{order.OrderId}",
                     CreatedAt = DateTime.UtcNow,
                     Status = TransactionStatus.Success
                 });
@@ -535,8 +523,9 @@ namespace Application.Services.OrderImp
             await _unitOfWork.BeginTransactionAsync();
             try
             {
+                decimal buyerBefore = buyerWallet.Balance;
+
                 buyerWallet.Balance += order.TotalAmount;
-                buyerWallet.LockedBalance -= order.TotalAmount;
                 buyerWallet.UpdatedAt = DateTime.UtcNow;
                 _walletRepo.Update(buyerWallet);
 
@@ -545,6 +534,7 @@ namespace Application.Services.OrderImp
                 _orderRepo.Update(order);
 
                 escrow.Status = EscrowStatus.Refunded;
+                escrow.ResolvedAt = DateTime.UtcNow;
                 _escrowRepo.Update(escrow);
 
                 refundRequest.Status = "APPROVED";
@@ -557,7 +547,7 @@ namespace Application.Services.OrderImp
                     PaymentId = null,
                     TransactionCode = GenerateTransactionCode("REF"),
                     Amount = order.TotalAmount,
-                    BalanceBefore = buyerWallet.Balance,
+                    BalanceBefore = buyerBefore,
                     BalanceAfter = buyerWallet.Balance,
                     Type = TransactionType.Credit,
                     ReferenceType = TransactionReferenceType.OrderRefund,

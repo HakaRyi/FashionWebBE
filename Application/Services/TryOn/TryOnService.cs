@@ -1,4 +1,10 @@
-﻿using Application.Response.AiResp;
+﻿using Application.Interfaces;
+using Application.Response.AiResp;
+using Application.Response.TryOn;
+using Application.Utils;
+using Domain.Constants;
+using Domain.Entities;
+using Domain.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using System.Net.Http.Headers;
@@ -11,8 +17,24 @@ namespace Application.Services.TryOn
         private readonly HttpClient _httpClient;
         private readonly string _ootdUrl;
         private readonly string _aiPredictUrl;
+        private readonly decimal _tryOnPrice;
 
-        public TryOnService(HttpClient httpClient, IConfiguration config)
+        private readonly IUnitOfWork _unitOfWork;
+        private readonly ICurrentUserService _currentUserService;
+        private readonly IWalletRepository _walletRepository;
+        private readonly ITransactionRepository _transactionRepository;
+        private readonly ITryOnHistoryRepository _tryOnHistoryRepository;
+        private readonly ICloudStorageService _cloudStorageService;
+
+        public TryOnService(
+            HttpClient httpClient,
+            IConfiguration config,
+            IUnitOfWork unitOfWork,
+            ICurrentUserService currentUserService,
+            IWalletRepository walletRepository,
+            ITransactionRepository transactionRepository,
+            ITryOnHistoryRepository tryOnHistoryRepository,
+            ICloudStorageService cloudStorageService)
         {
             _httpClient = httpClient;
             _httpClient.Timeout = TimeSpan.FromMinutes(15);
@@ -21,39 +43,114 @@ namespace Application.Services.TryOn
                 ?? throw new Exception("Thiếu cấu hình AISettings:OOTDUrl");
 
             _aiPredictUrl = config["AISettings:Fashin_PredictionUrl"]
-                ?? "https://habenular-unrigidly-fidelia.ngrok-free.dev/predict";
+                ?? throw new Exception("Thiếu cấu hình AISettings:Fashin_PredictionUrl");
+
+            _tryOnPrice = decimal.TryParse(config["TryOnSettings:Price"], out var price)
+                ? price
+                : 5000m;
+
+            _unitOfWork = unitOfWork;
+            _currentUserService = currentUserService;
+            _walletRepository = walletRepository;
+            _transactionRepository = transactionRepository;
+            _tryOnHistoryRepository = tryOnHistoryRepository;
+            _cloudStorageService = cloudStorageService;
         }
 
         public async Task<Stream> ProcessTryOnAsync(IFormFile modelImage, IFormFile clothImage)
         {
+            if (modelImage == null || modelImage.Length == 0)
+                throw new ArgumentException("Ảnh người mẫu không hợp lệ.");
+
+            if (clothImage == null || clothImage.Length == 0)
+                throw new ArgumentException("Ảnh quần áo không hợp lệ.");
+
+            var userId = _currentUserService.GetRequiredUserId();
+
+            var wallet = await _walletRepository.GetByAccountIdAsync(userId)
+                ?? throw new KeyNotFoundException("Không tìm thấy ví.");
+
+            var availableBalance = wallet.Balance - wallet.LockedBalance;
+            if (availableBalance < _tryOnPrice)
+                throw new InvalidOperationException("Số dư không đủ.");
+
             int categoryId = await GetClothCategoryAsync(clothImage);
 
+            var resultBytes = await CallTryOnAI(modelImage, clothImage, categoryId);
+
+            var fileName = $"tryon_{userId}_{DateTime.UtcNow:yyyyMMddHHmmssfff}.png";
+            string imageUrl;
+
+            using (var uploadStream = new MemoryStream(resultBytes))
+            {
+                imageUrl = await _cloudStorageService.UploadImageFromStreamAsync(uploadStream, fileName);
+            }
+
+            await _unitOfWork.BeginTransactionAsync();
+
+            try
+            {
+                wallet = await _walletRepository.GetByAccountIdAsync(userId)
+                    ?? throw new KeyNotFoundException("Không tìm thấy ví.");
+
+                availableBalance = wallet.Balance - wallet.LockedBalance;
+                if (availableBalance < _tryOnPrice)
+                    throw new InvalidOperationException("Số dư không đủ.");
+
+                var balanceBefore = wallet.Balance;
+
+                wallet.Balance -= _tryOnPrice;
+                wallet.UpdatedAt = DateTime.UtcNow;
+                _walletRepository.Update(wallet);
+
+                var transaction = new Transaction
+                {
+                    WalletId = wallet.WalletId,
+                    PaymentId = null,
+                    TransactionCode = GenerateTransactionCode(),
+                    Amount = _tryOnPrice,
+                    BalanceBefore = balanceBefore,
+                    BalanceAfter = wallet.Balance,
+                    Type = TransactionType.Debit,
+                    ReferenceType = TransactionReferenceType.TryOn,
+                    ReferenceId = null,
+                    Description = "Thanh toán thử đồ AI",
+                    CreatedAt = DateTime.UtcNow,
+                    Status = TransactionStatus.Success
+                };
+
+                await _transactionRepository.AddAsync(transaction);
+
+                var history = new TryOnHistory
+                {
+                    AccountId = userId,
+                    ImageUrl = imageUrl,
+                    Status = "Success",
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                await _tryOnHistoryRepository.AddAsync(history);
+
+                await _unitOfWork.CommitAsync();
+
+                return new MemoryStream(resultBytes);
+            }
+            catch
+            {
+                await _unitOfWork.RollbackAsync();
+                throw;
+            }
+        }
+
+        private async Task<byte[]> CallTryOnAI(
+            IFormFile modelImage,
+            IFormFile clothImage,
+            int categoryId)
+        {
             using var content = new MultipartFormDataContent();
 
-            var modelStream = new MemoryStream();
-            await modelImage.CopyToAsync(modelStream);
-            modelStream.Position = 0;
-
-            var modelContent = new StreamContent(modelStream);
-            modelContent.Headers.ContentType = new MediaTypeHeaderValue(
-                string.IsNullOrWhiteSpace(modelImage.ContentType)
-                    ? "application/octet-stream"
-                    : modelImage.ContentType
-            );
-            content.Add(modelContent, "model_image", modelImage.FileName);
-
-            var clothStream = new MemoryStream();
-            await clothImage.CopyToAsync(clothStream);
-            clothStream.Position = 0;
-
-            var clothContent = new StreamContent(clothStream);
-            clothContent.Headers.ContentType = new MediaTypeHeaderValue(
-                string.IsNullOrWhiteSpace(clothImage.ContentType)
-                    ? "application/octet-stream"
-                    : clothImage.ContentType
-            );
-            content.Add(clothContent, "cloth_image", clothImage.FileName);
-
+            content.Add(await ToStreamContent(modelImage), "model_image", modelImage.FileName);
+            content.Add(await ToStreamContent(clothImage), "cloth_image", clothImage.FileName);
             content.Add(new StringContent(categoryId.ToString()), "category");
 
             var response = await _httpClient.PostAsync(_ootdUrl, content);
@@ -61,56 +158,103 @@ namespace Application.Services.TryOn
             if (!response.IsSuccessStatusCode)
             {
                 var error = await response.Content.ReadAsStringAsync();
-                throw new Exception($"Python OOTD Error: {error}");
+                throw new Exception($"AI try-on error: {error}");
             }
 
-            return await response.Content.ReadAsStreamAsync();
+            return await response.Content.ReadAsByteArrayAsync();
+        }
+
+        private async Task<StreamContent> ToStreamContent(IFormFile file)
+        {
+            var ms = new MemoryStream();
+            await file.CopyToAsync(ms);
+            ms.Position = 0;
+
+            var content = new StreamContent(ms);
+            content.Headers.ContentType = new MediaTypeHeaderValue(
+                string.IsNullOrWhiteSpace(file.ContentType)
+                    ? "application/octet-stream"
+                    : file.ContentType
+            );
+
+            return content;
         }
 
         private async Task<int> GetClothCategoryAsync(IFormFile clothImage)
         {
             using var content = new MultipartFormDataContent();
+            using var ms = new MemoryStream();
 
-            using var memoryStream = new MemoryStream();
-            await clothImage.CopyToAsync(memoryStream);
-            var fileBytes = memoryStream.ToArray();
+            await clothImage.CopyToAsync(ms);
+            ms.Position = 0;
 
-            var imageContent = new ByteArrayContent(fileBytes);
-            content.Add(imageContent, "file", clothImage.FileName);
+            var img = new ByteArrayContent(ms.ToArray());
+            img.Headers.ContentType = new MediaTypeHeaderValue(
+                string.IsNullOrWhiteSpace(clothImage.ContentType)
+                    ? "application/octet-stream"
+                    : clothImage.ContentType
+            );
 
-            var response = await _httpClient.PostAsync(_aiPredictUrl, content);
+            content.Add(img, "file", clothImage.FileName);
 
-            if (!response.IsSuccessStatusCode)
+            var res = await _httpClient.PostAsync(_aiPredictUrl, content);
+
+            if (!res.IsSuccessStatusCode)
             {
-                return 0;
+                var error = await res.Content.ReadAsStringAsync();
+                throw new Exception($"AI predict error: {error}");
             }
 
-            var jsonString = await response.Content.ReadAsStringAsync();
-            var prediction = JsonSerializer.Deserialize<AIFashionDetectReponse>(jsonString);
+            var json = await res.Content.ReadAsStringAsync();
 
-            if (prediction == null || !prediction.IsClothing)
+            var prediction = JsonSerializer.Deserialize<AIFashionDetectReponse>(
+                json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            if (prediction == null)
+                throw new Exception("Không đọc được kết quả phân loại ảnh.");
+
+            if (!prediction.IsClothing)
+                throw new Exception("Ảnh quần áo không hợp lệ.");
+
+            return MapLabelToCategory(prediction.Label ?? "");
+        }
+
+        public async Task<TryOnInfoResponse> GetTryOnInfoAsync()
+        {
+            var userId = _currentUserService.GetRequiredUserId();
+
+            var wallet = await _walletRepository.GetByAccountIdAsync(userId)
+                ?? throw new KeyNotFoundException("Không tìm thấy ví của người dùng.");
+
+            var availableBalance = wallet.Balance - wallet.LockedBalance;
+
+            return new TryOnInfoResponse
             {
-                throw new Exception("Hình ảnh không phải là trang phục hợp lệ.");
-            }
-
-            return MapLabelToCategory(prediction.Label?.ToLower() ?? "");
+                TryOnPrice = _tryOnPrice,
+                Balance = wallet.Balance,
+                LockedBalance = wallet.LockedBalance,
+                AvailableBalance = availableBalance,
+                CanTryOn = availableBalance >= _tryOnPrice,
+                Message = availableBalance >= _tryOnPrice
+                    ? "Đủ số dư để thử đồ."
+                    : "Số dư không đủ để thử đồ."
+            };
         }
 
         private int MapLabelToCategory(string label)
         {
-            var lowerBodyKeywords = new[] { "skirt", "miniskirt", "pants", "jeans", "shorts", "trousers", "hoopskirt", "swimming_trunks" };
-            if (lowerBodyKeywords.Any(k => label.Contains(k)))
-            {
-                return 1;
-            }
+            label = label.Trim().ToLowerInvariant();
 
-            var dressKeywords = new[] { "dress", "gown", "robe", "kimono" };
-            if (dressKeywords.Any(k => label.Contains(k)))
-            {
-                return 2;
-            }
+            if (new[] { "pants", "jeans", "skirt" }.Any(label.Contains)) return 1;
+            if (new[] { "dress", "gown" }.Any(label.Contains)) return 2;
 
             return 0;
+        }
+
+        private static string GenerateTransactionCode()
+        {
+            return $"TRYON-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
         }
     }
 }
