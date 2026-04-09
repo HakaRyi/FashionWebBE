@@ -12,6 +12,7 @@
         public string? Content { get; set; }
         public List<string>? ImageUrls { get; set; }
         public bool? IsExpertPost { get; set; }
+        public bool IsLikedByExpert { get; set; }
         public string? Status { get; set; }
         public double? Score { get; set; }
         public string? Reason { get; set; }
@@ -28,20 +29,17 @@
     {
         public int PostId { get; set; }
         public string Title { get; set; } = string.Empty;
-        public string? Content { get; set; } // Nội dung bài viết để Expert đọc
-        public string? ImageUrl { get; set; } // Ảnh đại diện của bài nộp
+        public string? Content { get; set; }
+        public string? ImageUrl { get; set; }
         public string? AuthorName { get; set; }
 
-        // --- Logic Chấm điểm ---
-        public double? CurrentScore { get; set; } // Điểm mà Expert này đã chấm (nullable)
-        public string? MyReason { get; set; }     // Lý do Expert đã ghi chú khi chấm
-        public bool IsGraded { get; set; }       // Trạng thái đã chấm hay chưa
+        public double? CurrentScore { get; set; }
+        public string? MyReason { get; set; }
+        public bool IsGraded { get; set; }
 
-        // --- Thông số cộng đồng (để tham khảo khi chấm) ---
         public int LikeCount { get; set; }
         public int ShareCount { get; set; }
 
         public DateTime SubmittedAt { get; set; }
     }
 }
-

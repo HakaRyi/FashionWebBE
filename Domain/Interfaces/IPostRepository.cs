@@ -1,6 +1,6 @@
-﻿using Domain.Dto.Admin;
+﻿using Domain.Contracts.Social.Post;
+using Domain.Dto.Admin;
 using Domain.Dto.Common;
-using Domain.Dto.Social.Post;
 using Domain.Entities;
 
 namespace Domain.Interfaces

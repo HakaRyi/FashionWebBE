@@ -13,6 +13,7 @@ using Application.Request.PostReq;
 using Application.Response.PostResp;
 using Application.Utils;
 using Domain.Entities;
+using Domain.Contracts.Social.Post;
 
 namespace Application.Services.PostImp
 {
@@ -245,12 +246,17 @@ namespace Application.Services.PostImp
                     .ToList() ?? new List<string>(),
 
                 IsExpertPost = post.IsExpertPost,
+
+                IsLikedByExpert = post.Reactions.Any(r =>
+                    r.Account.ExpertProfile != null &&
+                    r.Account.ExpertProfile.Verified == true
+                ),
+
                 Status = post.Status,
                 //Score = post.Score,
 
                 IsLiked = post.Reactions.Any(r => r.AccountId == _currentUserService.GetUserId()),
                 IsSaved = post.Saves.Any(s => s.AccountId == _currentUserService.GetUserId()),
-
 
                 LikeCount = post.LikeCount,
                 CommentCount = post.CommentCount,
