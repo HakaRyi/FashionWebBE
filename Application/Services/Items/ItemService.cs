@@ -24,6 +24,7 @@ namespace Application.Services.Items
         private readonly IImageRepository _imageRepository;
         private readonly IRecommendationHistoryRepository _recommendationHistoryRepository;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IItemSaveRepository _itemSaveRepo;
 
         public ItemService(
             IItemRepository itemRepo,
@@ -34,7 +35,8 @@ namespace Application.Services.Items
             IGeminiService geminiService,
             IImageRepository imageRepository,
             IRecommendationHistoryRepository recommendationHistoryRepository,
-            IUnitOfWork unitOfWork)
+            IUnitOfWork unitOfWork,
+            IItemSaveRepository itemSaveRepo)
         {
             _itemRepo = itemRepo;
             _aiService = aiService;
@@ -45,6 +47,7 @@ namespace Application.Services.Items
             _imageRepository = imageRepository;
             _recommendationHistoryRepository = recommendationHistoryRepository;
             _unitOfWork = unitOfWork;
+            _itemSaveRepo = itemSaveRepo;
         }
 
         public async Task<IEnumerable<ItemResponseDto>> GetAllItemsAsync()
@@ -120,6 +123,7 @@ namespace Application.Services.Items
 
         public async Task<List<ItemResponseDto>> GetSmartRecommendationsAsync(SmartRecommendationRequestDto request)
         {
+            Console.WriteLine($"DEBUG: IncludeMyWardrobe = {request.IncludeMyWardrobe}");
             if (request == null)
                 return new List<ItemResponseDto>();
 
@@ -154,7 +158,7 @@ CRITICAL: Do NOT output metadata for the reference item. Output metadata ONLY fo
             Vector queryVector = await _aiService.GetTextEmbeddingAsync(intent.CleanPrompt);
 
             int currentAccountId = _currentUserService.GetRequiredUserId();
-
+            scopeRequestForRepo.IncludeSavedItems = request.IncludeSavedItems;
             var candidates = await _itemRepo.GetHybridRecommendationsAsync(
                 queryVector,
                 intent,

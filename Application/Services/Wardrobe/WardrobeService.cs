@@ -174,5 +174,19 @@ namespace Application.Services.Wardrobe
                 }
             };
         }
+        public async Task<List<WardrobeSearchResponseDto>> SearchWardrobeByUsernameAsync(string username)
+        {
+            if (string.IsNullOrWhiteSpace(username)) return new List<WardrobeSearchResponseDto>();
+
+            var accounts = await _wardrobeRepository.SearchAccountWithWardrobeAsync(username);
+            return accounts.Select(a => new WardrobeSearchResponseDto
+            {
+                WardrobeId = a.Wardrobe?.WardrobeId ?? 0,
+                UserName = a.UserName,
+                AvatarUrl = a.Avatars.OrderByDescending(v => v.CreatedAt)
+                                     .Select(v => v.ImageUrl)
+                                     .FirstOrDefault()
+            }).Where(x => x.WardrobeId > 0).ToList();
+        }
     }
 }

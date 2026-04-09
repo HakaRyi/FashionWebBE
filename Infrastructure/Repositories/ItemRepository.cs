@@ -195,11 +195,12 @@ namespace Infrastructure.Repositories
             query = query.Where(item =>
                 (scopeRequest.IncludeMyWardrobe && item.Wardrobe.AccountId == currentAccountId) ||
 
-                (scopeRequest.TargetSavedItemIds.Any() && scopeRequest.TargetSavedItemIds.Contains(item.ItemId)) ||
-
                 (scopeRequest.TargetWardrobeIds.Any() &&
                  scopeRequest.TargetWardrobeIds.Contains(item.WardrobeId) &&
-                 item.IsPublic == true)
+                 item.IsPublic == true) ||
+
+                 (scopeRequest.IncludeSavedItems &&
+         _context.SavedItems.Any(s => s.AccountId == currentAccountId && s.ItemId == item.ItemId))
             );
 
             if (!string.IsNullOrEmpty(scopeRequest.ReferenceCategory))

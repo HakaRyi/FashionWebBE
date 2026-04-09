@@ -60,9 +60,10 @@ namespace Application.Request.ItemReq
 
         public List<int> TargetWardrobeIds { get; set; } = new();
 
-        public List<int> TargetSavedItemIds { get; set; } = new();
+        //public List<int> TargetSavedItemIds { get; set; } = new();
 
-        public bool IncludeMyWardrobe { get; set; } = true;
+        public bool IncludeMyWardrobe { get; set; } 
+        public bool IncludeSavedItems { get; set; }
 
         public int Limit { get; set; } = 10;
     }

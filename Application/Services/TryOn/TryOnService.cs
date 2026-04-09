@@ -94,10 +94,6 @@ namespace Application.Services.TryOn
                 wallet = await _walletRepository.GetByAccountIdAsync(userId)
                     ?? throw new KeyNotFoundException("Không tìm thấy ví.");
 
-                availableBalance = wallet.Balance - wallet.LockedBalance;
-                if (availableBalance < _tryOnPrice)
-                    throw new InvalidOperationException("Số dư không đủ.");
-
                 var balanceBefore = wallet.Balance;
 
                 wallet.Balance -= _tryOnPrice;
@@ -154,33 +150,6 @@ namespace Application.Services.TryOn
             content.Add(await ToStreamContent(modelImage), "model_image", modelImage.FileName);
             content.Add(await ToStreamContent(clothImage), "cloth_image", clothImage.FileName);
             content.Add(new StringContent(categoryId.ToString()), "category");
-
-            //var modelStream = new MemoryStream();
-            //await modelImage.CopyToAsync(modelStream);
-            //modelStream.Position = 0;
-
-            //var modelContent = new StreamContent(modelStream);
-            //modelContent.Headers.ContentType = new MediaTypeHeaderValue(
-            //    string.IsNullOrWhiteSpace(modelImage.ContentType)
-            //        ? "application/octet-stream"
-            //        : modelImage.ContentType
-            //);
-            //content.Add(modelContent, "model_image", modelImage.FileName);
-
-            //var clothStream = new MemoryStream();
-            //await clothImage.CopyToAsync(clothStream);
-            //clothStream.Position = 0;
-
-            //var clothContent = new StreamContent(clothStream);
-            //clothContent.Headers.ContentType = new MediaTypeHeaderValue(
-            //    string.IsNullOrWhiteSpace(clothImage.ContentType)
-            //        ? "application/octet-stream"
-            //        : clothImage.ContentType
-            //);
-            //content.Add(clothContent, "cloth_image", clothImage.FileName);
-
-            //content.Add(new StringContent(finalCategory.ToString()), "category");
-
 
             var response = await _httpClient.PostAsync(_ootdUrl, content);
 

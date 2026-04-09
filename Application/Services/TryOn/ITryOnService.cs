@@ -7,6 +7,5 @@ namespace Application.Services.TryOn
     {
         Task<TryOnInfoResponse> GetTryOnInfoAsync();
         Task<Stream> ProcessTryOnAsync(IFormFile modelImage, IFormFile clothImage, int? category);
-
     }
 }
