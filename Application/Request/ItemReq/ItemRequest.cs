@@ -58,16 +58,13 @@ namespace Application.Request.ItemReq
 
         //(SCOPE)
 
-        // Mặc định true: Luôn ưu tiên dùng đồ trong tủ cá nhân của user
-        public bool UseMyWardrobe { get; set; } = true;
+        public List<int> TargetWardrobeIds { get; set; } = new();
 
-        // Mặc định true: Dùng những món đồ user đã thích và lưu lại
-        public bool UseSavedItems { get; set; } = true;
+        //public List<int> TargetSavedItemIds { get; set; } = new();
 
-        // Tùy chọn: Có muốn mượn đồ public của cộng đồng để mix không?
-        public bool UseCommunityItems { get; set; } = false;
+        public bool IncludeMyWardrobe { get; set; } 
+        public bool IncludeSavedItems { get; set; }
 
-        // Giới hạn số lượng gợi ý trả về (để nhẹ tải)
         public int Limit { get; set; } = 10;
     }
 }
