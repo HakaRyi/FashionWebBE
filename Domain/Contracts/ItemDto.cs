@@ -12,7 +12,7 @@ namespace Domain.Dto
 
         public List<int> TargetWardrobeIds { get; set; } = new();
 
-        public List<int> TargetSavedItemIds { get; set; } = new();
+        public bool IncludeSavedItems { get; set; }
 
         public bool IncludeMyWardrobe { get; set; }
 

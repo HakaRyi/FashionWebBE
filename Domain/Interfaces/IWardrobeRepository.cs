@@ -1,4 +1,5 @@
 ﻿using Domain.Entities;
+using Microsoft.EntityFrameworkCore;
 
 namespace Domain.Interfaces
 
@@ -9,5 +10,6 @@ namespace Domain.Interfaces
         Task<List<Wardrobe>> GetAll();
         Task<Wardrobe?> GetByIdAsync(int wardrobeId);
         Task<Wardrobe?> GetByAccountIdAsync(int accountId);
+        Task<List<Account>> SearchAccountWithWardrobeAsync(string username, int limit = 5);
     }
 }

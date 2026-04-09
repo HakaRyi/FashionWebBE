@@ -17,6 +17,10 @@ namespace Application.Mappers
                 .Map(dest => dest.PrimaryImageUrl, src => src.Images.Select(img => img.ImageUrl).FirstOrDefault())
                 .Map(dest => dest.Category, src => src.Category != null ? src.Category.ToString() : null);
 
+            TypeAdapterConfig<RecommendationDetail, ItemResponseDto>.NewConfig()
+                .Map(dest => dest, src => src.Item)
+                .Map(dest => dest.PrimaryImageUrl, src => src.Item.Images.Select(img => img.ImageUrl).FirstOrDefault());
+
             TypeAdapterConfig<SavedItem, ItemResponseDto>.NewConfig()
                 .Map(dest => dest.PrimaryImageUrl, src => src.Item.Images.Select(img => img.ImageUrl).FirstOrDefault())
                 .Map(dest => dest, src => src.Item);

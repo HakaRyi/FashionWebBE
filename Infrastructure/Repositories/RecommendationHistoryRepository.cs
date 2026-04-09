@@ -37,6 +37,8 @@ namespace Infrastructure.Repositories
         {
             return await _db.RecommendationHistories
                 .Include(h => h.RecommendedItems)
+                    .ThenInclude(d => d.Item)
+                        .ThenInclude(i => i.Images)
                 .Include(h => h.ReferenceItem)
                     .ThenInclude(i => i.Images)
                 .Include(h => h.Account)

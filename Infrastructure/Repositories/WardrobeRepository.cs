@@ -1,7 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Infrastructure.Persistence;
-using Domain.Entities;
+﻿using Domain.Entities;
 using Domain.Interfaces;
+using Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Polly;
 
 namespace Infrastructure.Repositories
 {
@@ -39,6 +40,16 @@ namespace Infrastructure.Repositories
             return await _db.Wardrobes
                 .AsNoTracking()
                 .FirstOrDefaultAsync(w => w.AccountId == accountId);
+        }
+        public async Task<List<Account>> SearchAccountWithWardrobeAsync(string username, int limit = 5)
+        {
+            return await _db.Accounts
+                .Include(a => a.Wardrobe)
+                .Include(a => a.Avatars)
+                .Where(a => a.UserName.Contains(username))
+                .OrderBy(a => a.UserName)
+                .Take(limit)
+                .ToListAsync();
         }
     }
 }

@@ -57,8 +57,9 @@ namespace Application.Services.TryOn
             _cloudStorageService = cloudStorageService;
         }
 
-        public async Task<Stream> ProcessTryOnAsync(IFormFile modelImage, IFormFile clothImage)
+        public async Task<Stream> ProcessTryOnAsync(IFormFile modelImage, IFormFile clothImage, int? category)
         {
+
             if (modelImage == null || modelImage.Length == 0)
                 throw new ArgumentException("Ảnh người mẫu không hợp lệ.");
 
@@ -74,9 +75,9 @@ namespace Application.Services.TryOn
             if (availableBalance < _tryOnPrice)
                 throw new InvalidOperationException("Số dư không đủ.");
 
-            int categoryId = await GetClothCategoryAsync(clothImage);
+            int finalCategory = category ?? await GetClothCategoryAsync(clothImage);
 
-            var resultBytes = await CallTryOnAI(modelImage, clothImage, categoryId);
+            var resultBytes = await CallTryOnAI(modelImage, clothImage, finalCategory);
 
             var fileName = $"tryon_{userId}_{DateTime.UtcNow:yyyyMMddHHmmssfff}.png";
             string imageUrl;
@@ -92,10 +93,6 @@ namespace Application.Services.TryOn
             {
                 wallet = await _walletRepository.GetByAccountIdAsync(userId)
                     ?? throw new KeyNotFoundException("Không tìm thấy ví.");
-
-                availableBalance = wallet.Balance - wallet.LockedBalance;
-                if (availableBalance < _tryOnPrice)
-                    throw new InvalidOperationException("Số dư không đủ.");
 
                 var balanceBefore = wallet.Balance;
 
@@ -148,6 +145,7 @@ namespace Application.Services.TryOn
             int categoryId)
         {
             using var content = new MultipartFormDataContent();
+
 
             content.Add(await ToStreamContent(modelImage), "model_image", modelImage.FileName);
             content.Add(await ToStreamContent(clothImage), "cloth_image", clothImage.FileName);

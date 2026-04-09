@@ -47,7 +47,23 @@ namespace Presentation.Controllers
                 data = result
             });
         }
-
+        [HttpGet("search-by-username")]
+        public async Task<IActionResult> SearchByUsername([FromQuery] string username)
+        {
+            try
+            {
+                var result = await _wardrobeService.SearchWardrobeByUsernameAsync(username);
+                return Ok(new
+                {
+                    message = "Tìm kiếm thành công",
+                    data = result
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Lỗi hệ thống", error = ex.Message });
+            }
+        }
         [Authorize]
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] WardrobeRequest wardrobeRequest)

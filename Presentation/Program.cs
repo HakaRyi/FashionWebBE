@@ -46,6 +46,7 @@ using Presentation.Middlewares;
 using Presentation.Services;
 using Quartz;
 using System.Text;
+using Application.Services.RecommendationImp;
 
 
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
@@ -178,6 +179,7 @@ builder.Services.AddScoped<ITopUpPaymentProcessor, TopUpPaymentProcessor>();
 builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
 builder.Services.AddScoped<IItemSaveService, ItemSaveService>();
 builder.Services.AddScoped<IRefundRequestRepository, RefundRequestRepository>();
+builder.Services.AddScoped<IRecommendationService,RecommendationService>();
 
 
 #endregion
