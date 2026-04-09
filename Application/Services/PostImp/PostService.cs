@@ -1,19 +1,20 @@
 ﻿using Application.Interfaces;
-using Domain.Interfaces;
-using Mapster;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Hosting;
-using Domain.Constants;
-using Domain.Dto.Admin;
-using Domain.Dto.Common;
-using Domain.Dto.Social.Post;
 using Application.RabbitMQ;
 using Application.Request.PostReq;
 using Application.Response.PostResp;
 using Application.Utils;
-using Domain.Entities;
+using Domain.Constants;
 using Domain.Contracts.Social.Post;
+using Domain.Dto.Admin;
+using Domain.Dto.Common;
+using Domain.Dto.Social.Post;
+using Domain.Entities;
+using Domain.Interfaces;
+using Mapster;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 
 namespace Application.Services.PostImp
 {
@@ -61,20 +62,28 @@ namespace Application.Services.PostImp
             var now = DateTime.UtcNow;
             var imageUrls = await UploadImages(dto!.Images!.ToList());
 
+            var account = await _userManager.Users
+                .Include(x => x.ExpertProfile)
+                .FirstOrDefaultAsync(x => x.Id == accountId)
+                ?? throw new KeyNotFoundException("Account not found");
+
+            var isExpertPost = account.ExpertProfile != null &&
+                               account.ExpertProfile.Verified == true;
+
             var post = new Post
             {
                 AccountId = accountId,
                 Title = dto.Title?.Trim(),
                 Content = dto.Content?.Trim(),
                 EventId = dto.EventId,
-                CreatedAt = DateTime.Now,
-                UpdatedAt = DateTime.Now,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
                 Status = PostStatus.Published,
                 Visibility = PostVisibility.Visible,
                 LikeCount = 0,
                 CommentCount = 0,
                 ShareCount = 0,
-                IsExpertPost = false
+                IsExpertPost = isExpertPost
             };
 
             await _postRepo.AddAsync(post);
@@ -92,11 +101,13 @@ namespace Application.Services.PostImp
             await _uow.SaveChangesAsync();
 
             await SendModeration(post.PostId, imageUrls);
-            
+
             post.Images = images;
-            var account = await _userManager.FindByIdAsync(post.AccountId.ToString());
+            post.Account = account;
+
             account.CountPost += 1;
             await _userManager.UpdateAsync(account);
+
             return MapToResponse(post);
         }
 
@@ -224,6 +235,8 @@ namespace Application.Services.PostImp
 
         private PostResponse MapToResponse(Post post)
         {
+            var currentUserId = _currentUserService.GetUserId();
+
             return new PostResponse
             {
                 PostId = post.PostId,
@@ -245,18 +258,21 @@ namespace Application.Services.PostImp
                     .Select(i => i.ImageUrl)
                     .ToList() ?? new List<string>(),
 
-                IsExpertPost = post.IsExpertPost,
+                IsExpertPost = post.IsExpertPost ?? false,
 
                 IsLikedByExpert = post.Reactions.Any(r =>
+                    r.Account != null &&
                     r.Account.ExpertProfile != null &&
                     r.Account.ExpertProfile.Verified == true
                 ),
 
                 Status = post.Status,
-                //Score = post.Score,
 
-                IsLiked = post.Reactions.Any(r => r.AccountId == _currentUserService.GetUserId()),
-                IsSaved = post.Saves.Any(s => s.AccountId == _currentUserService.GetUserId()),
+                IsLiked = currentUserId.HasValue &&
+                          post.Reactions.Any(r => r.AccountId == currentUserId.Value),
+
+                IsSaved = currentUserId.HasValue &&
+                          post.Saves.Any(s => s.AccountId == currentUserId.Value),
 
                 LikeCount = post.LikeCount,
                 CommentCount = post.CommentCount,
@@ -578,10 +594,19 @@ namespace Application.Services.PostImp
             var post = await _postRepo.GetByIdAsync(postId);
             if (post == null) throw new KeyNotFoundException("Bài viết không tồn tại");
 
-            if (post.AccountId != accountId) throw new UnauthorizedAccessException("Không chính chủ");
+            if (post.AccountId != accountId)
+                throw new UnauthorizedAccessException("Không chính chủ");
+
+            var account = await _userManager.Users
+                .Include(x => x.ExpertProfile)
+                .FirstOrDefaultAsync(x => x.Id == accountId)
+                ?? throw new KeyNotFoundException("Account not found");
+
+            var isExpertPost = account.ExpertProfile != null &&
+                               account.ExpertProfile.Verified == true;
 
             post.Content = request.Content?.Trim();
-            post.IsExpertPost = request.IsPublish;
+            post.IsExpertPost = isExpertPost;
             post.UpdatedAt = DateTime.UtcNow;
 
             if (request.Images != null && request.Images.Any())
@@ -603,6 +628,7 @@ namespace Application.Services.PostImp
                 await _imageRepo.AddRangeAsync(newImageEntities);
 
                 post.Status = PostStatus.Verifying;
+                post.Images = newImageEntities;
 
                 await _uow.SaveChangesAsync();
 
@@ -617,9 +643,10 @@ namespace Application.Services.PostImp
                 await _uow.SaveChangesAsync();
             }
 
-            var updatedPost = await _postRepo.GetByIdAsync(postId);
-            return MapToResponse(updatedPost);
+            post.Account = account;
 
+            var updatedPost = await _postRepo.GetByIdAsync(postId);
+            return MapToResponse(updatedPost!);
         }
 
         public async Task<int> SharePostAsync(int postId)
