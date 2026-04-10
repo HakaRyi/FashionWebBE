@@ -26,5 +26,12 @@ namespace Infrastructure.Repositories
                 .OrderByDescending(h => h.CreatedAt)
                 .ToListAsync();
         }
+
+        public async Task<ExpertProfile?> GetFullReputationDataByAccountIdAsync(int accountId)
+        {
+            return await _context.ExpertProfiles
+                .Include(ep => ep.ReputationHistories)
+                .FirstOrDefaultAsync(ep => ep.AccountId == accountId);
+        }
     }
 }
