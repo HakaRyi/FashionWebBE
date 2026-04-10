@@ -178,6 +178,7 @@ builder.Services.AddScoped<ITopUpPaymentProcessor, TopUpPaymentProcessor>();
 builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
 builder.Services.AddScoped<IItemSaveService, ItemSaveService>();
 builder.Services.AddScoped<IRefundRequestRepository, RefundRequestRepository>();
+builder.Services.AddScoped<IReputationHistoryService, ReputationHistoryService>();
 
 
 #endregion

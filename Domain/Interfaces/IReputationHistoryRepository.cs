@@ -7,5 +7,6 @@ namespace Domain.Interfaces
     {
         Task AddAsync(ReputationHistory history);
         Task<IEnumerable<ReputationHistory>> GetByExpertProfileIdAsync(int profileId);
+        Task<ExpertProfile?> GetFullReputationDataByAccountIdAsync(int accountId);
     }
 }

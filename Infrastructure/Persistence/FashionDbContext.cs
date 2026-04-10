@@ -1754,7 +1754,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasColumnName("reason");
 
             entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
+                .HasColumnType("timestamp with time zone")
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnName("created_at");
 
