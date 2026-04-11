@@ -2,7 +2,6 @@
 using Microsoft.EntityFrameworkCore;
 using Pgvector;
 using Domain.Entities;
-using System.Globalization;
 using Domain.Constants;
 
 namespace Infrastructure.Persistence.Seeders
@@ -10,12 +9,26 @@ namespace Infrastructure.Persistence.Seeders
     public static class PublicProfileWardrobeSeeder
     {
         private const string TargetEmail = "nvhoang0975@gmail.com";
-        private const string SeedPrefix = "PUBLIC_PROFILE_TEST";
         private const string SeedMarker = "PUBLIC_PROFILE_WARDROBE_TEST_SEED";
+        private const string DefaultUserRole = "User";
+        private const string DefaultPassword = "123456Aa@";
 
-        public static async Task SeedAsync(DbContext context)
+        public static async Task SeedAsync(
+            FashionDbContext context,
+            UserManager<Account> userManager)
         {
-            var accounts = context.Set<Account>();
+            // =========================================================
+            // 0. Chỉ seed khi target account CHƯA tồn tại
+            // =========================================================
+            var existedTarget = await userManager.FindByEmailAsync(TargetEmail);
+            if (existedTarget != null)
+            {
+                return;
+            }
+
+            var now = DateTime.UtcNow;
+            var random = new Random(20260331);
+
             var wardrobes = context.Set<Wardrobe>();
             var items = context.Set<Item>();
             var images = context.Set<Image>();
@@ -26,23 +39,7 @@ namespace Infrastructure.Persistence.Seeders
             var follows = context.Set<Follow>();
 
             // =========================================================
-            // 1. Chỉ seed khi target account CHƯA tồn tại
-            // =========================================================
-            var existedTarget = await accounts.FirstOrDefaultAsync(x =>
-                x.Email != null &&
-                x.Email.Trim().ToLower() == TargetEmail.ToLower());
-
-            if (existedTarget != null)
-            {
-                return;
-            }
-
-            var now = DateTime.UtcNow;
-            var passwordHasher = new PasswordHasher<Account>();
-            var random = new Random(20260331);
-
-            // =========================================================
-            // 2. Seed category cơ bản (nếu chưa có)
+            // 1. Seed category name dùng nội bộ
             // =========================================================
             var categoryNames = new List<string>
             {
@@ -60,7 +57,7 @@ namespace Infrastructure.Persistence.Seeders
             };
 
             // =========================================================
-            // 3. Tạo account chính để test
+            // 2. Tạo account chính để test bằng UserManager
             // =========================================================
             var targetAccount = new Account
             {
@@ -73,7 +70,7 @@ namespace Infrastructure.Persistence.Seeders
                 SecurityStamp = Guid.NewGuid().ToString(),
                 ConcurrencyStamp = Guid.NewGuid().ToString(),
                 CreatedAt = now,
-                Status = "Active", // nếu dự án bạn có hằng số riêng thì thay vào đây
+                Status = "Active",
                 VerificationCode = null,
                 CodeExpiredAt = null,
                 FreeTryOn = 20,
@@ -86,10 +83,7 @@ namespace Infrastructure.Persistence.Seeders
                 AccessFailedCount = 0
             };
 
-            targetAccount.PasswordHash = passwordHasher.HashPassword(targetAccount, "123456Aa@");
-
-            await accounts.AddAsync(targetAccount);
-            await context.SaveChangesAsync();
+            await CreateUserWithRoleAsync(userManager, targetAccount, DefaultPassword, DefaultUserRole);
 
             // Avatar account chính
             var targetAvatar = new Image
@@ -124,7 +118,7 @@ namespace Infrastructure.Persistence.Seeders
             await context.SaveChangesAsync();
 
             // =========================================================
-            // 4. Tạo nhiều account khác bằng vòng lặp
+            // 3. Tạo nhiều account khác bằng vòng lặp
             // =========================================================
             var demoAccounts = new List<Account>();
             var demoWardrobes = new List<Wardrobe>();
@@ -161,12 +155,9 @@ namespace Infrastructure.Persistence.Seeders
                     AccessFailedCount = 0
                 };
 
-                acc.PasswordHash = passwordHasher.HashPassword(acc, "123456Aa@");
+                await CreateUserWithRoleAsync(userManager, acc, DefaultPassword, DefaultUserRole);
                 demoAccounts.Add(acc);
             }
-
-            await accounts.AddRangeAsync(demoAccounts);
-            await context.SaveChangesAsync();
 
             // Wallet + Avatar + Wardrobe cho demo accounts
             var walletList = new List<Wallet>();
@@ -208,8 +199,7 @@ namespace Infrastructure.Persistence.Seeders
             await context.SaveChangesAsync();
 
             // =========================================================
-            // 5. Seed items cho target account
-            //    Mục tiêu: vừa có public vừa có private để test lọc
+            // 4. Seed items cho target account
             // =========================================================
             var itemNames = new[]
             {
@@ -266,7 +256,7 @@ namespace Infrastructure.Persistence.Seeders
                     Brand = brands[i % brands.Length],
                     Description = $"{SeedMarker} - item target #{i + 1}",
                     ItemEmbedding = CreateEmbedding(i + 1),
-                    IsPublic = i < 12, // 12 public, 6 private
+                    IsPublic = i < 12,
                     Status = i % 11 == 0 ? ItemStatus.Inactive : ItemStatus.Active,
                     CreatedAt = createdAt,
                     UpdateAt = createdAt
@@ -293,18 +283,15 @@ namespace Infrastructure.Persistence.Seeders
             await context.SaveChangesAsync();
 
             // =========================================================
-            // 6. Seed items cho các account demo
-            //    Mỗi user có nhiều item public/private khác nhau
+            // 5. Seed items cho các account demo
             // =========================================================
             var allDemoItems = new List<Item>();
             var allDemoItemImages = new List<Image>();
 
             for (int userIndex = 0; userIndex < demoAccounts.Count; userIndex++)
             {
-                var acc = demoAccounts[userIndex];
                 var wardrobe = demoWardrobes[userIndex];
-
-                int totalItems = 8 + userIndex % 5; // 8 -> 12 item / user
+                int totalItems = 8 + userIndex % 5;
 
                 for (int j = 0; j < totalItems; j++)
                 {
@@ -334,7 +321,7 @@ namespace Infrastructure.Persistence.Seeders
                         Brand = brands[(userIndex + j) % brands.Length],
                         Description = $"{SeedMarker} - item demo user {userIndex + 1}, item {j + 1}",
                         ItemEmbedding = CreateEmbedding((userIndex + 1) * 100 + j + 1),
-                        IsPublic = j < Math.Max(3, totalItems - 2), // đa số public để test profile người khác
+                        IsPublic = j < Math.Max(3, totalItems - 2),
                         Status = j % 7 == 0 ? ItemStatus.Inactive : ItemStatus.Active,
                         CreatedAt = createdAt,
                         UpdateAt = createdAt
@@ -362,11 +349,10 @@ namespace Infrastructure.Persistence.Seeders
             await context.SaveChangesAsync();
 
             // =========================================================
-            // 7. Seed outfit
+            // 6. Seed outfit
             // =========================================================
             var allOutfits = new List<Outfit>();
 
-            // Outfit cho target
             for (int i = 0; i < 4; i++)
             {
                 allOutfits.Add(new Outfit
@@ -378,7 +364,6 @@ namespace Infrastructure.Persistence.Seeders
                 });
             }
 
-            // Outfit cho demo users
             for (int i = 0; i < demoAccounts.Count; i++)
             {
                 int outfitCount = 2 + i % 2;
@@ -397,7 +382,6 @@ namespace Infrastructure.Persistence.Seeders
             await outfits.AddRangeAsync(allOutfits);
             await context.SaveChangesAsync();
 
-            // OutfitItems cho target outfit
             var targetPublicActiveItems = targetItems
                 .Where(x => x.IsPublic == true && x.Status == ItemStatus.Active)
                 .Take(8)
@@ -426,20 +410,12 @@ namespace Infrastructure.Persistence.Seeders
                 }
             }
 
-            // OutfitItems cho demo users
             foreach (var acc in demoAccounts)
             {
                 var userOutfits = allOutfits.Where(x => x.AccountId == acc.Id).ToList();
-                var userItems = allDemoItems
-                    .Where(x => x.Wardrobe.AccountId == acc.Id)
-                    .ToList();
 
-                // nếu nav chưa load thì lấy bằng wardrobeId
-                if (userItems.Count == 0)
-                {
-                    var userWardrobeId = demoWardrobes.First(x => x.AccountId == acc.Id).WardrobeId;
-                    userItems = allDemoItems.Where(x => x.WardrobeId == userWardrobeId).ToList();
-                }
+                var userWardrobeId = demoWardrobes.First(x => x.AccountId == acc.Id).WardrobeId;
+                var userItems = allDemoItems.Where(x => x.WardrobeId == userWardrobeId).ToList();
 
                 var activePublicItems = userItems
                     .Where(x => x.IsPublic == true && x.Status == ItemStatus.Active)
@@ -470,12 +446,11 @@ namespace Infrastructure.Persistence.Seeders
             await context.SaveChangesAsync();
 
             // =========================================================
-            // 8. Seed posts
+            // 7. Seed posts
             // =========================================================
             var postList = new List<Post>();
             var postImageList = new List<Image>();
 
-            // Post cho target
             for (int i = 0; i < 6; i++)
             {
                 var p = new Post
@@ -488,7 +463,6 @@ namespace Infrastructure.Persistence.Seeders
                     IsExpertPost = false,
                     Status = PostStatus.Published,
                     Visibility = PostVisibility.Visible,
-                    //Score = 10 + i,
                     LikeCount = 3 + i,
                     CommentCount = i,
                     ShareCount = i % 2
@@ -496,7 +470,6 @@ namespace Infrastructure.Persistence.Seeders
                 postList.Add(p);
             }
 
-            // Post cho demo accounts
             for (int i = 0; i < demoAccounts.Count; i++)
             {
                 int postCount = 3 + i % 4;
@@ -513,7 +486,6 @@ namespace Infrastructure.Persistence.Seeders
                         IsExpertPost = false,
                         Status = j % 6 == 0 ? PostStatus.Draft : PostStatus.Published,
                         Visibility = j % 5 == 0 ? PostVisibility.Hidden : PostVisibility.Visible,
-                        //Score = 5 + j,
                         LikeCount = 2 + j + i,
                         CommentCount = j,
                         ShareCount = j % 3
@@ -540,11 +512,10 @@ namespace Infrastructure.Persistence.Seeders
             await context.SaveChangesAsync();
 
             // =========================================================
-            // 9. Seed follow
+            // 8. Seed follow
             // =========================================================
             var followList = new List<Follow>();
 
-            // Nhiều user follow target
             foreach (var acc in demoAccounts.Take(8))
             {
                 followList.Add(new Follow
@@ -555,7 +526,6 @@ namespace Infrastructure.Persistence.Seeders
                 });
             }
 
-            // target follow một số user khác
             foreach (var acc in demoAccounts.Skip(2).Take(5))
             {
                 followList.Add(new Follow
@@ -566,7 +536,6 @@ namespace Infrastructure.Persistence.Seeders
                 });
             }
 
-            // user follow chéo nhau
             for (int i = 0; i < demoAccounts.Count; i++)
             {
                 if (i + 1 < demoAccounts.Count)
@@ -590,7 +559,6 @@ namespace Infrastructure.Persistence.Seeders
                 }
             }
 
-            // loại duplicate follow nếu có
             var distinctFollowList = followList
                 .GroupBy(x => new { x.UserId, x.FollowerId })
                 .Select(g => g.First())
@@ -601,7 +569,7 @@ namespace Infrastructure.Persistence.Seeders
             await context.SaveChangesAsync();
 
             // =========================================================
-            // 10. Cập nhật thống kê CountPost / CountFollower / CountFollowing
+            // 9. Cập nhật thống kê
             // =========================================================
             var allAccounts = new List<Account> { targetAccount };
             allAccounts.AddRange(demoAccounts);
@@ -620,9 +588,28 @@ namespace Infrastructure.Persistence.Seeders
             await context.SaveChangesAsync();
         }
 
-        // =========================================================
-        // Helpers
-        // =========================================================
+        private static async Task CreateUserWithRoleAsync(
+            UserManager<Account> userManager,
+            Account account,
+            string password,
+            string role)
+        {
+            var createResult = await userManager.CreateAsync(account, password);
+            if (!createResult.Succeeded)
+            {
+                var errors = string.Join("; ", createResult.Errors.Select(e => e.Description));
+                throw new InvalidOperationException(
+                    $"Tạo tài khoản '{account.Email}' thất bại: {errors}");
+            }
+
+            var roleResult = await userManager.AddToRoleAsync(account, role);
+            if (!roleResult.Succeeded)
+            {
+                var errors = string.Join("; ", roleResult.Errors.Select(e => e.Description));
+                throw new InvalidOperationException(
+                    $"Gán role '{role}' cho tài khoản '{account.Email}' thất bại: {errors}");
+            }
+        }
 
         private static Vector CreateEmbedding(int seed)
         {

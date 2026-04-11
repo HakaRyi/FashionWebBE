@@ -1,6 +1,6 @@
 ﻿using Domain.Dto.Social.Comment;
 
-namespace Domain.Dto.Social.Post
+namespace Domain.Contracts.Social.Post
 {
     public class PostDetailDto
     {
@@ -27,6 +27,10 @@ namespace Domain.Dto.Social.Post
         public bool IsLiked { get; set; }
 
         public bool IsSaved { get; set; }
+
+        public bool IsExpertPost { get; set; }
+
+        public bool IsLikedByExpert { get; set; }
 
         public DateTime CreatedAt { get; set; }
 
