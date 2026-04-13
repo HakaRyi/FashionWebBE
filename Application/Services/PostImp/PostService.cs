@@ -701,9 +701,9 @@ namespace Application.Services.PostImp
             if (!dto.EventId.HasValue) throw new Exception("Thiếu EventId để tham gia sự kiện.");
 
             var ev = await _eventRepo.GetByIdAsync(dto.EventId.Value);
-
+            if()
             if (ev == null) throw new Exception("Sự kiện không tồn tại.");
-            if (ev.Status != "Active") throw new Exception("Sự kiện không còn mở để tham gia.");
+            if (ev.Status != "Active" || ev.SubmissionDeadline > DateTime.Now) throw new Exception("Sự kiện không còn mở để tham gia.");
 
 
             await _uow.BeginTransactionAsync();
@@ -716,7 +716,7 @@ namespace Application.Services.PostImp
                 //wallet.Balance -= ev.AppliedFee;
                 //_walletRepo.Update(wallet);
 
-                var now = DateTime.UtcNow;
+                var now = DateTime.Now;
                 var imageUrls = await UploadImages(dto.Images!.ToList());
 
                 var post = new Post

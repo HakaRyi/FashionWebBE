@@ -4,6 +4,7 @@
     {
         public int MessageId { get; set; }
         public string GroupName { get; set; }
+        public int GroupId { get; set; }
         public string SenderName { get; set; }
         public string SenderAvatar { get; set; }    
         public int SenderId { get; set; }

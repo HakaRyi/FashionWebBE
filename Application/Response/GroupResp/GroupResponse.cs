@@ -14,6 +14,7 @@
 
         public DateTime? CreatedAt { get; set; }
         public string LastMessage { get; set; }
+        public DateTime? LastMessageAt { get; set; }
 
     }
 }
