@@ -1,4 +1,6 @@
-﻿using Microsoft.Extensions.Configuration;
+﻿using Domain.Entities;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -10,17 +12,17 @@ namespace Infrastructure.Persistence.Seeders
         {
             using var scope = serviceProvider.CreateScope();
             var services = scope.ServiceProvider;
+
             var context = services.GetRequiredService<FashionDbContext>();
             var logger = services.GetRequiredService<ILogger<FashionDbContext>>();
+            var configuration = services.GetRequiredService<IConfiguration>();
+            var userManager = services.GetRequiredService<UserManager<Account>>();
 
             try
             {
-
-                var configuration = services.GetRequiredService<IConfiguration>();
-
                 await DbInitializer.SeedRolesAndAdminAsync(services, configuration);
 
-                //await PublicProfileWardrobeSeeder.SeedAsync(context);
+                await PublicProfileWardrobeSeeder.SeedAsync(context, userManager);
 
                 logger.LogInformation("Database seeding completed successfully.");
             }

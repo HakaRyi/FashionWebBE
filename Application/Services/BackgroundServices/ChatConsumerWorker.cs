@@ -15,7 +15,7 @@ using Domain.Interfaces;
 
 namespace Application.Services.BackgroundServices
 {
-    public class ChatConsumerWorker : BackgroundService
+    public class ChatConsumerWorker : BackgroundService 
     {
         private readonly IServiceProvider _serviceProvider;
         private readonly IConfiguration _config;
@@ -54,6 +54,7 @@ namespace Application.Services.BackgroundServices
                     using (var scope = _serviceProvider.CreateScope())
                     {
                         var repo = scope.ServiceProvider.GetRequiredService<IChatRepository>();
+                        var groupRepo = scope.ServiceProvider.GetRequiredService<IGroupRepository>(); 
                         var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
                         var context = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
                         var hubContext = scope.ServiceProvider.GetRequiredService<IHubContext<ChatHub>>();
@@ -62,7 +63,7 @@ namespace Application.Services.BackgroundServices
                             AccountId = chatData.SenderId,
                             GroupId = chatData.GroupId,
                             Content = chatData.Content,
-                            SentAt = DateTime.UtcNow,
+                            SentAt = DateTime.Now,
                             ReplyToMessageId = chatData.ReplyToId > 0 ? chatData.ReplyToId : (int?)null,
                             IsRecalled = false,
                             Photos = chatData.ImageUrls.Select(url => new Photo { PhotoUrl = url }).ToList()
@@ -72,6 +73,7 @@ namespace Application.Services.BackgroundServices
                         await repo.AddMessage(newMessage);
                         await uow.CommitAsync();
                         var senderName = await repo.GetAccountById(chatData.SenderId);
+                        var group = await groupRepo.GetGroupById(chatData.GroupId);
                         var messageResponse = new MessageResponse
                         {
                             MessageId = newMessage.MessageId,
@@ -83,7 +85,9 @@ namespace Application.Services.BackgroundServices
                               .FirstOrDefault() ?? null,
                             SenderId = chatData.SenderId,
                             SentAt = newMessage.SentAt,
-                            Photos = chatData.ImageUrls
+                            Photos = chatData.ImageUrls,
+                            GroupId = chatData.GroupId,
+                            GroupName = group?.Name ?? (group?.IsGroup == false ? "Private Chat" : "Nhóm không tên")
                         };
                         await hubContext.Clients.Group(chatData.GroupId.ToString())
                                     .SendAsync("ReceiveMessage", messageResponse);

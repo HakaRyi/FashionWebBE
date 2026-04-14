@@ -1,7 +1,8 @@
 ﻿using Domain.Constants;
 
-namespace Domain.Dto.Social.Post
+namespace Domain.Contracts.Social.Post
 {
+
     public class PostFeedDto
     {
         public int PostId { get; set; }
@@ -23,12 +24,18 @@ namespace Domain.Dto.Social.Post
         public int CommentCount { get; set; }
 
         public int ShareCount { get; set; }
+
         public bool IsEvent { get; set; }
+
         public string? EventName { get; set; }
 
         public bool IsLiked { get; set; }
 
         public bool IsSaved { get; set; }
+
+        public bool IsExpertPost { get; set; }
+
+        public bool IsLikedByExpert { get; set; }
 
         public DateTime CreatedAt { get; set; }
 

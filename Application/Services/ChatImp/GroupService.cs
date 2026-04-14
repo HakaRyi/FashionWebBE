@@ -198,11 +198,14 @@ namespace Application.Services.ChatImp
             var groups = await _groupRepository.GetGroupsByAccountId(currentUserId);
             return groups.Select(group =>
             {
+                var lastMsg = group.Messages.OrderByDescending(m => m.SentAt).FirstOrDefault();
                 var response = new GroupResponse
                 {
                     GroupId = group.GroupId,
                     IsGroup = group.IsGroup,
-                    CreatedAt = group.CreatedAt
+                    CreatedAt = group.CreatedAt,
+                    LastMessage = lastMsg?.IsRecalled == true ? "Tin nhắn đã bị thu hồi" : lastMsg?.Content ?? "Bấm để trò chuyện",
+                    LastMessageAt = lastMsg?.SentAt ?? group.CreatedAt
                 };
 
                 if (group.IsGroup == false)
@@ -223,7 +226,8 @@ namespace Application.Services.ChatImp
                         .FirstOrDefault()?.ImageUrl ?? "https://cdn-icons-png.flaticon.com/512/8377/8377384.png";
                 }
                 return response;
-            }).ToList();
+            }).OrderByDescending(r => r.LastMessageAt)
+            .ToList();
         }
         
     }

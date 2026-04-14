@@ -2,10 +2,10 @@
 using Domain.Constants;
 using Domain.Dto.Admin;
 using Domain.Dto.Common;
-using Domain.Dto.Social.Post;
 using Infrastructure.Persistence;
 using Domain.Entities;
 using Domain.Interfaces;
+using Domain.Contracts.Social.Post;
 
 namespace Infrastructure.Repositories
 {
@@ -64,8 +64,10 @@ namespace Infrastructure.Repositories
                         .OrderByDescending(a => a.CreatedAt)
                         .Select(a => a.ImageUrl)
                         .FirstOrDefault(),
-                    IsEvent = p.EventId.HasValue ? true : false,
+
+                    IsEvent = p.EventId.HasValue,
                     EventName = p.EventId.HasValue ? p.Event!.Title : null,
+
                     Title = p.Title,
                     Content = p.Content,
 
@@ -88,7 +90,14 @@ namespace Infrastructure.Repositories
 
                     IsSaved = _db.PostSaves.Any(s =>
                         s.PostId == p.PostId &&
-                        s.AccountId == viewerId)
+                        s.AccountId == viewerId),
+
+                    IsExpertPost = p.IsExpertPost ?? false,
+
+                    IsLikedByExpert = _db.Reactions.Any(r =>
+                        r.PostId == p.PostId &&
+                        r.Account.ExpertProfile != null &&
+                        r.Account.ExpertProfile.Verified == true)
                 })
                 .ToListAsync();
         }
@@ -101,10 +110,10 @@ namespace Infrastructure.Repositories
                     p.PostId == postId &&
                     (
                         p.AccountId == viewerId ||
-                        
+                        (
                             p.Status == PostStatus.Published &&
                             p.Visibility == PostVisibility.Visible
-                        
+                        )
                     ))
                 .Select(p => new PostDetailDto
                 {
@@ -137,6 +146,13 @@ namespace Infrastructure.Repositories
                         s.PostId == p.PostId &&
                         s.AccountId == viewerId),
 
+                    IsExpertPost = p.IsExpertPost ?? false,
+
+                    IsLikedByExpert = _db.Reactions.Any(r =>
+                        r.PostId == p.PostId &&
+                        r.Account.ExpertProfile != null &&
+                        r.Account.ExpertProfile.Verified == true),
+
                     CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
 
                     Comments = new List<Domain.Dto.Social.Comment.CommentDto>()
@@ -166,8 +182,10 @@ namespace Infrastructure.Repositories
                         .OrderByDescending(a => a.CreatedAt)
                         .Select(a => a.ImageUrl)
                         .FirstOrDefault(),
-                    IsEvent = p.EventId.HasValue ? true : false,
+
+                    IsEvent = p.EventId.HasValue,
                     EventName = p.EventId.HasValue ? p.Event!.Title : null,
+
                     Title = p.Title,
                     Content = p.Content,
 
@@ -180,11 +198,6 @@ namespace Infrastructure.Repositories
                     CommentCount = p.CommentCount ?? 0,
                     ShareCount = p.ShareCount ?? 0,
 
-                    CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
-
-                    Status = p.Status,
-                    Visibility = p.Visibility,
-
                     IsLiked = _db.Reactions.Any(r =>
                         r.PostId == p.PostId &&
                         r.AccountId == ownerId),
@@ -193,10 +206,20 @@ namespace Infrastructure.Repositories
                         s.PostId == p.PostId &&
                         s.AccountId == ownerId),
 
+                    IsExpertPost = p.IsExpertPost ?? false,
+
+                    IsLikedByExpert = _db.Reactions.Any(r =>
+                        r.PostId == p.PostId &&
+                        r.Account.ExpertProfile != null &&
+                        r.Account.ExpertProfile.Verified == true),
+
+                    CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
+
+                    Status = p.Status,
+                    Visibility = p.Visibility,
+
                     IsOwner = true,
 
-                    // user ko được sửa khi đang Verifying hoặc PendingAdmin
-                    // Rejected / Published thì được sửa, sửa xong sẽ về Verifying lại
                     CanEdit = p.Status != PostStatus.Verifying
                            && p.Status != PostStatus.PendingAdmin,
 
@@ -249,6 +272,9 @@ namespace Infrastructure.Repositories
                         .Select(a => a.ImageUrl)
                         .FirstOrDefault(),
 
+                    IsEvent = p.EventId.HasValue,
+                    EventName = p.EventId.HasValue ? p.Event!.Title : null,
+
                     Title = p.Title,
                     Content = p.Content,
 
@@ -272,7 +298,14 @@ namespace Infrastructure.Repositories
 
                     IsSaved = viewerId.HasValue && _db.PostSaves.Any(s =>
                         s.PostId == p.PostId &&
-                        s.AccountId == viewerId.Value)
+                        s.AccountId == viewerId.Value),
+
+                    IsExpertPost = p.IsExpertPost ?? false,
+
+                    IsLikedByExpert = _db.Reactions.Any(r =>
+                        r.PostId == p.PostId &&
+                        r.Account.ExpertProfile != null &&
+                        r.Account.ExpertProfile.Verified == true)
                 })
                 .ToListAsync();
 
@@ -309,6 +342,9 @@ namespace Infrastructure.Repositories
                         .Select(a => a.ImageUrl)
                         .FirstOrDefault(),
 
+                    IsEvent = p.EventId.HasValue,
+                    EventName = p.EventId.HasValue ? p.Event!.Title : null,
+
                     Title = p.Title,
                     Content = p.Content,
 
@@ -332,7 +368,14 @@ namespace Infrastructure.Repositories
 
                     IsSaved = _db.PostSaves.Any(s =>
                         s.PostId == p.PostId &&
-                        s.AccountId == viewerId)
+                        s.AccountId == viewerId),
+
+                    IsExpertPost = p.IsExpertPost ?? false,
+
+                    IsLikedByExpert = _db.Reactions.Any(r =>
+                        r.PostId == p.PostId &&
+                        r.Account.ExpertProfile != null &&
+                        r.Account.ExpertProfile.Verified == true)
                 })
                 .ToListAsync();
         }
