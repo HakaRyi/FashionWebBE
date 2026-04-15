@@ -1,10 +1,13 @@
 ﻿using Application.Interfaces;
-using Microsoft.EntityFrameworkCore;
-using Domain.Entities;
 using Application.Request.GroupReq;
+using Application.Response.AccountRep;
 using Application.Response.GroupResp;
 using Application.Utils;
+using Application.Utils.SignalR;
+using Domain.Entities;
 using Domain.Interfaces;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services.ChatImp
 {
@@ -15,33 +18,52 @@ namespace Application.Services.ChatImp
         private readonly ICurrentUserService _currentUserService;
         private readonly IAccountRepository _accountRepository;
         private readonly ICloudStorageService _storage;
+        private readonly IHubContext<ChatHub> _hubContext;
         public GroupService(IUnitOfWork unitOfWork,
             IGroupRepository groupRepository,
             ICurrentUserService currentUserService,
             IAccountRepository accountRepository,
-            ICloudStorageService storageService)
+            ICloudStorageService storageService,
+            IHubContext<ChatHub> hubContext)
         {
             _unitOfWork = unitOfWork;
             _groupRepository = groupRepository;
             _currentUserService = currentUserService;
             _accountRepository = accountRepository;
             _storage = storageService;
+            _hubContext = hubContext;
         }
 
         public async Task CreateGroup(GroupRequest request)
         {
             var currentUserId = _currentUserService.GetUserId() ?? 0;
             if (currentUserId == 0) throw new Exception("User not authenticated");
+            if (request.MemberIds == null || !request.MemberIds.Any())
+            {
+                throw new Exception("Cần ít nhất 2 thành viên để tạo nhóm.");
+            }
+            var groupUsers = new List<GroupUser>
+            {
+                new GroupUser { AccountId = currentUserId, JoinedAt = DateTime.Now }
+            };
+            foreach (var memberId in request.MemberIds.Distinct())
+            {
+                if (memberId != currentUserId) 
+                {
+                    groupUsers.Add(new GroupUser
+                    {
+                        AccountId = memberId,
+                        JoinedAt = DateTime.Now
+                    });
+                }
+            }
             var group = new Group
             {
-                Name = request.Name,
+                Name = string.IsNullOrWhiteSpace(request.Name) ? "Nhóm mới" : request.Name,
                 IsGroup = true,
                 CreateBy = currentUserId,
-                CreatedAt = DateTime.UtcNow,
-                GroupUsers = new List<GroupUser>
-                {
-                    new GroupUser { AccountId = currentUserId, JoinedAt = DateTime.Now }
-                }
+                CreatedAt = DateTime.Now,
+                GroupUsers = groupUsers
             };
             if (request.Avatar != null)
             {
@@ -55,6 +77,11 @@ namespace Application.Services.ChatImp
             }
             await _groupRepository.CreateGroup(group);
             await _unitOfWork.CommitAsync();
+            foreach (var memberId in request.MemberIds)
+            {
+                await _hubContext.Clients.User(memberId.ToString()).SendAsync("NewGroupCreated", group.GroupId);
+            }
+            await _hubContext.Clients.User(currentUserId.ToString()).SendAsync("NewGroupCreated", group.GroupId);
 
         }
         public async Task AddMemberToGroup(int groupId, int userId)
@@ -81,6 +108,7 @@ namespace Application.Services.ChatImp
                 JoinedAt = DateTime.Now
             });
             await _unitOfWork.CommitAsync();
+            await _hubContext.Clients.User(userId.ToString()).SendAsync("NewGroupCreated", groupId);
         }
         public async Task KickMemberToGroup(int groupId, int userId)
         {
@@ -119,6 +147,8 @@ namespace Application.Services.ChatImp
             };
             _groupRepository.CreateGroup(group);
             await _unitOfWork.CommitAsync();
+            await _hubContext.Clients.User(currentUserId.ToString()).SendAsync("NewGroupCreated", group.GroupId);
+            await _hubContext.Clients.User(targetUserId.ToString()).SendAsync("NewGroupCreated", group.GroupId);
             return group.GroupId;
         }
 
@@ -216,6 +246,7 @@ namespace Application.Services.ChatImp
                     response.Avatar = otherUser?.Avatars
                         .OrderByDescending(img => img.CreatedAt)
                         .FirstOrDefault()?.ImageUrl;
+                    response.OtherUserId = otherUser?.Id ?? 0;
                 }
                 else
                 {
@@ -223,12 +254,44 @@ namespace Application.Services.ChatImp
                     response.IsOnline = "Online";
                     response.Avatar = group.Images?
                         .OrderByDescending(img => img.CreatedAt)
-                        .FirstOrDefault()?.ImageUrl ?? "https://cdn-icons-png.flaticon.com/512/8377/8377384.png";
+                        .FirstOrDefault()?.ImageUrl ?? "https://static.vecteezy.com/system/resources/previews/009/292/244/non_2x/default-avatar-icon-of-social-media-user-vector.jpg";
                 }
                 return response;
             }).OrderByDescending(r => r.LastMessageAt)
             .ToList();
         }
-        
+
+        public async Task<List<UserInGroupResponse>> GetUsersInGroup(int groupId)
+        {
+            var groupUsers = await _groupRepository.GetUsersInGroup(groupId);
+            return groupUsers.Select(gu => new UserInGroupResponse
+            {
+                Id = gu.AccountId,
+                Username = gu.Account?.UserName ?? "Unknown",
+                Avatar = gu.Account?.Avatars
+                    .OrderByDescending(a => a.CreatedAt)
+                    .FirstOrDefault()?.ImageUrl,
+                Status = gu.Account?.Status ?? "Unknown",
+                IsOnline = gu.Account?.IsOnline
+            })
+                .ToList();
+        }
+
+        public async Task<List<PhotoInGroupResponse>> GetPhotos(int groupId)
+        {
+            var photos = await _groupRepository.GetPhotosInGroup(groupId);
+            return photos.Select(p => new PhotoInGroupResponse
+            {
+                PhotoId = p.PhotoId,
+                Url = p.PhotoUrl,
+                GroupId = p.Message.GroupId,
+                AccountId = p.Message.Account.Id,
+                AccountName = p.Message.Account?.UserName ?? "Unknown",
+                AccountAvatar = p.Message.Account?.Avatars
+                    .OrderByDescending(a => a.CreatedAt)
+                    .FirstOrDefault()?.ImageUrl,
+                CreatedAt = p.Message.SentAt,
+            }).ToList();
+        }
     }
 }

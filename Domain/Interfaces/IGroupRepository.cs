@@ -15,5 +15,7 @@ namespace Domain.Interfaces
         Task UpdateGroup(Group group);
         Task DeleteGroup(Group group);
         Task<Group?> GetExisting1v1Room(int userId, int targetId);
+        Task<List<GroupUser>> GetUsersInGroup(int groupId);
+        Task<List<Photo>> GetPhotosInGroup(int groupId);
     }
 }

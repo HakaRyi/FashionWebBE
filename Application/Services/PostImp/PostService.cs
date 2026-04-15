@@ -701,7 +701,6 @@ namespace Application.Services.PostImp
             if (!dto.EventId.HasValue) throw new Exception("Thiếu EventId để tham gia sự kiện.");
 
             var ev = await _eventRepo.GetByIdAsync(dto.EventId.Value);
-            if()
             if (ev == null) throw new Exception("Sự kiện không tồn tại.");
             if (ev.Status != "Active" || ev.SubmissionDeadline > DateTime.Now) throw new Exception("Sự kiện không còn mở để tham gia.");
 
