@@ -26,5 +26,6 @@ namespace Application.Services.OrderImp
         Task<List<RefundRequestResponse>> GetAllRefundRequestsAsync();
         Task<OrderResponse> RejectRefundAsync(int orderId, string adminNote);
         Task<List<RefundRequestResponse>> GetMyRefundRequestsAsync(int buyerId);
+        Task<OrderResponse> UpdateRefundStatus(int orderId);
     }
 }

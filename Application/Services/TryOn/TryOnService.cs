@@ -93,7 +93,6 @@ namespace Application.Services.TryOn
             {
                 wallet = await _walletRepository.GetByAccountIdAsync(userId)
                     ?? throw new KeyNotFoundException("Không tìm thấy ví.");
-
                 var balanceBefore = wallet.Balance;
 
                 wallet.Balance -= _tryOnPrice;

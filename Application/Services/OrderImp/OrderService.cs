@@ -168,12 +168,14 @@ namespace Application.Services.OrderImp
                 }
                 else if (status == OrderStatus.Done)
                 {
-                    if (order.BuyerId != currentUserId)
-                        throw new UnauthorizedAccessException("Chỉ buyer mới được xác nhận hoàn tất.");
-
+                    if(order.Status == OrderStatus.Refunded)
+                    {
+                        var res = await ProcessRefundAsync(orderId);
+                        return res;
+                    }
+                        
                     if (order.Status != OrderStatus.Completed)
                         throw new Exception("Đơn hàng chưa giao thành công.");
-
                     var buyerWallet = await _walletRepo.GetByAccountIdAsync(order.BuyerId)
                                       ?? throw new Exception("Ví buyer không tồn tại.");
                     var sellerWallet = await _walletRepo.GetByAccountIdAsync(order.SellerId)
@@ -230,7 +232,7 @@ namespace Application.Services.OrderImp
                         Status = TransactionStatus.Success
                     });
                 }
-                else if (status == OrderStatus.Cancelled || status == OrderStatus.Refunded)
+                else if (status == OrderStatus.Cancelled)
                 {
                     if (order.Status == OrderStatus.Processing || order.Status == OrderStatus.Shipping)
                     {
@@ -483,6 +485,10 @@ namespace Application.Services.OrderImp
             await _unitOfWork.BeginTransactionAsync();
             try
             {
+                order.Status = OrderStatus.Refunding;
+                order.UpdatedAt = DateTime.UtcNow;
+                _orderRepo.Update(order);
+
                 var refundRequest = new RefundRequest
                 {
                     OrderId = orderId,
@@ -493,6 +499,7 @@ namespace Application.Services.OrderImp
                     CreatedAt = DateTime.UtcNow
                 };
                 await _refundRepo.AddAsync(refundRequest);
+               
 
                 await _unitOfWork.CommitAsync();
             }
@@ -510,10 +517,6 @@ namespace Application.Services.OrderImp
             var order = await _orderRepo.GetByIdAsync(orderId);
             if (order == null) throw new Exception("Order not found");
 
-            var refundRequest = await _refundRepo.GetByOrderIdAsync(orderId);
-            if (refundRequest == null) throw new Exception("Refund request not found");
-            if (refundRequest.Status != "PENDING") throw new Exception("Refund request already processed");
-
             var buyerWallet = await _walletRepo.GetByAccountIdAsync(order.BuyerId);
             if (buyerWallet == null) throw new Exception("Buyer wallet not found");
 
@@ -529,17 +532,13 @@ namespace Application.Services.OrderImp
                 buyerWallet.UpdatedAt = DateTime.UtcNow;
                 _walletRepo.Update(buyerWallet);
 
-                order.Status = OrderStatus.Refunded;
+                order.Status = OrderStatus.Done;
                 order.UpdatedAt = DateTime.UtcNow;
                 _orderRepo.Update(order);
 
                 escrow.Status = EscrowStatus.Refunded;
                 escrow.ResolvedAt = DateTime.UtcNow;
                 _escrowRepo.Update(escrow);
-
-                refundRequest.Status = "APPROVED";
-                refundRequest.ProcessedAt = DateTime.UtcNow;
-                _refundRepo.Update(refundRequest);
 
                 await _transactionRepo.AddAsync(new Transaction
                 {
@@ -649,6 +648,45 @@ namespace Application.Services.OrderImp
                 CreatedAt = r.CreatedAt,
                 ProcessedAt = r.ProcessedAt
             }).ToList();
+        }
+
+        public async Task<OrderResponse> UpdateRefundStatus(int orderId)
+        {
+            var refundRequest = await _refundRepo.GetByOrderIdAsync(orderId);
+            if (refundRequest == null) throw new Exception("Refund request not found");
+            if (refundRequest.Status != "PENDING") throw new Exception("Refund request already processed");
+            Order updatedOrder;
+
+            var order = await _orderRepo.GetByIdAsync(orderId);
+            if(order == null) throw new Exception("Order not found");
+            if(order.Status != OrderStatus.Refunding) throw new Exception("Order is not in refunding status");
+
+            await _unitOfWork.BeginTransactionAsync();
+            try
+            {
+                refundRequest.Status = "APPROVED";
+                refundRequest.ProcessedAt = DateTime.UtcNow;
+                _refundRepo.Update(refundRequest);
+
+                order.Status = OrderStatus.Refunded;
+                updatedOrder = _orderRepo.Update(order);
+
+                await _unitOfWork.CommitAsync();
+
+            }
+            catch
+            {
+                await _unitOfWork.RollbackAsync();
+                throw;
+            }
+            var response = MapToResponse(updatedOrder);
+
+            await _hubContext.Clients.Group($"User_{updatedOrder.BuyerId}")
+                .SendAsync("ReceiveNewOrder", response);
+
+            await _hubContext.Clients.Group($"User_{updatedOrder.SellerId}")
+                .SendAsync("ReceiveNewOrder", response);
+            return response;
         }
     }
 }

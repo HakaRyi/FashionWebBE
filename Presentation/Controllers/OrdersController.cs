@@ -277,7 +277,7 @@ namespace Presentation.Controllers
         {
             try
             {
-                var result = await _orderService.ProcessRefundAsync(id);
+                var result = await _orderService.UpdateRefundStatus(id);
                 return Ok(result);
             }
             catch (Exception ex)
