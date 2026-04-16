@@ -193,9 +193,14 @@ namespace Infrastructure.Repositories
             var query = _context.Items.AsQueryable();
 
             query = query.Where(item =>
-                scopeRequest.UseMyWardrobe && item.Wardrobe.AccountId == currentAccountId ||
-                scopeRequest.UseSavedItems && item.SavedByUsers.Any(s => s.AccountId == currentAccountId) ||
-                scopeRequest.UseCommunityItems && item.IsPublic == true && item.Wardrobe.AccountId != currentAccountId
+                (scopeRequest.IncludeMyWardrobe && item.Wardrobe.AccountId == currentAccountId) ||
+
+                (scopeRequest.TargetWardrobeIds.Any() &&
+                 scopeRequest.TargetWardrobeIds.Contains(item.WardrobeId) &&
+                 item.IsPublic == true) ||
+
+                 (scopeRequest.IncludeSavedItems &&
+         _context.SavedItems.Any(s => s.AccountId == currentAccountId && s.ItemId == item.ItemId))
             );
 
             if (!string.IsNullOrEmpty(scopeRequest.ReferenceCategory))

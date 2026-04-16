@@ -10,11 +10,11 @@ namespace Domain.Dto
     {
         public string Prompt { get; set; } = string.Empty;
 
-        public bool UseMyWardrobe { get; set; } = true;
+        public List<int> TargetWardrobeIds { get; set; } = new();
 
-        public bool UseSavedItems { get; set; } = true;
+        public bool IncludeSavedItems { get; set; }
 
-        public bool UseCommunityItems { get; set; } = false;
+        public bool IncludeMyWardrobe { get; set; }
 
         public int Limit { get; set; } = 10;
 

@@ -22,6 +22,9 @@ namespace Application.Services.Items
         private readonly ICurrentUserService _currentUserService;
         private readonly ICloudStorageService _cloudStorageService;
         private readonly IImageRepository _imageRepository;
+        private readonly IRecommendationHistoryRepository _recommendationHistoryRepository;
+        private readonly IUnitOfWork _unitOfWork;
+        private readonly IItemSaveRepository _itemSaveRepo;
 
         public ItemService(
             IItemRepository itemRepo,
@@ -30,7 +33,10 @@ namespace Application.Services.Items
             ICurrentUserService currentUserService,
             ICloudStorageService cloudStorageService,
             IGeminiService geminiService,
-            IImageRepository imageRepository)
+            IImageRepository imageRepository,
+            IRecommendationHistoryRepository recommendationHistoryRepository,
+            IUnitOfWork unitOfWork,
+            IItemSaveRepository itemSaveRepo)
         {
             _itemRepo = itemRepo;
             _aiService = aiService;
@@ -39,6 +45,9 @@ namespace Application.Services.Items
             _cloudStorageService = cloudStorageService;
             _geminiService = geminiService;
             _imageRepository = imageRepository;
+            _recommendationHistoryRepository = recommendationHistoryRepository;
+            _unitOfWork = unitOfWork;
+            _itemSaveRepo = itemSaveRepo;
         }
 
         public async Task<IEnumerable<ItemResponseDto>> GetAllItemsAsync()
@@ -114,6 +123,7 @@ namespace Application.Services.Items
 
         public async Task<List<ItemResponseDto>> GetSmartRecommendationsAsync(SmartRecommendationRequestDto request)
         {
+            Console.WriteLine($"DEBUG: IncludeMyWardrobe = {request.IncludeMyWardrobe}");
             if (request == null)
                 return new List<ItemResponseDto>();
 
@@ -148,7 +158,7 @@ CRITICAL: Do NOT output metadata for the reference item. Output metadata ONLY fo
             Vector queryVector = await _aiService.GetTextEmbeddingAsync(intent.CleanPrompt);
 
             int currentAccountId = _currentUserService.GetRequiredUserId();
-
+            scopeRequestForRepo.IncludeSavedItems = request.IncludeSavedItems;
             var candidates = await _itemRepo.GetHybridRecommendationsAsync(
                 queryVector,
                 intent,
@@ -157,9 +167,28 @@ CRITICAL: Do NOT output metadata for the reference item. Output metadata ONLY fo
             );
 
             if (!candidates.Any())
+            {
                 return new List<ItemResponseDto>();
+            }
+            else
+            {
+                var history = new RecommendationHistory
+                {
+                    AccountId = currentAccountId,
+                    ReferenceItemId = request.ReferenceItemId,
+                    Prompt = request.Prompt,
+                    CreatedAt = DateTime.UtcNow,
+                    RecommendedItems = candidates.Select(c => new RecommendationDetail
+                    {
+                        ItemId = c.ItemId
+                    }).ToList()
+                };
+                await _recommendationHistoryRepository.AddAsync(history);
+                await _unitOfWork.CommitAsync();
+            }
 
-            return candidates.Adapt<List<ItemResponseDto>>();
+
+                return candidates.Adapt<List<ItemResponseDto>>();
         }
 
         public async Task<IEnumerable<ItemResponseDto>> GetMyItemsAsync(int accountId)

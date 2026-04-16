@@ -1,4 +1,4 @@
-﻿using Domain.Dto.Social.Post;
+﻿using Domain.Contracts.Social.Post;
 using Domain.Entities;
 
 namespace Application.Utils.Mapper

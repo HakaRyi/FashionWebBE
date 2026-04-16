@@ -87,14 +87,21 @@ namespace Application.Services
 
         public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
         {
-            var existingUser = await _userManager.FindByEmailAsync(request.Email);
+            var existingEmail = await _userManager.FindByEmailAsync(request.Email);
+            if (existingEmail != null)
+            {
+                return new AuthResponse { Success = false, Message = "Email này đã được sử dụng." };
+            }
+
+            var existingUser = await _userManager.FindByNameAsync(request.Username);
             if (existingUser != null)
             {
-                return new AuthResponse
-                {
-                    Success = false,
-                    Message = "Email này đã được sử dụng."
-                };
+                return new AuthResponse { Success = false, Message = "Tên đăng nhập này đã tồn tại." };
+            }
+
+            if (request.DateOfBirth > DateTime.UtcNow.AddYears(-13))
+            {
+                return new AuthResponse { Success = false, Message = "Bạn phải trên 13 tuổi để đăng ký." };
             }
 
             var verificationCode = GenerateRandomVerificationCode();
@@ -103,6 +110,7 @@ namespace Application.Services
             {
                 UserName = request.Username,
                 Email = request.Email,
+                DateOfBirth = request.DateOfBirth,
                 CreatedAt = DateTime.UtcNow,
                 Status = "Unverified",
                 VerificationCode = verificationCode,

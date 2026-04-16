@@ -4,6 +4,7 @@ using Application.Response.EventResp;
 using Domain.Entities;
 using Domain.Interfaces;
 using Mapster;
+using static Application.Response.EventResp.EventEndedResponse;
 
 namespace Application.Services.EventServices
 {
@@ -124,6 +125,47 @@ namespace Application.Services.EventServices
                 await _unitOfWork.RollbackAsync();
                 throw new Exception($"Lỗi trong quá trình chấm điểm: Lỗi hệ thống. Chi tiết: {ex.Message}");
             }
+        }
+
+        public async Task<PostRatingDetailResponse> GetPostRatingDetailsAsync(int postId)
+        {
+            var post = await _postRepo.GetByIdFullRangeAsync(postId);
+            if (post == null) throw new Exception("Không tìm thấy bài viết.");
+
+            var expertRatings = await _ratingRepo.GetDetailedRatingsByPostIdAsync(postId);
+
+            int currentExpertId = _currentUserService.GetRequiredUserId();
+            bool isExpert = post.Event?.EventExperts?.Any(ee => ee.ExpertId == currentExpertId) ?? false;
+
+            var response = new PostRatingDetailResponse
+            {
+                PostId = post.PostId,
+                Title = post.Title ?? "Untitled",
+                FinalLikeCount = post.Scoreboard?.FinalLikeCount ?? 0,
+                FinalShareCount = post.Scoreboard?.FinalShareCount ?? 0,
+                FinalScore = post.Scoreboard?.FinalScore ?? 0,
+                CommunityScore = post.Scoreboard?.CommunityScore ?? 0,
+                ExpertTotalScore = post.Scoreboard?.ExpertScore ?? 0,
+                IsExpert = isExpert,
+                PointPerLike = post.Event?.PointPerLike,
+                PointPerShare = post.Event?.PointPerShare,
+                ExpertReviews = expertRatings.Select(rating => new ExpertReviewDetail
+                {
+                    ExpertId = rating.ExpertId,
+                    ExpertName = rating.Expert?.UserName ?? "Unknown Expert",
+                    TotalScoreGiven = rating.Score,
+                    Reason = rating.Reason,
+                    RatedAt = rating.UpdatedAt,
+                    CriteriaScores = rating.CriterionRatings.Select(cr => new CriterionScoreDetail
+                    {
+                        CriterionName = cr.EventCriterion?.Name ?? "Unknown Criterion",
+                        Score = cr.Score,
+                        WeightPercentage = cr.EventCriterion?.WeightPercentage ?? 0
+                    }).ToList()
+                }).ToList()
+            };
+
+            return response;
         }
     }
 }

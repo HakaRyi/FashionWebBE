@@ -100,5 +100,18 @@ namespace Presentation.Controllers
             });
 
         }
+        [HttpGet("get-users-in-group/{groupId}")]
+        public async Task<IActionResult> GetUsersInGroup([FromRoute] int groupId)
+        {
+            var result = await _groupService.GetUsersInGroup(groupId);
+            return Ok(result);
+        }
+        [HttpGet("get-photos-in-group/{groupId}")]
+        public async Task<IActionResult> GetPhotosInGroup([FromRoute] int groupId)
+        {
+            var result = await _groupService.GetPhotos(groupId);
+            return Ok(result);
+
+        }
     }
 }

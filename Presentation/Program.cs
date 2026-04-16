@@ -46,6 +46,7 @@ using Presentation.Middlewares;
 using Presentation.Services;
 using Quartz;
 using System.Text;
+using Application.Services.RecommendationImp;
 
 
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
@@ -129,6 +130,7 @@ builder.Services.AddScoped<ISystemSettingRepository, SystemSettingRepository>();
 builder.Services.AddScoped<ISearchHistoryRepository, SearchHistoryRepository>();
 builder.Services.AddScoped<IItemSaveRepository, ItemSaveRepository>();
 builder.Services.AddScoped<IEventCriterionRepository, EventCriterionRepository>();
+builder.Services.AddScoped<IRecommendationHistoryRepository, RecommendationHistoryRepository>();
 
 
 #endregion
@@ -177,6 +179,9 @@ builder.Services.AddScoped<ITopUpPaymentProcessor, TopUpPaymentProcessor>();
 builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
 builder.Services.AddScoped<IItemSaveService, ItemSaveService>();
 builder.Services.AddScoped<IRefundRequestRepository, RefundRequestRepository>();
+builder.Services.AddScoped<IRecommendationService,RecommendationService>();
+builder.Services.AddScoped<IReputationHistoryService, ReputationHistoryService>();
+builder.Services.AddScoped<IFileService, GoogleDriveService>();
 
 
 #endregion
@@ -192,11 +197,11 @@ builder.Services.AddHttpClient<IAIDetectionService, AIDetectionService>(client =
 
 builder.Services.AddHttpClient<ITryOnService, TryOnService>();
 
-builder.Services.AddScoped<IFileService>(sp =>
-{
-    var env = sp.GetRequiredService<IWebHostEnvironment>();
-    return new LocalFileService(env.WebRootPath);
-});
+//builder.Services.AddScoped<IFileService>(sp =>
+//{
+//    var env = sp.GetRequiredService<IWebHostEnvironment>();
+//    return new LocalFileService(env.WebRootPath);
+//});
 
 builder.Services.AddScoped<EmailService>();
 

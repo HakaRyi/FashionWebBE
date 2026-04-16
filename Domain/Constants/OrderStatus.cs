@@ -8,6 +8,7 @@
         public const string Shipping = "SHIPPING";
         public const string Completed = "COMPLETED";
         public const string Cancelled = "CANCELLED";
+        public const string Refunding = "REFUNDING";
         public const string Refunded = "REFUNDED";
         public const string Done = "DONE";
 
@@ -20,6 +21,7 @@
             Completed,
             Cancelled,
             Refunded,
+            Refunding,
             Done,
         };
 

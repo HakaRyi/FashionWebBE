@@ -13,5 +13,6 @@ namespace Application.Services.Wardrobe
         Task<List<ItemDto>> GetMyWardrobeItemsAsync();
         Task<PublicProfileDto?> GetPublicProfileAsync(int accountId);
         Task<PublicWardrobeResponseDto?> GetPublicWardrobeAsync(int accountId, int page, int pageSize);
+        Task<List<WardrobeSearchResponseDto>> SearchWardrobeByUsernameAsync(string username);
     }
 }

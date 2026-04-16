@@ -32,6 +32,13 @@ namespace Infrastructure.Repositories
                 .FirstOrDefaultAsync(f => f.ExpertProfileId == profileId);
         }
 
+        public async Task<IEnumerable<ExpertRequest>> GetListByProfileId(int profileId)
+        {
+            return await _db.ExpertRequests
+                .Where(r => r.ExpertProfileId == profileId)
+                .ToListAsync();
+        }
+
         public async Task<IEnumerable<ExpertRequest>> GetStatusApplicationsAsync(string status)
         {
             return await _db.ExpertRequests
@@ -54,6 +61,14 @@ namespace Infrastructure.Repositories
 
         public void Update(ExpertRequest file)
         {
+            var trackedEntity = _db.ExpertRequests.Local
+                .FirstOrDefault(e => e.ExpertFileId == file.ExpertFileId);
+
+            if (trackedEntity != null)
+            {
+                _db.Entry(trackedEntity).State = EntityState.Detached;
+            }
+
             _db.ExpertRequests.Update(file);
         }
 

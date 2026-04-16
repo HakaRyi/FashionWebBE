@@ -2,10 +2,10 @@
 using Domain.Constants;
 using Domain.Dto.Admin;
 using Domain.Dto.Common;
-using Domain.Dto.Social.Post;
 using Infrastructure.Persistence;
 using Domain.Entities;
 using Domain.Interfaces;
+using Domain.Contracts.Social.Post;
 
 namespace Infrastructure.Repositories
 {
@@ -32,8 +32,20 @@ namespace Infrastructure.Repositories
         {
             return await _db.Posts
                 .Include(p => p.Images)
+                .Include(p => p.Scoreboard)
                 .Include(p => p.Account).ThenInclude(a => a.Avatars)
                 .Include(p => p.Event)
+                .FirstOrDefaultAsync(p => p.PostId == postId);
+        }
+
+        public async Task<Post?> GetByIdFullRangeAsync(int postId)
+        {
+            return await _db.Posts
+                .Include(p => p.Images)
+                .Include(p => p.Scoreboard)
+                .Include(p => p.Account).ThenInclude(a => a.Avatars)
+                .Include(p => p.Event)
+                .ThenInclude(e => e.EventExperts)
                 .FirstOrDefaultAsync(p => p.PostId == postId);
         }
 
@@ -63,8 +75,10 @@ namespace Infrastructure.Repositories
                         .OrderByDescending(a => a.CreatedAt)
                         .Select(a => a.ImageUrl)
                         .FirstOrDefault(),
-                    IsEvent = p.EventId.HasValue ? true : false,
+
+                    IsEvent = p.EventId.HasValue,
                     EventName = p.EventId.HasValue ? p.Event!.Title : null,
+
                     Title = p.Title,
                     Content = p.Content,
 
@@ -87,7 +101,14 @@ namespace Infrastructure.Repositories
 
                     IsSaved = _db.PostSaves.Any(s =>
                         s.PostId == p.PostId &&
-                        s.AccountId == viewerId)
+                        s.AccountId == viewerId),
+
+                    IsExpertPost = p.IsExpertPost ?? false,
+
+                    IsLikedByExpert = _db.Reactions.Any(r =>
+                        r.PostId == p.PostId &&
+                        r.Account.ExpertProfile != null &&
+                        r.Account.ExpertProfile.Verified == true)
                 })
                 .ToListAsync();
         }
@@ -100,10 +121,10 @@ namespace Infrastructure.Repositories
                     p.PostId == postId &&
                     (
                         p.AccountId == viewerId ||
-                        
+                        (
                             p.Status == PostStatus.Published &&
                             p.Visibility == PostVisibility.Visible
-                        
+                        )
                     ))
                 .Select(p => new PostDetailDto
                 {
@@ -136,6 +157,13 @@ namespace Infrastructure.Repositories
                         s.PostId == p.PostId &&
                         s.AccountId == viewerId),
 
+                    IsExpertPost = p.IsExpertPost ?? false,
+
+                    IsLikedByExpert = _db.Reactions.Any(r =>
+                        r.PostId == p.PostId &&
+                        r.Account.ExpertProfile != null &&
+                        r.Account.ExpertProfile.Verified == true),
+
                     CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
 
                     Comments = new List<Domain.Dto.Social.Comment.CommentDto>()
@@ -165,8 +193,10 @@ namespace Infrastructure.Repositories
                         .OrderByDescending(a => a.CreatedAt)
                         .Select(a => a.ImageUrl)
                         .FirstOrDefault(),
-                    IsEvent = p.EventId.HasValue ? true : false,
+
+                    IsEvent = p.EventId.HasValue,
                     EventName = p.EventId.HasValue ? p.Event!.Title : null,
+
                     Title = p.Title,
                     Content = p.Content,
 
@@ -179,11 +209,6 @@ namespace Infrastructure.Repositories
                     CommentCount = p.CommentCount ?? 0,
                     ShareCount = p.ShareCount ?? 0,
 
-                    CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
-
-                    Status = p.Status,
-                    Visibility = p.Visibility,
-
                     IsLiked = _db.Reactions.Any(r =>
                         r.PostId == p.PostId &&
                         r.AccountId == ownerId),
@@ -192,10 +217,20 @@ namespace Infrastructure.Repositories
                         s.PostId == p.PostId &&
                         s.AccountId == ownerId),
 
+                    IsExpertPost = p.IsExpertPost ?? false,
+
+                    IsLikedByExpert = _db.Reactions.Any(r =>
+                        r.PostId == p.PostId &&
+                        r.Account.ExpertProfile != null &&
+                        r.Account.ExpertProfile.Verified == true),
+
+                    CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
+
+                    Status = p.Status,
+                    Visibility = p.Visibility,
+
                     IsOwner = true,
 
-                    // user ko được sửa khi đang Verifying hoặc PendingAdmin
-                    // Rejected / Published thì được sửa, sửa xong sẽ về Verifying lại
                     CanEdit = p.Status != PostStatus.Verifying
                            && p.Status != PostStatus.PendingAdmin,
 
@@ -248,6 +283,9 @@ namespace Infrastructure.Repositories
                         .Select(a => a.ImageUrl)
                         .FirstOrDefault(),
 
+                    IsEvent = p.EventId.HasValue,
+                    EventName = p.EventId.HasValue ? p.Event!.Title : null,
+
                     Title = p.Title,
                     Content = p.Content,
 
@@ -271,7 +309,14 @@ namespace Infrastructure.Repositories
 
                     IsSaved = viewerId.HasValue && _db.PostSaves.Any(s =>
                         s.PostId == p.PostId &&
-                        s.AccountId == viewerId.Value)
+                        s.AccountId == viewerId.Value),
+
+                    IsExpertPost = p.IsExpertPost ?? false,
+
+                    IsLikedByExpert = _db.Reactions.Any(r =>
+                        r.PostId == p.PostId &&
+                        r.Account.ExpertProfile != null &&
+                        r.Account.ExpertProfile.Verified == true)
                 })
                 .ToListAsync();
 
@@ -308,6 +353,9 @@ namespace Infrastructure.Repositories
                         .Select(a => a.ImageUrl)
                         .FirstOrDefault(),
 
+                    IsEvent = p.EventId.HasValue,
+                    EventName = p.EventId.HasValue ? p.Event!.Title : null,
+
                     Title = p.Title,
                     Content = p.Content,
 
@@ -331,7 +379,14 @@ namespace Infrastructure.Repositories
 
                     IsSaved = _db.PostSaves.Any(s =>
                         s.PostId == p.PostId &&
-                        s.AccountId == viewerId)
+                        s.AccountId == viewerId),
+
+                    IsExpertPost = p.IsExpertPost ?? false,
+
+                    IsLikedByExpert = _db.Reactions.Any(r =>
+                        r.PostId == p.PostId &&
+                        r.Account.ExpertProfile != null &&
+                        r.Account.ExpertProfile.Verified == true)
                 })
                 .ToListAsync();
         }
@@ -402,9 +457,9 @@ namespace Infrastructure.Repositories
                 .Include(p => p.Account)
                 .Include(p => p.Images)
                 .Include(p => p.Event)
-                .Include(p => p.ExpertRatings
-                    .Where(r => !accountId.HasValue || r.ExpertId == accountId))
-                .Where(p => p.EventId == eventId && p.Status == "Published")
+                .Include(p => p.ExpertRatings)
+                    .ThenInclude(r => r.CriterionRatings)
+                    .Where(p => p.EventId == eventId && p.Status == "Published")
                 .ToListAsync();
         }
 
@@ -429,6 +484,11 @@ namespace Infrastructure.Repositories
         {
             return await _db.Posts
                 .FirstOrDefaultAsync(p => p.PostId == postId);
+        }
+
+        public async Task<int> CountAccountPostsAsync(int accountId)
+        {
+            return await _db.Posts.CountAsync(p => p.AccountId == accountId && p.Status == PostStatus.Published);
         }
     }
 }

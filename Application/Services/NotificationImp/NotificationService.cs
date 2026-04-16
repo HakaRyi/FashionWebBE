@@ -30,7 +30,8 @@ namespace Application.Services.NotificationImp
                 Content = request.Content,
                 Type = request.Type,
                 Status = "Unread",
-                CreatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow,
+                RelatedId = int.TryParse(request.RelatedId, out var relatedId) ? relatedId : (int?)null
             };
 
             await _repository.CreateAsync(notification);
@@ -62,7 +63,8 @@ namespace Application.Services.NotificationImp
                 Content = n.Content,
                 Type = n.Type,
                 Status = n.Status,
-                CreatedAt = n.CreatedAt ?? DateTime.UtcNow
+                CreatedAt = n.CreatedAt ?? DateTime.UtcNow,
+                RelatedId = n.RelatedId,
             }).ToList();
         }
 
@@ -71,6 +73,19 @@ namespace Application.Services.NotificationImp
             await _hubContext.Clients
                 .User(userId.ToString())
                 .SendAsync("WalletBalanceUpdated", payload);
+        }
+
+        public async Task<bool> MarkAsReadAsync(int notificationId, int userId)
+        {
+            var notification = await _repository.GetById(notificationId);
+
+            if (notification == null || notification.TargetUserId != userId)
+                return false;
+
+            notification.Status = "Read";
+
+            await _repository.Update(notification);
+            return true;
         }
     }
 }

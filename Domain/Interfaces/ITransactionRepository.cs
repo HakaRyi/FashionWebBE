@@ -1,7 +1,6 @@
 ﻿using Domain.Entities;
 
 namespace Domain.Interfaces
-
 {
     public interface ITransactionRepository
     {
@@ -10,9 +9,7 @@ namespace Domain.Interfaces
         Task<List<Transaction>> GetTransactionsAsync();
         Task<List<Transaction>> GetHistoryByWalletIdAsync(int walletId);
         Task<IEnumerable<Transaction>> GetByWalletIdAsync(int walletId);
-
         Task AddAsync(Transaction transaction);
-
         IQueryable<Transaction> Query();
     }
 }

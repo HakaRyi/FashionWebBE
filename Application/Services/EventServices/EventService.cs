@@ -4,6 +4,7 @@ using Application.Request.EventReq;
 using Application.Response.DashboardResp;
 using Application.Response.EventResp;
 using Application.Response.PostResp;
+using Application.Services.NotificationImp;
 using Application.Utils.File;
 using Domain.Entities;
 using Domain.Interfaces;
@@ -18,15 +19,19 @@ namespace Application.Services.EventServices
         private readonly IWalletRepository _walletRepo;
         private readonly IEventExpertRepository _eventExpertRepo;
         private readonly IPostRepository _postRepo;
+        private readonly ITransactionRepository _transactionRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICurrentUserService _currentUserService;
         private readonly ISchedulerFactory _schedulerFactory;
+        private readonly INotificationService _notificationService;
 
         public EventService(
             IEventRepository eventRepo,
             IWalletRepository walletRepo,
             IEventExpertRepository eventExpertRepo,
             IPostRepository postRepo,
+            ITransactionRepository transactionRepo,
+            INotificationService notificationService,
             IUnitOfWork unitOfWork,
             ISchedulerFactory schedulerFactory,
             ICurrentUserService currentUserService)
@@ -35,6 +40,8 @@ namespace Application.Services.EventServices
             _walletRepo = walletRepo;
             _eventExpertRepo = eventExpertRepo;
             _postRepo = postRepo;
+            _transactionRepo = transactionRepo;
+            _notificationService = notificationService;
             _unitOfWork = unitOfWork;
             _currentUserService = currentUserService;
             _schedulerFactory = schedulerFactory;
@@ -47,6 +54,8 @@ namespace Application.Services.EventServices
             if (ev == null || ev.Status != "Pending_Review")
                 throw new Exception("Sự kiện không tồn tại hoặc đã được xử lý.");
 
+            int adminId = _currentUserService.GetRequiredUserId();
+
             await _unitOfWork.BeginTransactionAsync();
             try
             {
@@ -54,6 +63,8 @@ namespace Application.Services.EventServices
                 _eventRepo.Update(ev);
 
                 var experts = await _eventExpertRepo.GetByEventIdAsync(eventId);
+                var expertsToNotify = experts.Where(e => e.Status == "Awaiting_Review").ToList();
+
                 foreach (var exp in experts.Where(e => e.Status == "Awaiting_Review"))
                 {
                     exp.Status = "Pending";
@@ -62,6 +73,29 @@ namespace Application.Services.EventServices
 
                 await _unitOfWork.SaveChangesAsync();
                 await _unitOfWork.CommitAsync();
+
+                foreach (var exp in expertsToNotify)
+                {
+                    await _notificationService.SendNotificationAsync(new Application.Request.NotificationReq.SendNotificationRequest
+                    {
+                        SenderId = adminId,
+                        TargetUserId = exp.ExpertId,
+                        Title = "Lời mời tham gia sự kiện mới",
+                        Content = $"Bạn đã được mời làm chuyên gia cho sự kiện: {ev.Title}. Vui lòng kiểm tra và phản hồi.",
+                        Type = "Event_Invitation",
+                        RelatedId = eventId.ToString()
+                    });
+                }
+
+                await _notificationService.SendNotificationAsync(new Application.Request.NotificationReq.SendNotificationRequest
+                {
+                    SenderId = adminId,
+                    TargetUserId = ev.CreatorId,
+                    Title = "Sự kiện đã được phê duyệt",
+                    Content = $"Sự kiện '{ev.Title}' của bạn đã được admin phê duyệt và đang gửi lời mời đến các chuyên gia.",
+                    Type = "Event_Approved",
+                    RelatedId = eventId.ToString()
+                });
 
                 if (ev.IsAutoStart)
                 {
@@ -107,6 +141,8 @@ namespace Application.Services.EventServices
                 if (wallet.LockedBalance < totalToRefund)
                     throw new Exception("Số dư bị khóa không đủ để thực hiện hoàn tiền (Lỗi logic dữ liệu).");
 
+                decimal balanceBefore = wallet.Balance;
+
                 // Chuyển tiền từ 'Bị khóa' về lại 'Số dư khả dụng'
                 wallet.LockedBalance -= totalToRefund;
                 wallet.Balance += totalToRefund;
@@ -114,14 +150,38 @@ namespace Application.Services.EventServices
                 ev.Status = "Rejected";
                 ev.Note = reason;
 
+                var refundTransaction = new Domain.Entities.Transaction
+                {
+                    WalletId = wallet.WalletId,
+                    TransactionCode = $"REFUND_EV_{ev.EventId}_{DateTime.Now.Ticks}",
+                    Amount = totalToRefund,
+                    BalanceBefore = balanceBefore,
+                    BalanceAfter = wallet.Balance,
+                    Type = "Refund",
+                    ReferenceType = "Event_Reject",
+                    ReferenceId = ev.EventId,
+                    Description = $"Hoàn tiền sự kiện bị từ chối: {ev.Title}. Lý do: {reason}",
+                    Status = "Success",
+                    CreatedAt = DateTime.Now
+                };
+
                 _eventRepo.Update(ev);
                 _walletRepo.Update(wallet);
+                await _transactionRepo.AddAsync(refundTransaction);
 
                 await _unitOfWork.SaveChangesAsync();
 
                 await _unitOfWork.CommitAsync();
 
-                // TODO: Gửi Notification cho Creator ở đây (nếu có hệ thống thông báo)
+                await _notificationService.SendNotificationAsync(new Application.Request.NotificationReq.SendNotificationRequest
+                {
+                    SenderId = _currentUserService.GetRequiredUserId(),
+                    TargetUserId = ev.CreatorId,
+                    Title = "Sự kiện bị từ chối",
+                    Content = $"Sự kiện '{ev.Title}' của bạn không được duyệt. Lý do: {reason}. Tiền đã được hoàn lại vào ví.",
+                    Type = "Event_Rejected",
+                    RelatedId = eventId.ToString()
+                });
             }
             catch (Exception ex)
             {
@@ -372,6 +432,7 @@ namespace Application.Services.EventServices
                                    DateTime.UtcNow >= e.EndTime.Value.ToUniversalTime();
 
                 dto.IsCreator = isCreator;
+                dto.ReasonRejectEvent = e.Note;
             }
             else
             {

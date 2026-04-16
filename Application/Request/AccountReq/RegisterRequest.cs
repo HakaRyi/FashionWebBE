@@ -11,5 +11,7 @@ namespace Application.Request.AccountReq
         public string Password { get; set; }
         [Required]
         public string Username { get; set; }
+        [Required]
+        public DateTime DateOfBirth { get; set; }
     }
 }

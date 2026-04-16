@@ -83,5 +83,27 @@ namespace Infrastructure.Repositories
         {
             _context.Groups.Update(group);
         }
+
+        public async Task<List<GroupUser>> GetUsersInGroup(int groupId)
+        {
+            return await _context.GroupUsers
+                .Include(gu => gu.Account)
+                    .ThenInclude(a => a.Avatars)
+                .Where(gu => gu.GroupId == groupId)
+                .ToListAsync();
+        }
+
+        public async Task<List<Photo>> GetPhotosInGroup(int groupId)
+        {
+            return await _context.Photos
+                .Include(p => p.Message)
+                    .ThenInclude(m => m.Group)
+                .Include(p => p.Message)
+                    .ThenInclude(m => m.Account)
+                        .ThenInclude(a => a.Avatars)
+                .Where(p => p.Message.GroupId == groupId)
+                .OrderByDescending(p => p.Message.SentAt)
+                .ToListAsync();
+        }
     }
 }

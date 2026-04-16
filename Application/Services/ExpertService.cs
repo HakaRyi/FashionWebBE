@@ -1,10 +1,11 @@
 ﻿using Application.Interfaces;
-using Mapster;
-using Microsoft.AspNetCore.Identity;
-using Domain.Entities;
 using Application.Request.ExpertReq;
 using Application.Response.ExpertResp;
+using Application.Services.NotificationImp;
+using Domain.Entities;
 using Domain.Interfaces;
+using Mapster;
+using Microsoft.AspNetCore.Identity;
 
 namespace Application.Services
 {
@@ -16,6 +17,8 @@ namespace Application.Services
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICurrentUserService _currentUser;
         private readonly UserManager<Account> _userManager;
+        private readonly INotificationService _notificationService;
+
 
         public ExpertService(
             IExpertProfileRepository profileRepo,
@@ -23,7 +26,8 @@ namespace Application.Services
             IUnitOfWork unitOfWork,
             IReputationHistoryRepository reputationHistory,
             ICurrentUserService currentUser,
-            UserManager<Account> userManager)
+            UserManager<Account> userManager,
+            INotificationService notificationService)
         {
             _profileRepo = profileRepo;
             _fileRepo = fileRepo;
@@ -31,6 +35,7 @@ namespace Application.Services
             _currentUser = currentUser;
             _userManager = userManager;
             _reputationHistory = reputationHistory;
+            _notificationService = notificationService;
         }
 
         #region Expert Logic
@@ -38,6 +43,8 @@ namespace Application.Services
         {
             var userId = _currentUser.GetUserId();
             if (userId == null) throw new UnauthorizedAccessException("Cần đăng nhập.");
+
+            await _unitOfWork.BeginTransactionAsync();
 
             try
             {
@@ -98,101 +105,143 @@ namespace Application.Services
 
                 await _fileRepo.AddAsync(newRequest);
 
-                return await _unitOfWork.SaveChangesAsync() > 0;
+                var success = await _unitOfWork.SaveChangesAsync() > 0;
+
+                await _unitOfWork.CommitAsync();
+                return success;
+
             }
             catch (Exception ex)
             {
+                await _unitOfWork.RollbackAsync();
                 throw new Exception(ex.Message);
             }
         }
 
-        public async Task<string> GetCurrentApplicationStatusAsync()
+        public async Task<ExpertApplicationStatusDto> GetCurrentApplicationStatusAsync()
         {
             var userId = _currentUser.GetUserId();
-            if (userId == null) return "None";
+            if (userId == null) return new ExpertApplicationStatusDto { Status = "None" };
 
             var profile = await _profileRepo.GetByAccountIdAsync(userId.Value);
-            if (profile == null) return "None";
+            if (profile == null) return new ExpertApplicationStatusDto { Status = "None" };
 
-            var hasPending = await _fileRepo.AnyPendingRequestAsync(profile.ExpertProfileId);
-            if (hasPending) return "Pending";
+            var requests = await _fileRepo.GetListByProfileId(profile.ExpertProfileId);
+            var latestRequest = requests.OrderByDescending(r => r.CreatedAt).FirstOrDefault();
 
-            if ((bool)profile.Verified) return "Approved";
+            if (latestRequest != null)
+            {
+                return new ExpertApplicationStatusDto
+                {
+                    Status = latestRequest.Status ?? "Pending",
+                    Reason = latestRequest.Reason,
+                    ProcessedAt = latestRequest.ProcessedAt,
+                    Style = latestRequest.ExpertiseField,
+                    StyleAesthetic = latestRequest.StyleAesthetic,
+                    YearsOfExperience = latestRequest.YearsOfExperience,
+                    Bio = latestRequest.Bio,
+                    PortfolioUrl = latestRequest.CertificateUrl ?? latestRequest.LicenseUrl
+                };
+            }
 
-            return "None";
+            if (profile.Verified == true)
+            {
+                return new ExpertApplicationStatusDto
+                {
+                    Status = "Approved",
+                    Style = profile.ExpertiseField,
+                    StyleAesthetic = profile.StyleAesthetic,
+                    YearsOfExperience = profile.YearsOfExperience,
+                    Bio = profile.Bio
+                };
+            }
+
+            return new ExpertApplicationStatusDto { Status = "None" };
         }
         #endregion
 
         #region Admin Logic
 
-        public async Task<bool> ProcessApplicationAsync(int fileId, string status, string? reason)
+        public async Task<bool> ProcessApplicationAsync(ExpertProcessDto dto)
         {
             var validStatuses = new[] { "Approved", "Rejected" };
-            if (!validStatuses.Contains(status))
-                throw new ArgumentException("Trạng thái không hợp lệ.");
+            if (!validStatuses.Any(s => s.Equals(dto.Status, StringComparison.OrdinalIgnoreCase)))
+                throw new ArgumentException("Trạng thái không hợp lệ. Chỉ chấp nhận 'Approved' hoặc 'Rejected'.");
 
-            var file = await _fileRepo.GetById(fileId);
+
+            var file = await _fileRepo.GetById(dto.FileId);
             if (file == null) return false;
 
-            if (file.Status != "Pending")
+            if (!file.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase))
                 throw new InvalidOperationException("Đơn đăng ký này đã được xử lý trước đó.");
 
-            int? accountId = null;
-            bool isApproved = status.Equals("Approved", StringComparison.OrdinalIgnoreCase);
+            var profile = await _profileRepo.GetById(file.ExpertProfileId);
+            if (profile == null) throw new Exception("Không tìm thấy hồ sơ chuyên gia liên quan.");
+
+            int accountId = profile.AccountId;
+            bool isApproved = dto.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase);
 
             await _unitOfWork.BeginTransactionAsync();
-            
-                try
-                {
-                    file.Status = status;
-                    file.Reason = reason;
-                    file.ProcessedAt = DateTime.UtcNow;
-                    _fileRepo.Update(file);
-
-                    if (isApproved)
-                    {
-                        var profile = await _profileRepo.GetById(file.ExpertProfileId);
-                        if (profile == null) throw new Exception("Không tìm thấy hồ sơ chuyên gia.");
-
-                        accountId = profile.AccountId;
-                        profile.Verified = true;
-                        profile.UpdatedAt = DateTime.UtcNow;
-                        profile.ReputationScore = 10;
-
-                        var history = new ReputationHistory
-                        {
-                            ExpertProfileId = profile.ExpertProfileId,
-                            PointChange = 10,
-                            CurrentPoint = 10,
-                            Reason = "Hệ thống cấp điểm uy tín khởi tạo khi duyệt hồ sơ Expert.",
-                            CreatedAt = DateTime.UtcNow
-                        };
-
-                        await _reputationHistory.AddAsync(history);
-                        _profileRepo.Update(profile);
-                    }
-
-                    await _unitOfWork.SaveChangesAsync();
-                    await _unitOfWork.CommitAsync();
-                }
-                catch
-                {
-                    await _unitOfWork.RollbackAsync();
-                    throw;
-                }
-            
-
-            if (isApproved && accountId.HasValue)
+            try
             {
-                var account = await _userManager.FindByIdAsync(accountId.Value.ToString());
-                if (account != null)
+                _unitOfWork.Detach(file);
+                _unitOfWork.Detach(profile);
+
+                file.Status = isApproved ? "Approved" : "Rejected";
+                file.Reason = dto.Reason;
+                file.ProcessedAt = DateTime.UtcNow;
+                _fileRepo.Update(file);
+
+                if (isApproved)
+                {
+                    profile.Verified = true;
+                    profile.UpdatedAt = DateTime.UtcNow;
+                    profile.ReputationScore = 100;
+                    _profileRepo.Update(profile);
+
+                    var history = new ReputationHistory
+                    {
+                        ExpertProfileId = profile.ExpertProfileId,
+                        PointChange = 100,
+                        CurrentPoint = 100,
+                        Reason = "Hệ thống cấp điểm uy tín khởi tạo khi duyệt hồ sơ Expert.",
+                        CreatedAt = DateTime.UtcNow
+                    };
+                    await _reputationHistory.AddAsync(history);
+                }
+
+                await _unitOfWork.SaveChangesAsync();
+                await _unitOfWork.CommitAsync();
+            }
+            catch (Exception)
+            {
+                await _unitOfWork.RollbackAsync();
+                throw;
+            }
+
+            var account = await _userManager.FindByIdAsync(accountId.ToString());
+            if (account != null)
+            {
+                if (isApproved)
                 {
                     if (!await _userManager.IsInRoleAsync(account, "Expert"))
                     {
                         await _userManager.RemoveFromRoleAsync(account, "User");
-                        var addResult = await _userManager.AddToRoleAsync(account, "Expert");
+                        await _userManager.AddToRoleAsync(account, "Expert");
                     }
                 }
+
+                await _notificationService.SendNotificationAsync(new Application.Request.NotificationReq.SendNotificationRequest
+                {
+                    TargetUserId = accountId,
+                    SenderId = _currentUser.GetRequiredUserId(),
+                    Title = isApproved ? "Chúc mừng! Bạn đã trở thành Chuyên gia" : "Kết quả đăng ký Chuyên gia",
+                    Content = isApproved
+                        ? "Hồ sơ chuyên gia của bạn đã được duyệt thành công. Chào mừng bạn gia nhập đội ngũ chuyên gia!"
+                        : $"Rất tiếc, hồ sơ chuyên gia của bạn chưa được duyệt. Lý do: {dto.Reason ?? "Không có lý do cụ thể."}",
+                    Type = isApproved ? "Expert_Application_Approved" : "Expert_Application_Rejected",
+                    RelatedId = file.ExpertProfileId.ToString()
+                });
             }
 
             return true;
@@ -201,7 +250,13 @@ namespace Application.Services
         public async Task<bool> ReviewApplicationAsync(int fileId, bool isApproved, string? feedback)
         {
             string status = isApproved ? "Approved" : "Rejected";
-            return await ProcessApplicationAsync(fileId, status, feedback);
+            var dto = new ExpertProcessDto
+            {
+                FileId = fileId,
+                Status = status,
+                Reason = feedback
+            };
+            return await ProcessApplicationAsync(dto);
         }
 
         public async Task<IEnumerable<ExpertManagementByAdminDto>> GetAllExpertsAsync()

@@ -74,6 +74,7 @@ namespace Application.Utils.SignalR
         public async Task JoinGroup(int groupId)
         {
             await Groups.AddToGroupAsync(Context.ConnectionId, groupId.ToString());
+            Console.WriteLine($"Connection {Context.ConnectionId} joined group {groupId}");
         }
         public async Task RecallMessage(int groupId, int messageId)
         {

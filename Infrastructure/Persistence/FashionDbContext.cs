@@ -110,6 +110,8 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
     public DbSet<SearchHistory> SearchHistories { get; set; }
     public virtual DbSet<RefundRequest> RefundRequests { get; set; }
+    public virtual DbSet<RecommendationHistory> RecommendationHistories { get; set; }
+    public virtual DbSet<RecommendationDetail> RecommendationDetails { get; set; }
 
     public static string GetConnectionString(string connectionStringName)
     {
@@ -201,7 +203,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.AccessFailedCount).HasColumnName("access_failed_count");
 
             entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
+                .HasColumnType("timestamp with time zone")
                 .HasColumnName("created_at");
 
             entity.Property(e => e.Status)
@@ -238,6 +240,11 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.CountFollowing)
                 .HasDefaultValue(0)
                 .HasColumnName("count_following");
+
+            entity.Property(e => e.DateOfBirth)
+                .HasColumnName("date_of_birth")
+                .HasColumnType("date")
+                .IsRequired(false);
 
             entity.HasIndex(e => e.NormalizedUserName)
                 .HasDatabaseName("UserNameIndex")
@@ -1166,6 +1173,9 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.Type)
                 .HasMaxLength(50)
                 .HasColumnName("type");
+            entity.Property(e => e.RelatedId)
+                .HasColumnName("related_id")
+                .IsRequired(false);
 
             entity.HasOne(d => d.Sender).WithMany(p => p.Notifications)
                 .HasForeignKey(d => d.SenderId)
@@ -1752,7 +1762,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasColumnName("reason");
 
             entity.Property(e => e.CreatedAt)
-                .HasColumnType("timestamp without time zone")
+                .HasColumnType("timestamp with time zone")
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
                 .HasColumnName("created_at");
 
@@ -2040,6 +2050,35 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasForeignKey<Scoreboard>(d => d.PostId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("Scoreboard_post_id_fkey");
+        });
+        modelBuilder.Entity<RecommendationHistory>(entity =>
+        {
+            entity.ToTable("RecommendationHistory", "public");
+            entity.HasKey(e => e.Id);
+
+            entity.HasOne(d => d.Account)
+                .WithMany() 
+                .HasForeignKey(d => d.AccountId);
+
+            entity.HasOne(d => d.ReferenceItem)
+                .WithMany()
+                .HasForeignKey(d => d.ReferenceItemId)
+                .OnDelete(DeleteBehavior.SetNull); 
+        });
+
+        modelBuilder.Entity<RecommendationDetail>(entity =>
+        {
+            entity.ToTable("RecommendationDetail", "public");
+            entity.HasKey(e => e.Id);
+
+            entity.HasOne(d => d.RecommendationHistory)
+                .WithMany(p => p.RecommendedItems)
+                .HasForeignKey(d => d.RecommendationHistoryId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.Item)
+                .WithMany()
+                .HasForeignKey(d => d.ItemId);
         });
 
         OnModelCreatingPartial(modelBuilder);
