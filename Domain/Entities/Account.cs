@@ -21,7 +21,10 @@ public partial class Account : IdentityUser<int>
     public int CountFollower { get; set; }
 
     public int CountFollowing { get; set; }
+
     public string? IsOnline { get; set; }
+
+    public DateTime? DateOfBirth { get; set; }
 
     public virtual ICollection<Comment> Comments { get; set; } = new List<Comment>();
 

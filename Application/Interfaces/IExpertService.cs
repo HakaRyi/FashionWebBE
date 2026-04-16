@@ -14,7 +14,7 @@ namespace Application.Interfaces
         Task<IEnumerable<ExpertManagementDto>> GetActiveExpertsForUserAsync();
         Task<ExpertManagementDto?> GetExpertPublicProfileAsync(int profileId);
         Task<bool> ReviewApplicationAsync(int fileId, bool isApproved, string? feedback);
-        Task<bool> ProcessApplicationAsync(int fileId, string status, string? reason);
+        Task<bool> ProcessApplicationAsync(ExpertProcessDto dto);
         Task<IEnumerable<ExpertProfile>> GetAllVerifiedExpertsAsync();
         Task<bool> DeleteExpertProfileAsync(int profileId);
     }

@@ -14,9 +14,15 @@ namespace Application.Response.EventResp
             public string Title { get; set; }
 
             // Điểm tổng kết
+            public int FinalLikeCount { get; set; }
+            public int FinalShareCount { get; set; }
             public double FinalScore { get; set; }
             public double CommunityScore { get; set; }
             public double ExpertTotalScore { get; set; }
+
+            public bool IsExpert { get; set; } = false;
+            public double? PointPerLike { get; set; }
+            public double? PointPerShare { get; set; }
 
             // Danh sách chi tiết từng giám khảo chấm
             public List<ExpertReviewDetail> ExpertReviews { get; set; } = new();

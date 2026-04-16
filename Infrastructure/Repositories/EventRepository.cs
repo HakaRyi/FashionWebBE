@@ -94,6 +94,7 @@ namespace Infrastructure.Repositories
                 .Include(e => e.Posts)
                 .Include(e => e.Images)
                 .Include(e => e.EventExperts)
+                .Include(e => e.PrizeEvents)
                 .Where(e => e.CreatorId == expertId || e.EventExperts.Any(ee => ee.ExpertId == expertId))
                 .OrderByDescending(e => e.CreatedAt)
                 .ToListAsync();

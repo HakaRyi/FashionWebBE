@@ -1,12 +1,14 @@
 ﻿using Application.Interfaces;
-using Mapster;
-using Quartz;
-using Domain.Entities;
 using Application.Jobs;
 using Application.Request.EventReq;
+using Application.Request.NotificationReq;
 using Application.Request.PrizeReq;
+using Application.Services.NotificationImp;
 using Application.Utils;
+using Domain.Entities;
 using Domain.Interfaces;
+using Mapster;
+using Quartz;
 
 namespace Application.Services.EventServices
 {
@@ -23,6 +25,8 @@ namespace Application.Services.EventServices
         private readonly ISchedulerFactory _schedulerFactory;
         private readonly ISystemSettingRepository _settingRepo;
         private readonly ICloudStorageService _cloudStorageService;
+        private readonly INotificationService _notificationService;
+
 
         public EventCreationService(
             IEventRepository eventRepo,
@@ -35,6 +39,7 @@ namespace Application.Services.EventServices
             ISystemSettingRepository settingRepo,
             ISchedulerFactory schedulerFactory,
             ICurrentUserService currentUserService,
+            INotificationService notificationService,
             ICloudStorageService cloudStorageService)
         {
             _eventRepo = eventRepo;
@@ -48,6 +53,7 @@ namespace Application.Services.EventServices
             _currentUserService = currentUserService;
             _schedulerFactory = schedulerFactory;
             _cloudStorageService = cloudStorageService;
+            _notificationService = notificationService;
         }
 
         public async Task<Event> CreateEventAsync(CreateEventRequest dto)
@@ -295,7 +301,6 @@ namespace Application.Services.EventServices
                 throw new Exception($"Bạn chỉ có thể bắt đầu sớm tối đa {maxEarlyHours} tiếng so với lịch dự kiến.");
             }
 
-            // --- TÁCH LOGIC DỰA VÀO IsAutoStart ---
             if (ev.IsAutoStart)
             {
                 // Sự kiện Tự động: Đã đến giờ StartTime -> Cấm bấm tay, bắt chờ Quartz xử lý
@@ -306,7 +311,7 @@ namespace Application.Services.EventServices
             }
             else
             {
-                // Sự kiện Thủ công: Nếu ngâm quá 12 tiếng kể từ giờ StartTime dự kiến -> Khóa mõm, cấm Start
+                // Sự kiện Thủ công: Nếu ngâm quá 12 tiếng kể từ giờ StartTime dự kiến -> cấm Start
                 if ((now - ev.StartTime.Value).TotalHours > 12)
                 {
                     throw new Exception("Đã quá 12 tiếng kể từ thời gian bắt đầu dự kiến. Bạn không thể kích hoạt sự kiện này được nữa.");
@@ -334,14 +339,30 @@ namespace Application.Services.EventServices
 
                 // 2. Cập nhật thông tin Event: Chuyển sang Active và cập nhật StartTime thực tế
                 ev.Status = "Active";
-                ev.StartTime = DateTime.Now;
+                ev.StartTime = DateTime.UtcNow;
                 _eventRepo.Update(ev);
 
                 // 3. Xử lý các Expert chưa phản hồi (Pending) -> Chuyển thành Closed
-                foreach (var exp in experts.Where(e => e.Status == "Pending"))
+                foreach (var exp in experts)
                 {
-                    exp.Status = "Closed_InvitationExpired";
-                    _eventExpertRepo.Update(exp);
+                    if (exp.Status == "Pending")
+                    {
+                        exp.Status = "Closed_InvitationExpired";
+                        _eventExpertRepo.Update(exp);
+                    }
+                    else if (exp.Status == "Accepted")
+                    {
+                        // THÔNG BÁO SỰ KIỆN BẮT ĐẦU
+                        await _notificationService.SendNotificationAsync(new SendNotificationRequest
+                        {
+                            SenderId = ev.CreatorId,
+                            TargetUserId = exp.ExpertId,
+                            Title = "Sự kiện đã bắt đầu!",
+                            Content = $"Sự kiện '{ev.Title}' đã chính thức diễn ra.",
+                            Type = "Event_Started",
+                            RelatedId = eventId.ToString()
+                        });
+                    }
                 }
 
                 await _unitOfWork.SaveChangesAsync();
@@ -384,6 +405,8 @@ namespace Application.Services.EventServices
             if (!allowedStatuses.Contains(ev.Status))
                 throw new Exception($"Không thể hủy sự kiện ở trạng thái {ev.Status}.");
 
+            string oldStatus = ev.Status;
+
             await _unitOfWork.BeginTransactionAsync();
             try
             {
@@ -420,8 +443,29 @@ namespace Application.Services.EventServices
                 ev.Status = "Cancelled_By_Creator";
                 _eventRepo.Update(ev);
 
-                // Chuyển các lời mời chuyên gia sang trạng thái Hủy
                 var experts = await _eventExpertRepo.GetByEventIdAsync(eventId);
+                foreach (var exp in experts)
+                {
+                    if (exp.Status == "Pending" || exp.Status == "Accepted" || exp.Status == "Awaiting_Review")
+                    {
+                        exp.Status = "Event_Cancelled";
+                        _eventExpertRepo.Update(exp);
+
+                        if (oldStatus == "Inviting" && exp.ExpertId != currentUserId)
+                        {
+                            await _notificationService.SendNotificationAsync(new SendNotificationRequest
+                            {
+                                SenderId = currentUserId,
+                                TargetUserId = exp.ExpertId,
+                                Title = "Sự kiện đã bị hủy",
+                                Content = $"Sự kiện '{ev.Title}' mà bạn được mời đã bị người tổ chức hủy bỏ.",
+                                Type = "Event_Cancelled",
+                                RelatedId = eventId.ToString()
+                            });
+                        }
+                    }
+                }
+
                 foreach (var exp in experts)
                 {
                     if (exp.Status == "Pending" || exp.Status == "Accepted" || exp.Status == "Awaiting_Review")
