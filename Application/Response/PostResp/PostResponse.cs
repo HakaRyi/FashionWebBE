@@ -23,6 +23,13 @@
         public bool IsSaved { get; set; }
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
+        public List<CriterionRatingResponse> CriterionRatings { get; set; } = new();
+    }
+
+    public class CriterionRatingResponse
+    {
+        public int EventCriterionId { get; set; }
+        public double Score { get; set; }
     }
 
     public class PostReviewDto

@@ -129,18 +129,26 @@ namespace Application.Services.EventServices
 
         public async Task<PostRatingDetailResponse> GetPostRatingDetailsAsync(int postId)
         {
-            var post = await _postRepo.GetByIdAsync(postId);
+            var post = await _postRepo.GetByIdFullRangeAsync(postId);
             if (post == null) throw new Exception("Không tìm thấy bài viết.");
 
             var expertRatings = await _ratingRepo.GetDetailedRatingsByPostIdAsync(postId);
+
+            int currentExpertId = _currentUserService.GetRequiredUserId();
+            bool isExpert = post.Event?.EventExperts?.Any(ee => ee.ExpertId == currentExpertId) ?? false;
 
             var response = new PostRatingDetailResponse
             {
                 PostId = post.PostId,
                 Title = post.Title ?? "Untitled",
+                FinalLikeCount = post.Scoreboard?.FinalLikeCount ?? 0,
+                FinalShareCount = post.Scoreboard?.FinalShareCount ?? 0,
                 FinalScore = post.Scoreboard?.FinalScore ?? 0,
                 CommunityScore = post.Scoreboard?.CommunityScore ?? 0,
                 ExpertTotalScore = post.Scoreboard?.ExpertScore ?? 0,
+                IsExpert = isExpert,
+                PointPerLike = post.Event?.PointPerLike,
+                PointPerShare = post.Event?.PointPerShare,
                 ExpertReviews = expertRatings.Select(rating => new ExpertReviewDetail
                 {
                     ExpertId = rating.ExpertId,

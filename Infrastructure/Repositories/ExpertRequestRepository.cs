@@ -61,6 +61,14 @@ namespace Infrastructure.Repositories
 
         public void Update(ExpertRequest file)
         {
+            var trackedEntity = _db.ExpertRequests.Local
+                .FirstOrDefault(e => e.ExpertFileId == file.ExpertFileId);
+
+            if (trackedEntity != null)
+            {
+                _db.Entry(trackedEntity).State = EntityState.Detached;
+            }
+
             _db.ExpertRequests.Update(file);
         }
 

@@ -1,4 +1,5 @@
 ﻿using Application.Interfaces;
+using Application.Services.NotificationImp;
 using Application.Utils.File;
 using Domain.Entities;
 using Domain.Interfaces;
@@ -24,9 +25,10 @@ namespace Application.Services.EventServices
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICurrentUserService _currentUserService;
         private readonly IImageRepository _imageRepo;
-        private readonly IFileService _fileService;
         private readonly ISchedulerFactory _schedulerFactory;
         private readonly ISystemSettingRepository _settingRepo;
+        private readonly INotificationService _notificationService;
+
 
         public EventAwardingService(
             IEventRepository eventRepo,
@@ -44,7 +46,7 @@ namespace Application.Services.EventServices
             IUnitOfWork unitOfWork,
             IImageRepository imageRepo,
             ISystemSettingRepository settingRepo,
-            IFileService fileService,
+            INotificationService notificationService,
             ISchedulerFactory schedulerFactory,
             ICurrentUserService currentUserService)
         {
@@ -64,8 +66,8 @@ namespace Application.Services.EventServices
             _unitOfWork = unitOfWork;
             _currentUserService = currentUserService;
             _imageRepo = imageRepo;
-            _fileService = fileService;
             _schedulerFactory = schedulerFactory;
+            _notificationService = notificationService;
         }
 
         public async Task FinalizeAndAwardEventAsync(int eventId)
@@ -273,6 +275,23 @@ namespace Application.Services.EventServices
             ev.EndTime = DateTime.UtcNow;
             _eventRepo.Update(ev);
 
+            var eventExperts = await _eventExpertRepo.GetByEventIdAsync(ev.EventId);
+            var acceptedExperts = eventExperts.Where(e => e.Status == "Accepted").ToList();
+
+            // 2. Gửi thông báo cho từng Expert
+            foreach (var exp in acceptedExperts)
+            {
+                await _notificationService.SendNotificationAsync(new Application.Request.NotificationReq.SendNotificationRequest
+                {
+                    SenderId = ev.CreatorId,
+                    TargetUserId = exp.ExpertId,
+                    Title = "Sự kiện đã kết thúc",
+                    Content = $"Sự kiện '{ev.Title}' mà bạn làm giám khảo đã hoàn tất quá trình tổng kết và trao giải. Cảm ơn sự đóng góp của bạn.",
+                    Type = "Event_Completed",
+                    RelatedId = ev.EventId.ToString()
+                });
+            }
+
             var scheduler = await _schedulerFactory.GetScheduler();
             var jobKeyFinalize = new JobKey($"Job_Finalize_{ev.EventId}", "EventAwardGroup");
 
@@ -378,6 +397,16 @@ namespace Application.Services.EventServices
                     CurrentPoint = penalizedScore,
                     Reason = penaltyReason,
                     CreatedAt = DateTime.UtcNow
+                });
+
+                await _notificationService.SendNotificationAsync(new Application.Request.NotificationReq.SendNotificationRequest
+                {
+                    SenderId = 1,
+                    TargetUserId = expertProfile.AccountId,
+                    Title = penaltyPoint >= 0 ? "Cập nhật điểm uy tín (Thưởng)" : "Cập nhật điểm uy tín (Phạt)",
+                    Content = penaltyReason,
+                    Type = "Reputation_Updated",
+                    RelatedId = ev.EventId.ToString()
                 });
             }
 

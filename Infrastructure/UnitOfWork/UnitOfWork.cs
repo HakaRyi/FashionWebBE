@@ -1,8 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore.Storage;
-using Infrastructure.Persistence;
+﻿using Application.Interfaces;
 using Domain.Entities;
 using Domain.Interfaces;
-using Application.Interfaces;
+using Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Infrastructure.UnitOfWork
 {
@@ -61,6 +62,32 @@ namespace Infrastructure.UnitOfWork
                 await _transaction.DisposeAsync();
                 _transaction = null;
             }
+        }
+
+        public void Detach<T>(T entity) where T : class
+        {
+            var entry = _context.Entry(entity);
+            var primaryKey = entry.Metadata.FindPrimaryKey();
+
+            if (primaryKey != null)
+            {
+                var keyValues = primaryKey.Properties
+                    .ToDictionary(p => p.Name, p => entry.Property(p.Name).CurrentValue);
+
+                var alreadyTracked = _context.ChangeTracker.Entries<T>()
+                    .FirstOrDefault(e =>
+                        primaryKey.Properties.All(p =>
+                            object.Equals(e.Property(p.Name).CurrentValue, keyValues[p.Name])
+                        )
+                    );
+
+                if (alreadyTracked != null)
+                {
+                    alreadyTracked.State = EntityState.Detached;
+                }
+            }
+
+            entry.State = EntityState.Detached;
         }
 
         public void Dispose()

@@ -7,5 +7,7 @@ namespace Domain.Interfaces
     {
         Task<Notification> CreateAsync(Notification notification);
         Task<List<Notification>> GetByUserIdAsync(int targetUserId);
+        Task<Notification?> GetById(int id);
+        Task Update(Notification notification);
     }
 }

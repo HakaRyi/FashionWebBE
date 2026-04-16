@@ -181,6 +181,7 @@ builder.Services.AddScoped<IItemSaveService, ItemSaveService>();
 builder.Services.AddScoped<IRefundRequestRepository, RefundRequestRepository>();
 builder.Services.AddScoped<IRecommendationService,RecommendationService>();
 builder.Services.AddScoped<IReputationHistoryService, ReputationHistoryService>();
+builder.Services.AddScoped<IFileService, GoogleDriveService>();
 
 
 #endregion
@@ -196,11 +197,11 @@ builder.Services.AddHttpClient<IAIDetectionService, AIDetectionService>(client =
 
 builder.Services.AddHttpClient<ITryOnService, TryOnService>();
 
-builder.Services.AddScoped<IFileService>(sp =>
-{
-    var env = sp.GetRequiredService<IWebHostEnvironment>();
-    return new LocalFileService(env.WebRootPath);
-});
+//builder.Services.AddScoped<IFileService>(sp =>
+//{
+//    var env = sp.GetRequiredService<IWebHostEnvironment>();
+//    return new LocalFileService(env.WebRootPath);
+//});
 
 builder.Services.AddScoped<EmailService>();
 

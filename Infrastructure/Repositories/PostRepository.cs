@@ -38,6 +38,17 @@ namespace Infrastructure.Repositories
                 .FirstOrDefaultAsync(p => p.PostId == postId);
         }
 
+        public async Task<Post?> GetByIdFullRangeAsync(int postId)
+        {
+            return await _db.Posts
+                .Include(p => p.Images)
+                .Include(p => p.Scoreboard)
+                .Include(p => p.Account).ThenInclude(a => a.Avatars)
+                .Include(p => p.Event)
+                .ThenInclude(e => e.EventExperts)
+                .FirstOrDefaultAsync(p => p.PostId == postId);
+        }
+
         public async Task<List<PostFeedDto>> GetFeedWithSocialAsync(int viewerId, DateTime? cursor, int pageSize)
         {
             var query = _db.Posts
@@ -446,9 +457,9 @@ namespace Infrastructure.Repositories
                 .Include(p => p.Account)
                 .Include(p => p.Images)
                 .Include(p => p.Event)
-                .Include(p => p.ExpertRatings
-                    .Where(r => !accountId.HasValue || r.ExpertId == accountId))
-                .Where(p => p.EventId == eventId && p.Status == "Published")
+                .Include(p => p.ExpertRatings)
+                    .ThenInclude(r => r.CriterionRatings)
+                    .Where(p => p.EventId == eventId && p.Status == "Published")
                 .ToListAsync();
         }
 

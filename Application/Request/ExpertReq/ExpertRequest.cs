@@ -25,4 +25,11 @@ namespace Application.Request.ExpertReq
         public string? EvidenceType { get; set; }
         public string? PortfolioUrl { get; set; }
     }
+
+    public class ExpertProcessDto
+    {
+        public int FileId { get; set; }
+        public string Status { get; set; }
+        public string? Reason { get; set; }
+    }
 }

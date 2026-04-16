@@ -1,10 +1,11 @@
 ﻿using Application.Interfaces;
-using Mapster;
-using Domain.Entities;
 using Application.Request.ExpertRatingReq;
 using Application.Response.EventResp;
 using Application.Response.PostResp;
+using Application.Services.NotificationImp;
+using Domain.Entities;
 using Domain.Interfaces;
+using Mapster;
 
 namespace Application.Services.EventServices
 {
@@ -17,6 +18,7 @@ namespace Application.Services.EventServices
         private readonly IExpertRatingRepository _ratingRepo;
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICurrentUserService _currentUser;
+        private readonly INotificationService _notificationService;
 
         public EventExpertService(
             IEventExpertRepository eventExpertRepo,
@@ -24,6 +26,7 @@ namespace Application.Services.EventServices
             IPostRepository postRepo,
             IExpertRatingRepository ratingRepo,
             IScoreboardRepository scoreboardRepo,
+            INotificationService notificationService,
             IUnitOfWork unitOfWork,
             ICurrentUserService currentUser)
         {
@@ -32,6 +35,7 @@ namespace Application.Services.EventServices
             _postRepo = postRepo;
             _ratingRepo = ratingRepo;
             _scoreboardRepo = scoreboardRepo;
+            _notificationService = notificationService;
             _unitOfWork = unitOfWork;
             _currentUser = currentUser;
         }
@@ -47,12 +51,33 @@ namespace Application.Services.EventServices
             if (invite == null) throw new Exception("Không tìm thấy lời mời.");
             if (invite.Status != "Pending") throw new Exception("Lời mời này đã được xử lý trước đó.");
 
+            var ev = await _eventRepo.GetByIdAsync(eventId);
+            if (ev == null) throw new Exception("Sự kiện không còn tồn tại.");
+
             invite.Status = accept ? "Accepted" : "Rejected";
             invite.JoinedAt = DateTime.Now;
 
             _eventExpertRepo.Update(invite);
 
-            return await _unitOfWork.SaveChangesAsync() > 0;
+            var result = await _unitOfWork.SaveChangesAsync() > 0;
+
+            if (result)
+            {
+                string expertName = _currentUser.GetUserName() ?? "Chuyên gia";
+                string statusText = accept ? "CHẤP NHẬN" : "TỪ CHỐI";
+
+                await _notificationService.SendNotificationAsync(new Application.Request.NotificationReq.SendNotificationRequest
+                {
+                    SenderId = currentExpertId,
+                    TargetUserId = ev.CreatorId,
+                    Title = "Phản hồi lời mời chuyên gia",
+                    Content = $"{expertName} đã {statusText} lời mời tham gia hội đồng chấm thi cho sự kiện: {ev.Title}.",
+                    Type = accept ? "Expert_Accepted" : "Expert_Rejected",
+                    RelatedId = eventId.ToString()
+                });
+            }
+
+            return result;
         }
 
 

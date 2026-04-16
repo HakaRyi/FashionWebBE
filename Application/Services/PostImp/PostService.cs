@@ -494,6 +494,16 @@ namespace Application.Services.PostImp
                 {
                     responses[i].Score = rating.Score;
                     responses[i].Reason = rating.Reason;
+
+                    if (rating.CriterionRatings != null)
+                    {
+                        responses[i].CriterionRatings = rating.CriterionRatings
+                            .Select(cr => new CriterionRatingResponse
+                            {
+                                EventCriterionId = cr.EventCriterionId,
+                                Score = cr.Score
+                            }).ToList();
+                    }
                 }
             }
 

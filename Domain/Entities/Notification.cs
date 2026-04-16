@@ -19,6 +19,8 @@ public partial class Notification
 
     public string? Type { get; set; }
 
+    public int? RelatedId { get; set; }
+
     public string? Status { get; set; }
 
     public DateTime? CreatedAt { get; set; }
