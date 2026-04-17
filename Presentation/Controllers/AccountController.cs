@@ -72,6 +72,17 @@ namespace Presentation.Controllers
                 ? Ok(account)
                 : NotFound();
         }
+        [HttpGet("me")]
+        [Authorize]
+        public async Task<IActionResult> GetMyAccount()
+        {
+            var accountIdClaim = User.Claims.FirstOrDefault(c => c.Type == "AccountId")?.Value;
+            if (string.IsNullOrEmpty(accountIdClaim)) return Unauthorized();
+            var accountId = int.Parse(accountIdClaim);
+            return await service.GetAccountById(accountId) is var account && account != null
+                ? Ok(account)
+                : NotFound();
+        }
 
         [HttpGet("/api/profile/{id}")]
         public async Task<IActionResult> GetAccountIdByUser([FromRoute] int id)
@@ -80,6 +91,8 @@ namespace Presentation.Controllers
                 ? Ok(account)
                 : NotFound();
         }
+
+    
 
         [HttpGet("expertDetail/{id}")]
         public async Task<IActionResult> GetByExpertId([FromRoute] int id)

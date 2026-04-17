@@ -234,7 +234,7 @@ namespace Application.Services.ChatImp
                     GroupId = group.GroupId,
                     IsGroup = group.IsGroup,
                     CreatedAt = group.CreatedAt,
-                    LastMessage = lastMsg?.IsRecalled == true ? "Tin nhắn đã bị thu hồi" : lastMsg?.Content ?? "Bấm để trò chuyện",
+                    LastMessage = lastMsg?.IsRecalled == true ? "Tin nhắn đã bị thu hồi" : lastMsg?.Content ?? "Tap to start chatting",
                     LastMessageAt = lastMsg?.SentAt ?? group.CreatedAt
                 };
 
