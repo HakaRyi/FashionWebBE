@@ -121,21 +121,21 @@ namespace Infrastructure.Persistence.Seeders
                     SettingKey = "EVENT_FEE_PERCENTAGE",
                     SettingValue = "5",
                     DataType = "Decimal",
-                    Description = "Tỷ lệ phần trăm thu phí tạo sự kiện (%)"
+                    Description = "Percentage of event creation fees (%)"
                 },
                 new SystemSetting
                 {
                     SettingKey = "EVENT_MIN_FEE",
                     SettingValue = "10000",
                     DataType = "Decimal",
-                    Description = "Phí tạo sự kiện tối thiểu (VNĐ)"
+                    Description = "Minimum event creation fee (VNĐ)"
                 },
                 new SystemSetting
                 {
                     SettingKey = "MIN_EXPERTS_PER_EVENT",
                     SettingValue = "2",
                     DataType = "Number",
-                    Description = "Số lượng chuyên gia tối thiểu để sự kiện có thể bắt đầu"
+                    Description = "Minimum number of professionals required for the event to begin."
                 }
             };
 

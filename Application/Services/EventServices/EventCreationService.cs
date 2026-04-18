@@ -357,8 +357,8 @@ namespace Application.Services.EventServices
                         {
                             SenderId = ev.CreatorId,
                             TargetUserId = exp.ExpertId,
-                            Title = "Sự kiện đã bắt đầu!",
-                            Content = $"Sự kiện '{ev.Title}' đã chính thức diễn ra.",
+                            Title = "The event has begun!",
+                            Content = $"The '{ev.Title}' has officially begun.",
                             Type = "Event_Started",
                             RelatedId = eventId.ToString()
                         });
@@ -457,8 +457,8 @@ namespace Application.Services.EventServices
                             {
                                 SenderId = currentUserId,
                                 TargetUserId = exp.ExpertId,
-                                Title = "Sự kiện đã bị hủy",
-                                Content = $"Sự kiện '{ev.Title}' mà bạn được mời đã bị người tổ chức hủy bỏ.",
+                                Title = "The event has been cancelled.",
+                                Content = $"The '{ev.Title}' you were invited to has been cancelled by the organizers.",
                                 Type = "Event_Cancelled",
                                 RelatedId = eventId.ToString()
                             });

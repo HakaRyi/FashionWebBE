@@ -1,4 +1,6 @@
-﻿namespace Application.Response.PostResp
+﻿using Domain.Contracts.Social.Post;
+
+namespace Application.Response.PostResp
 {
     public class PostResponse
     {
@@ -48,5 +50,21 @@
         public int ShareCount { get; set; }
 
         public DateTime SubmittedAt { get; set; }
+    }
+
+    public class GlobalSearchResultDto
+    {
+        public List<PostFeedDto> Posts { get; set; } = new();
+        public List<UserSearchDto> Users { get; set; } = new();
+    }
+
+    public class UserSearchDto
+    {
+        public int AccountId { get; set; }
+        public string UserName { get; set; } = null!;
+        public string? AvatarUrl { get; set; }
+        public string? ExpertiseField { get; set; }
+        public bool IsExpert { get; set; }
+        public int FollowerCount { get; set; }
     }
 }

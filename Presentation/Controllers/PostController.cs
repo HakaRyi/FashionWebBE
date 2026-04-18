@@ -1,8 +1,10 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Domain.Dto.Social.Post;
-using Application.Utils;
+﻿using Application.Response.PostResp;
 using Application.Services.PostImp;
+using Application.Utils;
+using Domain.Dto.Social.Post;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace Presentation.Controllers
 {
@@ -180,6 +182,26 @@ namespace Presentation.Controllers
             {
                 return BadRequest(new { message = ex.Message });
             }
+        }
+
+        [HttpGet("/api/search/finding")]
+        public async Task<ActionResult<GlobalSearchResultDto>> GlobalSearch([FromQuery] string q)
+        {
+            if (string.IsNullOrWhiteSpace(q))
+            {
+                return Ok(new GlobalSearchResultDto());
+            }
+
+            int? userId = null;
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (int.TryParse(userIdClaim, out int parsedId))
+            {
+                userId = parsedId;
+            }
+
+            var result = await _postService.SearchEverythingAsync(q, userId);
+
+            return Ok(result);
         }
     }
 }
