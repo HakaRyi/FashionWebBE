@@ -63,15 +63,15 @@ namespace Application.Services.EventServices
 
             if (result)
             {
-                string expertName = _currentUser.GetUserName() ?? "Chuyên gia";
-                string statusText = accept ? "CHẤP NHẬN" : "TỪ CHỐI";
+                string expertName = _currentUser.GetUserName() ?? "Expert";
+                string statusText = accept ? "accepted" : "rejected";
 
                 await _notificationService.SendNotificationAsync(new Application.Request.NotificationReq.SendNotificationRequest
                 {
                     SenderId = currentExpertId,
                     TargetUserId = ev.CreatorId,
-                    Title = "Phản hồi lời mời chuyên gia",
-                    Content = $"{expertName} đã {statusText} lời mời tham gia hội đồng chấm thi cho sự kiện: {ev.Title}.",
+                    Title = "Responding to the expert invitation",
+                    Content = $"{expertName} has {statusText} the invitation to join the judging panel for the event: {ev.Title}.",
                     Type = accept ? "Expert_Accepted" : "Expert_Rejected",
                     RelatedId = eventId.ToString()
                 });

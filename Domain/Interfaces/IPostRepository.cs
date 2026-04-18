@@ -29,5 +29,7 @@ namespace Domain.Interfaces
         Task<List<Post>> GetGradedPostsByEventIdAsync(int eventId);
         Task<int> CountAccountPostsAsync(int accountId);
 
+        Task<(List<Post> Posts, List<Account> Users)> SearchRawDataAsync(string keyword, int limit);
+        Task<List<int>> GetLikedPostIdsAsync(int viewerId, List<int> postIds);
     }
 }

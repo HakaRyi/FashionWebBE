@@ -204,7 +204,7 @@ namespace Application.Services
                         ExpertProfileId = profile.ExpertProfileId,
                         PointChange = 100,
                         CurrentPoint = 100,
-                        Reason = "Hệ thống cấp điểm uy tín khởi tạo khi duyệt hồ sơ Expert.",
+                        Reason = "The reputation scoring system is initiated when reviewing Expert profiles.",
                         CreatedAt = DateTime.UtcNow
                     };
                     await _reputationHistory.AddAsync(history);
@@ -235,10 +235,10 @@ namespace Application.Services
                 {
                     TargetUserId = accountId,
                     SenderId = _currentUser.GetRequiredUserId(),
-                    Title = isApproved ? "Chúc mừng! Bạn đã trở thành Chuyên gia" : "Kết quả đăng ký Chuyên gia",
+                    Title = isApproved ? "Congratulations! You have become an Expert!" : "Expert Registration Results",
                     Content = isApproved
-                        ? "Hồ sơ chuyên gia của bạn đã được duyệt thành công. Chào mừng bạn gia nhập đội ngũ chuyên gia!"
-                        : $"Rất tiếc, hồ sơ chuyên gia của bạn chưa được duyệt. Lý do: {dto.Reason ?? "Không có lý do cụ thể."}",
+                        ? "Your expert profile has been successfully approved. Welcome to our team of experts!"
+                        : $"Unfortunately, your expert profile has not been approved. Reason: {dto.Reason ?? "There is no specific reason."}",
                     Type = isApproved ? "Expert_Application_Approved" : "Expert_Application_Rejected",
                     RelatedId = file.ExpertProfileId.ToString()
                 });
