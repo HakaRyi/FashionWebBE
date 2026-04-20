@@ -494,5 +494,37 @@ namespace Infrastructure.Repositories
         {
             return await _db.Posts.CountAsync(p => p.AccountId == accountId && p.Status == PostStatus.Published);
         }
+
+        public async Task<(List<Post> Posts, List<Account> Users)> SearchRawDataAsync(string keyword, int limit)
+        {
+            var searchLower = keyword.ToLower();
+
+            var users = await _db.Users
+                .Include(u => u.ExpertProfile)
+                .Include(u => u.Avatars)
+                .Where(u => u.UserName!.ToLower().Contains(searchLower) ||
+                            (u.ExpertProfile != null && u.ExpertProfile.ExpertiseField!.ToLower().Contains(searchLower)))
+                .Take(limit)
+                .ToListAsync();
+
+            var posts = await _db.Posts
+                .Include(p => p.Account).ThenInclude(a => a.Avatars)
+                .Include(p => p.Images)
+                .Where(p => (p.Title!.ToLower().Contains(searchLower) || p.Content!.ToLower().Contains(searchLower)) &&
+                            p.Status == PostStatus.Published && p.Visibility == PostVisibility.Visible)
+                .OrderByDescending(p => p.CreatedAt)
+                .Take(limit)
+                .ToListAsync();
+
+            return (posts, users);
+        }
+
+        public async Task<List<int>> GetLikedPostIdsAsync(int viewerId, List<int> postIds)
+        {
+            return await _db.Reactions
+                .Where(r => r.AccountId == viewerId && postIds.Contains(r.PostId))
+                .Select(r => r.PostId)
+                .ToListAsync();
+        }
     }
 }

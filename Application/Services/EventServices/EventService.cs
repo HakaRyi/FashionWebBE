@@ -80,8 +80,8 @@ namespace Application.Services.EventServices
                     {
                         SenderId = adminId,
                         TargetUserId = exp.ExpertId,
-                        Title = "Lời mời tham gia sự kiện mới",
-                        Content = $"Bạn đã được mời làm chuyên gia cho sự kiện: {ev.Title}. Vui lòng kiểm tra và phản hồi.",
+                        Title = "Invitation to a new event",
+                        Content = $"You have been invited to be an expert for the event: {ev.Title}. Please check and respond.",
                         Type = "Event_Invitation",
                         RelatedId = eventId.ToString()
                     });
@@ -91,8 +91,8 @@ namespace Application.Services.EventServices
                 {
                     SenderId = adminId,
                     TargetUserId = ev.CreatorId,
-                    Title = "Sự kiện đã được phê duyệt",
-                    Content = $"Sự kiện '{ev.Title}' của bạn đã được admin phê duyệt và đang gửi lời mời đến các chuyên gia.",
+                    Title = "The event has been approved.",
+                    Content = $"Event '{ev.Title}' has been approved by the admin and is now sending invitations to experts.",
                     Type = "Event_Approved",
                     RelatedId = eventId.ToString()
                 });
@@ -160,7 +160,7 @@ namespace Application.Services.EventServices
                     Type = "Refund",
                     ReferenceType = "Event_Reject",
                     ReferenceId = ev.EventId,
-                    Description = $"Hoàn tiền sự kiện bị từ chối: {ev.Title}. Lý do: {reason}",
+                    Description = $"Refund for rejected event: {ev.Title}. Reason: {reason}",
                     Status = "Success",
                     CreatedAt = DateTime.Now
                 };
@@ -177,8 +177,8 @@ namespace Application.Services.EventServices
                 {
                     SenderId = _currentUserService.GetRequiredUserId(),
                     TargetUserId = ev.CreatorId,
-                    Title = "Sự kiện bị từ chối",
-                    Content = $"Sự kiện '{ev.Title}' của bạn không được duyệt. Lý do: {reason}. Tiền đã được hoàn lại vào ví.",
+                    Title = "The event was rejected.",
+                    Content = $"Event '{ev.Title}' was not approved. Reason: {reason}. The money has been refunded to your wallet.",
                     Type = "Event_Rejected",
                     RelatedId = eventId.ToString()
                 });
@@ -314,32 +314,32 @@ namespace Application.Services.EventServices
                 : "0%";
 
             response.Stats = new List<StatCardDto>
-    {
-        new StatCardDto {
-            Label = "Tổng bài dự thi", // Text này phải khớp với iconMap ở FE
-            Value = totalPosts.ToString("N0"),
-            Change = "+0%", // Có thể làm logic so sánh kỳ trước sau
-            IsUp = true
-        },
-        new StatCardDto {
-            Label = "Tiến độ chấm điểm",
-            Value = gradingProgress,
-            Change = "+0%",
-            IsUp = true
-        },
-        new StatCardDto {
-            Label = "Tương tác cộng đồng",
-            Value = totalEngagements.ToString("N0"),
-            Change = "+0%",
-            IsUp = true
-        },
-        new StatCardDto {
-            Label = "Chi phí tạo sự kiện",
-            Value = totalCost.ToString("N0") + "đ",
-            Change = "-0%", // Chi phí thì đi xuống (giảm) là tốt
-            IsUp = false
-        }
-    };
+            {
+                new StatCardDto {
+                    Label = "Total number of entries",
+                    Value = totalPosts.ToString("N0"),
+                    Change = "+0%",
+                    IsUp = true
+                },
+                new StatCardDto {
+                    Label = "Scoring progress",
+                    Value = gradingProgress,
+                    Change = "+0%",
+                    IsUp = true
+                },
+                new StatCardDto {
+                    Label = "Community interaction",
+                    Value = totalEngagements.ToString("N0"),
+                    Change = "+0%",
+                    IsUp = true
+                },
+                new StatCardDto {
+                    Label = "Event creation costs",
+                    Value = totalCost.ToString("N0") + "đ",
+                    Change = "-0%",
+                    IsUp = false
+                }
+            };
 
             // 3. Xử lý TopEvents (Ưu tiên những sự kiện có nhiều bài thi nhất)
             response.TopEvents = eventList
@@ -408,23 +408,54 @@ namespace Application.Services.EventServices
 
             if (isCreator)
             {
-                dto.CanManualStart = e.Status == "Inviting" && !e.IsAutoStart && dto.AcceptedExpertsCount >= e.MinExpertsToStart;
+                bool hasEnoughExperts = dto.AcceptedExpertsCount >= e.MinExpertsToStart;
+                dto.CanManualStart = e.Status == "Inviting" && hasEnoughExperts;
 
-                if (dto.CanManualStart && dto.StartTime.HasValue)
+                if (e.Status == "Inviting")
                 {
-                    var startTimeUtc = dto.StartTime.Value.ToUniversalTime();
-                    var nowUtc = DateTime.UtcNow;
-                    var timeUntilStart = startTimeUtc - nowUtc;
-
-                    if (nowUtc >= startTimeUtc)
-                        dto.ReasonManualStart = "Sự kiện đã đến thời gian bắt đầu nhưng chưa kích hoạt.";
-                    else if (timeUntilStart.TotalHours > 24)
+                    if (!hasEnoughExperts)
                     {
-                        dto.ReasonManualStart = $"Chỉ có thể kích hoạt thủ công trước giờ bắt đầu tối đa 24 tiếng. (Còn {Math.Round(timeUntilStart.TotalHours, 1)}h nữa mới được phép).";
+                        dto.ReasonManualStart = $"Need at least {e.MinExpertsToStart} accepted experts to start (Current: {dto.AcceptedExpertsCount}).";
                         dto.CanManualStart = false;
                     }
-                    else
-                        dto.ReasonManualStart = "Có thể bắt đầu sự kiện ngay bây giờ.";
+                    else if (dto.StartTime.HasValue)
+                    {
+                        var nowUtc = DateTime.UtcNow;
+                        var startTimeUtc = dto.StartTime.Value.ToUniversalTime();
+                        var timeUntilStart = startTimeUtc - nowUtc;
+                        double maxEarlyHours = 24.0;
+
+                        // 2. Kiểm tra nếu là AutoStart
+                        if (e.IsAutoStart)
+                        {
+                            if (nowUtc >= startTimeUtc)
+                            {
+                                dto.ReasonManualStart = "This is an Auto-Start event. System is processing, please wait...";
+                                dto.CanManualStart = false;
+                            }
+                            else
+                            {
+                                dto.ReasonManualStart = "Event is scheduled for Auto-Start.";
+                            }
+                        }
+
+                        // 3. Kiểm tra giới hạn bắt đầu sớm (24h)
+                        if (timeUntilStart.TotalHours > maxEarlyHours)
+                        {
+                            dto.ReasonManualStart = $"Too early to start. Max early start is {maxEarlyHours} hours before scheduled time.";
+                            dto.CanManualStart = false;
+                        }
+                        // 4. Kiểm tra giới hạn "ngâm" quá lâu (12h) - Chỉ áp dụng cho Manual Start
+                        else if (!e.IsAutoStart && nowUtc > startTimeUtc.AddHours(12))
+                        {
+                            dto.ReasonManualStart = "Scheduled start time passed by 12+ hours. Activation is no longer allowed.";
+                            dto.CanManualStart = false;
+                        }
+                        else
+                        {
+                            dto.ReasonManualStart = "The event is ready to start now.";
+                        }
+                    }
                 }
 
                 dto.CanFinalize = (e.Status == "Active" || e.Status == "Judging") &&
@@ -452,7 +483,8 @@ namespace Application.Services.EventServices
         public async Task<IEnumerable<EventListDto>> GetAllEventsForUserAsync()
         {
             // Lọc ngay tại SQL thông qua statuses parameter
-            var publicStatuses = new[] { "Inviting", "Active", "Completed" };
+            var publicStatuses = new[] { "Active", "Completed" };
+            //var publicStatuses = new[] { "Inviting", "Active", "Completed" };
             var events = await _eventRepo.GetAllAsync(publicStatuses);
 
             return events.Select(MapToEventListDto);
@@ -511,6 +543,7 @@ namespace Application.Services.EventServices
                 Description = e.Description,
                 Status = e.Status,
                 StartTime = e.StartTime,
+                SubmissionDeadline = e.SubmissionDeadline,
                 EndTime = e.EndTime,
                 CreatedAt = e.CreatedAt,
                 CreatorName = e.Creator?.UserName,

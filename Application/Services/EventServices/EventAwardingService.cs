@@ -285,8 +285,8 @@ namespace Application.Services.EventServices
                 {
                     SenderId = ev.CreatorId,
                     TargetUserId = exp.ExpertId,
-                    Title = "Sự kiện đã kết thúc",
-                    Content = $"Sự kiện '{ev.Title}' mà bạn làm giám khảo đã hoàn tất quá trình tổng kết và trao giải. Cảm ơn sự đóng góp của bạn.",
+                    Title = "The event has ended.",
+                    Content = $"The event '{ev.Title}', where you served as a judge, has successfully concluded. Thank you for your contribution.",
                     Type = "Event_Completed",
                     RelatedId = ev.EventId.ToString()
                 });
@@ -371,17 +371,17 @@ namespace Application.Services.EventServices
                 if (missingPercentage <= 10)
                 {
                     penaltyPoint = -2;
-                    penaltyReason = $"Chấm sót {missingCount} bài thi (dưới 10%) trong sự kiện '{ev.Title}'.";
+                    penaltyReason = $"Missed {missingCount} evaluations (under 10%) in the event '{ev.Title}'.";
                 }
                 else if (missingPercentage <= 50)
                 {
                     penaltyPoint = -10;
-                    penaltyReason = $"Bỏ dở chấm thi (thiếu {missingPercentage:0.0}%) trong sự kiện '{ev.Title}'.";
+                    penaltyReason = $"Withdrawing from the judging process (missing {missingPercentage:0.0}%) in the event '{ev.Title}'.";
                 }
                 else
                 {
                     penaltyPoint = -20;
-                    penaltyReason = $"Bỏ cuộc, không hoàn thành trách nhiệm giám khảo (thiếu {missingPercentage:0.0}%) trong sự kiện '{ev.Title}'.";
+                    penaltyReason = $"Giving up, failing to fulfill the responsibilities of a judge ({missingPercentage:0.0}% missing) in the event '{ev.Title}'.";
                 }
 
                 // Cập nhật điểm (Không để rớt xuống dưới 0)
@@ -403,7 +403,7 @@ namespace Application.Services.EventServices
                 {
                     SenderId = 1,
                     TargetUserId = expertProfile.AccountId,
-                    Title = penaltyPoint >= 0 ? "Cập nhật điểm uy tín (Thưởng)" : "Cập nhật điểm uy tín (Phạt)",
+                    Title = penaltyPoint >= 0 ? "Update your reputation score (Rewards)" : "Update reputation score (Penalties)",
                     Content = penaltyReason,
                     Type = "Reputation_Updated",
                     RelatedId = ev.EventId.ToString()
