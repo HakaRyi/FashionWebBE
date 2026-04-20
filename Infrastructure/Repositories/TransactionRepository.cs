@@ -1,7 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Infrastructure.Persistence;
+﻿using Domain.Constants;
 using Domain.Entities;
 using Domain.Interfaces;
+using Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Repositories
 {
@@ -56,6 +57,18 @@ namespace Infrastructure.Repositories
                 .Where(t => t.WalletId == walletId)
                 .OrderByDescending(t => t.CreatedAt)
                 .ToListAsync();
+        }
+
+        public async Task<decimal> GetMonthlyDebitTotalAsync(int walletId, int month, int year)
+        {
+            return await _db.Transactions
+                .AsNoTracking()
+                .Where(t => t.WalletId == walletId
+                         && t.Type == TransactionType.Debit
+                         && t.Status == TransactionStatus.Success
+                         && t.CreatedAt.Month == month
+                         && t.CreatedAt.Year == year)
+                .SumAsync(t => (decimal?)t.Amount) ?? 0;
         }
 
         public async Task AddAsync(Transaction transaction)

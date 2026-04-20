@@ -83,6 +83,10 @@ namespace Application.Services.EventServices
             if (wallet == null || wallet.Balance < totalPrize + currentFee)
                 throw new Exception($"Số dư ví không đủ. Cần {totalPrize + currentFee:N0} VNĐ (bao gồm phí tạo).");
 
+            decimal totalToLock = totalPrize + currentFee;
+
+            await CheckSpendingLimitAsync(wallet, totalToLock);
+
             await _unitOfWork.BeginTransactionAsync();
             try
             {
@@ -122,7 +126,7 @@ namespace Application.Services.EventServices
                 await CreatePrizesAsync(eventData.EventId, dto.Prizes);
                 await SetupExpertPanelAsync(eventData.EventId, creatorId, dto.InvitedExpertIds, isDraft: true);
 
-                decimal totalToLock = totalPrize + currentFee;
+                //decimal totalToLock = totalPrize + currentFee;
                 wallet.Balance -= totalToLock;
                 wallet.LockedBalance += totalToLock;
                 _walletRepo.Update(wallet);
@@ -168,6 +172,10 @@ namespace Application.Services.EventServices
                 // TRƯỜNG HỢP 2: Thành công - Kích hoạt và Ký quỹ
                 else
                 {
+                    //await CollectSystemFeeAsync(wallet, ev);
+                    //await ProcessEscrowFromLockedAsync(eventId, ev.CreatorId, totalPrizeAmount, wallet);
+                    decimal totalEventSpending = ev.AppliedFee + totalPrizeAmount;
+                    await CheckSpendingLimitAsync(wallet, totalEventSpending);
                     await CollectSystemFeeAsync(wallet, ev);
                     await ProcessEscrowFromLockedAsync(eventId, ev.CreatorId, totalPrizeAmount, wallet);
 
@@ -334,6 +342,10 @@ namespace Application.Services.EventServices
                 decimal totalPrizeAmount = prizesData.Sum(p => p.RewardAmount);
 
                 // 1. Thu phí hệ thống & Chuyển tiền vào Escrow (Ký quỹ)
+                //await CollectSystemFeeAsync(wallet, ev);
+                //await ProcessEscrowFromLockedAsync(eventId, ev.CreatorId, totalPrizeAmount, wallet);
+                decimal totalEventSpending = ev.AppliedFee + totalPrizeAmount;
+                await CheckSpendingLimitAsync(wallet, totalEventSpending);
                 await CollectSystemFeeAsync(wallet, ev);
                 await ProcessEscrowFromLockedAsync(eventId, ev.CreatorId, totalPrizeAmount, wallet);
 
@@ -583,6 +595,37 @@ namespace Application.Services.EventServices
                 }));
             }
             await _eventExpertRepo.AddRangeAsync(expertPanel);
+        }
+
+        private async Task CheckSpendingLimitAsync(Wallet wallet, decimal debitAmount)
+        {
+            if (wallet == null)
+                throw new KeyNotFoundException("Ví không tồn tại.");
+
+            if (debitAmount <= 0)
+                throw new ArgumentException("Số tiền chi không hợp lệ.");
+
+            if (!wallet.MonthlySpendingLimit.HasValue || wallet.MonthlySpendingLimit.Value <= 0)
+                return;
+
+            var now = DateTime.UtcNow;
+
+            decimal spentThisMonth = await _transactionRepo.GetMonthlyDebitTotalAsync(
+                wallet.WalletId,
+                now.Month,
+                now.Year);
+
+            decimal projectedSpent = spentThisMonth + debitAmount;
+            decimal limitAmount = wallet.MonthlySpendingLimit.Value;
+
+            if (wallet.IsHardSpendingLimit && projectedSpent > limitAmount)
+            {
+                throw new InvalidOperationException(
+                    $"Bạn đã vượt hạn mức chi tiêu tháng. " +
+                    $"Đã chi: {spentThisMonth:N0} VND, " +
+                    $"chi phí sự kiện: {debitAmount:N0} VND, " +
+                    $"hạn mức: {limitAmount:N0} VND.");
+            }
         }
     }
 }

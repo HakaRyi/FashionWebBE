@@ -483,6 +483,10 @@ namespace Infrastructure.Repositories
         public async Task<Post?> GetPostForShareAsync(int postId)
         {
             return await _db.Posts
+                .Include(p => p.Images)
+                .Include(p => p.Account)
+                    .ThenInclude(a => a.Avatars)
+                .Include(p => p.Event)
                 .FirstOrDefaultAsync(p => p.PostId == postId);
         }
 

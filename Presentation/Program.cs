@@ -182,7 +182,7 @@ builder.Services.AddScoped<IRefundRequestRepository, RefundRequestRepository>();
 builder.Services.AddScoped<IRecommendationService,RecommendationService>();
 builder.Services.AddScoped<IReputationHistoryService, ReputationHistoryService>();
 builder.Services.AddScoped<IFileService, GoogleDriveService>();
-
+builder.Services.AddScoped<IChatShareService, ChatShareService>();
 
 #endregion
 

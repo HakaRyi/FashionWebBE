@@ -7,6 +7,7 @@ using Domain.Entities;
 using Domain.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
+using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Text.Json;
 
@@ -57,9 +58,11 @@ namespace Application.Services.TryOn
             _cloudStorageService = cloudStorageService;
         }
 
-        public async Task<Stream> ProcessTryOnAsync(IFormFile modelImage, IFormFile clothImage, int? category)
+        public async Task<Stream> ProcessTryOnAsync(
+            IFormFile modelImage,
+            IFormFile clothImage,
+            int? category)
         {
-
             if (modelImage == null || modelImage.Length == 0)
                 throw new ArgumentException("Ảnh người mẫu không hợp lệ.");
 
@@ -75,6 +78,8 @@ namespace Application.Services.TryOn
             if (availableBalance < _tryOnPrice)
                 throw new InvalidOperationException("Số dư không đủ.");
 
+            await CheckSpendingLimitAsync(wallet, _tryOnPrice);
+
             int finalCategory = category ?? await GetClothCategoryAsync(clothImage);
 
             var resultBytes = await CallTryOnAI(modelImage, clothImage, finalCategory);
@@ -84,7 +89,9 @@ namespace Application.Services.TryOn
 
             using (var uploadStream = new MemoryStream(resultBytes))
             {
-                imageUrl = await _cloudStorageService.UploadImageFromStreamAsync(uploadStream, fileName);
+                imageUrl = await _cloudStorageService.UploadImageFromStreamAsync(
+                    uploadStream,
+                    fileName);
             }
 
             await _unitOfWork.BeginTransactionAsync();
@@ -93,7 +100,14 @@ namespace Application.Services.TryOn
             {
                 wallet = await _walletRepository.GetByAccountIdAsync(userId)
                     ?? throw new KeyNotFoundException("Không tìm thấy ví.");
-                var balanceBefore = wallet.Balance;
+
+                availableBalance = wallet.Balance - wallet.LockedBalance;
+                if (availableBalance < _tryOnPrice)
+                    throw new InvalidOperationException("Số dư không đủ.");
+
+                await CheckSpendingLimitAsync(wallet, _tryOnPrice);
+
+                decimal balanceBefore = wallet.Balance;
 
                 wallet.Balance -= _tryOnPrice;
                 wallet.UpdatedAt = DateTime.UtcNow;
@@ -138,13 +152,65 @@ namespace Application.Services.TryOn
             }
         }
 
+        public async Task<TryOnInfoResponse> GetTryOnInfoAsync()
+        {
+            var userId = _currentUserService.GetRequiredUserId();
+
+            var wallet = await _walletRepository.GetByAccountIdAsync(userId)
+                ?? throw new KeyNotFoundException("Không tìm thấy ví của người dùng.");
+
+            var availableBalance = wallet.Balance - wallet.LockedBalance;
+
+            return new TryOnInfoResponse
+            {
+                TryOnPrice = _tryOnPrice,
+                Balance = wallet.Balance,
+                LockedBalance = wallet.LockedBalance,
+                AvailableBalance = availableBalance,
+                CanTryOn = availableBalance >= _tryOnPrice,
+                Message = availableBalance >= _tryOnPrice
+                    ? "Đủ số dư để thử đồ."
+                    : "Số dư không đủ để thử đồ."
+            };
+        }
+
+        private async Task CheckSpendingLimitAsync(Wallet wallet, decimal debitAmount)
+        {
+            if (wallet == null)
+                throw new KeyNotFoundException("Ví không tồn tại.");
+
+            if (debitAmount <= 0)
+                throw new ArgumentException("Số tiền chi không hợp lệ.");
+
+            if (!wallet.MonthlySpendingLimit.HasValue || wallet.MonthlySpendingLimit.Value <= 0)
+                return;
+
+            var now = DateTime.UtcNow;
+
+            decimal spentThisMonth = await _transactionRepository.GetMonthlyDebitTotalAsync(
+                wallet.WalletId,
+                now.Month,
+                now.Year);
+
+            decimal projectedSpent = spentThisMonth + debitAmount;
+            decimal limitAmount = wallet.MonthlySpendingLimit.Value;
+
+            if (wallet.IsHardSpendingLimit && projectedSpent > limitAmount)
+            {
+                throw new InvalidOperationException(
+                    $"Bạn đã vượt hạn mức chi tiêu tháng. " +
+                    $"Đã chi: {spentThisMonth:N0} VND, " +
+                    $"chi phí thử đồ: {debitAmount:N0} VND, " +
+                    $"hạn mức: {limitAmount:N0} VND.");
+            }
+        }
+
         private async Task<byte[]> CallTryOnAI(
             IFormFile modelImage,
             IFormFile clothImage,
             int categoryId)
         {
             using var content = new MultipartFormDataContent();
-
 
             content.Add(await ToStreamContent(modelImage), "model_image", modelImage.FileName);
             content.Add(await ToStreamContent(clothImage), "cloth_image", clothImage.FileName);
@@ -171,8 +237,7 @@ namespace Application.Services.TryOn
             content.Headers.ContentType = new MediaTypeHeaderValue(
                 string.IsNullOrWhiteSpace(file.ContentType)
                     ? "application/octet-stream"
-                    : file.ContentType
-            );
+                    : file.ContentType);
 
             return content;
         }
@@ -189,24 +254,26 @@ namespace Application.Services.TryOn
             img.Headers.ContentType = new MediaTypeHeaderValue(
                 string.IsNullOrWhiteSpace(clothImage.ContentType)
                     ? "application/octet-stream"
-                    : clothImage.ContentType
-            );
+                    : clothImage.ContentType);
 
             content.Add(img, "file", clothImage.FileName);
 
-            var res = await _httpClient.PostAsync(_aiPredictUrl, content);
+            var response = await _httpClient.PostAsync(_aiPredictUrl, content);
 
-            if (!res.IsSuccessStatusCode)
+            if (!response.IsSuccessStatusCode)
             {
-                var error = await res.Content.ReadAsStringAsync();
+                var error = await response.Content.ReadAsStringAsync();
                 throw new Exception($"AI predict error: {error}");
             }
 
-            var json = await res.Content.ReadAsStringAsync();
+            var json = await response.Content.ReadAsStringAsync();
 
             var prediction = JsonSerializer.Deserialize<AIFashionDetectReponse>(
                 json,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
 
             if (prediction == null)
                 throw new Exception("Không đọc được kết quả phân loại ảnh.");
@@ -214,37 +281,18 @@ namespace Application.Services.TryOn
             if (!prediction.IsClothing)
                 throw new Exception("Ảnh quần áo không hợp lệ.");
 
-            return MapLabelToCategory(prediction.Label ?? "");
-        }
-
-        public async Task<TryOnInfoResponse> GetTryOnInfoAsync()
-        {
-            var userId = _currentUserService.GetRequiredUserId();
-
-            var wallet = await _walletRepository.GetByAccountIdAsync(userId)
-                ?? throw new KeyNotFoundException("Không tìm thấy ví của người dùng.");
-
-            var availableBalance = wallet.Balance - wallet.LockedBalance;
-
-            return new TryOnInfoResponse
-            {
-                TryOnPrice = _tryOnPrice,
-                Balance = wallet.Balance,
-                LockedBalance = wallet.LockedBalance,
-                AvailableBalance = availableBalance,
-                CanTryOn = availableBalance >= _tryOnPrice,
-                Message = availableBalance >= _tryOnPrice
-                    ? "Đủ số dư để thử đồ."
-                    : "Số dư không đủ để thử đồ."
-            };
+            return MapLabelToCategory(prediction.Label ?? string.Empty);
         }
 
         private int MapLabelToCategory(string label)
         {
             label = label.Trim().ToLowerInvariant();
 
-            if (new[] { "pants", "jeans", "skirt" }.Any(label.Contains)) return 1;
-            if (new[] { "dress", "gown" }.Any(label.Contains)) return 2;
+            if (new[] { "pants", "jeans", "skirt" }.Any(label.Contains))
+                return 1;
+
+            if (new[] { "dress", "gown" }.Any(label.Contains))
+                return 2;
 
             return 0;
         }

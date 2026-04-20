@@ -72,17 +72,18 @@ namespace Application.Services.ChatImp
         public async Task<List<MessageResponse>> GetHistoryMessage(int groupId)
         {
             var messages = await _chatrepo.GetHistoryMessages(groupId);
-            var group = await _groupRepository.GetGroupById(groupId);
+
             return messages.Select(m => new MessageResponse
             {
                 MessageId = m.MessageId,
-                GroupName = m.Group.Name,
-                SenderName = m.Account.UserName,
-                SenderAvatar = m.Account.Avatars
-                  .OrderByDescending(img => img.CreatedAt)
-                  .Select(img => img.ImageUrl)
-                  .FirstOrDefault() ?? null,
-                SenderId = m.Account.Id,
+                GroupId = m.GroupId ?? 0,
+                GroupName = m.Group?.Name,
+                SenderName = m.Account?.UserName,
+                SenderAvatar = m.Account?.Avatars
+                    .OrderByDescending(img => img.CreatedAt)
+                    .Select(img => img.ImageUrl)
+                    .FirstOrDefault(),
+                SenderId = m.Account?.Id ?? 0,
                 Content = m.Content,
                 SentAt = m.SentAt,
                 Photos = m.Photos.Select(p => p.PhotoUrl).ToList(),
@@ -91,25 +92,40 @@ namespace Application.Services.ChatImp
                     AccountId = r.AccountReactId,
                     ReactionType = r.Type
                 }).ToList(),
-                ReplyToMessageId = m.ReplyToMessageId
+                ReplyToMessageId = m.ReplyToMessageId,
+                IsRecalled = m.IsRecalled,
+
+                SharedPostId = m.SharedPostId,
+                SharedPostTitle = m.SharedPost?.Title,
+                SharedPostContent = m.SharedPost?.Content,
+                SharedPostImages = m.SharedPost?.Images
+                    .OrderBy(i => i.CreatedAt)
+                    .Select(i => i.ImageUrl)
+                    .ToList() ?? new List<string>(),
+                SharedPostOwnerId = m.SharedPost?.AccountId,
+                SharedPostOwnerName = m.SharedPost?.Account?.UserName,
+                SharedPostOwnerAvatar = m.SharedPost?.Account?.Avatars
+                    .OrderByDescending(img => img.CreatedAt)
+                    .Select(img => img.ImageUrl)
+                    .FirstOrDefault()
             }).ToList();
-
-
         }
 
         public async Task<MessageResponse> GetMessageById(int messageId)
         {
             var message = await _chatrepo.GetMessageById(messageId);
-            return new MessageResponse()
+
+            return new MessageResponse
             {
                 MessageId = message.MessageId,
-                GroupName = message.Group.Name,
-                SenderName = message.Account.UserName,
-                SenderAvatar = message.Account.Avatars
-                  .OrderByDescending(img => img.CreatedAt)
-                  .Select(img => img.ImageUrl)
-                  .FirstOrDefault() ?? null,
-                SenderId = message.Account.Id,
+                GroupId = message.GroupId ?? 0,
+                GroupName = message.Group?.Name,
+                SenderName = message.Account?.UserName,
+                SenderAvatar = message.Account?.Avatars
+                    .OrderByDescending(img => img.CreatedAt)
+                    .Select(img => img.ImageUrl)
+                    .FirstOrDefault(),
+                SenderId = message.Account?.Id ?? 0,
                 Content = message.Content,
                 SentAt = message.SentAt,
                 Photos = message.Photos.Select(p => p.PhotoUrl).ToList(),
@@ -118,10 +134,23 @@ namespace Application.Services.ChatImp
                     AccountId = r.AccountReactId,
                     ReactionType = r.Type
                 }).ToList(),
-                ReplyToMessageId = message.ReplyToMessageId
+                ReplyToMessageId = message.ReplyToMessageId,
+                IsRecalled = message.IsRecalled,
+
+                SharedPostId = message.SharedPostId,
+                SharedPostTitle = message.SharedPost?.Title,
+                SharedPostContent = message.SharedPost?.Content,
+                SharedPostImages = message.SharedPost?.Images
+                    .OrderBy(i => i.CreatedAt)
+                    .Select(i => i.ImageUrl)
+                    .ToList() ?? new List<string>(),
+                SharedPostOwnerId = message.SharedPost?.AccountId,
+                SharedPostOwnerName = message.SharedPost?.Account?.UserName,
+                SharedPostOwnerAvatar = message.SharedPost?.Account?.Avatars
+                    .OrderByDescending(img => img.CreatedAt)
+                    .Select(img => img.ImageUrl)
+                    .FirstOrDefault()
             };
-
-
         }
 
         public async Task SendMessage(int groupId, SendMessageRequest request)
@@ -291,6 +320,5 @@ namespace Application.Services.ChatImp
 
             return groupId;
         }
-
     }
 }

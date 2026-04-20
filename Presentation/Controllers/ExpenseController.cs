@@ -1,8 +1,9 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Domain.Dto.Wallet;
-using Application.Utils;
+﻿using Application.Request.WalletReq;
 using Application.Services.WalletImp;
+using Application.Utils;
+using Domain.Dto.Wallet;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Presentation.Controllers
 {
@@ -55,6 +56,22 @@ namespace Presentation.Controllers
         {
             var accountId = User.GetUserId();
             var result = await _expenseService.GetCashflowAsync(accountId, request);
+            return Ok(result);
+        }
+
+        [HttpGet("me/spending-limit")]
+        public async Task<IActionResult> GetMySpendingLimit([FromQuery] int month, [FromQuery] int year)
+        {
+            var accountId = User.GetUserId();
+            var result = await _expenseService.GetMySpendingLimitAsync(accountId, month, year);
+            return Ok(result);
+        }
+
+        [HttpPut("me/spending-limit")]
+        public async Task<IActionResult> UpdateMySpendingLimit([FromBody] UpdateSpendingLimitRequestDto request)
+        {
+            var accountId = User.GetUserId();
+            var result = await _expenseService.UpdateMySpendingLimitAsync(accountId, request);
             return Ok(result);
         }
     }

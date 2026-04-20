@@ -12,5 +12,6 @@ namespace Domain.Interfaces
         Task<Follow> GetFollowerByIdAsync(int userId, int followerId);
         Task<HashSet<int>> GetFollowingIdsAsync(int followerId, List<int> targetUserIds);
         Task<bool> IsFollowingAsync(int followerId, int targetUserId);
+        Task<List<int>> GetShareableUserIdsAsync(int accountId);
     }
 }
