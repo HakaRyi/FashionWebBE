@@ -712,7 +712,9 @@ namespace Application.Services.PostImp
 
             var ev = await _eventRepo.GetByIdAsync(dto.EventId.Value);
             if (ev == null) throw new Exception("Sự kiện không tồn tại.");
+
             if (ev.Status != "Active" || ev.SubmissionDeadline < DateTime.Now) throw new Exception("The event is no longer open for participation.");
+
 
 
             await _uow.BeginTransactionAsync();
