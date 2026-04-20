@@ -6,6 +6,7 @@
         public const string OrderPayment = "OrderPayment";
         public const string OrderRefund = "OrderRefund";
         public const string TryOn = "TryOn";
+        public const string AIRecommendation = "AIRecommendation";
         public const string EventReward = "EventReward";
         public const string Withdraw = "Withdraw";
         public const string Adjustment = "Adjustment";
@@ -16,6 +17,7 @@
             OrderPayment,
             OrderRefund,
             TryOn,
+            AIRecommendation,
             EventReward,
             Withdraw,
             Adjustment

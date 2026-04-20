@@ -63,7 +63,7 @@ namespace Application.Services.BackgroundServices
                             AccountId = chatData.SenderId,
                             GroupId = chatData.GroupId,
                             Content = chatData.Content,
-                            SentAt = DateTime.Now,
+                            SentAt = DateTime.UtcNow,
                             ReplyToMessageId = chatData.ReplyToId > 0 ? chatData.ReplyToId : (int?)null,
                             IsRecalled = false,
                             Photos = chatData.ImageUrls.Select(url => new Photo { PhotoUrl = url }).ToList()

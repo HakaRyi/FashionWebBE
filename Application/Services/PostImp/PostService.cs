@@ -142,7 +142,7 @@ namespace Application.Services.PostImp
             if (!changed)
                 throw new Exception("No changes detected.");
 
-            post.UpdatedAt = DateTime.Now;
+            post.UpdatedAt = DateTime.UtcNow;
             post.Status = PostStatus.Verifying;
 
             _postRepo.Update(post);
@@ -713,7 +713,7 @@ namespace Application.Services.PostImp
             var ev = await _eventRepo.GetByIdAsync(dto.EventId.Value);
             if (ev == null) throw new Exception("Sự kiện không tồn tại.");
 
-            if (ev.Status != "Active" || ev.SubmissionDeadline < DateTime.Now) throw new Exception("The event is no longer open for participation.");
+            if (ev.Status != "Active" || ev.SubmissionDeadline < DateTime.UtcNow) throw new Exception("The event is no longer open for participation.");
 
 
 
@@ -727,7 +727,7 @@ namespace Application.Services.PostImp
                 //wallet.Balance -= ev.AppliedFee;
                 //_walletRepo.Update(wallet);
 
-                var now = DateTime.Now;
+                var now = DateTime.UtcNow;
                 var imageUrls = await UploadImages(dto.Images!.ToList());
 
                 var post = new Post
@@ -736,8 +736,8 @@ namespace Application.Services.PostImp
                     Title = dto.Title?.Trim(),
                     Content = dto.Content?.Trim(),
                     EventId = dto.EventId,
-                    CreatedAt = DateTime.Now,
-                    UpdatedAt = DateTime.Now,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
                     Status = PostStatus.Published,
                     Visibility = PostVisibility.Visible,
                     LikeCount = 0,

@@ -44,7 +44,7 @@ namespace Application.Services.ChatImp
             }
             var groupUsers = new List<GroupUser>
             {
-                new GroupUser { AccountId = currentUserId, JoinedAt = DateTime.Now }
+                new GroupUser { AccountId = currentUserId, JoinedAt = DateTime.UtcNow }
             };
             foreach (var memberId in request.MemberIds.Distinct())
             {
@@ -53,7 +53,7 @@ namespace Application.Services.ChatImp
                     groupUsers.Add(new GroupUser
                     {
                         AccountId = memberId,
-                        JoinedAt = DateTime.Now
+                        JoinedAt = DateTime.UtcNow
                     });
                 }
             }
@@ -62,7 +62,7 @@ namespace Application.Services.ChatImp
                 Name = string.IsNullOrWhiteSpace(request.Name) ? "Nhóm mới" : request.Name,
                 IsGroup = true,
                 CreateBy = currentUserId,
-                CreatedAt = DateTime.Now,
+                CreatedAt = DateTime.UtcNow,
                 GroupUsers = groupUsers
             };
             if (request.Avatar != null)
@@ -72,7 +72,7 @@ namespace Application.Services.ChatImp
                 {
                     ImageUrl = avatarUrl,
                     OwnerType = "Group",
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.UtcNow
                 });
             }
             await _groupRepository.CreateGroup(group);
@@ -105,7 +105,7 @@ namespace Application.Services.ChatImp
             {
                 AccountId = userId,
                 GroupId = groupId,
-                JoinedAt = DateTime.Now
+                JoinedAt = DateTime.UtcNow
             });
             await _unitOfWork.CommitAsync();
             await _hubContext.Clients.User(userId.ToString()).SendAsync("NewGroupCreated", groupId);
@@ -138,11 +138,11 @@ namespace Application.Services.ChatImp
             {
                 Name = "Private Chat",
                 IsGroup = false,
-                CreatedAt = DateTime.Now,
+                CreatedAt = DateTime.UtcNow,
                 GroupUsers = new List<GroupUser>
                 {
-                    new GroupUser { AccountId = currentUserId, JoinedAt = DateTime.Now },
-                    new GroupUser { AccountId = targetUserId, JoinedAt = DateTime.Now }
+                    new GroupUser { AccountId = currentUserId, JoinedAt = DateTime.UtcNow },
+                    new GroupUser { AccountId = targetUserId, JoinedAt = DateTime.UtcNow }
                 }
             };
             _groupRepository.CreateGroup(group);
@@ -214,7 +214,7 @@ namespace Application.Services.ChatImp
                 {
                     ImageUrl = avatarUrl,
                     OwnerType = "Group",
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.UtcNow,
                 });
             }
             await _groupRepository.UpdateGroup(groupExingting);
