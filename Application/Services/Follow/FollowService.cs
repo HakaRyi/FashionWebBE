@@ -195,5 +195,61 @@ namespace Application.Services.Follow
                 return false;
             }
         }
+
+        public async Task<List<ShareableUserResponse>> GetShareableUsersAsync(int userId)
+        {
+            var followers = await _followRepository.GetFollowersByIdAsync(userId);
+            var followings = await _followRepository.GetFollowingsByIdAsync(userId);
+
+            var result = new Dictionary<int, ShareableUserResponse>();
+
+            foreach (var f in followers)
+            {
+                if (!result.ContainsKey(f.FollowerId))
+                {
+                    result[f.FollowerId] = new ShareableUserResponse
+                    {
+                        AccountId = f.FollowerId,
+                        UserName = f.Follower.UserName,
+                        AvatarUrl = f.Follower.Avatars
+                            .OrderByDescending(img => img.CreatedAt)
+                            .Select(img => img.ImageUrl)
+                            .FirstOrDefault(),
+                        IsFollower = true,
+                        IsFollowing = false
+                    };
+                }
+                else
+                {
+                    result[f.FollowerId].IsFollower = true;
+                }
+            }
+
+            foreach (var f in followings)
+            {
+                if (!result.ContainsKey(f.UserId))
+                {
+                    result[f.UserId] = new ShareableUserResponse
+                    {
+                        AccountId = f.UserId,
+                        UserName = f.User.UserName,
+                        AvatarUrl = f.User.Avatars
+                            .OrderByDescending(img => img.CreatedAt)
+                            .Select(img => img.ImageUrl)
+                            .FirstOrDefault(),
+                        IsFollower = false,
+                        IsFollowing = true
+                    };
+                }
+                else
+                {
+                    result[f.UserId].IsFollowing = true;
+                }
+            }
+
+            return result.Values
+                .OrderBy(x => x.UserName)
+                .ToList();
+        }
     }
 }

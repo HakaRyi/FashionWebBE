@@ -1,10 +1,12 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Application.Interfaces;
+using Application.Request.WalletReq;
+using Application.Response.WalletResp;
 using Domain.Constants;
 using Domain.Dto.Common;
 using Domain.Dto.Wallet;
 using Domain.Entities;
 using Domain.Interfaces;
-using Application.Interfaces;
+using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services.WalletImp
 {
@@ -316,6 +318,98 @@ namespace Application.Services.WalletImp
             {
                 throw new ArgumentException("Year không hợp lệ.");
             }
+        }
+
+        public async Task<SpendingLimitResponseDto> GetMySpendingLimitAsync(
+    int accountId,
+    int month,
+    int year)
+        {
+            ValidateMonthYear(month, year);
+
+            var wallet = await _walletRepository.GetByAccountIdAsync(accountId);
+            if (wallet == null)
+            {
+                throw new KeyNotFoundException("Không tìm thấy ví.");
+            }
+
+            var spentThisMonth = await _transactionRepository.Query()
+                .Where(x => x.Wallet.AccountId == accountId
+                         && x.CreatedAt.Month == month
+                         && x.CreatedAt.Year == year
+                         && x.Status == TransactionStatus.Success
+                         && x.Type == TransactionType.Debit)
+                .SumAsync(x => (decimal?)x.Amount) ?? 0;
+
+            var limitAmount = wallet.MonthlySpendingLimit;
+            var remainingAmount = 0m;
+            var usedPercent = 0m;
+            var isExceeded = false;
+            var isWarning = false;
+
+            if (limitAmount.HasValue && limitAmount.Value > 0)
+            {
+                remainingAmount = limitAmount.Value - spentThisMonth;
+                if (remainingAmount < 0)
+                {
+                    remainingAmount = 0;
+                }
+
+                usedPercent = spentThisMonth * 100 / limitAmount.Value;
+                isExceeded = spentThisMonth > limitAmount.Value;
+                isWarning = usedPercent >= wallet.SpendingWarningThresholdPercent;
+            }
+
+            return new SpendingLimitResponseDto
+            {
+                MonthlySpendingLimit = wallet.MonthlySpendingLimit,
+                IsHardSpendingLimit = wallet.IsHardSpendingLimit,
+                SpendingWarningThresholdPercent = wallet.SpendingWarningThresholdPercent,
+                SpentThisMonth = spentThisMonth,
+                RemainingAmount = remainingAmount,
+                UsedPercent = usedPercent,
+                IsExceeded = isExceeded,
+                IsWarning = isWarning,
+                Currency = wallet.Currency ?? "VND"
+            };
+        }
+
+        public async Task<SpendingLimitResponseDto> UpdateMySpendingLimitAsync(
+    int accountId,
+    UpdateSpendingLimitRequestDto request)
+        {
+            if (request == null)
+            {
+                throw new ArgumentException("Dữ liệu cập nhật không hợp lệ.");
+            }
+
+            if (request.MonthlySpendingLimit.HasValue && request.MonthlySpendingLimit.Value < 0)
+            {
+                throw new ArgumentException("MonthlySpendingLimit không được nhỏ hơn 0.");
+            }
+
+            if (request.SpendingWarningThresholdPercent <= 0 ||
+                request.SpendingWarningThresholdPercent > 100)
+            {
+                throw new ArgumentException("SpendingWarningThresholdPercent phải từ 1 đến 100.");
+            }
+
+            var wallet = await _walletRepository.GetByAccountIdAsync(accountId);
+            if (wallet == null)
+            {
+                throw new KeyNotFoundException("Không tìm thấy ví.");
+            }
+
+            wallet.MonthlySpendingLimit = request.MonthlySpendingLimit;
+            wallet.IsHardSpendingLimit = request.IsHardSpendingLimit;
+            wallet.SpendingWarningThresholdPercent = request.SpendingWarningThresholdPercent;
+            wallet.UpdatedAt = DateTime.UtcNow;
+
+            _walletRepository.Update(wallet);
+            await _unitOfWork.SaveChangesAsync();
+
+            var now = DateTime.UtcNow;
+            return await GetMySpendingLimitAsync(accountId, now.Month, now.Year);
         }
 
         private static string BuildDisplayTitle(Transaction transaction)

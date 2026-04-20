@@ -11,16 +11,16 @@ namespace Presentation.Controllers
     public class FollowController : ControllerBase
     {
         private readonly IFollowService service;
+
         public FollowController(IFollowService service)
         {
             this.service = service;
         }
-        // GET: api/<FollowController>
+
         [HttpGet("get-followers")]
         public async Task<IActionResult> GetAllFollowers()
         {
             var userIdClaim = User.FindFirst("AccountId")?.Value
-                      // Nếu không thấy, thử lấy theo tên dài chuẩn Microsoft
                       ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             Console.WriteLine(User.Identity?.IsAuthenticated);
             if (string.IsNullOrEmpty(userIdClaim))
@@ -44,7 +44,6 @@ namespace Presentation.Controllers
         public async Task<IActionResult> GetAllFollowings()
         {
             var userIdClaim = User.FindFirst("AccountId")?.Value
-                      // Nếu không thấy, thử lấy theo tên dài chuẩn Microsoft
                       ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             Console.WriteLine(User.Identity?.IsAuthenticated);
             if (string.IsNullOrEmpty(userIdClaim))
@@ -65,7 +64,6 @@ namespace Presentation.Controllers
             }
         }
 
-        // GET api/<FollowController>/5
         [HttpGet("{followerId}")]
         public async Task<IActionResult> GetById([FromRoute] int followerId)
         {
@@ -85,7 +83,6 @@ namespace Presentation.Controllers
         }
 
 
-        // POST api/<FollowController>
         [HttpPost("{followerId}")]
         [Authorize]
         public async Task<IActionResult> Post([FromRoute] int followerId)
@@ -128,7 +125,7 @@ namespace Presentation.Controllers
                 isFollowing = result
             });
         }
-        // DELETE api/<FollowController>/5
+
         [HttpDelete("{id}")]
         [Authorize]
         public async Task<IActionResult> Delete(int id)
@@ -149,6 +146,22 @@ namespace Presentation.Controllers
                     message = "da co loi xay ra"
                 });
             }
+        }
+
+        [HttpGet("get-shareable-users")]
+        [Authorize]
+        public async Task<IActionResult> GetShareableUsers()
+        {
+            var userIdClaim = User.FindFirst("AccountId")?.Value
+                ?? User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+            if (string.IsNullOrEmpty(userIdClaim))
+            {
+                return Unauthorized(new { message = "Token không chứa AccountID hợp lệ." });
+            }
+
+            var result = await service.GetShareableUsersAsync(int.Parse(userIdClaim));
+            return Ok(result);
         }
     }
 }

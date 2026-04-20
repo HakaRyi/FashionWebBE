@@ -9,6 +9,14 @@
         public string SenderAvatar { get; set; }    
         public int SenderId { get; set; }
         public string Content { get; set; } = string.Empty;
+        public bool? IsRecalled { get; set; }
+        public int? SharedPostId { get; set; }
+        public string? SharedPostTitle { get; set; }
+        public string? SharedPostContent { get; set; }
+        public List<string> SharedPostImages { get; set; } = new();
+        public int? SharedPostOwnerId { get; set; }
+        public string? SharedPostOwnerName { get; set; }
+        public string? SharedPostOwnerAvatar { get; set; }
         public List<string>? Photos { get; set; } = new List<string>();
         public DateTime? SentAt { get; set; }
         public List<MessageReactionResponse>? Reactions { get; set; } = new List<MessageReactionResponse>();

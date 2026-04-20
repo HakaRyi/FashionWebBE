@@ -12,5 +12,6 @@ namespace Application.Services.Follow
         Task<int> CountMyFollowing(int userId);
         Task<FollowResponse> GetFollowerByIdAsync(int userId, int followerId);
         Task<bool> IsFollowingAsync(int userId, int followerId);
+        Task<List<ShareableUserResponse>> GetShareableUsersAsync(int userId);
     }
 }

@@ -8,6 +8,7 @@ namespace Infrastructure.Repositories
     public class FollowRepository : IFollowRepository
     {
         private readonly FashionDbContext fashionDbContext;
+
         public FollowRepository(FashionDbContext fashionDbContext)
         {
             this.fashionDbContext = fashionDbContext;
@@ -26,8 +27,6 @@ namespace Infrastructure.Repositories
                 .Include(f => f.User)
                 .FirstOrDefaultAsync(f => f.UserId == userId && f.FollowerId == followerId);
         }
-
-
 
         public async Task<List<Follow>> GetFollowersByIdAsync(int userId)
         {
@@ -70,6 +69,25 @@ namespace Infrastructure.Repositories
                 .ToListAsync();
 
             return new HashSet<int>(followingIds);
+        }
+
+        public async Task<List<int>> GetShareableUserIdsAsync(int accountId)
+        {
+            var followerIds = await fashionDbContext.Follows
+                .Where(f => f.UserId == accountId)
+                .Select(f => f.FollowerId)
+                .ToListAsync();
+
+            var followingIds = await fashionDbContext.Follows
+                .Where(f => f.FollowerId == accountId)
+                .Select(f => f.UserId)
+                .ToListAsync();
+
+            return followerIds
+                .Union(followingIds)
+                .Where(x => x != accountId)
+                .Distinct()
+                .ToList();
         }
     }
 }

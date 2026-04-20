@@ -1136,6 +1136,8 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("sentAt");
 
+            entity.Property(e => e.SharedPostId).HasColumnName("sharedPost_id");
+
             entity.HasOne(d => d.Account).WithMany(p => p.Messages)
                 .HasForeignKey(d => d.AccountId)
                 .HasConstraintName("Message_account_id_fkey");
@@ -1147,6 +1149,11 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.HasOne(d => d.ReplyToMessage).WithMany(p => p.InverseReplyToMessage)
                 .HasForeignKey(d => d.ReplyToMessageId)
                 .HasConstraintName("Message_replyToMessage_id_fkey");
+
+            entity.HasOne(d => d.SharedPost).WithMany()
+                .HasForeignKey(d => d.SharedPostId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("Message_sharedPost_id_fkey");
         });
 
         modelBuilder.Entity<Notification>(entity =>
@@ -1968,6 +1975,19 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasMaxLength(10)
                 .HasDefaultValue("VND")
                 .HasColumnName("currency");
+
+            entity.Property(e => e.MonthlySpendingLimit)
+                .HasColumnType("decimal(18,2)")
+                .HasColumnName("monthly_spending_limit");
+
+            entity.Property(e => e.IsHardSpendingLimit)
+                .HasDefaultValue(false)
+                .HasColumnName("is_hard_spending_limit");
+
+            entity.Property(e => e.SpendingWarningThresholdPercent)
+                .HasColumnType("decimal(5,2)")
+                .HasDefaultValue(80m)
+                .HasColumnName("spending_warning_threshold_percent");
 
             entity.Property(e => e.UpdatedAt)
                 .HasColumnType("timestamp with time zone")

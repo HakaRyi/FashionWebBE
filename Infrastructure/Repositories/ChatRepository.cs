@@ -12,11 +12,13 @@ namespace Infrastructure.Repositories
         {
             _context = context;
         }
+
         public async Task<Group> GetGroupById(int id)
         {
             var entity = await _context.Groups.FirstOrDefaultAsync(u => u.GroupId == id);
             return entity ?? new Group();
         }
+
         public async Task<Account> GetAccountById(int id)
         {
             var entity = await _context.Users
@@ -29,6 +31,7 @@ namespace Infrastructure.Repositories
         {
             _context.Messages.Add(message);
         }
+
         public async Task DeleteMessage(Message message)
         {
             _context.Messages.Remove(message);
@@ -45,7 +48,13 @@ namespace Infrastructure.Repositories
                 .Include(m => m.MessReactions)
                 .Include(m => m.ReplyToMessage)
                 .Include(m => m.Account)
+                    .ThenInclude(a => a.Avatars)
                 .Include(m => m.Group)
+                .Include(m => m.SharedPost)
+                    .ThenInclude(p => p.Images)
+                .Include(m => m.SharedPost)
+                    .ThenInclude(p => p.Account)
+                        .ThenInclude(a => a.Avatars)
                 .Where(m => m.GroupId == groupId)
                 .OrderBy(m => m.SentAt)
                 .ToListAsync();
@@ -58,9 +67,16 @@ namespace Infrastructure.Repositories
                 .Include(m => m.MessReactions)
                 .Include(m => m.ReplyToMessage)
                 .Include(m => m.Account)
+                    .ThenInclude(a => a.Avatars)
                 .Include(m => m.Group)
+                .Include(m => m.SharedPost)
+                    .ThenInclude(p => p.Images)
+                .Include(m => m.SharedPost)
+                    .ThenInclude(p => p.Account)
+                        .ThenInclude(a => a.Avatars)
                 .FirstOrDefaultAsync(m => m.MessageId == id) ?? new Message();
         }
+
         public async Task AddOrUpdateReaction(MessReaction reaction)
         {
             var existing = await _context.MessReactions
@@ -76,6 +92,7 @@ namespace Infrastructure.Repositories
                 _context.MessReactions.Add(reaction);
             }
         }
+
         public async Task<List<MessReaction>> GetAllReactionByMessageiD(int messageId)
         {
             return await _context.MessReactions
