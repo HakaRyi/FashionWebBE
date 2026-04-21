@@ -198,10 +198,10 @@ namespace Application.Services.TryOn
             if (wallet.IsHardSpendingLimit && projectedSpent > limitAmount)
             {
                 throw new InvalidOperationException(
-                    $"Bạn đã vượt hạn mức chi tiêu tháng. " +
-                    $"Đã chi: {spentThisMonth:N0} VND, " +
-                    $"chi phí thử đồ: {debitAmount:N0} VND, " +
-                    $"hạn mức: {limitAmount:N0} VND.");
+                    $"You have exceeded your monthly spending limit. " +
+                    $"Spent so far: {spentThisMonth:N0} VND, " +
+                    $"try-on cost: {debitAmount:N0} VND, " +
+                    $"limit: {limitAmount:N0} VND.");
             }
         }
 

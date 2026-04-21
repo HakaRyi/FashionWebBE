@@ -124,14 +124,14 @@ namespace Application.Services.ChatImp
                         {
                             Group = room,
                             AccountId = senderId,
-                            JoinedAt = DateTime.Now
+                            JoinedAt = DateTime.UtcNow
                         });
 
                         await _groupRepository.AddMemberToGroup(new GroupUser
                         {
                             Group = room,
                             AccountId = receiverId,
-                            JoinedAt = DateTime.Now
+                            JoinedAt = DateTime.UtcNow
                         });
 
                         isNewRoom = true;
@@ -143,7 +143,7 @@ namespace Application.Services.ChatImp
                         Group = room,
                         Content = request.Caption,
                         SharedPostId = post.PostId,
-                        SentAt = DateTime.Now,
+                        SentAt = DateTime.UtcNow,
                         IsRecalled = false
                     };
 

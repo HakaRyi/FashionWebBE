@@ -41,7 +41,7 @@ namespace Application.Services.PaymentService
         public async Task<PaymentResponse> CreateTopUpVnPayAsync(CreateTopUpRequest request, string ipAddress)
         {
             if (request == null)
-                throw new Exception("Dữ liệu nạp tiền không hợp lệ.");
+                throw new Exception("Invalid top-up data.");
 
             ValidateTopUpAmount(request.Amount);
 
@@ -77,7 +77,7 @@ namespace Application.Services.PaymentService
                 Amount = payment.Amount,
                 Provider = payment.Provider!,
                 Status = payment.Status!,
-                Description = "Nạp tiền vào ví qua VNPAY",
+                Description = "Top up your wallet via VNPAY",
                 CreatedAt = payment.CreatedAt ?? DateTime.UtcNow,
                 PaymentUrl = paymentUrl
             };
@@ -86,7 +86,7 @@ namespace Application.Services.PaymentService
         public async Task<PaymentResponse> CreateTopUpZaloPayAsync(CreateTopUpRequest request)
         {
             if (request == null)
-                throw new Exception("Dữ liệu nạp tiền không hợp lệ.");
+                throw new Exception("Invalid top-up data.");
 
             ValidateTopUpAmount(request.Amount);
 
@@ -111,7 +111,7 @@ namespace Application.Services.PaymentService
                 Amount = payment.Amount,
                 Provider = payment.Provider!,
                 Status = payment.Status!,
-                Description = "Nạp tiền vào ví qua ZaloPay",
+                Description = "Top up your wallet via ZaloPay",
                 CreatedAt = payment.CreatedAt ?? DateTime.UtcNow,
                 PaymentUrl = null
             };
@@ -186,7 +186,7 @@ namespace Application.Services.PaymentService
         private static void ValidateTopUpAmount(decimal amount)
         {
             if (amount < MinTopUpAmount)
-                throw new Exception("Số tiền tối thiểu là 10,000đ.");
+                throw new Exception("The minimum amount is 10,000 VND.");
         }
     }
 }

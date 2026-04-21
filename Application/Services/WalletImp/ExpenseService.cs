@@ -123,7 +123,7 @@ namespace Application.Services.WalletImp
 
             if (transaction == null || transaction.Wallet.AccountId != accountId)
             {
-                throw new KeyNotFoundException("Không tìm thấy giao dịch.");
+                throw new KeyNotFoundException("No transaction found.");
             }
 
             return new TransactionDetailResponseDto
@@ -199,7 +199,7 @@ namespace Application.Services.WalletImp
 
             if (!TransactionType.IsValid(type))
             {
-                throw new ArgumentException("Type không hợp lệ.");
+                throw new ArgumentException("Invalid type.");
             }
 
             return await _transactionRepository.Query()
@@ -225,13 +225,13 @@ namespace Application.Services.WalletImp
         {
             if (request.FromDate > request.ToDate)
             {
-                throw new ArgumentException("FromDate không được lớn hơn ToDate.");
+                throw new ArgumentException("FromDate cannot be greater than ToDate.");
             }
 
             var groupBy = request.GroupBy?.Trim().ToLower() ?? "day";
             if (groupBy != "day" && groupBy != "month")
             {
-                throw new ArgumentException("GroupBy chỉ chấp nhận 'day' hoặc 'month'.");
+                throw new ArgumentException("GroupBy only accepts 'day' or 'month'.");
             }
 
             var from = request.FromDate.Date;
@@ -279,31 +279,31 @@ namespace Application.Services.WalletImp
         {
             if (!string.IsNullOrWhiteSpace(request.Type) && !TransactionType.IsValid(request.Type))
             {
-                throw new ArgumentException("Type không hợp lệ.");
+                throw new ArgumentException("Invalid type.");
             }
 
             if (!string.IsNullOrWhiteSpace(request.ReferenceType) &&
                 !TransactionReferenceType.IsValid(request.ReferenceType))
             {
-                throw new ArgumentException("ReferenceType không hợp lệ.");
+                throw new ArgumentException("Invalid ReferenceType.");
             }
 
             if (!string.IsNullOrWhiteSpace(request.Status) &&
                 !TransactionStatus.IsValid(request.Status))
             {
-                throw new ArgumentException("Status không hợp lệ.");
+                throw new ArgumentException("Invalid status.");
             }
 
             if (request.FromDate.HasValue && request.ToDate.HasValue &&
                 request.FromDate.Value > request.ToDate.Value)
             {
-                throw new ArgumentException("FromDate không được lớn hơn ToDate.");
+                throw new ArgumentException("FromDate cannot be greater than ToDate.");
             }
 
             if (request.MinAmount.HasValue && request.MaxAmount.HasValue &&
                 request.MinAmount.Value > request.MaxAmount.Value)
             {
-                throw new ArgumentException("MinAmount không được lớn hơn MaxAmount.");
+                throw new ArgumentException("MinAmount must not be greater than MaxAmount.");
             }
         }
 
@@ -311,12 +311,12 @@ namespace Application.Services.WalletImp
         {
             if (month < 1 || month > 12)
             {
-                throw new ArgumentException("Month phải từ 1 đến 12.");
+                throw new ArgumentException("Months must be from 1 to 12.");
             }
 
             if (year < 2000 || year > 3000)
             {
-                throw new ArgumentException("Year không hợp lệ.");
+                throw new ArgumentException("Invalid year.");
             }
         }
 
@@ -375,23 +375,23 @@ namespace Application.Services.WalletImp
         }
 
         public async Task<SpendingLimitResponseDto> UpdateMySpendingLimitAsync(
-    int accountId,
-    UpdateSpendingLimitRequestDto request)
+            int accountId,
+            UpdateSpendingLimitRequestDto request)
         {
             if (request == null)
             {
-                throw new ArgumentException("Dữ liệu cập nhật không hợp lệ.");
+                throw new ArgumentException("The updated data is invalid.");
             }
 
             if (request.MonthlySpendingLimit.HasValue && request.MonthlySpendingLimit.Value < 0)
             {
-                throw new ArgumentException("MonthlySpendingLimit không được nhỏ hơn 0.");
+                throw new ArgumentException("MonthlySpendingLimit must not be less than 0.");
             }
 
             if (request.SpendingWarningThresholdPercent <= 0 ||
                 request.SpendingWarningThresholdPercent > 100)
             {
-                throw new ArgumentException("SpendingWarningThresholdPercent phải từ 1 đến 100.");
+                throw new ArgumentException("SpendingWarningThresholdPercent must be between 1 and 100.");
             }
 
             var wallet = await _walletRepository.GetByAccountIdAsync(accountId);
@@ -416,14 +416,14 @@ namespace Application.Services.WalletImp
         {
             return transaction.ReferenceType switch
             {
-                TransactionReferenceType.TopUp => $"Nạp tiền #{transaction.ReferenceId}",
-                TransactionReferenceType.OrderPayment => $"Thanh toán đơn hàng #{transaction.ReferenceId}",
-                TransactionReferenceType.OrderRefund => $"Hoàn tiền đơn hàng #{transaction.ReferenceId}",
-                TransactionReferenceType.TryOn => $"Thanh toán Try-On #{transaction.ReferenceId}",
-                TransactionReferenceType.EventReward => $"Thưởng sự kiện #{transaction.ReferenceId}",
-                TransactionReferenceType.Withdraw => $"Rút tiền #{transaction.ReferenceId}",
-                TransactionReferenceType.Adjustment => $"Điều chỉnh số dư #{transaction.ReferenceId}",
-                _ => $"Giao dịch #{transaction.TransactionId}"
+                TransactionReferenceType.TopUp => $"Top-up #{transaction.ReferenceId}",
+                TransactionReferenceType.OrderPayment => $"Order payment #{transaction.ReferenceId}",
+                TransactionReferenceType.OrderRefund => $"Order refund #{transaction.ReferenceId}",
+                TransactionReferenceType.TryOn => $"Try-On payment #{transaction.ReferenceId}",
+                TransactionReferenceType.EventReward => $"Event reward #{transaction.ReferenceId}",
+                TransactionReferenceType.Withdraw => $"Withdrawal #{transaction.ReferenceId}",
+                TransactionReferenceType.Adjustment => $"Balance adjustment #{transaction.ReferenceId}",
+                _ => $"Transaction #{transaction.TransactionId}"
             };
         }
     }
