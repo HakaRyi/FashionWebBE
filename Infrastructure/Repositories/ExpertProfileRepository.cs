@@ -61,6 +61,15 @@ namespace Infrastructure.Repositories
         public void Update(ExpertProfile profile)
         {
             profile.UpdatedAt = DateTime.UtcNow;
+
+            var trackedEntity = _db.ExpertProfiles.Local
+                .FirstOrDefault(e => e.ExpertProfileId == profile.ExpertProfileId);
+
+            if (trackedEntity != null && trackedEntity != profile)
+            {
+                _db.Entry(trackedEntity).State = EntityState.Detached;
+            }
+
             _db.ExpertProfiles.Update(profile);
         }
 
