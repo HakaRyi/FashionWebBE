@@ -301,17 +301,23 @@ namespace Application.Services.EventServices
             double maxEarlyHours = await _settingRepo.GetDoubleValueAsync("MaxEarlyStartHours", 24.0);
             DateTime now = DateTime.UtcNow;
 
-            if ((ev.StartTime.Value - now).TotalHours > maxEarlyHours)
+            DateTime dbTime = ev.StartTime.Value;
+
+            DateTime eventStartUtc = ev.StartTime.Value.ToUniversalTime();
+
+            double hoursUntilStart = (eventStartUtc - now).TotalHours;
+
+            if (hoursUntilStart > maxEarlyHours)
             {
-                throw new Exception($"Bạn chỉ có thể bắt đầu sớm tối đa {maxEarlyHours} tiếng so với lịch dự kiến.");
+                throw new Exception($"You can only start a maximum of {maxEarlyHours} hours earlier than scheduled.");
             }
 
             if (ev.IsAutoStart)
             {
                 // Sự kiện Tự động: Đã đến giờ StartTime -> Cấm bấm tay, bắt chờ Quartz xử lý
-                if (now >= ev.StartTime)
+                if (now >= eventStartUtc)
                 {
-                    throw new Exception("Sự kiện này được cài đặt Tự động. Đã đến giờ, vui lòng đợi hệ thống kích hoạt trong giây lát.");
+                    throw new Exception("This event is set to Automatic. It's time, please wait a moment for the system to activate.");
                 }
             }
             else
@@ -319,7 +325,7 @@ namespace Application.Services.EventServices
                 // Sự kiện Thủ công: Nếu ngâm quá 12 tiếng kể từ giờ StartTime dự kiến -> cấm Start
                 if ((now - ev.StartTime.Value).TotalHours > 12)
                 {
-                    throw new Exception("Đã quá 12 tiếng kể từ thời gian bắt đầu dự kiến. Bạn không thể kích hoạt sự kiện này được nữa.");
+                    throw new Exception("More than 12 hours have passed since the scheduled start time. You can no longer trigger this event.");
                     // TIP: Chỗ này sau này bạn có thể viết thêm logic tự động Cancel Event và hoàn tiền (Refund) nếu muốn.
                 }
             }
@@ -497,15 +503,16 @@ namespace Application.Services.EventServices
 
             var job = JobBuilder.Create<FinalizeEventJob>()
                 .WithIdentity($"Job_Finalize_{ev.EventId}", "EventAwardGroup")
-                .WithDescription($"Tự động trao giải sự kiện: {ev.Title} (ID: {ev.EventId})")
+                .WithDescription($"Automatically award prizes for events: {ev.Title} (ID: {ev.EventId})")
                 .UsingJobData("EventId", ev.EventId)
                 .Build();
 
-            DateTimeOffset endTimeOffset = new DateTimeOffset(ev.EndTime.Value, TimeSpan.Zero);
+            DateTime endTimeUtc = ev.EndTime.Value.ToUniversalTime();
+            DateTimeOffset endTimeOffset = new DateTimeOffset(endTimeUtc);
 
             var trigger = TriggerBuilder.Create()
                 .WithIdentity($"Trigger_Finalize_{ev.EventId}", "EventAwardGroup")
-                .WithDescription($"Lịch trao giải sự kiện '{ev.Title}' vào {endTimeOffset:dd/MM/yyyy HH:mm}")
+                .WithDescription($"Award Ceremony Schedule '{ev.Title}' on {endTimeOffset:dd/MM/yyyy HH:mm}")
                 .StartAt(endTimeOffset)
                 // Misfire Instruction: Nếu Server tắt ngay lúc EndTime, khi bật lại sẽ bắn bù ngay!
                 .WithSimpleSchedule(x => x.WithMisfireHandlingInstructionFireNow())
