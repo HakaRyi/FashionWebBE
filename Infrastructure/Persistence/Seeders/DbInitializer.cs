@@ -136,6 +136,13 @@ namespace Infrastructure.Persistence.Seeders
                     SettingValue = "2",
                     DataType = "Number",
                     Description = "Minimum number of professionals required for the event to begin."
+                },
+                new SystemSetting
+                {
+                    SettingKey = "MaxEarlyStartHours",
+                    SettingValue = "24",
+                    DataType = "Number",
+                    Description = "The maximum number of hours allowed for starting an event earlier than scheduled."
                 }
             };
 
