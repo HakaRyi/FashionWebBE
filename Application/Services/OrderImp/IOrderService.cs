@@ -21,8 +21,6 @@ namespace Application.Services.OrderImp
         Task<List<OrderResponse>> GetCancelledOrdersAsync();
         Task<List<OrderResponse>> GetShippingOrdersAsync();
         Task<OrderResponse> CreateRefundRequestAsync(int orderId, int buyerId, string reason, string proof1, string proof2);
-        Task<OrderResponse> ProcessRefundAsync(int orderId);
-
         Task<List<RefundRequestResponse>> GetAllRefundRequestsAsync();
         Task<OrderResponse> RejectRefundAsync(int orderId, string adminNote);
         Task<List<RefundRequestResponse>> GetMyRefundRequestsAsync(int buyerId);
