@@ -1,4 +1,5 @@
 ﻿using Application.Interfaces;
+using Application.Services.NotificationImp;
 using Application.Utils.File;
 using Domain.Entities;
 using Domain.Interfaces;
@@ -24,9 +25,10 @@ namespace Application.Services.EventServices
         private readonly IUnitOfWork _unitOfWork;
         private readonly ICurrentUserService _currentUserService;
         private readonly IImageRepository _imageRepo;
-        private readonly IFileService _fileService;
         private readonly ISchedulerFactory _schedulerFactory;
         private readonly ISystemSettingRepository _settingRepo;
+        private readonly INotificationService _notificationService;
+
 
         public EventAwardingService(
             IEventRepository eventRepo,
@@ -44,7 +46,7 @@ namespace Application.Services.EventServices
             IUnitOfWork unitOfWork,
             IImageRepository imageRepo,
             ISystemSettingRepository settingRepo,
-            IFileService fileService,
+            INotificationService notificationService,
             ISchedulerFactory schedulerFactory,
             ICurrentUserService currentUserService)
         {
@@ -64,8 +66,8 @@ namespace Application.Services.EventServices
             _unitOfWork = unitOfWork;
             _currentUserService = currentUserService;
             _imageRepo = imageRepo;
-            _fileService = fileService;
             _schedulerFactory = schedulerFactory;
+            _notificationService = notificationService;
         }
 
         public async Task FinalizeAndAwardEventAsync(int eventId)
@@ -273,6 +275,23 @@ namespace Application.Services.EventServices
             ev.EndTime = DateTime.UtcNow;
             _eventRepo.Update(ev);
 
+            var eventExperts = await _eventExpertRepo.GetByEventIdAsync(ev.EventId);
+            var acceptedExperts = eventExperts.Where(e => e.Status == "Accepted").ToList();
+
+            // 2. Gửi thông báo cho từng Expert
+            foreach (var exp in acceptedExperts)
+            {
+                await _notificationService.SendNotificationAsync(new Application.Request.NotificationReq.SendNotificationRequest
+                {
+                    SenderId = ev.CreatorId,
+                    TargetUserId = exp.ExpertId,
+                    Title = "The event has ended.",
+                    Content = $"The event '{ev.Title}', where you served as a judge, has successfully concluded. Thank you for your contribution.",
+                    Type = "Event_Completed",
+                    RelatedId = ev.EventId.ToString()
+                });
+            }
+
             var scheduler = await _schedulerFactory.GetScheduler();
             var jobKeyFinalize = new JobKey($"Job_Finalize_{ev.EventId}", "EventAwardGroup");
 
@@ -352,17 +371,17 @@ namespace Application.Services.EventServices
                 if (missingPercentage <= 10)
                 {
                     penaltyPoint = -2;
-                    penaltyReason = $"Chấm sót {missingCount} bài thi (dưới 10%) trong sự kiện '{ev.Title}'.";
+                    penaltyReason = $"Missed {missingCount} evaluations (under 10%) in the event '{ev.Title}'.";
                 }
                 else if (missingPercentage <= 50)
                 {
                     penaltyPoint = -10;
-                    penaltyReason = $"Bỏ dở chấm thi (thiếu {missingPercentage:0.0}%) trong sự kiện '{ev.Title}'.";
+                    penaltyReason = $"Withdrawing from the judging process (missing {missingPercentage:0.0}%) in the event '{ev.Title}'.";
                 }
                 else
                 {
                     penaltyPoint = -20;
-                    penaltyReason = $"Bỏ cuộc, không hoàn thành trách nhiệm giám khảo (thiếu {missingPercentage:0.0}%) trong sự kiện '{ev.Title}'.";
+                    penaltyReason = $"Giving up, failing to fulfill the responsibilities of a judge ({missingPercentage:0.0}% missing) in the event '{ev.Title}'.";
                 }
 
                 // Cập nhật điểm (Không để rớt xuống dưới 0)
@@ -378,6 +397,16 @@ namespace Application.Services.EventServices
                     CurrentPoint = penalizedScore,
                     Reason = penaltyReason,
                     CreatedAt = DateTime.UtcNow
+                });
+
+                await _notificationService.SendNotificationAsync(new Application.Request.NotificationReq.SendNotificationRequest
+                {
+                    SenderId = 1,
+                    TargetUserId = expertProfile.AccountId,
+                    Title = penaltyPoint >= 0 ? "Update your reputation score (Rewards)" : "Update reputation score (Penalties)",
+                    Content = penaltyReason,
+                    Type = "Reputation_Updated",
+                    RelatedId = ev.EventId.ToString()
                 });
             }
 

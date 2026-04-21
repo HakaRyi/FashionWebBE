@@ -22,6 +22,7 @@ namespace Presentation.Controllers
         #region Expert Logic (Registration)
 
         [HttpPost("register")]
+        [RequestSizeLimit(100 * 1024 * 1024)]
         //[Authorize]
         public async Task<IActionResult> Register([FromForm] ExpertRequest request)
         {
@@ -29,7 +30,7 @@ namespace Presentation.Controllers
             {
                 string finalUrl = request.PortfolioUrl;
 
-                if (request.EvidenceType?.ToLower() == "pdf" && request.File != null)
+                if (request.File != null)
                 {
                     finalUrl = await _fileService.UploadAsync(request.File);
                 }
@@ -47,13 +48,13 @@ namespace Presentation.Controllers
                 var result = await _expertService.RegisterExpertAsync(dto);
 
                 if (result)
-                    return Ok(new { message = "Hồ sơ chuyên gia đã được gửi và đang chờ phê duyệt." });
+                    return Ok(new { message = "Hồ sơ chuyên gia đã được gửi thành công." });
 
                 return BadRequest("Không thể lưu hồ sơ.");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, ex.Message);
+                return StatusCode(500, $"Lỗi hệ thống: {ex.Message}");
             }
         }
 
@@ -98,10 +99,10 @@ namespace Presentation.Controllers
         }
 
         [HttpPost("admin/process")]
-        public async Task<IActionResult> ProcessApplication(int fileId, string status, string? reason)
+        public async Task<IActionResult> ProcessApplication(ExpertProcessDto dto)
         {
-            var result = await _expertService.ProcessApplicationAsync(fileId, status, reason);
-            if (result) return Ok(new { message = $"Đã cập nhật trạng thái: {status}" });
+            var result = await _expertService.ProcessApplicationAsync(dto);
+            if (result) return Ok(new { message = $"Đã cập nhật trạng thái: {dto.Status}" });
 
             return BadRequest();
         }

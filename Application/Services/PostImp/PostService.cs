@@ -142,7 +142,7 @@ namespace Application.Services.PostImp
             if (!changed)
                 throw new Exception("No changes detected.");
 
-            post.UpdatedAt = DateTime.Now;
+            post.UpdatedAt = DateTime.UtcNow;
             post.Status = PostStatus.Verifying;
 
             _postRepo.Update(post);
@@ -494,6 +494,16 @@ namespace Application.Services.PostImp
                 {
                     responses[i].Score = rating.Score;
                     responses[i].Reason = rating.Reason;
+
+                    if (rating.CriterionRatings != null)
+                    {
+                        responses[i].CriterionRatings = rating.CriterionRatings
+                            .Select(cr => new CriterionRatingResponse
+                            {
+                                EventCriterionId = cr.EventCriterionId,
+                                Score = cr.Score
+                            }).ToList();
+                    }
                 }
             }
 
@@ -698,11 +708,13 @@ namespace Application.Services.PostImp
 
         public async Task<PostResponse> JoinEventByPostAsync(int accountId, CreatePostDto dto)
         {
-            if (!dto.EventId.HasValue) throw new Exception("Thiếu EventId để tham gia sự kiện.");
+            if (!dto.EventId.HasValue) throw new Exception("Missing EventId to participate in the event.");
 
             var ev = await _eventRepo.GetByIdAsync(dto.EventId.Value);
             if (ev == null) throw new Exception("Sự kiện không tồn tại.");
-            if (ev.Status != "Active" || ev.SubmissionDeadline > DateTime.Now) throw new Exception("Sự kiện không còn mở để tham gia.");
+
+            if (ev.Status != "Active" || ev.SubmissionDeadline < DateTime.UtcNow) throw new Exception("The event is no longer open for participation.");
+
 
 
             await _uow.BeginTransactionAsync();
@@ -715,7 +727,7 @@ namespace Application.Services.PostImp
                 //wallet.Balance -= ev.AppliedFee;
                 //_walletRepo.Update(wallet);
 
-                var now = DateTime.Now;
+                var now = DateTime.UtcNow;
                 var imageUrls = await UploadImages(dto.Images!.ToList());
 
                 var post = new Post
@@ -724,8 +736,8 @@ namespace Application.Services.PostImp
                     Title = dto.Title?.Trim(),
                     Content = dto.Content?.Trim(),
                     EventId = dto.EventId,
-                    CreatedAt = DateTime.Now,
-                    UpdatedAt = DateTime.Now,
+                    CreatedAt = DateTime.UtcNow,
+                    UpdatedAt = DateTime.UtcNow,
                     Status = PostStatus.Published,
                     Visibility = PostVisibility.Visible,
                     LikeCount = 0,
@@ -758,6 +770,57 @@ namespace Application.Services.PostImp
                 await _uow.RollbackAsync();
                 throw;
             }
+        }
+
+        public async Task<GlobalSearchResultDto> SearchEverythingAsync(string keyword, int? viewerId)
+        {
+            if (string.IsNullOrWhiteSpace(keyword)) return new GlobalSearchResultDto();
+
+            // 1. Lấy dữ liệu thô từ Repo
+            var (postEntities, userEntities) = await _postRepo.SearchRawDataAsync(keyword, 5);
+
+            List<int> likedPostIds = new();
+            if (viewerId.HasValue && postEntities.Any())
+            {
+                var postIds = postEntities.Select(p => p.PostId).ToList();
+                likedPostIds = await _postRepo.GetLikedPostIdsAsync(viewerId.Value, postIds);
+            }
+
+            // 2. Map Users
+            var userDtos = userEntities.Select(u => new UserSearchDto
+            {
+                AccountId = u.Id,
+                UserName = u.UserName!,
+                AvatarUrl = u.Avatars.OrderByDescending(a => a.CreatedAt).Select(a => a.ImageUrl).FirstOrDefault(),
+                IsExpert = u.ExpertProfile?.Verified ?? false,
+                ExpertiseField = u.ExpertProfile?.ExpertiseField,
+                FollowerCount = u.CountFollower
+            }).ToList();
+
+            // 3. Map Posts (Xử lý các logic like/save phức tạp ở đây)
+            var postDtos = postEntities.Select(p => new PostFeedDto
+            {
+                PostId = p.PostId,
+                AccountId = p.AccountId,
+                UserName = p.Account.UserName!,
+                AvatarUrl = p.Account.Avatars.OrderByDescending(a => a.CreatedAt).Select(a => a.ImageUrl).FirstOrDefault(),
+                Title = p.Title,
+                Content = p.Content,
+                Images = p.Images.Select(i => i.ImageUrl).ToList(),
+                LikeCount = p.LikeCount ?? 0,
+                CommentCount = p.CommentCount ?? 0,
+                CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
+
+                // Logic check tương tác của người xem
+                IsLiked = likedPostIds.Contains(p.PostId),
+                IsExpertPost = p.IsExpertPost ?? false
+            }).ToList();
+
+            return new GlobalSearchResultDto
+            {
+                Users = userDtos,
+                Posts = postDtos
+            };
         }
     }
 }

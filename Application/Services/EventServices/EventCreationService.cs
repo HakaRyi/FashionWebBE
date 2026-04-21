@@ -1,12 +1,14 @@
 ﻿using Application.Interfaces;
-using Mapster;
-using Quartz;
-using Domain.Entities;
 using Application.Jobs;
 using Application.Request.EventReq;
+using Application.Request.NotificationReq;
 using Application.Request.PrizeReq;
+using Application.Services.NotificationImp;
 using Application.Utils;
+using Domain.Entities;
 using Domain.Interfaces;
+using Mapster;
+using Quartz;
 
 namespace Application.Services.EventServices
 {
@@ -23,6 +25,8 @@ namespace Application.Services.EventServices
         private readonly ISchedulerFactory _schedulerFactory;
         private readonly ISystemSettingRepository _settingRepo;
         private readonly ICloudStorageService _cloudStorageService;
+        private readonly INotificationService _notificationService;
+
 
         public EventCreationService(
             IEventRepository eventRepo,
@@ -35,6 +39,7 @@ namespace Application.Services.EventServices
             ISystemSettingRepository settingRepo,
             ISchedulerFactory schedulerFactory,
             ICurrentUserService currentUserService,
+            INotificationService notificationService,
             ICloudStorageService cloudStorageService)
         {
             _eventRepo = eventRepo;
@@ -48,6 +53,7 @@ namespace Application.Services.EventServices
             _currentUserService = currentUserService;
             _schedulerFactory = schedulerFactory;
             _cloudStorageService = cloudStorageService;
+            _notificationService = notificationService;
         }
 
         public async Task<Event> CreateEventAsync(CreateEventRequest dto)
@@ -76,6 +82,10 @@ namespace Application.Services.EventServices
             var wallet = await _walletRepo.GetByAccountIdAsync(creatorId);
             if (wallet == null || wallet.Balance < totalPrize + currentFee)
                 throw new Exception($"Số dư ví không đủ. Cần {totalPrize + currentFee:N0} VNĐ (bao gồm phí tạo).");
+
+            decimal totalToLock = totalPrize + currentFee;
+
+            await CheckSpendingLimitAsync(wallet, totalToLock);
 
             await _unitOfWork.BeginTransactionAsync();
             try
@@ -116,7 +126,7 @@ namespace Application.Services.EventServices
                 await CreatePrizesAsync(eventData.EventId, dto.Prizes);
                 await SetupExpertPanelAsync(eventData.EventId, creatorId, dto.InvitedExpertIds, isDraft: true);
 
-                decimal totalToLock = totalPrize + currentFee;
+                //decimal totalToLock = totalPrize + currentFee;
                 wallet.Balance -= totalToLock;
                 wallet.LockedBalance += totalToLock;
                 _walletRepo.Update(wallet);
@@ -162,6 +172,10 @@ namespace Application.Services.EventServices
                 // TRƯỜNG HỢP 2: Thành công - Kích hoạt và Ký quỹ
                 else
                 {
+                    //await CollectSystemFeeAsync(wallet, ev);
+                    //await ProcessEscrowFromLockedAsync(eventId, ev.CreatorId, totalPrizeAmount, wallet);
+                    decimal totalEventSpending = ev.AppliedFee + totalPrizeAmount;
+                    await CheckSpendingLimitAsync(wallet, totalEventSpending);
                     await CollectSystemFeeAsync(wallet, ev);
                     await ProcessEscrowFromLockedAsync(eventId, ev.CreatorId, totalPrizeAmount, wallet);
 
@@ -295,7 +309,6 @@ namespace Application.Services.EventServices
                 throw new Exception($"Bạn chỉ có thể bắt đầu sớm tối đa {maxEarlyHours} tiếng so với lịch dự kiến.");
             }
 
-            // --- TÁCH LOGIC DỰA VÀO IsAutoStart ---
             if (ev.IsAutoStart)
             {
                 // Sự kiện Tự động: Đã đến giờ StartTime -> Cấm bấm tay, bắt chờ Quartz xử lý
@@ -306,7 +319,7 @@ namespace Application.Services.EventServices
             }
             else
             {
-                // Sự kiện Thủ công: Nếu ngâm quá 12 tiếng kể từ giờ StartTime dự kiến -> Khóa mõm, cấm Start
+                // Sự kiện Thủ công: Nếu ngâm quá 12 tiếng kể từ giờ StartTime dự kiến -> cấm Start
                 if ((now - ev.StartTime.Value).TotalHours > 12)
                 {
                     throw new Exception("Đã quá 12 tiếng kể từ thời gian bắt đầu dự kiến. Bạn không thể kích hoạt sự kiện này được nữa.");
@@ -329,19 +342,39 @@ namespace Application.Services.EventServices
                 decimal totalPrizeAmount = prizesData.Sum(p => p.RewardAmount);
 
                 // 1. Thu phí hệ thống & Chuyển tiền vào Escrow (Ký quỹ)
+                //await CollectSystemFeeAsync(wallet, ev);
+                //await ProcessEscrowFromLockedAsync(eventId, ev.CreatorId, totalPrizeAmount, wallet);
+                decimal totalEventSpending = ev.AppliedFee + totalPrizeAmount;
+                await CheckSpendingLimitAsync(wallet, totalEventSpending);
                 await CollectSystemFeeAsync(wallet, ev);
                 await ProcessEscrowFromLockedAsync(eventId, ev.CreatorId, totalPrizeAmount, wallet);
 
                 // 2. Cập nhật thông tin Event: Chuyển sang Active và cập nhật StartTime thực tế
                 ev.Status = "Active";
-                ev.StartTime = DateTime.Now;
+                ev.StartTime = DateTime.UtcNow;
                 _eventRepo.Update(ev);
 
                 // 3. Xử lý các Expert chưa phản hồi (Pending) -> Chuyển thành Closed
-                foreach (var exp in experts.Where(e => e.Status == "Pending"))
+                foreach (var exp in experts)
                 {
-                    exp.Status = "Closed_InvitationExpired";
-                    _eventExpertRepo.Update(exp);
+                    if (exp.Status == "Pending")
+                    {
+                        exp.Status = "Closed_InvitationExpired";
+                        _eventExpertRepo.Update(exp);
+                    }
+                    else if (exp.Status == "Accepted")
+                    {
+                        // THÔNG BÁO SỰ KIỆN BẮT ĐẦU
+                        await _notificationService.SendNotificationAsync(new SendNotificationRequest
+                        {
+                            SenderId = ev.CreatorId,
+                            TargetUserId = exp.ExpertId,
+                            Title = "The event has begun!",
+                            Content = $"The '{ev.Title}' has officially begun.",
+                            Type = "Event_Started",
+                            RelatedId = eventId.ToString()
+                        });
+                    }
                 }
 
                 await _unitOfWork.SaveChangesAsync();
@@ -384,6 +417,8 @@ namespace Application.Services.EventServices
             if (!allowedStatuses.Contains(ev.Status))
                 throw new Exception($"Không thể hủy sự kiện ở trạng thái {ev.Status}.");
 
+            string oldStatus = ev.Status;
+
             await _unitOfWork.BeginTransactionAsync();
             try
             {
@@ -420,8 +455,29 @@ namespace Application.Services.EventServices
                 ev.Status = "Cancelled_By_Creator";
                 _eventRepo.Update(ev);
 
-                // Chuyển các lời mời chuyên gia sang trạng thái Hủy
                 var experts = await _eventExpertRepo.GetByEventIdAsync(eventId);
+                foreach (var exp in experts)
+                {
+                    if (exp.Status == "Pending" || exp.Status == "Accepted" || exp.Status == "Awaiting_Review")
+                    {
+                        exp.Status = "Event_Cancelled";
+                        _eventExpertRepo.Update(exp);
+
+                        if (oldStatus == "Inviting" && exp.ExpertId != currentUserId)
+                        {
+                            await _notificationService.SendNotificationAsync(new SendNotificationRequest
+                            {
+                                SenderId = currentUserId,
+                                TargetUserId = exp.ExpertId,
+                                Title = "The event has been cancelled.",
+                                Content = $"The '{ev.Title}' you were invited to has been cancelled by the organizers.",
+                                Type = "Event_Cancelled",
+                                RelatedId = eventId.ToString()
+                            });
+                        }
+                    }
+                }
+
                 foreach (var exp in experts)
                 {
                     if (exp.Status == "Pending" || exp.Status == "Accepted" || exp.Status == "Awaiting_Review")
@@ -539,6 +595,37 @@ namespace Application.Services.EventServices
                 }));
             }
             await _eventExpertRepo.AddRangeAsync(expertPanel);
+        }
+
+        private async Task CheckSpendingLimitAsync(Wallet wallet, decimal debitAmount)
+        {
+            if (wallet == null)
+                throw new KeyNotFoundException("Ví không tồn tại.");
+
+            if (debitAmount <= 0)
+                throw new ArgumentException("Số tiền chi không hợp lệ.");
+
+            if (!wallet.MonthlySpendingLimit.HasValue || wallet.MonthlySpendingLimit.Value <= 0)
+                return;
+
+            var now = DateTime.UtcNow;
+
+            decimal spentThisMonth = await _transactionRepo.GetMonthlyDebitTotalAsync(
+                wallet.WalletId,
+                now.Month,
+                now.Year);
+
+            decimal projectedSpent = spentThisMonth + debitAmount;
+            decimal limitAmount = wallet.MonthlySpendingLimit.Value;
+
+            if (wallet.IsHardSpendingLimit && projectedSpent > limitAmount)
+            {
+                throw new InvalidOperationException(
+                    $"Bạn đã vượt hạn mức chi tiêu tháng. " +
+                    $"Đã chi: {spentThisMonth:N0} VND, " +
+                    $"chi phí sự kiện: {debitAmount:N0} VND, " +
+                    $"hạn mức: {limitAmount:N0} VND.");
+            }
         }
     }
 }

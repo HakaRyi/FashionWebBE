@@ -1,5 +1,7 @@
 ﻿using Application.Request.GroupReq;
+using Application.Response.AccountRep;
 using Application.Response.GroupResp;
+using Domain.Entities;
 
 namespace Application.Services.ChatImp
 {
@@ -15,5 +17,7 @@ namespace Application.Services.ChatImp
         Task UpdateGroup(int groupId, EditGroupRequest request);
         Task DeleteGroup(int groupId);
         Task<int?> CheckExisting1v1Group(int targetUserId);
+        Task<List<UserInGroupResponse>> GetUsersInGroup(int groupId);
+        Task<List<PhotoInGroupResponse>> GetPhotos(int groupId);
     }
 }

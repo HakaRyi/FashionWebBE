@@ -1,14 +1,14 @@
 ﻿using Application.Interfaces;
-using Domain.Constants;
-using Domain.Entities;
-using Domain.Interfaces;
-using Application.Services.NotificationImp;
 using Application.Request.NotificationReq;
 using Application.Request.WalletReq;
 using Application.Response.TransactionResp;
 using Application.Response.WalletResp;
+using Application.Services.NotificationImp;
+using Domain.Constants;
+using Domain.Entities;
+using Domain.Interfaces;
 
-namespace Application.Services
+namespace Application.Services.WalletImp
 {
     public class WalletService : IWalletService
     {
@@ -86,7 +86,20 @@ namespace Application.Services
         {
             int accountId = _currentUserService.GetRequiredUserId();
 
+            if (request == null)
+                throw new Exception("Dữ liệu nạp tiền không hợp lệ.");
+
+            if (request.Amount <= 0)
+                throw new Exception("Số tiền nạp phải lớn hơn 0.");
+
+            if (string.IsNullOrWhiteSpace(request.OrderCode))
+                throw new Exception("Mã giao dịch không hợp lệ.");
+
+            if (string.IsNullOrWhiteSpace(request.Provider))
+                throw new Exception("Nhà cung cấp thanh toán không hợp lệ.");
+
             await _unitOfWork.BeginTransactionAsync();
+
             try
             {
                 var wallet = await _walletRepo.GetByAccountIdAsync(accountId);
@@ -108,27 +121,28 @@ namespace Application.Services
                 await _unitOfWork.SaveChangesAsync();
 
                 decimal balanceBefore = wallet.Balance;
+
                 wallet.Balance += request.Amount;
                 wallet.UpdatedAt = DateTime.UtcNow;
                 _walletRepo.Update(wallet);
 
-                var trans = new Transaction
+                var transaction = new Transaction
                 {
                     WalletId = wallet.WalletId,
                     PaymentId = payment.PaymentId,
-                    TransactionCode = "TX" + DateTime.Now.Ticks.ToString(),
+                    TransactionCode = GenerateTransactionCode("TOPUP"),
                     Amount = request.Amount,
                     BalanceBefore = balanceBefore,
                     BalanceAfter = wallet.Balance,
-                    Type = "Credit",
-                    ReferenceType = "TopUp",
+                    Type = TransactionType.Credit,
+                    ReferenceType = TransactionReferenceType.TopUp,
                     ReferenceId = payment.PaymentId,
                     Description = $"Nạp tiền qua {request.Provider}",
                     Status = TransactionStatus.Success,
                     CreatedAt = DateTime.UtcNow
                 };
 
-                await _transactionRepo.AddAsync(trans);
+                await _transactionRepo.AddAsync(transaction);
 
                 await _unitOfWork.CommitAsync();
 
@@ -150,10 +164,10 @@ namespace Application.Services
 
                 return true;
             }
-            catch (Exception ex)
+            catch
             {
                 await _unitOfWork.RollbackAsync();
-                throw new Exception($"Lỗi nạp tiền: {ex.Message}");
+                throw;
             }
         }
 
@@ -161,53 +175,65 @@ namespace Application.Services
         {
             int accountId = _currentUserService.GetRequiredUserId();
             var wallet = await _walletRepo.GetByAccountIdAsync(accountId);
-            if (wallet == null) throw new Exception("Ví không tồn tại.");
+
+            if (wallet == null)
+                throw new Exception("Ví không tồn tại.");
 
             var transactions = await _transactionRepo.GetByWalletIdAsync(wallet.WalletId);
 
-            var response = new WalletDashboardResponse();
+            decimal totalExpense = transactions
+                .Where(t => t.Type == TransactionType.Debit
+                         && t.Status == TransactionStatus.Success)
+                .Sum(t => t.Amount);
 
-            // 1. Map Stats (Dữ liệu cho WalletStats.js)
-            response.Stats = new List<StatCardDto>
-    {
-        new StatCardDto {
-            Label = "Số dư khả dụng",
-            Value = wallet.Balance.ToString("N0"),
-            Sub = "Coins",
-            Icon = "Wallet"
-        },
-        new StatCardDto {
-            Label = "Số dư đóng băng",
-            Value = wallet.LockedBalance.ToString("N0"),
-            Sub = "Coins",
-            Icon = "Lock"
-        },
-        new StatCardDto {
-            Label = "Tổng chi tiêu",
-            Value = transactions.Where(t => t.Type == "Expense").Sum(t => t.Amount).ToString("N0"),
-            Sub = "Coins",
-            Icon = "ArrowUpRight"
-        }
-    };
-
-            // 2. Map Transactions (Dữ liệu cho WalletTransactionTable.js)
-            response.Transactions = transactions.Select(t => {
-                // Xác định các loại type nào là cộng tiền
-                var positiveTypes = new[] { "deposit", "credit", "event_cancel_refund" };
-                bool isPositive = positiveTypes.Contains(t.Type?.ToLower());
-
-                return new TransactionDto
+            var response = new WalletDashboardResponse
+            {
+                Stats = new List<StatCardDto>
                 {
-                    Id = $"GD{t.TransactionId:D5}",
-                    Detail = t.Description,
-                    Date = t.CreatedAt.ToString("dd/MM/yyyy HH:mm"),
-                    Amount = t.Amount,
-                    Type = isPositive ? "deposit" : "expense",
-                    Status = t.Status
-                };
-            }).ToList();
+                    new StatCardDto
+                    {
+                        Label = "Số dư khả dụng",
+                        Value = wallet.Balance.ToString("N0"),
+                        Sub = "Coins",
+                        Icon = "Wallet"
+                    },
+                    new StatCardDto
+                    {
+                        Label = "Số dư đóng băng",
+                        Value = wallet.LockedBalance.ToString("N0"),
+                        Sub = "Coins",
+                        Icon = "Lock"
+                    },
+                    new StatCardDto
+                    {
+                        Label = "Tổng chi tiêu",
+                        Value = totalExpense.ToString("N0"),
+                        Sub = "Coins",
+                        Icon = "ArrowUpRight"
+                    }
+                },
+                Transactions = transactions.Select(t =>
+                {
+                    bool isPositive = t.Type == TransactionType.Credit;
+
+                    return new TransactionDto
+                    {
+                        Id = $"GD{t.TransactionId:D5}",
+                        Detail = t.Description,
+                        Date = t.CreatedAt.ToString("dd/MM/yyyy HH:mm"),
+                        Amount = t.Amount,
+                        Type = isPositive ? "deposit" : "expense",
+                        Status = t.Status
+                    };
+                }).ToList()
+            };
 
             return response;
+        }
+
+        private static string GenerateTransactionCode(string prefix)
+        {
+            return $"{prefix}-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
         }
     }
 }

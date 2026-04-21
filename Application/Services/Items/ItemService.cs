@@ -1,15 +1,16 @@
 using Application.Interfaces;
-using Mapster;
-using Pgvector;
-using Domain.Dto;
-using Domain.Dto.Wardrobe;
-using Domain.Entities;
 using Application.Request.ItemReq;
 using Application.Request.ItemRequest;
 using Application.Response.ItemResp;
 using Application.Utils;
 using Application.Utils.File;
+using Domain.Constants;
+using Domain.Dto;
+using Domain.Dto.Wardrobe;
+using Domain.Entities;
 using Domain.Interfaces;
+using Mapster;
+using Pgvector;
 
 namespace Application.Services.Items
 {
@@ -25,6 +26,9 @@ namespace Application.Services.Items
         private readonly IRecommendationHistoryRepository _recommendationHistoryRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IItemSaveRepository _itemSaveRepo;
+        private readonly IWalletRepository _walletRepository;
+        private readonly ITransactionRepository _transactionRepository;
+        private readonly decimal _smartRecommendPrice = 2000;
 
         public ItemService(
             IItemRepository itemRepo,
@@ -36,7 +40,9 @@ namespace Application.Services.Items
             IImageRepository imageRepository,
             IRecommendationHistoryRepository recommendationHistoryRepository,
             IUnitOfWork unitOfWork,
-            IItemSaveRepository itemSaveRepo)
+            IItemSaveRepository itemSaveRepo,
+            IWalletRepository walletRepository,
+            ITransactionRepository transactionRepository)
         {
             _itemRepo = itemRepo;
             _aiService = aiService;
@@ -48,6 +54,8 @@ namespace Application.Services.Items
             _recommendationHistoryRepository = recommendationHistoryRepository;
             _unitOfWork = unitOfWork;
             _itemSaveRepo = itemSaveRepo;
+            _walletRepository = walletRepository;
+            _transactionRepository = transactionRepository;
         }
 
         public async Task<IEnumerable<ItemResponseDto>> GetAllItemsAsync()
@@ -132,7 +140,13 @@ namespace Application.Services.Items
             {
                 return new List<ItemResponseDto>();
             }
+            int currentAccountId = _currentUserService.GetRequiredUserId();
+            var wallet = await _walletRepository.GetByAccountIdAsync(currentAccountId)
+                 ?? throw new KeyNotFoundException("Không tìm thấy ví người dùng.");
 
+            var availableBalance = wallet.Balance - wallet.LockedBalance;
+            if (availableBalance < _smartRecommendPrice)
+                throw new InvalidOperationException("Số dư ví không đủ để thực hiện gợi ý thông minh.");
             string taskInstruction = $"Convert user request '{request.Prompt}' into structured metadata.";
             var scopeRequestForRepo = request.Adapt<SmartRecommendationDto>();
 
@@ -157,7 +171,7 @@ CRITICAL: Do NOT output metadata for the reference item. Output metadata ONLY fo
             var intent = await _geminiService.AnalyzePromptAsync(taskInstruction);
             Vector queryVector = await _aiService.GetTextEmbeddingAsync(intent.CleanPrompt);
 
-            int currentAccountId = _currentUserService.GetRequiredUserId();
+            
             scopeRequestForRepo.IncludeSavedItems = request.IncludeSavedItems;
             var candidates = await _itemRepo.GetHybridRecommendationsAsync(
                 queryVector,
@@ -170,8 +184,36 @@ CRITICAL: Do NOT output metadata for the reference item. Output metadata ONLY fo
             {
                 return new List<ItemResponseDto>();
             }
-            else
+            await _unitOfWork.BeginTransactionAsync();
+            try
             {
+                wallet = await _walletRepository.GetByAccountIdAsync(currentAccountId)
+                 ?? throw new KeyNotFoundException("Không tìm thấy ví.");
+
+                availableBalance = wallet.Balance - wallet.LockedBalance;
+                if (availableBalance < _smartRecommendPrice)
+                    throw new InvalidOperationException("Số dư không đủ.");
+
+                decimal balanceBefore = wallet.Balance;
+
+                wallet.Balance -= _smartRecommendPrice;
+                wallet.UpdatedAt = DateTime.UtcNow;
+                _walletRepository.Update(wallet);
+
+                var transaction = new Transaction
+                {
+                    WalletId = wallet.WalletId,
+                    TransactionCode = $"RECOM-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}",
+                    Amount = _smartRecommendPrice,
+                    BalanceBefore = balanceBefore,
+                    BalanceAfter = wallet.Balance,
+                    Type = TransactionType.Debit,
+                    ReferenceType = TransactionReferenceType.AIRecommendation, 
+                    Description = $"Thanh toán gợi ý phối đồ thông minh",
+                    CreatedAt = DateTime.UtcNow,
+                    Status = TransactionStatus.Success
+                };
+                await _transactionRepository.AddAsync(transaction);
                 var history = new RecommendationHistory
                 {
                     AccountId = currentAccountId,
@@ -185,10 +227,15 @@ CRITICAL: Do NOT output metadata for the reference item. Output metadata ONLY fo
                 };
                 await _recommendationHistoryRepository.AddAsync(history);
                 await _unitOfWork.CommitAsync();
-            }
-
-
                 return candidates.Adapt<List<ItemResponseDto>>();
+
+            }
+            catch (Exception ex)
+            {
+                await _unitOfWork.RollbackAsync();
+                Console.WriteLine($"Lỗi xử lý thanh toán gợi ý: {ex.Message}");
+                throw;
+            }
         }
 
         public async Task<IEnumerable<ItemResponseDto>> GetMyItemsAsync(int accountId)

@@ -9,6 +9,7 @@ namespace Domain.Interfaces
         Task<List<Transaction>> GetTransactionsAsync();
         Task<List<Transaction>> GetHistoryByWalletIdAsync(int walletId);
         Task<IEnumerable<Transaction>> GetByWalletIdAsync(int walletId);
+        Task<decimal> GetMonthlyDebitTotalAsync(int walletId, int month, int year);
         Task AddAsync(Transaction transaction);
         IQueryable<Transaction> Query();
     }

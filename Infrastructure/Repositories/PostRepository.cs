@@ -38,6 +38,17 @@ namespace Infrastructure.Repositories
                 .FirstOrDefaultAsync(p => p.PostId == postId);
         }
 
+        public async Task<Post?> GetByIdFullRangeAsync(int postId)
+        {
+            return await _db.Posts
+                .Include(p => p.Images)
+                .Include(p => p.Scoreboard)
+                .Include(p => p.Account).ThenInclude(a => a.Avatars)
+                .Include(p => p.Event)
+                .ThenInclude(e => e.EventExperts)
+                .FirstOrDefaultAsync(p => p.PostId == postId);
+        }
+
         public async Task<List<PostFeedDto>> GetFeedWithSocialAsync(int viewerId, DateTime? cursor, int pageSize)
         {
             var query = _db.Posts
@@ -446,9 +457,9 @@ namespace Infrastructure.Repositories
                 .Include(p => p.Account)
                 .Include(p => p.Images)
                 .Include(p => p.Event)
-                .Include(p => p.ExpertRatings
-                    .Where(r => !accountId.HasValue || r.ExpertId == accountId))
-                .Where(p => p.EventId == eventId && p.Status == "Published")
+                .Include(p => p.ExpertRatings)
+                    .ThenInclude(r => r.CriterionRatings)
+                    .Where(p => p.EventId == eventId && p.Status == "Published")
                 .ToListAsync();
         }
 
@@ -472,12 +483,48 @@ namespace Infrastructure.Repositories
         public async Task<Post?> GetPostForShareAsync(int postId)
         {
             return await _db.Posts
+                .Include(p => p.Images)
+                .Include(p => p.Account)
+                    .ThenInclude(a => a.Avatars)
+                .Include(p => p.Event)
                 .FirstOrDefaultAsync(p => p.PostId == postId);
         }
 
         public async Task<int> CountAccountPostsAsync(int accountId)
         {
             return await _db.Posts.CountAsync(p => p.AccountId == accountId && p.Status == PostStatus.Published);
+        }
+
+        public async Task<(List<Post> Posts, List<Account> Users)> SearchRawDataAsync(string keyword, int limit)
+        {
+            var searchLower = keyword.ToLower();
+
+            var users = await _db.Users
+                .Include(u => u.ExpertProfile)
+                .Include(u => u.Avatars)
+                .Where(u => u.UserName!.ToLower().Contains(searchLower) ||
+                            (u.ExpertProfile != null && u.ExpertProfile.ExpertiseField!.ToLower().Contains(searchLower)))
+                .Take(limit)
+                .ToListAsync();
+
+            var posts = await _db.Posts
+                .Include(p => p.Account).ThenInclude(a => a.Avatars)
+                .Include(p => p.Images)
+                .Where(p => (p.Title!.ToLower().Contains(searchLower) || p.Content!.ToLower().Contains(searchLower)) &&
+                            p.Status == PostStatus.Published && p.Visibility == PostVisibility.Visible)
+                .OrderByDescending(p => p.CreatedAt)
+                .Take(limit)
+                .ToListAsync();
+
+            return (posts, users);
+        }
+
+        public async Task<List<int>> GetLikedPostIdsAsync(int viewerId, List<int> postIds)
+        {
+            return await _db.Reactions
+                .Where(r => r.AccountId == viewerId && postIds.Contains(r.PostId))
+                .Select(r => r.PostId)
+                .ToListAsync();
         }
     }
 }

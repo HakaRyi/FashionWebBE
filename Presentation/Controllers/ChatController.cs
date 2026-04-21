@@ -1,8 +1,11 @@
 ﻿using Application.Interfaces;
+using Application.Request.MessageReq;
+using Application.Request.PostReq;
 using Application.Services.ChatImp;
+using Application.Services.PostImp;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Application.Request.MessageReq;
+using Presentation.Services;
 
 namespace Presentation.Controllers
 {
@@ -12,11 +15,17 @@ namespace Presentation.Controllers
     {
         private readonly IChatService _service;
         private readonly IAccountService accountService;
-        public ChatController(IChatService service, IAccountService accountService)
+        private readonly ICurrentUserService _currentUserService;
+        private readonly IChatShareService _chatShareService;
+
+        public ChatController(IChatService service, IAccountService accountService, ICurrentUserService currentUserService, IChatShareService chatShareService)
         {
             _service = service;
+            _chatShareService = chatShareService;
             this.accountService = accountService;
+            _currentUserService = currentUserService;
         }
+
         [HttpPost("send/{groupId}")]
         [Authorize]
         public async Task<IActionResult> SendMessage([FromRoute] int groupId, [FromForm] SendMessageRequest request)
@@ -29,6 +38,7 @@ namespace Presentation.Controllers
                 message = $"the message with content {request.content} is sent by {user.Username}"
             });
         }
+
         [HttpPut("recall-msg/{messageId}")]
         [Authorize]
         public async Task<IActionResult> RecallMessage([FromRoute] int messageId)
@@ -40,6 +50,7 @@ namespace Presentation.Controllers
                 message = "recall successfully"
             });
         }
+
         [HttpGet("chat-history/{groupId}")]
         [Authorize]
         public async Task<IActionResult> HistoryChat([FromRoute] int groupId)
@@ -48,6 +59,7 @@ namespace Presentation.Controllers
             var result = await _service.GetHistoryMessage(groupId);
             return Ok(result);
         }
+
         [HttpPut("update/{messageId}/")]
         [Authorize]
         public async Task<IActionResult> UpdateMessage([FromRoute] int messageId, EditMessageRequest request)
@@ -59,6 +71,7 @@ namespace Presentation.Controllers
                 message = "the message with update sucessfully"
             });
         }
+
         [HttpDelete("delete/{messageId}/")]
         [Authorize]
         public async Task<IActionResult> DeleteMessage([FromRoute] int messageId)
@@ -70,6 +83,7 @@ namespace Presentation.Controllers
                 message = "the message with delete sucessfully"
             });
         }
+
         [HttpGet("get-pinned-msg/{groupId}")]
         [Authorize]
         public async Task<IActionResult> GetPinnedMsgByGroupId([FromRoute] int groupId)
@@ -78,6 +92,7 @@ namespace Presentation.Controllers
             var result = await _service.GetPinnedMessagesByGroupId(groupId);
             return Ok(result);
         }
+
         [HttpPost("add-message-reaction/{messageId}")]
         [Authorize]
         public async Task<IActionResult> AddReactMsg([FromRoute] int messageId, string type)
@@ -89,6 +104,7 @@ namespace Presentation.Controllers
                 message = "add successfully"
             });
         }
+
         [HttpPost("pin-msg/{messageId}/{groupId}")]
         [Authorize]
         public async Task<IActionResult> PinMsg([FromRoute] int messageId, int groupId)
@@ -100,6 +116,7 @@ namespace Presentation.Controllers
                 message = "pin successfully"
             });
         }
+
         [HttpDelete("unpin-msg/{pinMsgId}")]
         [Authorize]
         public async Task<IActionResult> UnPinMsg([FromRoute] int pinMsgId)
@@ -111,6 +128,7 @@ namespace Presentation.Controllers
                 message = "unpin successfully"
             });
         }
+
         [HttpGet("get-reacts-by-message/{messId}")]
         [Authorize]
         public async Task<IActionResult> GetAllReactByMessage([FromRoute] int messId)
@@ -122,6 +140,7 @@ namespace Presentation.Controllers
             }
             return Ok(result);
         }
+
         [HttpPost("consult/{itemId}")]
         [Authorize]
         public async Task<IActionResult> ConsultItem(int itemId)
@@ -130,5 +149,16 @@ namespace Presentation.Controllers
             return Ok(new { groupId = groupId });
         }
 
+        [HttpPost("share-post")]
+        [Authorize]
+        public async Task<IActionResult> SharePostToChat([FromBody] SharePostToChatRequest request)
+        {
+            await _chatShareService.SharePostAsync(request);
+
+            return Ok(new
+            {
+                message = "Post shared successfully."
+            });
+        }
     }
 }

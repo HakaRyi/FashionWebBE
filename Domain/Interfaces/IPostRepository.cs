@@ -10,6 +10,7 @@ namespace Domain.Interfaces
     {
         Task<List<Post>> GetAllPostAsync();
         Task<Post?> GetByIdAsync(int postId);
+        Task<Post?> GetByIdFullRangeAsync(int postId);
         Task<List<PostFeedDto>> GetFeedWithSocialAsync(int viewerId, DateTime? cursor, int pageSize);
         Task<PostDetailDto?> GetPostDetailAsync(int postId, int viewerId);
         Task<PagedResultDto<MyPostDto>> GetMyPostsPagedAsync(int ownerId, int page, int pageSize);
@@ -28,5 +29,7 @@ namespace Domain.Interfaces
         Task<List<Post>> GetGradedPostsByEventIdAsync(int eventId);
         Task<int> CountAccountPostsAsync(int accountId);
 
+        Task<(List<Post> Posts, List<Account> Users)> SearchRawDataAsync(string keyword, int limit);
+        Task<List<int>> GetLikedPostIdsAsync(int viewerId, List<int> postIds);
     }
 }

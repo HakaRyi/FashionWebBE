@@ -12,6 +12,8 @@ namespace Application.Services.OrderImp
 {
     public class OrderService : IOrderService
     {
+        private const decimal serviceFee = 15000m;
+
         private readonly IOrderRepository _orderRepo;
         private readonly IHubContext<OrderHub> _hubContext;
         private readonly IEscrowSessionRepository _escrowRepo;
@@ -37,8 +39,6 @@ namespace Application.Services.OrderImp
             _unitOfWork = unitOfWork;
             _refundRepo = refundRepo;
         }
-
-        const decimal serviceFee = 15000m;
 
         public async Task<OrderResponse> CreateOrderAsync(int sellerId, CreateOrderRequest request)
         {
@@ -120,7 +120,8 @@ namespace Application.Services.OrderImp
         public async Task<OrderResponse?> GetOrderByIdAsync(int orderId, int currentUserId)
         {
             var order = await _orderRepo.GetByIdAsync(orderId);
-            if (order == null) return null;
+            if (order == null)
+                return null;
 
             if (order.BuyerId != currentUserId && order.SellerId != currentUserId)
                 throw new UnauthorizedAccessException();
@@ -146,7 +147,8 @@ namespace Application.Services.OrderImp
                 throw new Exception("Trạng thái đơn hàng không hợp lệ.");
 
             var order = await _orderRepo.GetByIdAsync(orderId);
-            if (order == null) throw new Exception("Order not found");
+            if (order == null)
+                throw new Exception("Order not found");
 
             if (order.BuyerId != currentUserId && order.SellerId != currentUserId)
                 throw new UnauthorizedAccessException();
@@ -168,16 +170,18 @@ namespace Application.Services.OrderImp
                 }
                 else if (status == OrderStatus.Done)
                 {
-                    if(order.Status == OrderStatus.Refunded)
+                    if (order.Status == OrderStatus.Refunded)
                     {
-                        var res = await ProcessRefundAsync(orderId);
-                        return res;
+                        var result = await ProcessRefundAsync(orderId);
+                        return result;
                     }
-                        
+
                     if (order.Status != OrderStatus.Completed)
                         throw new Exception("Đơn hàng chưa giao thành công.");
+
                     var buyerWallet = await _walletRepo.GetByAccountIdAsync(order.BuyerId)
                                       ?? throw new Exception("Ví buyer không tồn tại.");
+
                     var sellerWallet = await _walletRepo.GetByAccountIdAsync(order.SellerId)
                                        ?? throw new Exception("Ví seller không tồn tại.");
 
@@ -307,20 +311,35 @@ namespace Application.Services.OrderImp
         {
             var order = await _orderRepo.GetByIdAsync(orderId);
 
-            if (order == null) throw new Exception("Order not found");
-            if (order.BuyerId != buyerId) throw new UnauthorizedAccessException();
+            if (order == null)
+                throw new Exception("Order not found");
+
+            if (order.BuyerId != buyerId)
+                throw new UnauthorizedAccessException();
+
             if (order.Status != OrderStatus.Confirm)
                 throw new Exception("Invalid order status");
 
             var buyerWallet = await _walletRepo.GetByAccountIdAsync(buyerId);
-            if (buyerWallet == null) throw new Exception("Buyer wallet not found");
+            if (buyerWallet == null)
+                throw new Exception("Buyer wallet not found");
 
             if (buyerWallet.Balance < order.TotalAmount)
                 throw new Exception("Insufficient balance");
 
+            await CheckSpendingLimitAsync(buyerWallet, order.TotalAmount);
+
             await _unitOfWork.BeginTransactionAsync();
             try
             {
+                buyerWallet = await _walletRepo.GetByAccountIdAsync(buyerId)
+                    ?? throw new Exception("Buyer wallet not found");
+
+                if (buyerWallet.Balance < order.TotalAmount)
+                    throw new Exception("Insufficient balance");
+
+                await CheckSpendingLimitAsync(buyerWallet, order.TotalAmount);
+
                 decimal buyerBefore = buyerWallet.Balance;
 
                 buyerWallet.Balance -= order.TotalAmount;
@@ -389,44 +408,6 @@ namespace Application.Services.OrderImp
             return orders.Select(MapToResponse).ToList();
         }
 
-        private OrderResponse MapToResponse(Order order)
-        {
-            return new OrderResponse
-            {
-                OrderId = order.OrderId,
-                BuyerId = order.BuyerId,
-                BuyerName = order.Buyer?.UserName ?? "Unknown",
-                SellerId = order.SellerId,
-                SellerName = order.Seller?.UserName ?? "Unknown",
-                SubTotal = order.SubTotal,
-                ServiceFee = order.ServiceFee,
-                TotalAmount = order.TotalAmount,
-                Status = order.Status,
-                Note = order.Note,
-                ShippingAddress = order.ShippingAddress,
-                ReceiverName = order.ReceiverName,
-                ReceiverPhone = order.ReceiverPhone,
-                CreatedAt = order.CreatedAt,
-                OrderDetails = order.OrderDetails.Select(d => new OrderDetailResponse
-                {
-                    OrderDetailId = d.OrderDetailId,
-                    OrderId = d.OrderId,
-                    OutfitId = d.OutfitId,
-                    ItemId = d.ItemId,
-                    Quantity = d.Quantity,
-                    UnitPrice = d.UnitPrice,
-                    TotalPrice = d.UnitPrice * d.Quantity,
-                    ItemName = d.ItemName,
-                    ImageUrl = d.ImageUrl
-                }).ToList()
-            };
-        }
-
-        private static string GenerateTransactionCode(string prefix)
-        {
-            return $"{prefix}-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
-        }
-
         public async Task<List<OrderResponse>> GetCompletedOrdersAsync()
         {
             var orders = await _orderRepo.GetCompletedOrdersAsync();
@@ -448,15 +429,17 @@ namespace Application.Services.OrderImp
         public async Task<OrderResponse> GetOrderDetailByIdAsync(int orderId)
         {
             var order = await _orderRepo.GetByIdAsync(orderId);
-            if (order == null) throw new Exception("Order not found");
+            if (order == null)
+                throw new Exception("Order not found");
+
             return MapToResponse(order);
         }
 
         public async Task<OrderResponse> UpdateOrderStatusByShipperAsync(int orderId, string status)
         {
             var order = await _orderRepo.GetByIdAsync(orderId);
-
-            if (order == null) throw new Exception("Order not found");
+            if (order == null)
+                throw new Exception("Order not found");
 
             order.Status = status.ToUpper();
             _orderRepo.Update(order);
@@ -464,23 +447,39 @@ namespace Application.Services.OrderImp
 
             var response = MapToResponse(order);
 
-            await _hubContext.Clients.Group($"User_{order.BuyerId}").SendAsync("ReceiveNewOrder", response);
-            await _hubContext.Clients.Group($"User_{order.SellerId}").SendAsync("ReceiveNewOrder", response);
-            await _hubContext.Clients.All.SendAsync("ReceiveNewOrder", response);
+            await _hubContext.Clients.Group($"User_{order.BuyerId}")
+                .SendAsync("ReceiveNewOrder", response);
+
+            await _hubContext.Clients.Group($"User_{order.SellerId}")
+                .SendAsync("ReceiveNewOrder", response);
+
+            await _hubContext.Clients.All
+                .SendAsync("ReceiveNewOrder", response);
 
             return response;
         }
 
-        public async Task<OrderResponse> CreateRefundRequestAsync(int orderId, int buyerId, string reason, string proof1, string proof2)
+        public async Task<OrderResponse> CreateRefundRequestAsync(
+            int orderId,
+            int buyerId,
+            string reason,
+            string proof1,
+            string proof2)
         {
             var order = await _orderRepo.GetByIdAsync(orderId);
 
-            if (order == null) throw new Exception("Order not found");
-            if (order.BuyerId != buyerId) throw new UnauthorizedAccessException();
-            if (order.Status != OrderStatus.Completed) throw new Exception("Order is not eligible for refund");
+            if (order == null)
+                throw new Exception("Order not found");
+
+            if (order.BuyerId != buyerId)
+                throw new UnauthorizedAccessException();
+
+            if (order.Status != OrderStatus.Completed)
+                throw new Exception("Order is not eligible for refund");
 
             var existingRequest = await _refundRepo.GetByOrderIdAsync(orderId);
-            if (existingRequest != null) throw new Exception("Refund request already exists");
+            if (existingRequest != null)
+                throw new Exception("Refund request already exists");
 
             await _unitOfWork.BeginTransactionAsync();
             try
@@ -498,9 +497,8 @@ namespace Application.Services.OrderImp
                     Status = "PENDING",
                     CreatedAt = DateTime.UtcNow
                 };
-                await _refundRepo.AddAsync(refundRequest);
-               
 
+                await _refundRepo.AddAsync(refundRequest);
                 await _unitOfWork.CommitAsync();
             }
             catch
@@ -515,13 +513,16 @@ namespace Application.Services.OrderImp
         public async Task<OrderResponse> ProcessRefundAsync(int orderId)
         {
             var order = await _orderRepo.GetByIdAsync(orderId);
-            if (order == null) throw new Exception("Order not found");
+            if (order == null)
+                throw new Exception("Order not found");
 
             var buyerWallet = await _walletRepo.GetByAccountIdAsync(order.BuyerId);
-            if (buyerWallet == null) throw new Exception("Buyer wallet not found");
+            if (buyerWallet == null)
+                throw new Exception("Buyer wallet not found");
 
             var escrow = await _escrowRepo.GetByOrderIdAsync(orderId);
-            if (escrow == null) throw new Exception("Escrow session not found");
+            if (escrow == null)
+                throw new Exception("Escrow session not found");
 
             await _unitOfWork.BeginTransactionAsync();
             try
@@ -581,6 +582,7 @@ namespace Application.Services.OrderImp
         public async Task<List<RefundRequestResponse>> GetAllRefundRequestsAsync()
         {
             var requests = await _refundRepo.GetAllAsync();
+
             return requests.Select(r => new RefundRequestResponse
             {
                 RefundRequestId = r.RefundRequestId,
@@ -598,11 +600,15 @@ namespace Application.Services.OrderImp
         public async Task<OrderResponse> RejectRefundAsync(int orderId, string adminNote)
         {
             var order = await _orderRepo.GetByIdAsync(orderId);
-            if (order == null) throw new Exception("Order not found");
+            if (order == null)
+                throw new Exception("Order not found");
 
             var refundRequest = await _refundRepo.GetByOrderIdAsync(orderId);
-            if (refundRequest == null) throw new Exception("Refund request not found");
-            if (refundRequest.Status != "PENDING") throw new Exception("Refund request already processed");
+            if (refundRequest == null)
+                throw new Exception("Refund request not found");
+
+            if (refundRequest.Status != "PENDING")
+                throw new Exception("Refund request already processed");
 
             await _unitOfWork.BeginTransactionAsync();
             try
@@ -631,9 +637,10 @@ namespace Application.Services.OrderImp
         {
             var requests = await _refundRepo.GetAllAsync();
 
-            var myRequests = requests.Where(r => r.Order.BuyerId == buyerId)
-                                     .OrderByDescending(r => r.CreatedAt)
-                                     .ToList();
+            var myRequests = requests
+                .Where(r => r.Order.BuyerId == buyerId)
+                .OrderByDescending(r => r.CreatedAt)
+                .ToList();
 
             return myRequests.Select(r => new RefundRequestResponse
             {
@@ -653,13 +660,20 @@ namespace Application.Services.OrderImp
         public async Task<OrderResponse> UpdateRefundStatus(int orderId)
         {
             var refundRequest = await _refundRepo.GetByOrderIdAsync(orderId);
-            if (refundRequest == null) throw new Exception("Refund request not found");
-            if (refundRequest.Status != "PENDING") throw new Exception("Refund request already processed");
-            Order updatedOrder;
+            if (refundRequest == null)
+                throw new Exception("Refund request not found");
+
+            if (refundRequest.Status != "PENDING")
+                throw new Exception("Refund request already processed");
 
             var order = await _orderRepo.GetByIdAsync(orderId);
-            if(order == null) throw new Exception("Order not found");
-            if(order.Status != OrderStatus.Refunding) throw new Exception("Order is not in refunding status");
+            if (order == null)
+                throw new Exception("Order not found");
+
+            if (order.Status != OrderStatus.Refunding)
+                throw new Exception("Order is not in refunding status");
+
+            Order updatedOrder;
 
             await _unitOfWork.BeginTransactionAsync();
             try
@@ -672,13 +686,13 @@ namespace Application.Services.OrderImp
                 updatedOrder = _orderRepo.Update(order);
 
                 await _unitOfWork.CommitAsync();
-
             }
             catch
             {
                 await _unitOfWork.RollbackAsync();
                 throw;
             }
+
             var response = MapToResponse(updatedOrder);
 
             await _hubContext.Clients.Group($"User_{updatedOrder.BuyerId}")
@@ -686,7 +700,77 @@ namespace Application.Services.OrderImp
 
             await _hubContext.Clients.Group($"User_{updatedOrder.SellerId}")
                 .SendAsync("ReceiveNewOrder", response);
+
             return response;
+        }
+
+        private async Task CheckSpendingLimitAsync(Wallet wallet, decimal debitAmount)
+        {
+            if (wallet == null)
+                throw new Exception("Ví không tồn tại.");
+
+            if (debitAmount <= 0)
+                throw new Exception("Số tiền chi không hợp lệ.");
+
+            if (!wallet.MonthlySpendingLimit.HasValue || wallet.MonthlySpendingLimit.Value <= 0)
+                return;
+
+            var now = DateTime.UtcNow;
+
+            decimal spentThisMonth = await _transactionRepo.GetMonthlyDebitTotalAsync(
+                wallet.WalletId,
+                now.Month,
+                now.Year);
+
+            decimal projectedSpent = spentThisMonth + debitAmount;
+            decimal limitAmount = wallet.MonthlySpendingLimit.Value;
+
+            if (wallet.IsHardSpendingLimit && projectedSpent > limitAmount)
+            {
+                throw new Exception(
+                    $"Bạn đã vượt hạn mức chi tiêu tháng. " +
+                    $"Đã chi: {spentThisMonth:N0} VND, " +
+                    $"giao dịch mới: {debitAmount:N0} VND, " +
+                    $"hạn mức: {limitAmount:N0} VND.");
+            }
+        }
+
+        private OrderResponse MapToResponse(Order order)
+        {
+            return new OrderResponse
+            {
+                OrderId = order.OrderId,
+                BuyerId = order.BuyerId,
+                BuyerName = order.Buyer?.UserName ?? "Unknown",
+                SellerId = order.SellerId,
+                SellerName = order.Seller?.UserName ?? "Unknown",
+                SubTotal = order.SubTotal,
+                ServiceFee = order.ServiceFee,
+                TotalAmount = order.TotalAmount,
+                Status = order.Status,
+                Note = order.Note,
+                ShippingAddress = order.ShippingAddress,
+                ReceiverName = order.ReceiverName,
+                ReceiverPhone = order.ReceiverPhone,
+                CreatedAt = order.CreatedAt,
+                OrderDetails = order.OrderDetails.Select(d => new OrderDetailResponse
+                {
+                    OrderDetailId = d.OrderDetailId,
+                    OrderId = d.OrderId,
+                    OutfitId = d.OutfitId,
+                    ItemId = d.ItemId,
+                    Quantity = d.Quantity,
+                    UnitPrice = d.UnitPrice,
+                    TotalPrice = d.UnitPrice * d.Quantity,
+                    ItemName = d.ItemName,
+                    ImageUrl = d.ImageUrl
+                }).ToList()
+            };
+        }
+
+        private static string GenerateTransactionCode(string prefix)
+        {
+            return $"{prefix}-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
         }
     }
 }

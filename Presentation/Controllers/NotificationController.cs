@@ -28,5 +28,17 @@ namespace Presentation.Controllers
             var result = await _notificationService.GetMyNotificationsAsync(userId);
             return Ok(result);
         }
+
+        [HttpPut("{id}/read")]
+        public async Task<IActionResult> MarkAsRead(int id)
+        {
+            int userId = _currentUserService.GetRequiredUserId();
+
+            var result = await _notificationService.MarkAsReadAsync(id, userId);
+
+            if (!result) return NotFound(new { message = "Không tìm thấy thông báo hoặc bạn không có quyền" });
+
+            return Ok();
+        }
     }
 }

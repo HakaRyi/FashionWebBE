@@ -28,5 +28,16 @@ namespace Infrastructure.Repositories
                  .OrderByDescending(n => n.CreatedAt)
                  .ToListAsync();
         }
+
+        public async Task<Notification?> GetById(int id)
+        {
+            return await _context.Notifications.FindAsync(id);
+        }
+
+        public async Task Update(Notification notification)
+        {
+            _context.Notifications.Update(notification);
+            await _context.SaveChangesAsync();
+        }
     }
 }

@@ -15,6 +15,14 @@
         public DateTime? CreatedAt { get; set; }
         public string? IsOnline { get; set; }
     }
+    public class UserInGroupResponse
+    {
+        public int Id { get; set; }
+        public string Username { get; set; } = string.Empty;
+        public string Avatar { get; set; } = string.Empty;
+        public string Status { get; set; } = string.Empty;
+        public string? IsOnline { get; set; }
+    }
 
     public class AccountUserResponse
     {

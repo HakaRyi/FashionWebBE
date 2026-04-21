@@ -7,5 +7,6 @@
         public string Title { get; set; } = null!;
         public string Content { get; set; } = null!;
         public string Type { get; set; } = null!;
+        public string? RelatedId { get; set; }
     }
 }
