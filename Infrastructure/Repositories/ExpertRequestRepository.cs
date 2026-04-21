@@ -22,7 +22,7 @@ namespace Infrastructure.Repositories
         {
             return await _db.ExpertRequests
                 .Include(p => p.ExpertProfile)
-                .AsNoTracking()
+                //.AsNoTracking()
                 .FirstOrDefaultAsync(x => x.ExpertFileId == id);
         }
 
@@ -64,10 +64,12 @@ namespace Infrastructure.Repositories
             var trackedEntity = _db.ExpertRequests.Local
                 .FirstOrDefault(e => e.ExpertFileId == file.ExpertFileId);
 
-            if (trackedEntity != null)
+            if (trackedEntity != null && trackedEntity != file)
             {
                 _db.Entry(trackedEntity).State = EntityState.Detached;
             }
+
+            file.ExpertProfile = null!;
 
             _db.ExpertRequests.Update(file);
         }
