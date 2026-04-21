@@ -8,6 +8,7 @@ using Application.Utils;
 using Domain.Entities;
 using Domain.Interfaces;
 using Mapster;
+using Microsoft.Extensions.Logging;
 using Quartz;
 
 namespace Application.Services.EventServices
@@ -94,6 +95,10 @@ namespace Application.Services.EventServices
 
                 var eventData = dto.Adapt<Event>();
 
+                eventData.StartTime = dto.StartTime.ToUniversalTime();
+                eventData.SubmissionDeadline = dto.SubmissionDeadline.ToUniversalTime();
+                eventData.EndTime = dto.EndTime.ToUniversalTime();
+
                 eventData.MinExpertsToStart = dto.MinExpertsRequired;
                 eventData.CreatorId = creatorId;
                 eventData.AppliedFee = currentFee;
@@ -177,7 +182,7 @@ namespace Application.Services.EventServices
                     decimal totalEventSpending = ev.AppliedFee + totalPrizeAmount;
                     await CheckSpendingLimitAsync(wallet, totalEventSpending);
                     await CollectSystemFeeAsync(wallet, ev);
-                    await ProcessEscrowFromLockedAsync(eventId, ev.CreatorId, totalPrizeAmount, wallet);
+                    await ProcessEscrowFromLockedAsync(ev, ev.CreatorId, totalPrizeAmount, wallet);
 
                     ev.Status = "Active";
                     _eventRepo.Update(ev);
@@ -221,8 +226,8 @@ namespace Application.Services.EventServices
                 ReferenceId = ev.EventId,
                 ReferenceType = "Event",
                 Status = "Success",
-                Description = $"Thanh toán phí hệ thống cho sự kiện: {ev.Title}",
-                CreatedAt = DateTime.Now
+                Description = $"Pay the system fee for the event: {ev.Title}",
+                CreatedAt = DateTime.UtcNow
             });
 
             // --- 2. XỬ LÝ VÍ ADMIN (HỆ THỐNG) ---
@@ -241,8 +246,8 @@ namespace Application.Services.EventServices
                 ReferenceId = ev.EventId,
                 ReferenceType = "Event",
                 Status = "Success",
-                Description = $"Thu phí hệ thống từ sự kiện: {ev.EventId}",
-                CreatedAt = DateTime.Now
+                Description = $"Collect system fees from events: {ev.EventId}",
+                CreatedAt = DateTime.UtcNow
             });
 
             // Cập nhật trạng thái ví vào DB
@@ -250,7 +255,7 @@ namespace Application.Services.EventServices
             _walletRepo.Update(adminWallet);
         }
 
-        private async Task ProcessEscrowFromLockedAsync(int eventId, int expertId, decimal amount, Wallet wallet)
+        private async Task ProcessEscrowFromLockedAsync(Event ev, int expertId, decimal amount, Wallet wallet)
         {
             // 1. Lấy số dư trước khi thay đổi để log giao dịch
             decimal beforeLocked = wallet.LockedBalance;
@@ -262,18 +267,18 @@ namespace Application.Services.EventServices
             // 3. Tạo phiên ký quỹ (Escrow) để giữ tiền thưởng
             await _escrowRepo.AddAsync(new EscrowSession
             {
-                EventId = eventId,
+                EventId = ev.EventId,
                 SenderId = expertId,
                 Amount = amount,
                 Status = "Held",
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow
             });
 
             // 4. Log giao dịch chuyển tiền vào hệ thống ký quỹ
             await _transactionRepo.AddAsync(new Transaction
             {
                 // FIX LỖI: Thêm mã giao dịch duy nhất
-                TransactionCode = $"ESCROW_HOLD_{eventId}_{DateTime.Now.Ticks}",
+                TransactionCode = $"ESCROW_HOLD_{ev.EventId}_{DateTime.Now.Ticks}",
 
                 WalletId = wallet.WalletId,
                 Amount = -amount, // Số tiền âm vì đang chuyển ra khỏi ví (vào Escrow)
@@ -283,11 +288,11 @@ namespace Application.Services.EventServices
                 BalanceAfter = wallet.LockedBalance,
 
                 Type = "Escrow_Hold",
-                ReferenceId = eventId,
+                ReferenceId = ev.EventId,
                 ReferenceType = "Event",
                 Status = "Success",
-                Description = $"Ký quỹ tiền thưởng cho sự kiện ID: {eventId}",
-                CreatedAt = DateTime.Now
+                Description = $"Deposit prize money for the event: {ev.Title}",
+                CreatedAt = DateTime.UtcNow
             });
         }
 
@@ -302,7 +307,7 @@ namespace Application.Services.EventServices
 
             // 2. CHECK GIỚI HẠN THỜI GIAN
             double maxEarlyHours = await _settingRepo.GetDoubleValueAsync("MaxEarlyStartHours", 24.0);
-            DateTime now = DateTime.Now;
+            DateTime now = DateTime.UtcNow;
 
             if ((ev.StartTime.Value - now).TotalHours > maxEarlyHours)
             {
@@ -347,7 +352,7 @@ namespace Application.Services.EventServices
                 decimal totalEventSpending = ev.AppliedFee + totalPrizeAmount;
                 await CheckSpendingLimitAsync(wallet, totalEventSpending);
                 await CollectSystemFeeAsync(wallet, ev);
-                await ProcessEscrowFromLockedAsync(eventId, ev.CreatorId, totalPrizeAmount, wallet);
+                await ProcessEscrowFromLockedAsync(ev, ev.CreatorId, totalPrizeAmount, wallet);
 
                 // 2. Cập nhật thông tin Event: Chuyển sang Active và cập nhật StartTime thực tế
                 ev.Status = "Active";
@@ -448,7 +453,7 @@ namespace Application.Services.EventServices
                     ReferenceType = "Event",
                     Status = "Success",
                     Description = $"Hoàn tiền hủy sự kiện: {ev.Title}",
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.UtcNow
                 });
 
                 // 5. Cập nhật trạng thái sự kiện và chuyên gia
@@ -475,15 +480,6 @@ namespace Application.Services.EventServices
                                 RelatedId = eventId.ToString()
                             });
                         }
-                    }
-                }
-
-                foreach (var exp in experts)
-                {
-                    if (exp.Status == "Pending" || exp.Status == "Accepted" || exp.Status == "Awaiting_Review")
-                    {
-                        exp.Status = "Event_Cancelled";
-                        _eventExpertRepo.Update(exp);
                     }
                 }
 
@@ -517,11 +513,7 @@ namespace Application.Services.EventServices
                 .UsingJobData("EventId", ev.EventId)
                 .Build();
 
-            DateTime processTime = ev.EndTime.Value.Kind == DateTimeKind.Unspecified
-                ? DateTime.SpecifyKind(ev.EndTime.Value, DateTimeKind.Local)
-                : ev.EndTime.Value;
-
-            DateTimeOffset endTimeOffset = new DateTimeOffset(processTime);
+            DateTimeOffset endTimeOffset = new DateTimeOffset(ev.EndTime.Value, TimeSpan.Zero);
 
             var trigger = TriggerBuilder.Create()
                 .WithIdentity($"Trigger_Finalize_{ev.EventId}", "EventAwardGroup")
