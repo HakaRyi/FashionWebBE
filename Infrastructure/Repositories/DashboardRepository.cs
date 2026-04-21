@@ -67,7 +67,9 @@ namespace Infrastructure.Repositories
         public IQueryable<Transaction> GetRevenueTransactions()
         {
             return _db.Transactions
-                 .Where(t => (t.Type == "Credit" || t.Type == "Debit") && t.Status == "Success");
+                 .Where(t => (t.Type == "System_Fee_Revenue" ||
+                 (t.Type == "Debit" && (t.ReferenceType == "AIRecommendation" || t.ReferenceType == "TryOn"))) 
+                 && t.Status == "Success");
         }
     }
 }
