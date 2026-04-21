@@ -102,7 +102,7 @@ namespace Application.Services.PaymentService
                     Type = TransactionType.Credit,
                     ReferenceType = TransactionReferenceType.TopUp,
                     ReferenceId = payment.PaymentId,
-                    Description = $"Nạp tiền qua {payment.Provider} - Order {payment.OrderCode}",
+                    Description = $"Top up via {payment.Provider} - Order {payment.OrderCode}",
                     CreatedAt = DateTime.UtcNow,
                     Status = TransactionStatus.Success
                 });
@@ -113,8 +113,8 @@ namespace Application.Services.PaymentService
                 {
                     SenderId = payment.AccountId,
                     TargetUserId = payment.AccountId,
-                    Title = "Nạp ví thành công",
-                    Content = $"Bạn đã nạp thành công {payment.Amount:N0} VND vào ví.",
+                    Title = "Wallet top-up successful",
+                    Content = $"You have successfully topped up. {payment.Amount:N0} VND into wallet.",
                     Type = "WalletTopUp"
                 });
 
