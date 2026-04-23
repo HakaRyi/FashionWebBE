@@ -177,7 +177,7 @@ namespace Application.Services.OrderImp
                     }
 
                     if (order.Status != OrderStatus.Completed)
-                        throw new Exception("Đơn hàng chưa giao thành công.");
+                        throw new Exception("The order has not been delivered successfully yet.");
 
                     var sellerWallet = await _walletRepo.GetByAccountIdAsync(order.SellerId)
                                        ?? throw new Exception("Ví seller không tồn tại.");
@@ -195,9 +195,9 @@ namespace Application.Services.OrderImp
                     var escrow = order.EscrowSession ?? await _escrowRepo.GetByOrderIdAsync(order.OrderId);
                     if (escrow != null)
                     {
-                        escrow.Status = EscrowStatus.Released;
-                        escrow.ResolvedAt = DateTime.UtcNow;
-                        _escrowRepo.Update(escrow);
+                    escrow.Status = EscrowStatus.Released;
+                    escrow.ResolvedAt = DateTime.UtcNow;
+                    _escrowRepo.Update(escrow);
                     }
 
                     order.Status = OrderStatus.Done;
@@ -279,6 +279,72 @@ namespace Application.Services.OrderImp
 
             var updatedOrder = await _orderRepo.GetByIdAsync(orderId)
                               ?? throw new Exception("Order not found after update.");
+
+            var response = MapToResponse(updatedOrder);
+
+            await _hubContext.Clients.Group($"User_{updatedOrder.BuyerId}")
+                .SendAsync("ReceiveNewOrder", response);
+
+            await _hubContext.Clients.Group($"User_{updatedOrder.SellerId}")
+                .SendAsync("ReceiveNewOrder", response);
+
+            return response;
+        }
+
+        public async Task<OrderResponse> ProcessRefundAsync(int orderId)
+        {
+            var order = await _orderRepo.GetByIdAsync(orderId);
+            if (order == null) throw new Exception("Order not found");
+
+            var buyerWallet = await _walletRepo.GetByAccountIdAsync(order.BuyerId);
+            if (buyerWallet == null) throw new Exception("Buyer wallet not found");
+
+            var escrow = await _escrowRepo.GetByOrderIdAsync(orderId);
+            if (escrow == null) throw new Exception("Escrow session not found");
+
+            await _unitOfWork.BeginTransactionAsync();
+            try
+            {
+                decimal buyerBefore = buyerWallet.Balance;
+
+                buyerWallet.Balance += order.TotalAmount;
+                buyerWallet.UpdatedAt = DateTime.UtcNow;
+                _walletRepo.Update(buyerWallet);
+
+                order.Status = OrderStatus.Done;
+                order.UpdatedAt = DateTime.UtcNow;
+                _orderRepo.Update(order);
+
+                escrow.Status = EscrowStatus.Refunded;
+                escrow.ResolvedAt = DateTime.UtcNow;
+                _escrowRepo.Update(escrow);
+
+                await _transactionRepo.AddAsync(new Transaction
+                {
+                    WalletId = buyerWallet.WalletId,
+                    PaymentId = null,
+                    TransactionCode = GenerateTransactionCode("REF"),
+                    Amount = order.TotalAmount,
+                    BalanceBefore = buyerBefore,
+                    BalanceAfter = buyerWallet.Balance,
+                    Type = TransactionType.Credit,
+                    ReferenceType = TransactionReferenceType.OrderRefund,
+                    ReferenceId = order.OrderId,
+                    Description = $"Hoàn tiền từ đơn hàng bị trả #{order.OrderId}",
+                    CreatedAt = DateTime.UtcNow,
+                    Status = TransactionStatus.Success
+                });
+
+                await _unitOfWork.CommitAsync();
+            }
+            catch
+            {
+                await _unitOfWork.RollbackAsync();
+                throw;
+            }
+
+            var updatedOrder = await _orderRepo.GetByIdAsync(order.OrderId)
+                               ?? throw new Exception("Error retrieving order after refund");
 
             var response = MapToResponse(updatedOrder);
 
