@@ -238,14 +238,16 @@ CRITICAL: Do NOT output metadata for the reference item. Output metadata ONLY fo
             }
         }
 
-        public async Task<IEnumerable<ItemResponseDto>> GetMyItemsAsync(int accountId)
+        public async Task<(IEnumerable<ItemResponseDto> Items, int TotalCount)> GetMyItemsAsync(int accountId, int page, int pageSize, string? search)
         {
             var wardrobe = await _wardrobeRepository.GetByAccountIdAsync(accountId);
             if (wardrobe == null)
-                return new List<ItemResponseDto>();
+                return (new List<ItemResponseDto>(), 0);
 
-            var items = await _itemRepo.GetByWardrobeIdAsync(wardrobe.WardrobeId);
-            return items.Adapt<List<ItemResponseDto>>();
+            var result = await _itemRepo.GetByWardrobeIdAsync2(wardrobe.WardrobeId, page, pageSize, search);
+            var itemDtos = result.Items.Adapt<List<ItemResponseDto>>();
+
+            return (itemDtos, result.TotalCount);
         }
 
         public async Task UpdateItemAsync(int itemId, UpdateItemRequest request)

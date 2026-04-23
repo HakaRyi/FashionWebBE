@@ -38,15 +38,21 @@ namespace Presentation.Controllers
 
         [Authorize]
         [HttpGet("me")]
-        public async Task<ActionResult<IEnumerable<ItemResponseDto>>> GetMyItems()
+        public async Task<ActionResult> GetMyItems([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null)
         {
             var accountId = _currentUserService.GetRequiredUserId();
-            var results = await _itemService.GetMyItemsAsync(accountId);
+            var result = await _itemService.GetMyItemsAsync(accountId, page, pageSize, search);
 
             return Ok(new
             {
                 message = "Lấy danh sách item của tôi thành công.",
-                data = results
+                data = new
+                {
+                    items = result.Items,
+                    totalCount = result.TotalCount,
+                    currentPage = page,
+                    totalPages = (int)Math.Ceiling(result.TotalCount / (double)pageSize)
+                }
             });
         }
 
