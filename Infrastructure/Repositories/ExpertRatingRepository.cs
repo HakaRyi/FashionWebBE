@@ -33,5 +33,12 @@ namespace Infrastructure.Repositories
                 .Include(x => x.CriterionRatings)
                     .ThenInclude(cr => cr.EventCriterion)
                 .ToListAsync();
+
+        public async Task<IEnumerable<ExpertRating>> GetAllRatingsByEventIdAsync(int eventId)
+        {
+            return await _context.ExpertRatings
+                .Where(r => r.Post.EventId == eventId)
+                .ToListAsync();
+        }
     }
 }

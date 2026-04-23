@@ -10,5 +10,6 @@ namespace Domain.Interfaces
         Task<ExpertRating?> GetByPostAndExpertAsync(int postId, int expertId);
         Task<IEnumerable<ExpertRating>> GetRatingsByPostIdAsync(int postId);
         Task<IEnumerable<ExpertRating>> GetDetailedRatingsByPostIdAsync(int postId);
+        Task<IEnumerable<ExpertRating>> GetAllRatingsByEventIdAsync(int eventId);
     }
 }

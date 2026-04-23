@@ -136,6 +136,13 @@ namespace Infrastructure.Persistence.Seeders
                     SettingValue = "2",
                     DataType = "Number",
                     Description = "Minimum number of professionals required for the event to begin."
+                },
+                new SystemSetting
+                {
+                    SettingKey = "MaxEarlyStartHours",
+                    SettingValue = "24",
+                    DataType = "Number",
+                    Description = "The maximum number of hours allowed for starting an event earlier than scheduled."
                 }
             };
 
@@ -161,32 +168,32 @@ namespace Infrastructure.Persistence.Seeders
                 new ReportType
                 {
                     TypeName = "Spam",
-                    Description = "Nội dung spam, lặp lại nhiều lần hoặc gây phiền."
+                    Description = "Spam content, repeated posts, or disruptive behavior."
                 },
                 new ReportType
                 {
-                    TypeName = "Nội dung phản cảm",
-                    Description = "Hình ảnh hoặc nội dung không phù hợp với cộng đồng."
+                    TypeName = "Inappropriate Content",
+                    Description = "Images or content that are not suitable for the community."
                 },
                 new ReportType
                 {
-                    TypeName = "Quấy rối / xúc phạm",
-                    Description = "Nội dung công kích, xúc phạm hoặc quấy rối người khác."
+                    TypeName = "Harassment / Abuse",
+                    Description = "Content that attacks, insults, or harasses others."
                 },
                 new ReportType
                 {
-                    TypeName = "Lừa đảo / gian lận",
-                    Description = "Nội dung có dấu hiệu lừa đảo, giả mạo hoặc gian lận."
+                    TypeName = "Scam / Fraud",
+                    Description = "Content that shows signs of scamming, impersonation, or fraud."
                 },
                 new ReportType
                 {
-                    TypeName = "Thông tin sai sự thật",
-                    Description = "Nội dung gây hiểu nhầm hoặc cung cấp thông tin sai lệch."
+                    TypeName = "False Information",
+                    Description = "Content that is misleading or provides false information."
                 },
                 new ReportType
                 {
-                    TypeName = "Khác",
-                    Description = "Lý do khác không thuộc các nhóm trên."
+                    TypeName = "Other",
+                    Description = "Other reasons not included in the categories above."
                 }
             };
 
