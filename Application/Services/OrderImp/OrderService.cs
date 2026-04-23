@@ -179,13 +179,9 @@ namespace Application.Services.OrderImp
                     if (order.Status != OrderStatus.Completed)
                         throw new Exception("Đơn hàng chưa giao thành công.");
 
-                    var buyerWallet = await _walletRepo.GetByAccountIdAsync(order.BuyerId)
-                                      ?? throw new Exception("Ví buyer không tồn tại.");
-
                     var sellerWallet = await _walletRepo.GetByAccountIdAsync(order.SellerId)
                                        ?? throw new Exception("Ví seller không tồn tại.");
 
-                    decimal buyerBefore = buyerWallet.Balance;
                     decimal sellerBefore = sellerWallet.Balance;
 
                     sellerWallet.Balance += order.TotalAmount - serviceFee;
@@ -203,22 +199,6 @@ namespace Application.Services.OrderImp
                     order.Status = OrderStatus.Done;
                     order.UpdatedAt = DateTime.UtcNow;
                     _orderRepo.Update(order);
-
-                    await _transactionRepo.AddAsync(new Transaction
-                    {
-                        WalletId = buyerWallet.WalletId,
-                        PaymentId = null,
-                        TransactionCode = GenerateTransactionCode("TRX"),
-                        Amount = order.TotalAmount,
-                        BalanceBefore = buyerBefore,
-                        BalanceAfter = buyerWallet.Balance,
-                        Type = TransactionType.Debit,
-                        ReferenceType = TransactionReferenceType.OrderPayment,
-                        ReferenceId = order.OrderId,
-                        Description = $"Hoàn tất thanh toán đơn hàng #{order.OrderId}",
-                        CreatedAt = DateTime.UtcNow,
-                        Status = TransactionStatus.Success
-                    });
 
                     await _transactionRepo.AddAsync(new Transaction
                     {
