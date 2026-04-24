@@ -11,6 +11,6 @@ namespace Application.Interfaces
         Task<AuthResponse> LogoutAsync();
         Task<AuthResponse> RefreshTokenAsync(string refreshToken);
         Task<AuthResponse> LoginWithGoogleAsync(GoogleLoginRequest request);
-
+        Task<AuthResponse> ChangePasswordAsync(ChangePasswordRequest request);
     }
 }

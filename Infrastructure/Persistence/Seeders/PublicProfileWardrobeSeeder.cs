@@ -12,6 +12,7 @@ namespace Infrastructure.Persistence.Seeders
         private const string SeedMarker = "PUBLIC_PROFILE_WARDROBE_TEST_SEED";
         private const string DefaultUserRole = "User";
         private const string DefaultPassword = "123456Aa@";
+        private const decimal DefaultServiceFee = 15000m;
 
         public static async Task SeedAsync(
             FashionDbContext context,
@@ -31,12 +32,17 @@ namespace Infrastructure.Persistence.Seeders
 
             var wardrobes = context.Set<Wardrobe>();
             var items = context.Set<Item>();
+            var itemVariants = context.Set<ItemVariant>();
             var images = context.Set<Image>();
             var outfits = context.Set<Outfit>();
             var outfitItems = context.Set<OutfitItem>();
             var wallets = context.Set<Wallet>();
             var posts = context.Set<Post>();
             var follows = context.Set<Follow>();
+            var orders = context.Set<Order>();
+            var escrows = context.Set<EscrowSession>();
+            var transactions = context.Set<Transaction>();
+            var refundRequests = context.Set<RefundRequest>();
 
             // =========================================================
             // 1. Seed category name dùng nội bộ
@@ -232,6 +238,7 @@ namespace Infrastructure.Persistence.Seeders
             {
                 var idx = i % itemNames.Length;
                 var createdAt = now.AddDays(-(i + 1));
+                bool isForSale = i % 3 != 0;
 
                 var item = new Item
                 {
@@ -258,6 +265,10 @@ namespace Infrastructure.Persistence.Seeders
                     ItemEmbedding = CreateEmbedding(i + 1),
                     IsPublic = i < 12,
                     Status = i % 11 == 0 ? ItemStatus.Inactive : ItemStatus.Active,
+                    IsForSale = isForSale,
+                    ListedPrice = isForSale ? 150000m + i * 10000m : null,
+                    Condition = "New",
+                    PublishedAt = isForSale ? createdAt : null,
                     CreatedAt = createdAt,
                     UpdateAt = createdAt
                 };
@@ -282,6 +293,33 @@ namespace Infrastructure.Persistence.Seeders
             await images.AddRangeAsync(targetItemImages);
             await context.SaveChangesAsync();
 
+            // Seed variants cho target items
+            var targetVariants = new List<ItemVariant>();
+
+            foreach (var item in targetItems.Where(x => x.IsForSale && x.Status == ItemStatus.Active))
+            {
+                int variantCount = random.Next(1, 4);
+
+                for (int v = 0; v < variantCount; v++)
+                {
+                    targetVariants.Add(new ItemVariant
+                    {
+                        ItemId = item.ItemId,
+                        Sku = $"SKU-T-{item.ItemId}-{v + 1}",
+                        SizeCode = v == 0 ? "S" : v == 1 ? "M" : "L",
+                        Color = item.MainColor,
+                        Price = (item.ListedPrice ?? 100000m) + v * 10000m,
+                        StockQuantity = random.Next(5, 20),
+                        ReservedQuantity = 0,
+                        Status = ItemVariantStatus.Active,
+                        CreatedAt = item.CreatedAt ?? DateTime.UtcNow
+                    });
+                }
+            }
+
+            await itemVariants.AddRangeAsync(targetVariants);
+            await context.SaveChangesAsync();
+
             // =========================================================
             // 5. Seed items cho các account demo
             // =========================================================
@@ -297,6 +335,7 @@ namespace Infrastructure.Persistence.Seeders
                 {
                     int idx = (userIndex + j) % itemNames.Length;
                     var createdAt = now.AddDays(-(userIndex * 2 + j + 1));
+                    bool isForSale = j % 3 != 0;
 
                     var item = new Item
                     {
@@ -323,6 +362,10 @@ namespace Infrastructure.Persistence.Seeders
                         ItemEmbedding = CreateEmbedding((userIndex + 1) * 100 + j + 1),
                         IsPublic = j < Math.Max(3, totalItems - 2),
                         Status = j % 7 == 0 ? ItemStatus.Inactive : ItemStatus.Active,
+                        IsForSale = isForSale,
+                        ListedPrice = isForSale ? 120000m + j * 8000m : null,
+                        Condition = "Like New",
+                        PublishedAt = isForSale ? createdAt : null,
                         CreatedAt = createdAt,
                         UpdateAt = createdAt
                     };
@@ -346,6 +389,33 @@ namespace Infrastructure.Persistence.Seeders
             }
 
             await images.AddRangeAsync(allDemoItemImages);
+            await context.SaveChangesAsync();
+
+            // Seed variants cho demo items
+            var demoVariants = new List<ItemVariant>();
+
+            foreach (var item in allDemoItems.Where(x => x.IsForSale && x.Status == ItemStatus.Active))
+            {
+                int variantCount = random.Next(1, 3);
+
+                for (int v = 0; v < variantCount; v++)
+                {
+                    demoVariants.Add(new ItemVariant
+                    {
+                        ItemId = item.ItemId,
+                        Sku = $"SKU-D-{item.ItemId}-{v + 1}",
+                        SizeCode = v == 0 ? "M" : "L",
+                        Color = item.MainColor,
+                        Price = (item.ListedPrice ?? 100000m) + v * 5000m,
+                        StockQuantity = random.Next(3, 15),
+                        ReservedQuantity = 0,
+                        Status = ItemVariantStatus.Active,
+                        CreatedAt = item.CreatedAt ?? DateTime.UtcNow
+                    });
+                }
+            }
+
+            await itemVariants.AddRangeAsync(demoVariants);
             await context.SaveChangesAsync();
 
             // =========================================================
@@ -569,7 +639,268 @@ namespace Infrastructure.Persistence.Seeders
             await context.SaveChangesAsync();
 
             // =========================================================
-            // 9. Cập nhật thống kê
+            // 9. Seed orders + escrow + transactions + refund requests
+            // =========================================================
+            var allSeedAccounts = new List<Account> { targetAccount };
+            allSeedAccounts.AddRange(demoAccounts);
+
+            var allActiveVariants = await itemVariants
+                .Include(v => v.Item)
+                    .ThenInclude(i => i.Wardrobe)
+                .Where(v =>
+                    v.Status == ItemVariantStatus.Active &&
+                    v.StockQuantity > 0 &&
+                    v.Item.Status == ItemStatus.Active &&
+                    v.Item.IsForSale)
+                .ToListAsync();
+
+            var walletMap = await wallets.ToDictionaryAsync(w => w.AccountId, w => w);
+            var imageMap = await images
+                .Where(x => x.ItemId != null)
+                .GroupBy(x => x.ItemId!.Value)
+                .ToDictionaryAsync(
+                    g => g.Key,
+                    g => g.OrderBy(x => x.CreatedAt).Select(x => x.ImageUrl).FirstOrDefault());
+
+            var seededOrders = new List<Order>();
+            int orderSeedCount = 18;
+
+            for (int i = 0; i < orderSeedCount; i++)
+            {
+                var pickedVariant = allActiveVariants[random.Next(allActiveVariants.Count)];
+                var sellerId = pickedVariant.Item.Wardrobe.AccountId;
+
+                var possibleBuyers = allSeedAccounts
+                    .Where(a => a.Id != sellerId)
+                    .ToList();
+
+                if (!possibleBuyers.Any())
+                    continue;
+
+                var buyer = possibleBuyers[random.Next(possibleBuyers.Count)];
+                int quantity = random.Next(1, 3);
+                decimal unitPrice = pickedVariant.Price;
+                decimal lineTotal = unitPrice * quantity;
+                decimal totalAmount = lineTotal + DefaultServiceFee;
+                var createdAt = now.AddDays(-random.Next(2, 25)).AddHours(-random.Next(1, 20));
+
+                var order = new Order
+                {
+                    BuyerId = buyer.Id,
+                    SellerId = sellerId,
+                    OrderCode = $"ORD-SEED-{i + 1:000}",
+                    SubTotal = lineTotal,
+                    ServiceFee = DefaultServiceFee,
+                    TotalAmount = totalAmount,
+                    Note = $"Seed order #{i + 1}",
+                    ShippingAddress = $"Seed address #{i + 1}, Ho Chi Minh City",
+                    ReceiverName = buyer.UserName ?? $"Buyer {buyer.Id}",
+                    ReceiverPhone = $"090000{i + 10:000}",
+                    CreatedAt = createdAt,
+                    UpdatedAt = createdAt
+                };
+
+                if (i <= 7)
+                {
+                    order.Status = OrderStatus.Processing;
+                    order.PaidAt = createdAt.AddHours(3);
+                }
+                else if (i <= 10)
+                {
+                    order.Status = OrderStatus.Shipping;
+                    order.PaidAt = createdAt.AddHours(4);
+                }
+                else if (i <= 12)
+                {
+                    order.Status = OrderStatus.Delivered;
+                    order.PaidAt = createdAt.AddHours(4);
+                    order.DeliveredAt = createdAt.AddDays(2);
+                }
+                else if (i <= 14)
+                {
+                    order.Status = OrderStatus.Completed;
+                    order.PaidAt = createdAt.AddHours(5);
+                    order.DeliveredAt = createdAt.AddDays(2);
+                    order.CompletedAt = createdAt.AddDays(3);
+                }
+                else if (i == 15)
+                {
+                    order.Status = OrderStatus.Cancelled;
+                    order.CancelledAt = createdAt.AddHours(6);
+                    order.CancelReason = "Seed cancelled before payment";
+                }
+                else if (i == 16)
+                {
+                    order.Status = OrderStatus.Refunded;
+                    order.PaidAt = createdAt.AddHours(2);
+                    order.DeliveredAt = createdAt.AddDays(2);
+                    order.CompletedAt = createdAt.AddDays(3);
+                }
+                else
+                {
+                    order.Status = OrderStatus.Refunding;
+                    order.PaidAt = createdAt.AddHours(2);
+                    order.DeliveredAt = createdAt.AddDays(2);
+                }
+
+                string size = string.IsNullOrWhiteSpace(pickedVariant.SizeCode) ? "N/A" : pickedVariant.SizeCode;
+                string color = string.IsNullOrWhiteSpace(pickedVariant.Color) ? "N/A" : pickedVariant.Color;
+                string variantSnapshot = $"Size: {size}, Color: {color}";
+
+                imageMap.TryGetValue(pickedVariant.ItemId, out string? imageUrl);
+
+                order.OrderDetails.Add(new OrderDetail
+                {
+                    ItemId = pickedVariant.ItemId,
+                    ItemVariantId = pickedVariant.ItemVariantId,
+                    ItemNameSnapshot = pickedVariant.Item.ItemName ?? "Unknown Item",
+                    VariantSnapshot = variantSnapshot,
+                    SkuSnapshot = pickedVariant.Sku,
+                    ImageUrlSnapshot = imageUrl,
+                    Quantity = quantity,
+                    UnitPrice = unitPrice,
+                    LineTotal = lineTotal
+                });
+
+                seededOrders.Add(order);
+            }
+
+            await orders.AddRangeAsync(seededOrders);
+            await context.SaveChangesAsync();
+
+            var seededEscrows = new List<EscrowSession>();
+            var seededTransactions = new List<Transaction>();
+            var seededRefundRequests = new List<RefundRequest>();
+
+            foreach (var order in seededOrders)
+            {
+                var buyerWallet = walletMap[order.BuyerId];
+                var sellerWallet = walletMap[order.SellerId];
+
+                bool needsEscrow = order.Status is
+                    OrderStatus.Processing or
+                    OrderStatus.Shipping or
+                    OrderStatus.Delivered or
+                    OrderStatus.Completed or
+                    OrderStatus.Refunded or
+                    OrderStatus.Refunding;
+
+                if (needsEscrow)
+                {
+                    string escrowStatus = EscrowStatus.Held;
+                    DateTime? resolvedAt = null;
+
+                    if (order.Status == OrderStatus.Refunded)
+                    {
+                        escrowStatus = EscrowStatus.Refunded;
+                        resolvedAt = order.CompletedAt?.AddHours(1) ?? order.CreatedAt.AddDays(3);
+                    }
+
+                    seededEscrows.Add(new EscrowSession
+                    {
+                        OrderId = order.OrderId,
+                        SenderId = order.BuyerId,
+                        ReceiverId = order.SellerId,
+                        Amount = order.TotalAmount,
+                        ServiceFee = order.ServiceFee,
+                        Status = escrowStatus,
+                        Description = $"Seed escrow for order #{order.OrderId}",
+                        CreatedAt = order.PaidAt ?? order.CreatedAt.AddHours(2),
+                        ResolvedAt = resolvedAt
+                    });
+                }
+
+                bool hasBuyerPayment = order.Status is
+                    OrderStatus.Processing or
+                    OrderStatus.Shipping or
+                    OrderStatus.Delivered or
+                    OrderStatus.Completed or
+                    OrderStatus.Refunded or
+                    OrderStatus.Refunding;
+
+                if (hasBuyerPayment)
+                {
+                    decimal buyerBefore = buyerWallet.Balance;
+                    decimal buyerAfter = buyerBefore - order.TotalAmount;
+
+                    seededTransactions.Add(new Transaction
+                    {
+                        WalletId = buyerWallet.WalletId,
+                        PaymentId = null,
+                        TransactionCode = $"TRX-PAY-{order.OrderId:0000}",
+                        Amount = order.TotalAmount,
+                        BalanceBefore = buyerBefore,
+                        BalanceAfter = buyerAfter,
+                        Type = TransactionType.Debit,
+                        ReferenceType = TransactionReferenceType.OrderPayment,
+                        ReferenceId = order.OrderId,
+                        Description = $"Seed payment for order #{order.OrderId}",
+                        CreatedAt = order.PaidAt ?? order.CreatedAt.AddHours(2),
+                        Status = TransactionStatus.Success
+                    });
+
+                    buyerWallet.Balance = buyerAfter;
+                    buyerWallet.UpdatedAt = now;
+                }       
+
+                if (order.Status == OrderStatus.Refunded)
+                {
+                    decimal buyerBefore = buyerWallet.Balance;
+                    decimal buyerAfter = buyerBefore + order.TotalAmount;
+
+                    seededTransactions.Add(new Transaction
+                    {
+                        WalletId = buyerWallet.WalletId,
+                        PaymentId = null,
+                        TransactionCode = $"TRX-REF-{order.OrderId:0000}",
+                        Amount = order.TotalAmount,
+                        BalanceBefore = buyerBefore,
+                        BalanceAfter = buyerAfter,
+                        Type = TransactionType.Credit,
+                        ReferenceType = TransactionReferenceType.OrderRefund,
+                        ReferenceId = order.OrderId,
+                        Description = $"Seed refund for order #{order.OrderId}",
+                        CreatedAt = (order.CompletedAt ?? order.CreatedAt.AddDays(3)).AddHours(6),
+                        Status = TransactionStatus.Success
+                    });
+
+                    buyerWallet.Balance = buyerAfter;
+                    buyerWallet.UpdatedAt = now;
+
+                    seededRefundRequests.Add(new RefundRequest
+                    {
+                        OrderId = order.OrderId,
+                        Reason = "Seed refunded order for revenue dashboard testing",
+                        ProofImage1 = "https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=800",
+                        ProofImage2 = "https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=800",
+                        Status = "APPROVED",
+                        AdminNote = "Approved by seed process",
+                        CreatedAt = order.CompletedAt ?? order.CreatedAt.AddDays(3),
+                        ProcessedAt = (order.CompletedAt ?? order.CreatedAt.AddDays(3)).AddHours(6)
+                    });
+                }
+
+                if (order.Status == OrderStatus.Refunding)
+                {
+                    seededRefundRequests.Add(new RefundRequest
+                    {
+                        OrderId = order.OrderId,
+                        Reason = "Seed refunding order for admin review testing",
+                        ProofImage1 = "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=800",
+                        ProofImage2 = "https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=800",
+                        Status = "PENDING",
+                        CreatedAt = order.DeliveredAt ?? order.CreatedAt.AddDays(2)
+                    });
+                }
+            }
+
+            await escrows.AddRangeAsync(seededEscrows);
+            await transactions.AddRangeAsync(seededTransactions);
+            await refundRequests.AddRangeAsync(seededRefundRequests);
+            await context.SaveChangesAsync();
+
+            // =========================================================
+            // 10. Cập nhật thống kê
             // =========================================================
             var allAccounts = new List<Account> { targetAccount };
             allAccounts.AddRange(demoAccounts);

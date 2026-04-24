@@ -1,5 +1,4 @@
-﻿
-using Application.Interfaces;
+﻿using Application.Interfaces;
 using Google.Apis.Auth;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -548,6 +547,79 @@ namespace Application.Services
                 RefreshToken = refreshTokenString,
                 Message = "Đăng nhập thành công.",
                 IsNewUser = isNewUser
+            };
+        }
+
+        public async Task<AuthResponse> ChangePasswordAsync(ChangePasswordRequest request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Email))
+            {
+                return new AuthResponse
+                {
+                    Success = false,
+                    Message = "Email is required."
+                };
+            }
+
+            if (string.IsNullOrWhiteSpace(request.NewPassword))
+            {
+                return new AuthResponse
+                {
+                    Success = false,
+                    Message = "New password is required."
+                };
+            }
+
+            var user = await _userManager.FindByEmailAsync(request.Email);
+            if (user == null)
+            {
+                return new AuthResponse
+                {
+                    Success = false,
+                    Message = "Account not found."
+                };
+            }
+
+            var removePasswordResult = await _userManager.RemovePasswordAsync(user);
+            if (!removePasswordResult.Succeeded)
+            {
+                var removeError = removePasswordResult.Errors.FirstOrDefault()?.Description
+                                  ?? "Failed to remove old password.";
+
+                return new AuthResponse
+                {
+                    Success = false,
+                    Message = removeError
+                };
+            }
+
+            var addPasswordResult = await _userManager.AddPasswordAsync(user, request.NewPassword);
+            if (!addPasswordResult.Succeeded)
+            {
+                var addError = addPasswordResult.Errors.FirstOrDefault()?.Description
+                               ?? "Failed to set new password.";
+
+                return new AuthResponse
+                {
+                    Success = false,
+                    Message = addError
+                };
+            }
+
+            user.SecurityStamp = Guid.NewGuid().ToString();
+            await _userManager.UpdateAsync(user);
+
+            var refreshToken = await _accountRepository.GetRefreshTokenByAccountIdAsync(user.Id);
+            if (refreshToken != null)
+            {
+                refreshToken.IsAvailable = false;
+                await _accountRepository.UpdateRefreshTokenAsync(refreshToken);
+            }
+
+            return new AuthResponse
+            {
+                Success = true,
+                Message = "Password changed successfully."
             };
         }
     }

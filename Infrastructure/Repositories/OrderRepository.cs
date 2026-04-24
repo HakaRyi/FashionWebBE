@@ -86,6 +86,11 @@ namespace Infrastructure.Repositories
             return await GetByStatusAsync(OrderStatus.Completed);
         }
 
+        public async Task<List<Order>> GetDeliveredOrdersAsync()
+        {
+            return await GetByStatusAsync(OrderStatus.Delivered);
+        }
+
         public async Task<List<Order>> GetCancelledOrdersAsync()
         {
             return await GetByStatusesAsync(OrderStatus.Cancelled, OrderStatus.Refunded);
@@ -94,6 +99,20 @@ namespace Infrastructure.Repositories
         public async Task<List<Order>> GetShippingOrdersAsync()
         {
             return await GetByStatusAsync(OrderStatus.Shipping);
+        }
+
+        public async Task<bool> ExistsPendingOrderByBuyerAsync(int buyerId, int itemVariantId)
+        {
+            return await _context.Orders
+                .AsNoTracking()
+                .AnyAsync(o =>
+                    o.BuyerId == buyerId &&
+                    (o.Status == OrderStatus.PendingPayment ||
+                     o.Status == OrderStatus.Processing ||
+                     o.Status == OrderStatus.Shipping ||
+                     o.Status == OrderStatus.Delivered ||
+                     o.Status == OrderStatus.Completed) &&
+                    o.OrderDetails.Any(d => d.ItemVariantId == itemVariantId));
         }
 
         private IQueryable<Order> BuildOrderDetailQuery(bool isTracking)
@@ -108,8 +127,24 @@ namespace Infrastructure.Repositories
             return query
                 .Include(o => o.Buyer)
                 .Include(o => o.Seller)
+                .Include(o => o.EscrowSession)
+                .Include(o => o.RefundRequest)
                 .Include(o => o.OrderDetails)
-                .Include(o => o.EscrowSession);
+                    .ThenInclude(od => od.Item)
+                .Include(o => o.OrderDetails)
+                    .ThenInclude(od => od.ItemVariant);
+        }
+
+        public async Task<List<Order>> GetDeliveredOrdersBeforeAsync(DateTime deadline)
+        {
+            return await _context.Orders
+                .Include(o => o.OrderDetails)
+                .Include(o => o.EscrowSession)
+                .Where(o =>
+                    o.Status == OrderStatus.Delivered &&
+                    o.DeliveredAt != null &&
+                    o.DeliveredAt <= deadline)
+                .ToListAsync();
         }
     }
 }

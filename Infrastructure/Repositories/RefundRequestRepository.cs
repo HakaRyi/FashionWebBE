@@ -2,11 +2,6 @@
 using Domain.Interfaces;
 using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Infrastructure.Repositories
 {
@@ -33,22 +28,41 @@ namespace Infrastructure.Repositories
 
         public async Task<RefundRequest?> GetByOrderIdAsync(int orderId)
         {
-            return await _context.RefundRequests
+            return await BuildRefundQuery(isTracking: true)
                 .FirstOrDefaultAsync(r => r.OrderId == orderId);
         }
 
         public async Task<RefundRequest?> GetByIdAsync(int id)
         {
-            return await _context.RefundRequests
+            return await BuildRefundQuery(isTracking: true)
                 .FirstOrDefaultAsync(r => r.RefundRequestId == id);
         }
+
         public async Task<List<RefundRequest>> GetAllAsync()
         {
-            return await _context.RefundRequests
-                .Include(r => r.Order)
-                .ThenInclude(o => o.OrderDetails)
+            return await BuildRefundQuery(isTracking: false)
                 .OrderByDescending(r => r.CreatedAt)
                 .ToListAsync();
+        }
+
+        private IQueryable<RefundRequest> BuildRefundQuery(bool isTracking)
+        {
+            IQueryable<RefundRequest> query = _context.RefundRequests;
+
+            if (!isTracking)
+            {
+                query = query.AsNoTracking();
+            }
+
+            return query
+                .Include(r => r.Order)
+                    .ThenInclude(o => o.OrderDetails)
+                        .ThenInclude(od => od.Item)
+                            .ThenInclude(i => i.Images)
+                .Include(r => r.Order)
+                    .ThenInclude(o => o.Buyer)
+                .Include(r => r.Order)
+                    .ThenInclude(o => o.Seller);
         }
     }
 }
