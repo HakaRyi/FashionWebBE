@@ -9,5 +9,6 @@ namespace Domain.Interfaces
         Task<List<Notification>> GetByUserIdAsync(int targetUserId);
         Task<Notification?> GetById(int id);
         Task Update(Notification notification);
+        Task MarkAllAsReadAsync(int userId);
     }
 }

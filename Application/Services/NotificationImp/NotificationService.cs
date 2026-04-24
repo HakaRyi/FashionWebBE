@@ -87,5 +87,10 @@ namespace Application.Services.NotificationImp
             await _repository.Update(notification);
             return true;
         }
+
+        public async Task MarkAllAsReadAsync(int userId)
+        {
+            await _repository.MarkAllAsReadAsync(userId);
+        }
     }
 }

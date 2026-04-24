@@ -17,6 +17,8 @@
 
         // Thông tin định lượng
         public int ParticipantCount { get; set; }
+        public int CreatorId { get; set; }
+        public decimal EntryFee { get; set; } = 0;
         public string? CreatorName { get; set; }
         public string? CreatorAvatarUrl { get; set; }
         public string? ThumbnailUrl { get; set; }
@@ -45,6 +47,7 @@
         public string? Description { get; set; }
         public double ExpertWeight { get; set; }
         public double UserWeight { get; set; }
+        public decimal EntryFee { get; set; }
         public decimal AppliedFee { get; set; }
         public DateTime? StartTime { get; set; }
         public DateTime? SubmissionDeadline { get; set; }

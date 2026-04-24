@@ -73,10 +73,10 @@ namespace Application.Services.EventServices
         public async Task FinalizeAndAwardEventAsync(int eventId)
         {
             var ev = await _eventRepo.GetByIdAsync(eventId);
-            if (ev == null) throw new Exception("Sự kiện không tồn tại.");
+            if (ev == null) throw new Exception("The event does not exist.");
 
             if (ev.Status != "Active" && ev.Status != "Judging")
-                throw new Exception($"Không thể trao giải. Trạng thái hiện tại: {ev.Status}");
+                throw new Exception($"The award cannot be given. Current status: {ev.Status}");
 
             await _unitOfWork.BeginTransactionAsync();
             try
@@ -86,7 +86,7 @@ namespace Application.Services.EventServices
 
                 // 2. Lấy thông tin Escrow
                 var escrow = await _escrowRepo.GetActiveEscrowByEventIdAsync(eventId);
-                if (escrow == null) throw new Exception("Không tìm thấy khoản ký quỹ hợp lệ cho sự kiện này.");
+                if (escrow == null) throw new Exception("No valid deposit was found for this event.");
 
                 // 3. Trao giải cho người thắng (Trả về tổng số tiền đã phát)
                 decimal totalDistributedAmount = await DistributePrizesAsync(eventId, ev, rankedPosts);
@@ -94,10 +94,13 @@ namespace Application.Services.EventServices
                 // 4. Xử lý hoàn tiền ký quỹ (nếu số người thắng ít hơn số giải)
                 await RefundRemainingEscrowAsync(ev, escrow, totalDistributedAmount);
 
-                // 5. ĐÁNH GIÁ VÀ TRỪ ĐIỂM CHUYÊN GIA
+                // 5. Giải ngân tiền PHÍ THAM GIA (Entry Fee Revenue) cho Creator
+                await ReleaseEventRevenueToCreatorAsync(ev);
+
+                // 6. ĐÁNH GIÁ VÀ TRỪ ĐIỂM CHUYÊN GIA
                 await EvaluateExpertPerformanceAsync(eventId, ev);
 
-                // 6. Đóng sự kiện và dọn dẹp Quartz Job
+                // 7. Đóng sự kiện và dọn dẹp Quartz Job
                 await CloseEventAndCleanupAsync(ev);
 
                 // CHỐT GIAO DỊCH
@@ -120,7 +123,7 @@ namespace Application.Services.EventServices
             catch (Exception ex)
             {
                 await _unitOfWork.RollbackAsync();
-                throw new Exception($"Lỗi trong quá trình kết thúc và trao giải sự kiện: {ex.Message}");
+                throw new Exception($"Error during the event's closing and awards ceremony: {ex.Message}");
             }
         }
 
@@ -269,7 +272,7 @@ namespace Application.Services.EventServices
             // Tất toán Escrow
             escrow.Status = "Resolved";
             escrow.ResolvedAt = DateTime.UtcNow;
-            escrow.Description = $"Đã giải ngân {totalDistributedAmount:N0}. Hoàn trả {refundAmount:N0}.";
+            escrow.Description = $"Disbursed {totalDistributedAmount:N0}. Refund {refundAmount:N0}.";
             _escrowRepo.Update(escrow);
 
             await _unitOfWork.SaveChangesAsync();
@@ -397,11 +400,48 @@ namespace Application.Services.EventServices
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"Lỗi gửi thông báo cho Expert {expertProfile.AccountId}: {ex.Message}");
+                        Console.WriteLine($"Error sending notification to Expert {expertProfile.AccountId}: {ex.Message}");
                     }
                 }
 
                 await _unitOfWork.SaveChangesAsync();
+            }
+        }
+
+        private async Task ReleaseEventRevenueToCreatorAsync(Event ev)
+        {
+            if (ev.EntryFee <= 0) return;
+
+            var creatorWallet = await _walletRepo.GetByAccountIdAsync(ev.CreatorId);
+            if (creatorWallet == null) return;
+
+            decimal amountToRelease = creatorWallet.LockedBalance;
+
+            if (amountToRelease > 0)
+            {
+                decimal balanceBefore = creatorWallet.Balance;
+                decimal lockedBefore = creatorWallet.LockedBalance;
+
+                creatorWallet.Balance += amountToRelease;
+                creatorWallet.LockedBalance = 0;
+                creatorWallet.UpdatedAt = DateTime.UtcNow;
+
+                _walletRepo.Update(creatorWallet);
+
+                await _transactionRepo.AddAsync(new Transaction
+                {
+                    WalletId = creatorWallet.WalletId,
+                    TransactionCode = $"REVENUE_RELEASE_{ev.EventId}_{DateTime.UtcNow.Ticks}",
+                    Amount = amountToRelease,
+                    BalanceBefore = balanceBefore,
+                    BalanceAfter = creatorWallet.Balance,
+                    Type = "Event_Revenue_Released",
+                    Status = "Success",
+                    Description = $"Receive revenue from event participation fees: {ev.Title}",
+                    ReferenceId = ev.EventId,
+                    ReferenceType = "Event",
+                    CreatedAt = DateTime.UtcNow
+                });
             }
         }
     }

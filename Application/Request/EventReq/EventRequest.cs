@@ -29,6 +29,8 @@ namespace Application.Request.EventReq
 
         public double PointPerShare { get; set; }
 
+        public decimal EntryFee { get; set; } = 0;
+
         public int MinExpertsRequired { get; set; }
 
         public bool IsAutoStart { get; set; }

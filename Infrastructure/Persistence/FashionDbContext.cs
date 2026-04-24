@@ -72,6 +72,8 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
     public virtual DbSet<Photo> Photos { get; set; }
 
+    public virtual DbSet<PhysicalProfile> PhysicalProfiles { get; set; }
+
     public virtual DbSet<PinnedMessage> PinnedMessages { get; set; }
 
     public virtual DbSet<Post> Posts { get; set; }
@@ -100,6 +102,8 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
     public virtual DbSet<TryOnHistory> TryOnHistories { get; set; }
 
+    public virtual DbSet<UserPreference> UserPreferences { get; set; }
+
     public virtual DbSet<UserProfileVector> UserProfileVectors { get; set; }
 
     public virtual DbSet<UserReport> UserReports { get; set; }
@@ -109,8 +113,11 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
     public virtual DbSet<Wardrobe> Wardrobes { get; set; }
 
     public DbSet<SearchHistory> SearchHistories { get; set; }
+
     public virtual DbSet<RefundRequest> RefundRequests { get; set; }
+
     public virtual DbSet<RecommendationHistory> RecommendationHistories { get; set; }
+
     public virtual DbSet<RecommendationDetail> RecommendationDetails { get; set; }
 
     public static string GetConnectionString(string connectionStringName)
@@ -246,6 +253,15 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasColumnType("date")
                 .IsRequired(false);
 
+            entity.Property(e => e.Gender)
+                .HasColumnName("gender")
+                .HasConversion<int>()
+                .IsRequired(false);
+
+            entity.Property(e => e.HasCompletedOnboarding)
+                .HasColumnName("has_completed_onboarding")
+                .HasDefaultValue(false);
+
             entity.HasIndex(e => e.NormalizedUserName)
                 .HasDatabaseName("UserNameIndex")
                 .IsUnique();
@@ -271,6 +287,16 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.HasMany(a => a.SavedPosts)
                 .WithOne(ps => ps.Account)
                 .HasForeignKey(ps => ps.AccountId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(a => a.PhysicalProfiles)
+                .WithOne(p => p.Account)
+                .HasForeignKey(p => p.AccountId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(a => a.UserPreferences)
+                .WithOne(up => up.Account)
+                .HasForeignKey(up => up.AccountId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
@@ -555,6 +581,10 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.AppliedFee)
                 .HasColumnType("decimal(18,2)")
                 .HasColumnName("applied_fee")
+                .HasDefaultValue(0.0m);
+            entity.Property(e => e.EntryFee)
+                .HasColumnType("decimal(18,2)")
+                .HasColumnName("entry_fee")
                 .HasDefaultValue(0.0m);
             entity.Property(e => e.PointPerLike).HasColumnName("point_per_like").HasDefaultValue(1.0);
             entity.Property(e => e.PointPerShare).HasColumnName("point_per_share").HasDefaultValue(2.0);
@@ -1405,6 +1435,67 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasConstraintName("Photos_message_id_fkey");
         });
 
+        modelBuilder.Entity<PhysicalProfile>(entity =>
+        {
+            entity.ToTable("PhysicalProfiles", "public");
+
+            entity.HasKey(e => e.Id).HasName("PhysicalProfile_pkey");
+
+            entity.Property(e => e.Id)
+                .HasColumnName("physical_profile_id");
+
+            entity.Property(e => e.AccountId)
+                .HasColumnName("account_id");
+
+            entity.Property(e => e.Height)
+                .HasColumnName("height")
+                .IsRequired(false);
+
+            entity.Property(e => e.Weight)
+                .HasColumnName("weight")
+                .IsRequired(false);
+
+            entity.Property(e => e.Waist)
+                .HasColumnName("waist")
+                .IsRequired(false);
+
+            entity.Property(e => e.Hip)
+                .HasColumnName("hip")
+                .IsRequired(false);
+
+            entity.Property(e => e.Bust)
+                .HasColumnName("bust")
+                .IsRequired(false);
+
+            entity.Property(e => e.BodyShape)
+                .HasColumnName("body_shape")
+                .HasMaxLength(50)
+                .IsRequired(false);
+
+            entity.Property(e => e.SkinTone)
+                .HasColumnName("skin_tone")
+                .HasMaxLength(50)
+                .IsRequired(false);
+
+            entity.Property(e => e.RecordedAt)
+                .HasColumnName("recorded_at")
+                .HasColumnType("timestamp with time zone")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+            entity.Property(e => e.IsCurrent)
+                .HasColumnName("is_current")
+                .HasDefaultValue(true);
+
+            entity.HasOne(d => d.Account)
+                .WithMany(p => p.PhysicalProfiles)
+                .HasForeignKey(d => d.AccountId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_physical_profile_account");
+
+            entity.HasIndex(e => new { e.AccountId, e.IsCurrent })
+                .HasDatabaseName("idx_physical_profile_account_current");
+        });
+
         modelBuilder.Entity<PinnedMessage>(entity =>
         {
             entity.HasKey(e => e.PinnedMsgId).HasName("PinnedMessage_pkey");
@@ -1866,6 +1957,38 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasForeignKey<Transaction>(d => d.PaymentId)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("Transaction_payment_id_fkey");
+        });
+
+        modelBuilder.Entity<UserPreference>(entity =>
+        {
+            entity.ToTable("UserPreferences", "public");
+
+            entity.HasKey(e => e.Id).HasName("UserPreference_pkey");
+
+            entity.Property(e => e.Id)
+                .HasColumnName("user_preference_id");
+
+            entity.Property(e => e.AccountId)
+                .HasColumnName("account_id");
+
+            entity.Property(e => e.PreferenceType)
+                .HasColumnName("preference_type")
+                .HasMaxLength(50)
+                .IsRequired(false);
+
+            entity.Property(e => e.Value)
+                .HasColumnName("value")
+                .HasMaxLength(200)
+                .IsRequired(false);
+
+            entity.HasOne(d => d.Account)
+                .WithMany(p => p.UserPreferences)
+                .HasForeignKey(d => d.AccountId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_user_preference_account");
+
+            entity.HasIndex(e => new { e.AccountId, e.PreferenceType })
+                .HasDatabaseName("idx_user_pref_account_type");
         });
 
         modelBuilder.Entity<UserProfileVector>(entity =>

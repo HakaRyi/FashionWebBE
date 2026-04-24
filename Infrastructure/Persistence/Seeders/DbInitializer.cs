@@ -116,13 +116,13 @@ namespace Infrastructure.Persistence.Seeders
         {
             var settings = new List<SystemSetting>
             {
-                new SystemSetting
-                {
-                    SettingKey = "EVENT_FEE_PERCENTAGE",
-                    SettingValue = "5",
-                    DataType = "Decimal",
-                    Description = "Percentage of event creation fees (%)"
-                },
+                //new SystemSetting
+                //{
+                //    SettingKey = "EVENT_FEE_PERCENTAGE",
+                //    SettingValue = "5",
+                //    DataType = "Decimal",
+                //    Description = "Percentage of event creation fees (%)"
+                //},
                 new SystemSetting
                 {
                     SettingKey = "EVENT_MIN_FEE",

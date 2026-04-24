@@ -3,15 +3,20 @@ using Domain.Dto;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.RegularExpressions;
+using Microsoft.Extensions.Configuration;
 
 namespace Application.Services.AI
 {
     public class GeminiService : IGeminiService
     {
         private readonly HttpClient _httpClient;
-        private const string ApiKey = "AIzaSyB8uBL_30H-hb4awIewGBft2Eg_UtyHqsU";
+        private readonly string _apiKey;
 
-        public GeminiService(HttpClient httpClient) => _httpClient = httpClient;
+        public GeminiService(HttpClient httpClient, IConfiguration configuration)
+        {
+            _httpClient = httpClient;
+            _apiKey = configuration["GeminiSettings:ApiKey"] ?? string.Empty;
+        }
 
         public async Task<SearchIntent> AnalyzePromptAsync(string prompt)
         {
@@ -62,8 +67,8 @@ namespace Application.Services.AI
                     }
                 };
 
-                var url = $"[https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=](https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=){ApiKey}";
-                //var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={ApiKey}";
+                var url = $"[https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=](https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=){_apiKey}";
+                //var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={_apiKey}";
                 var response = await _httpClient.PostAsJsonAsync(url, requestBody);
 
                 if (!response.IsSuccessStatusCode)
@@ -132,7 +137,7 @@ namespace Application.Services.AI
                 };
 
 
-                var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={ApiKey}";
+                var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={_apiKey}";
                 var response = await _httpClient.PostAsJsonAsync(url, requestBody);
                 var rawJson = await response.Content.ReadAsStringAsync();
 

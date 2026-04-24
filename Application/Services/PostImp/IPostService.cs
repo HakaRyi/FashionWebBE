@@ -30,7 +30,6 @@ namespace Application.Services.PostImp
         Task DeletePostAsync(int postId);
         Task SetPostDeleteStatus(int postId);
         Task SetPostBannedStatus(int postId);
-        Task<PostResponse> JoinEventByPostAsync(int accountId, CreatePostDto dto);
         Task<GlobalSearchResultDto> SearchEverythingAsync(string keyword, int? viewerId);
     }
 }
