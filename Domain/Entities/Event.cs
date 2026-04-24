@@ -16,13 +16,16 @@
 
         public decimal AppliedFee { get; set; }
 
-        public double PointPerLike { get; set; } = 1;
+        public decimal EntryFee { get; set; } = 0;
 
+        public double PointPerLike { get; set; } = 1;
 
         public double PointPerShare { get; set; } = 2;
 
         public int MinExpertsToStart { get; set; }
+
         public bool IsAutoStart { get; set; } = false;
+
         public DateTime? StartTime { get; set; }
 
         public DateTime? SubmissionDeadline { get; set; }

@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using Domain.Constants;
+using Microsoft.AspNetCore.Identity;
 
 namespace Domain.Entities;
 
@@ -25,6 +26,10 @@ public partial class Account : IdentityUser<int>
     public string? IsOnline { get; set; }
 
     public DateTime? DateOfBirth { get; set; }
+
+    public GenderType? Gender { get; set; }
+
+    public bool HasCompletedOnboarding { get; set; } = false;
 
     public virtual ICollection<Comment> Comments { get; set; } = new List<Comment>();
 
@@ -81,4 +86,8 @@ public partial class Account : IdentityUser<int>
     public virtual ICollection<EscrowSession> SentEscrows { get; set; } = new List<EscrowSession>();
 
     public virtual ICollection<EscrowSession> ReceivedEscrows { get; set; } = new List<EscrowSession>();
+
+    public virtual ICollection<PhysicalProfile> PhysicalProfiles { get; set; } = new List<PhysicalProfile>();
+
+    public virtual ICollection<UserPreference> UserPreferences { get; set; } = new List<UserPreference>();
 }

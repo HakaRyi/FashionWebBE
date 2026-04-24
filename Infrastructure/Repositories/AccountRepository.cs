@@ -76,5 +76,13 @@ namespace Infrastructure.Repositories
                 .Include(a => a.Avatars)
                 .FirstOrDefaultAsync(a => a.Id == accountId);
         }
+
+        public async Task<Account?> GetFullAccountDetailsAsync(int accountId)
+        {
+            return await _db.Accounts
+                .Include(a => a.PhysicalProfiles.Where(p => p.IsCurrent))
+                .Include(a => a.UserPreferences)
+                .FirstOrDefaultAsync(a => a.Id == accountId);
+        }
     }
 }

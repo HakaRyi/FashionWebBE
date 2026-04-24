@@ -36,9 +36,19 @@ namespace Presentation.Controllers
 
             var result = await _notificationService.MarkAsReadAsync(id, userId);
 
-            if (!result) return NotFound(new { message = "Không tìm thấy thông báo hoặc bạn không có quyền" });
+            if (!result) return NotFound(new { message = "Notification not found, or you do not have permission." });
 
             return Ok();
+        }
+
+        [HttpPut("read-all")]
+        public async Task<IActionResult> MarkAllAsRead()
+        {
+            int userId = _currentUserService.GetRequiredUserId();
+
+            await _notificationService.MarkAllAsReadAsync(userId);
+
+            return Ok(new { message = "All notifications have been marked as read." });
         }
     }
 }

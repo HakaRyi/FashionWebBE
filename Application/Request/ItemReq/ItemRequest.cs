@@ -57,6 +57,9 @@ namespace Application.Request.ItemReq
         public int? ReferenceItemId { get; set; }
 
         //(SCOPE)
+        public bool UseMyStylePreferences { get; set; }
+
+        public bool UseMyPhysicalProfile { get; set; }
 
         public List<int> TargetWardrobeIds { get; set; } = new();
 

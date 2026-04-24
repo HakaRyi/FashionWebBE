@@ -1,6 +1,8 @@
 using Application.Request.EventReq;
 using Application.Response.DashboardResp;
 using Application.Response.EventResp;
+using Application.Response.PostResp;
+using Domain.Dto.Social.Post;
 
 namespace Application.Interfaces
 {
@@ -8,9 +10,10 @@ namespace Application.Interfaces
     {
         // Expert
         Task<IEnumerable<EventListDto>> GetMyCreatedEventsAsync();
+
         Task<IEnumerable<EventListDto>> GetAllEventsForExpertAsync();
 
-        Task<AnalyticsDashboardResponse> GetAnalyticsAsync(string period);
+        Task<EventAnalyticsRawResponse> GetAnalyticsAsync(string period);
 
         // User / Public
         Task<IEnumerable<EventListDto>> GetAllEventsForUserAsync();
@@ -25,6 +28,9 @@ namespace Application.Interfaces
         Task<EventDetailDto?> GetEventDetailsAsync(int eventId);
 
         Task<List<EventLeaderboardDto>> GetEventLeaderboardAsync(int eventId);
+
         Task<MyEventResultDetailDto?> GetMyResultDetailAsync(int eventId);
+
+        Task<PostResponse> JoinEventByPostAsync(int accountId, CreatePostDto dto);
     }
 }

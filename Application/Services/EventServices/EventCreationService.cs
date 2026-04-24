@@ -70,19 +70,15 @@ namespace Application.Services.EventServices
 
             ValidateEventRequest(dto, minExpertsSystemConfig);
 
-            decimal feePercentage = await _settingRepo.GetDecimalValueAsync("EVENT_FEE_PERCENTAGE", 5.0m);
-
-            decimal minFee = await _settingRepo.GetDecimalValueAsync("EVENT_MIN_FEE", 10000m);
+            decimal fixedSystemFee = await _settingRepo.GetDecimalValueAsync("EVENT_MIN_FEE", 10000m);
 
             var totalPrize = dto.Prizes.Sum(p => p.RewardAmount);
 
-            decimal calculatedFee = totalPrize * (feePercentage / 100m);
-
-            decimal currentFee = Math.Max(calculatedFee, minFee);
+            decimal totalToLock = totalPrize + fixedSystemFee;
 
             var wallet = await _walletRepo.GetByAccountIdAsync(creatorId);
-            if (wallet == null || wallet.Balance < totalPrize + currentFee)
-                throw new Exception($"Số dư ví không đủ. Cần {totalPrize + currentFee:N0} VNĐ (bao gồm phí tạo).");
+            if (wallet == null || wallet.Balance < totalToLock)
+                throw new Exception($"Số dư ví không đủ. Cần {totalToLock:N0} VNĐ (bao gồm phí tạo).");
 
             await _unitOfWork.BeginTransactionAsync();
             try
@@ -97,7 +93,8 @@ namespace Application.Services.EventServices
 
                 eventData.MinExpertsToStart = dto.MinExpertsRequired;
                 eventData.CreatorId = creatorId;
-                eventData.AppliedFee = currentFee;
+                eventData.AppliedFee = fixedSystemFee;
+                eventData.EntryFee = dto.EntryFee;
                 eventData.Status = "Pending_Review";
                 eventData.CreatedAt = DateTime.UtcNow;
 
@@ -127,7 +124,6 @@ namespace Application.Services.EventServices
                 await CreatePrizesAsync(eventData.EventId, dto.Prizes);
                 await SetupExpertPanelAsync(eventData.EventId, creatorId, dto.InvitedExpertIds, isDraft: true);
 
-                decimal totalToLock = totalPrize + currentFee;
                 wallet.Balance -= totalToLock;
                 wallet.LockedBalance += totalToLock;
                 _walletRepo.Update(wallet);
@@ -369,7 +365,7 @@ namespace Application.Services.EventServices
                             SenderId = ev.CreatorId,
                             TargetUserId = exp.ExpertId,
                             Title = "The event has begun!",
-                            Content = $"The '{ev.Title}' has officially begun.",
+                            Content = $"The '{ev.Title}' has officially begin.",
                             Type = "Event_Started",
                             RelatedId = eventId.ToString()
                         });

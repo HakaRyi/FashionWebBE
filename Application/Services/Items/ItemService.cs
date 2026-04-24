@@ -25,6 +25,7 @@ namespace Application.Services.Items
         private readonly IRecommendationHistoryRepository _recommendationHistoryRepository;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IItemSaveRepository _itemSaveRepo;
+        private readonly IUserProfileService _userProfileService;
 
         public ItemService(
             IItemRepository itemRepo,
@@ -36,7 +37,8 @@ namespace Application.Services.Items
             IImageRepository imageRepository,
             IRecommendationHistoryRepository recommendationHistoryRepository,
             IUnitOfWork unitOfWork,
-            IItemSaveRepository itemSaveRepo)
+            IItemSaveRepository itemSaveRepo,
+            IUserProfileService userProfileService)
         {
             _itemRepo = itemRepo;
             _aiService = aiService;
@@ -48,6 +50,7 @@ namespace Application.Services.Items
             _recommendationHistoryRepository = recommendationHistoryRepository;
             _unitOfWork = unitOfWork;
             _itemSaveRepo = itemSaveRepo;
+            _userProfileService = userProfileService;
         }
 
         public async Task<IEnumerable<ItemResponseDto>> GetAllItemsAsync()
@@ -123,9 +126,10 @@ namespace Application.Services.Items
 
         public async Task<List<ItemResponseDto>> GetSmartRecommendationsAsync(SmartRecommendationRequestDto request)
         {
-            Console.WriteLine($"DEBUG: IncludeMyWardrobe = {request.IncludeMyWardrobe}");
             if (request == null)
                 return new List<ItemResponseDto>();
+
+            int currentAccountId = _currentUserService.GetRequiredUserId();
 
             if (string.IsNullOrWhiteSpace(request.Prompt) &&
                 (!request.ReferenceItemId.HasValue || request.ReferenceItemId <= 0))
@@ -133,31 +137,64 @@ namespace Application.Services.Items
                 return new List<ItemResponseDto>();
             }
 
-            string taskInstruction = $"Convert user request '{request.Prompt}' into structured metadata.";
+            string userContext = "NONE";
+            if (request.UseMyStylePreferences || request.UseMyPhysicalProfile)
+            {
+                var profile = await _userProfileService.GetUserProfileAsync();
+                if (profile != null)
+                {
+                    var age = profile.DateOfBirth.HasValue ? (DateTime.Now.Year - profile.DateOfBirth.Value.Year).ToString() : "N/A";
+                    userContext = $@"
+                    - Demographic: Gender {profile.Gender}, Age {age}
+                    - Style: {(request.UseMyStylePreferences ? string.Join(", ", profile.FavoriteStyles) : "Not specified")}
+                    - Colors: {(request.UseMyStylePreferences ? string.Join(", ", profile.FavoriteColors) : "Not specified")}
+                    - Physique: {(request.UseMyPhysicalProfile ? $"Shape {profile.BodyShape}, SkinTone {profile.SkinTone}" : "Not specified")}";
+                }
+            }
+
+            string taskInstruction = $@"
+                ### ROLE: Expert Fashion Stylist
+                ### USER CONTEXT:
+                {userContext}
+
+                ### USER INPUT:
+                '{request.Prompt}'";
+
             var scopeRequestForRepo = request.Adapt<SmartRecommendationDto>();
 
-            if (request.ReferenceItemId.HasValue && request.ReferenceItemId.Value > 0)
+            if (request.ReferenceItemId.HasValue && request.ReferenceItemId > 0)
             {
                 var referenceItem = await _itemRepo.GetByIdAsync(request.ReferenceItemId.Value);
-
                 if (referenceItem != null)
                 {
-                    taskInstruction = $@"
-The user owns this reference item: A {referenceItem.MainColor} {referenceItem.Category} 
-(Style: {referenceItem.Style}, Material: {referenceItem.Material}). 
-User request: '{request.Prompt}'.
-
-TASK: Recommend ONE complementary fashion item that creates a good outfit with the reference item.
-CRITICAL: Do NOT output metadata for the reference item. Output metadata ONLY for the recommended item.";
+                    taskInstruction += $@"
+                    ### REFERENCE ITEM (User is already wearing this):
+                    - Category: {referenceItem.Category}
+                    - Color: {referenceItem.MainColor}
+                    - Style: {referenceItem.Style}
+    
+                    ### TASK: 
+                    1. Analyze which item category would perfectly complement the REFERENCE ITEM.
+                    2. Consider the USER CONTEXT to ensure it matches their body shape and age.
+                    3. Output search metadata for the NEW recommended item only.";
 
                     scopeRequestForRepo.ReferenceCategory = referenceItem.Category;
                 }
             }
+            else
+            {
+                taskInstruction += "\n### TASK: Convert user request into search metadata matching their style/physique.";
+            }
+
+            taskInstruction += @"
+                ### CONSTRAINT:
+                - Do NOT include the Reference Item in the output.
+                - Be specific about Material, Style, and Color.
+                - Output ONLY the structured metadata string for searching.";
 
             var intent = await _geminiService.AnalyzePromptAsync(taskInstruction);
             Vector queryVector = await _aiService.GetTextEmbeddingAsync(intent.CleanPrompt);
 
-            int currentAccountId = _currentUserService.GetRequiredUserId();
             scopeRequestForRepo.IncludeSavedItems = request.IncludeSavedItems;
             var candidates = await _itemRepo.GetHybridRecommendationsAsync(
                 queryVector,

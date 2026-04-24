@@ -1,4 +1,5 @@
-﻿using Application.Response.PostResp;
+﻿using Application.Interfaces;
+using Application.Response.PostResp;
 using Application.Services.PostImp;
 using Application.Utils;
 using Domain.Dto.Social.Post;
@@ -13,10 +14,12 @@ namespace Presentation.Controllers
     public class PostController : ControllerBase
     {
         private readonly IPostService _postService;
+        private readonly IEventService _eventService;
 
-        public PostController(IPostService postService)
+        public PostController(IPostService postService, IEventService eventService)
         {
             _postService = postService;
+            _eventService = eventService;
         }
 
         [HttpGet("/api/events/{eventId}/posts")]
@@ -174,7 +177,7 @@ namespace Presentation.Controllers
             var accountId = User.GetUserId();
             try
             {
-                var result = await _postService.JoinEventByPostAsync(accountId, request);
+                var result = await _eventService.JoinEventByPostAsync(accountId, request);
 
                 return Created($"/api/post/{result.PostId}", result);
             }
