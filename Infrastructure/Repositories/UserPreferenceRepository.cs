@@ -34,19 +34,22 @@ namespace Infrastructure.Repositories
 
         public async Task ReplacePreferencesAsync(int accountId, string type, List<string> newValues)
         {
-            // Xóa các sở thích cũ của loại này (ví dụ xóa hết các màu cũ để thay bằng danh sách màu mới)
             var oldPrefs = await _db.UserPreferences
                 .Where(p => p.AccountId == accountId && p.PreferenceType == type)
                 .ToListAsync();
 
-            _db.UserPreferences.RemoveRange(oldPrefs);
+            if (oldPrefs.Any()) _db.UserPreferences.RemoveRange(oldPrefs);
+
+            newValues ??= new List<string>();
 
             // Thêm mới
-            var newPrefs = newValues.Select(v => new UserPreference
+            var newPrefs = newValues
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Select(v => new UserPreference
             {
                 AccountId = accountId,
                 PreferenceType = type,
-                Value = v
+                Value = v.Trim()
             });
 
             await _db.UserPreferences.AddRangeAsync(newPrefs);

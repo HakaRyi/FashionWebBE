@@ -29,7 +29,6 @@ namespace Application.Request.AccountReq
     public class OnboardingRequestDto
     {
         public GenderType Gender { get; set; }
-        public DateTime? DateOfBirth { get; set; }
         public double? Height { get; set; }
         public double? Weight { get; set; }
         public double? Waist { get; set; }

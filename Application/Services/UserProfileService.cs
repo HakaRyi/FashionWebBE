@@ -74,7 +74,6 @@ namespace Application.Services
             if (account == null) return false;
 
             account.Gender = request.Gender;
-            account.DateOfBirth = request.DateOfBirth;
             account.HasCompletedOnboarding = true;
             await _accountRepo.UpdateAccount(account);
 
