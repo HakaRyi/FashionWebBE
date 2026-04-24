@@ -62,6 +62,12 @@ namespace Application.Services
                     .Select(p => p.Value ?? "").ToList(),
                 FavoriteColors = preferences
                     .Where(p => p.PreferenceType == PreferenceTypes.Color)
+                    .Select(p => p.Value ?? "").ToList(),
+                FavoriteMaterials = preferences
+                    .Where(p => p.PreferenceType == PreferenceTypes.Material)
+                    .Select(p => p.Value ?? "").ToList(),
+                FavoriteBrands = preferences
+                    .Where(p => p.PreferenceType == PreferenceTypes.Brand)
                     .Select(p => p.Value ?? "").ToList()
             };
         }
@@ -78,7 +84,7 @@ namespace Application.Services
             await _accountRepo.UpdateAccount(account);
 
             await UpdatePhysicalInternalAsync(accountId, request.Height, request.Weight, request.Waist, request.Hip, request.Bust, request.BodyShape, request.SkinTone);
-            await UpdatePreferencesInternalAsync(accountId, request.FavoriteStyles, request.FavoriteColors);
+            await UpdatePreferencesInternalAsync(accountId, request.FavoriteStyles, request.FavoriteColors, request.FavoriteMaterials, request.FavoriteBrands);
 
             return true;
         }
@@ -97,7 +103,7 @@ namespace Application.Services
 
             // Cập nhật Physical & Preferences
             await UpdatePhysicalInternalAsync(accountId, request.Height, request.Weight, request.Waist, request.Hip, request.Bust, request.BodyShape, request.SkinTone);
-            await UpdatePreferencesInternalAsync(accountId, request.FavoriteStyles, request.FavoriteColors);
+            await UpdatePreferencesInternalAsync(accountId, request.FavoriteStyles, request.FavoriteColors, request.FavoriteMaterials, request.FavoriteBrands);
 
             return true;
         }
@@ -124,7 +130,7 @@ namespace Application.Services
             }
         }
 
-        private async Task UpdatePreferencesInternalAsync(int accountId, List<string>? styles, List<string>? colors)
+        private async Task UpdatePreferencesInternalAsync(int accountId, List<string>? styles, List<string>? colors, List<string>? materials, List<string>? brands)
         {
             // Dùng hàm Replace để dọn sạch data cũ theo từng loại
             if (styles != null)
@@ -132,6 +138,12 @@ namespace Application.Services
 
             if (colors != null)
                 await _prefRepo.ReplacePreferencesAsync(accountId, PreferenceTypes.Color, colors);
+            if (materials != null)
+                await _prefRepo.ReplacePreferencesAsync(accountId, PreferenceTypes.Material, materials);
+
+            if (brands != null)
+                await _prefRepo.ReplacePreferencesAsync(accountId, PreferenceTypes.Brand, brands);
+        
         }
 
         private int GetCurrentUserId()

@@ -147,6 +147,13 @@ namespace Application.Services.Items
                 return new List<ItemResponseDto>();
             }
 
+            var wallet = await _walletRepository.GetByAccountIdAsync(currentAccountId)
+                ?? throw new KeyNotFoundException("Không tìm thấy ví.");
+
+            var availableBalance = wallet.Balance - wallet.LockedBalance;
+            if (availableBalance < _smartRecommendPrice)
+                throw new InvalidOperationException("Số dư không đủ để sử dụng AI Stylist.");
+
             string userContext = "NONE";
             if (request.UseMyStylePreferences || request.UseMyPhysicalProfile)
             {
@@ -202,40 +209,74 @@ namespace Application.Services.Items
                 - Be specific about Material, Style, and Color.
                 - Output ONLY the structured metadata string for searching.";
 
-            var intent = await _geminiService.AnalyzePromptAsync(taskInstruction);
-            Vector queryVector = await _aiService.GetTextEmbeddingAsync(intent.CleanPrompt);
-
-            scopeRequestForRepo.IncludeSavedItems = request.IncludeSavedItems;
-            var candidates = await _itemRepo.GetHybridRecommendationsAsync(
-                queryVector,
-                intent,
-                currentAccountId,
-                scopeRequestForRepo
-            );
-
-            if (!candidates.Any())
+            await _unitOfWork.BeginTransactionAsync();
+            try
             {
-                return new List<ItemResponseDto>();
-            }
-            else
-            {
-                var history = new RecommendationHistory
+                // 3.1 Trừ tiền và tạo lịch sử giao dịch
+                wallet = await _walletRepository.GetByAccountIdAsync(currentAccountId)
+                    ?? throw new KeyNotFoundException("Không tìm thấy ví.");
+
+                availableBalance = wallet.Balance - wallet.LockedBalance;
+                if (availableBalance < _smartRecommendPrice)
+                    throw new InvalidOperationException("Số dư không đủ.");
+
+                decimal balanceBefore = wallet.Balance;
+                wallet.Balance -= _smartRecommendPrice;
+                wallet.UpdatedAt = DateTime.UtcNow;
+                _walletRepository.Update(wallet);
+
+                var transaction = new Transaction
                 {
-                    AccountId = currentAccountId,
-                    ReferenceItemId = request.ReferenceItemId,
-                    Prompt = request.Prompt,
+                    WalletId = wallet.WalletId,
+                    PaymentId = null,
+                    // Sinh mã code random, nếu ông có hàm GenerateTransactionCode() thì xài hàm đó
+                    TransactionCode = "SM_" + Guid.NewGuid().ToString("N")[..10].ToUpper(),
+                    Amount = _smartRecommendPrice,
+                    BalanceBefore = balanceBefore,
+                    BalanceAfter = wallet.Balance,
+                    Type = TransactionType.Debit,
+                    ReferenceType = TransactionReferenceType.TryOn, 
+                    ReferenceId = null,
+                    Description = "Thanh toán AI Stylist (Smart Match)",
                     CreatedAt = DateTime.UtcNow,
-                    RecommendedItems = candidates.Select(c => new RecommendationDetail
-                    {
-                        ItemId = c.ItemId
-                    }).ToList()
+                    Status = TransactionStatus.Success
                 };
-                await _recommendationHistoryRepository.AddAsync(history);
+                await _transactionRepository.AddAsync(transaction);
+
+                var intent = await _geminiService.AnalyzePromptAsync(taskInstruction);
+                Vector queryVector = await _aiService.GetTextEmbeddingAsync(intent.CleanPrompt);
+
+                scopeRequestForRepo.IncludeSavedItems = request.IncludeSavedItems;
+                var candidates = await _itemRepo.GetHybridRecommendationsAsync(
+                    queryVector,
+                    intent,
+                    currentAccountId,
+                    scopeRequestForRepo
+                );
+                if (candidates.Any())
+                {
+                    var history = new RecommendationHistory
+                    {
+                        AccountId = currentAccountId,
+                        ReferenceItemId = request.ReferenceItemId,
+                        Prompt = request.Prompt,
+                        CreatedAt = DateTime.UtcNow,
+                        RecommendedItems = candidates.Select(c => new RecommendationDetail
+                        {
+                            ItemId = c.ItemId
+                        }).ToList()
+                    };
+                    await _recommendationHistoryRepository.AddAsync(history);
+                }
                 await _unitOfWork.CommitAsync();
+
+                return candidates.Adapt<List<ItemResponseDto>>();
             }
-
-
-            return candidates.Adapt<List<ItemResponseDto>>();
+            catch
+            {
+                await _unitOfWork.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task<(IEnumerable<ItemResponseDto> Items, int TotalCount)> GetMyItemsAsync(int accountId, int page, int pageSize, string? search)

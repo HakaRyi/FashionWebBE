@@ -277,6 +277,8 @@ namespace Infrastructure.Repositories
             return await query
                 .AsNoTracking()
                 .Include(i => i.Images)
+                .Include(i => i.Wardrobe)           
+                    .ThenInclude(w => w.Account)
                 .OrderBy(i => i.ItemEmbedding.CosineDistance(queryVector))
                 .Take(scopeRequest.Limit > 0 ? scopeRequest.Limit : 15)
                 .ToListAsync();

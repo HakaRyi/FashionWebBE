@@ -24,6 +24,8 @@ namespace Application.Request.AccountReq
         public string? SkinTone { get; set; }
         public List<string>? FavoriteStyles { get; set; }
         public List<string>? FavoriteColors { get; set; }
+        public List<string>? FavoriteMaterials { get; set; }
+        public List<string>? FavoriteBrands { get; set; }
     }
 
     public class OnboardingRequestDto
@@ -38,5 +40,7 @@ namespace Application.Request.AccountReq
         public string? SkinTone { get; set; }
         public List<string>? FavoriteStyles { get; set; }
         public List<string>? FavoriteColors { get; set; }
+        public List<string>? FavoriteMaterials { get; set; }
+        public List<string>? FavoriteBrands { get; set; }
     }
 }

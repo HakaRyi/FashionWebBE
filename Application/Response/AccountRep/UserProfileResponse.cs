@@ -32,5 +32,7 @@ namespace Application.Response.AccountRep
         // Preferences
         public List<string> FavoriteStyles { get; set; } = new();
         public List<string> FavoriteColors { get; set; } = new();
+        public List<string> FavoriteMaterials { get; set; } = new();
+        public List<string> FavoriteBrands { get; set; } = new();
     }
 }
