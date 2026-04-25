@@ -346,7 +346,7 @@ namespace Application.Services
             };
         }
 
-        private async Task<string> GenerateAccessToken(Account user)
+        public async Task<string> GenerateAccessToken(Account user)
         {
             var roles = await _userManager.GetRolesAsync(user);
             var avatarUrl = user.Avatars?.FirstOrDefault()?.ImageUrl ?? "";

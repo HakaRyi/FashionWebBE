@@ -13,17 +13,20 @@ namespace Application.Services
         private readonly IPhysicalProfileRepository _physicalRepo;
         private readonly IUserPreferenceRepository _prefRepo;
         private readonly ICurrentUserService _currentUser;
+        private readonly IAuthService _authService;
 
         public UserProfileService(
             IAccountRepository accountRepo,
             IPhysicalProfileRepository physicalRepo,
             IUserPreferenceRepository prefRepo,
-            ICurrentUserService currentUser)
+            ICurrentUserService currentUser,
+            IAuthService authService)
         {
             _accountRepo = accountRepo;
             _physicalRepo = physicalRepo;
             _prefRepo = prefRepo;
             _currentUser = currentUser;
+            _authService = authService;
         }
 
         public async Task<UserProfileResponseDto?> GetUserProfileAsync()
@@ -73,11 +76,11 @@ namespace Application.Services
         }
 
         // --- 2. HÀM ONBOARDING (LẦN ĐẦU) ---
-        public async Task<bool> CompleteOnboardingAsync(OnboardingRequestDto request)
+        public async Task<AuthResponse> CompleteOnboardingAsync(OnboardingRequestDto request)
         {
             var accountId = GetCurrentUserId();
             var account = await _accountRepo.GetAccountById(accountId);
-            if (account == null) return false;
+            if (account == null) return new AuthResponse { Success = false };
 
             account.Gender = request.Gender;
             account.HasCompletedOnboarding = true;
@@ -86,7 +89,14 @@ namespace Application.Services
             await UpdatePhysicalInternalAsync(accountId, request.Height, request.Weight, request.Waist, request.Hip, request.Bust, request.BodyShape, request.SkinTone);
             await UpdatePreferencesInternalAsync(accountId, request.FavoriteStyles, request.FavoriteColors, request.FavoriteMaterials, request.FavoriteBrands);
 
-            return true;
+            var accessToken = await _authService.GenerateAccessToken(account);
+
+            return new AuthResponse
+            {
+                Success = true,
+                AccessToken = accessToken,
+                HasCompletedOnboarding = true
+            };
         }
 
         // --- 3. HÀM EDIT (CẬP NHẬT SAU NÀY) ---

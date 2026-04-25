@@ -13,7 +13,7 @@ namespace Application.Interfaces
     {
         Task<UserProfileResponseDto?> GetUserProfileAsync();
 
-        Task<bool> CompleteOnboardingAsync(OnboardingRequestDto request);
+        Task<AuthResponse> CompleteOnboardingAsync(OnboardingRequestDto request);
 
         Task<bool> UpdateUserProfileAsync(UpdateUserProfileDto request);
     }

@@ -3,6 +3,7 @@ using Application.Request.AccountReq;
 using Application.Response.AccountRep;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using static Google.Apis.Requests.BatchRequest;
 
 namespace Presentation.Controllers
 {
@@ -44,12 +45,12 @@ namespace Presentation.Controllers
 
             var result = await _userProfileService.CompleteOnboardingAsync(request);
 
-            if (!result)
+            if (!result.Success)
             {
-                return BadRequest(new { message = "Unable to complete onboarding. Please try again." });
+                return BadRequest(new { message = "Unable to complete onboarding." });
             }
 
-            return Ok(new { message = "Onboarding completed successfully!" });
+            return Ok(result);
         }
 
         /// <summary>
