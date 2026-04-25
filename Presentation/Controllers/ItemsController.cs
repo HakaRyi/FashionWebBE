@@ -1,11 +1,12 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Domain.Dto.Wardrobe;
+﻿using Application.Interfaces;
 using Application.Request.ItemReq;
 using Application.Request.ItemRequest;
 using Application.Response.ItemResp;
-using Application.Interfaces;
 using Application.Services.Items;
+using Domain.Contracts.Wardrobe;
+using Domain.Dto.Wardrobe;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace Presentation.Controllers
 {
@@ -31,7 +32,7 @@ namespace Presentation.Controllers
 
             return Ok(new
             {
-                message = "Lấy danh sách item thành công.",
+                message = "Get all items successfully.",
                 data = results
             });
         }
@@ -56,8 +57,6 @@ namespace Presentation.Controllers
             });
         }
 
-        // Route này chỉ nên dùng cho internal / owner / admin nếu bạn muốn giữ.
-        // Không nên cho FE public detail dùng route này.
         [HttpGet("{id:int}")]
         public async Task<ActionResult<ItemResponseDto>> GetById(int id)
         {
@@ -67,13 +66,13 @@ namespace Presentation.Controllers
             {
                 return NotFound(new
                 {
-                    message = $"Không tìm thấy item với ID = {id}."
+                    message = $"Item with ID = {id} was not found."
                 });
             }
 
             return Ok(new
             {
-                message = "Lấy chi tiết item thành công.",
+                message = "Get item detail successfully.",
                 data = result
             });
         }
@@ -87,13 +86,13 @@ namespace Presentation.Controllers
             {
                 return NotFound(new
                 {
-                    message = "Không tìm thấy món đồ công khai."
+                    message = "Public item was not found."
                 });
             }
 
             return Ok(new
             {
-                message = "Lấy chi tiết món đồ công khai thành công.",
+                message = "Get public item detail successfully.",
                 data = result
             });
         }
@@ -109,7 +108,7 @@ namespace Presentation.Controllers
 
                 return Ok(new
                 {
-                    message = "Tạo item thành công.",
+                    message = "Create item successfully.",
                     data = result
                 });
             }
@@ -138,7 +137,7 @@ namespace Presentation.Controllers
             {
                 return StatusCode(500, new
                 {
-                    message = "Có lỗi hệ thống khi tạo item.",
+                    message = "System error while creating item.",
                     error = ex.Message
                 });
             }
@@ -152,7 +151,7 @@ namespace Presentation.Controllers
             {
                 return BadRequest(new
                 {
-                    message = "Request không hợp lệ."
+                    message = "Invalid request."
                 });
             }
 
@@ -161,7 +160,7 @@ namespace Presentation.Controllers
             {
                 return BadRequest(new
                 {
-                    message = "Vui lòng nhập prompt hoặc chọn ReferenceItemId để AI gợi ý."
+                    message = "Please provide prompt or ReferenceItemId."
                 });
             }
 
@@ -173,14 +172,14 @@ namespace Presentation.Controllers
                 {
                     return Ok(new
                     {
-                        message = "Không tìm thấy món đồ phù hợp với yêu cầu của bạn.",
+                        message = "No suitable items found.",
                         data = new List<ItemResponseDto>()
                     });
                 }
 
                 return Ok(new
                 {
-                    message = "Lấy danh sách gợi ý thành công.",
+                    message = "Get smart recommendations successfully.",
                     data = recommendations
                 });
             }
@@ -193,11 +192,9 @@ namespace Presentation.Controllers
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[SmartMatch Error] {ex.Message}");
-
                 return StatusCode(500, new
                 {
-                    message = "Hệ thống AI đang gặp sự cố, vui lòng thử lại sau.",
+                    message = "AI recommendation failed. Please try again later.",
                     error = ex.Message
                 });
             }
@@ -213,7 +210,7 @@ namespace Presentation.Controllers
 
                 return Ok(new
                 {
-                    message = "Cập nhật item thành công."
+                    message = "Update item successfully."
                 });
             }
             catch (ArgumentNullException ex)
@@ -238,7 +235,7 @@ namespace Presentation.Controllers
             {
                 return StatusCode(500, new
                 {
-                    message = "Có lỗi hệ thống khi cập nhật item.",
+                    message = "System error while updating item.",
                     error = ex.Message
                 });
             }
@@ -254,7 +251,158 @@ namespace Presentation.Controllers
 
                 return Ok(new
                 {
-                    message = "Xóa item thành công."
+                    message = "Delete item successfully."
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "System error while deleting item.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        // =========================================================
+        // COMMERCE: publish / unpublish
+        // =========================================================
+
+        [Authorize]
+        [HttpPost("{itemId:int}/publish")]
+        public async Task<ActionResult<ItemCommerceResponseDto>> PublishItemForSale(
+            [FromRoute] int itemId,
+            [FromBody] PublishItemForSaleRequest request)
+        {
+            if (request == null)
+            {
+                return BadRequest(new
+                {
+                    message = "Invalid publish request."
+                });
+            }
+
+            try
+            {
+                var result = await _itemService.PublishItemForSaleAsync(itemId, request);
+
+                return Ok(new
+                {
+                    message = "Publish item for sale successfully.",
+                    data = result
+                });
+            }
+            catch (ArgumentNullException ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "System error while publishing item.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        [Authorize]
+        [HttpPost("{itemId:int}/unpublish")]
+        public async Task<ActionResult<ItemCommerceResponseDto>> UnpublishItem([FromRoute] int itemId)
+        {
+            try
+            {
+                var result = await _itemService.UnpublishItemAsync(itemId);
+
+                return Ok(new
+                {
+                    message = "Unpublish item successfully.",
+                    data = result
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "System error while unpublishing item.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        // =========================================================
+        // VARIANTS
+        // =========================================================
+
+        [Authorize]
+        [HttpGet("{itemId:int}/variants")]
+        public async Task<ActionResult<List<ItemVariantResponseDto>>> GetItemVariants([FromRoute] int itemId)
+        {
+            try
+            {
+                var result = await _itemService.GetItemVariantsAsync(itemId);
+
+                return Ok(new
+                {
+                    message = "Get item variants successfully.",
+                    data = result
                 });
             }
             catch (KeyNotFoundException ex)
@@ -272,7 +420,285 @@ namespace Presentation.Controllers
             {
                 return StatusCode(500, new
                 {
-                    message = "Có lỗi hệ thống khi xóa item.",
+                    message = "System error while getting item variants.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        [Authorize]
+        [HttpPost("{itemId:int}/variants")]
+        public async Task<ActionResult<ItemVariantResponseDto>> CreateItemVariant(
+            [FromRoute] int itemId,
+            [FromBody] CreateItemVariantRequest request)
+        {
+            if (request == null)
+            {
+                return BadRequest(new
+                {
+                    message = "Invalid variant request."
+                });
+            }
+
+            try
+            {
+                var result = await _itemService.CreateItemVariantAsync(itemId, request);
+
+                return Ok(new
+                {
+                    message = "Create item variant successfully.",
+                    data = result
+                });
+            }
+            catch (ArgumentNullException ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "System error while creating item variant.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        [Authorize]
+        [HttpPut("variants/{itemVariantId:int}")]
+        public async Task<ActionResult<ItemVariantResponseDto>> UpdateItemVariant(
+            [FromRoute] int itemVariantId,
+            [FromBody] UpdateItemVariantRequest request)
+        {
+            if (request == null)
+            {
+                return BadRequest(new
+                {
+                    message = "Invalid update variant request."
+                });
+            }
+
+            try
+            {
+                var result = await _itemService.UpdateItemVariantAsync(itemVariantId, request);
+
+                return Ok(new
+                {
+                    message = "Update item variant successfully.",
+                    data = result
+                });
+            }
+            catch (ArgumentNullException ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "System error while updating item variant.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        [Authorize]
+        [HttpDelete("variants/{itemVariantId:int}")]
+        public async Task<ActionResult> DeleteItemVariant([FromRoute] int itemVariantId)
+        {
+            try
+            {
+                await _itemService.DeleteItemVariantAsync(itemVariantId);
+
+                return Ok(new
+                {
+                    message = "Delete item variant successfully."
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Forbid();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "System error while deleting item variant.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        [Authorize]
+        [HttpGet("saved")]
+        public async Task<ActionResult<List<PublicWardrobeItemDto>>> GetMySavedItems()
+        {
+            try
+            {
+                var result = await _itemService.GetMySavedItemsAsync();
+
+                return Ok(new
+                {
+                    message = "Get saved items successfully.",
+                    data = result
+                });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "System error while getting saved items.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        [Authorize]
+        [HttpPost("{itemId:int}/save")]
+        public async Task<ActionResult> SaveItem([FromRoute] int itemId)
+        {
+            try
+            {
+                await _itemService.SaveItemAsync(itemId);
+
+                return Ok(new
+                {
+                    message = "Save item successfully."
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "System error while saving item.",
+                    error = ex.Message
+                });
+            }
+        }
+
+        [Authorize]
+        [HttpDelete("{itemId:int}/save")]
+        public async Task<ActionResult> UnsaveItem([FromRoute] int itemId)
+        {
+            try
+            {
+                await _itemService.UnsaveItemAsync(itemId);
+
+                return Ok(new
+                {
+                    message = "Unsave item successfully."
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Unauthorized(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    message = "System error while unsaving item.",
                     error = ex.Message
                 });
             }

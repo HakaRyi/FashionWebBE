@@ -47,6 +47,11 @@ namespace Application.Response.ItemResp
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdateAt { get; set; }
         public string? OwnerUsername { get; set; }
+
+        public bool IsForSale { get; set; }
+        public decimal? ListedPrice { get; set; }
+        public string? Condition { get; set; }
+        public DateTime? PublishedAt { get; set; }
     }
 
     public class ItemDto

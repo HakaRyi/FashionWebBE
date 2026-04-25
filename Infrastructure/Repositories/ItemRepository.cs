@@ -1,11 +1,13 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Pgvector;
-using Pgvector.EntityFrameworkCore;
+﻿using Application.Response.ItemResp;
+using Domain.Contracts.Wardrobe;
 using Domain.Dto;
 using Domain.Dto.Wardrobe;
-using Infrastructure.Persistence;
 using Domain.Entities;
 using Domain.Interfaces;
+using Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Pgvector;
+using Pgvector.EntityFrameworkCore;
 
 namespace Infrastructure.Repositories
 {
@@ -23,6 +25,7 @@ namespace Infrastructure.Repositories
             return await _context.Items
                 .AsNoTracking()
                 .Include(i => i.Images)
+                .Include(i => i.ItemVariants)
                 .Include(i => i.Wardrobe)
                     .ThenInclude(w => w.Account)
                 .FirstOrDefaultAsync(i => i.ItemId == id);
@@ -32,8 +35,24 @@ namespace Infrastructure.Repositories
         {
             return await _context.Items
                 .Include(i => i.Images)
+                .Include(i => i.ItemVariants)
                 .Include(i => i.Wardrobe)
+                    .ThenInclude(w => w.Account)
                 .FirstOrDefaultAsync(i => i.ItemId == id);
+        }
+
+        public async Task<Item?> GetSellableItemByIdAsync(int itemId)
+        {
+            return await _context.Items
+                .AsNoTracking()
+                .Include(i => i.Images)
+                .Include(i => i.ItemVariants.Where(v => v.Status == ItemVariantStatus.Active))
+                .Include(i => i.Wardrobe)
+                    .ThenInclude(w => w.Account)
+                .FirstOrDefaultAsync(i =>
+                    i.ItemId == itemId &&
+                    i.IsForSale &&
+                    i.Status == ItemStatus.Active);
         }
 
         public async Task<List<Item>> GetItemsByIds(List<int> itemIds)
@@ -50,7 +69,9 @@ namespace Infrastructure.Repositories
                 .AsNoTracking()
                 .Where(i => itemIds.Contains(i.ItemId))
                 .Include(i => i.Images)
+                .Include(i => i.ItemVariants)
                 .Include(i => i.Wardrobe)
+                    .ThenInclude(w => w.Account)
                 .ToListAsync();
         }
 
@@ -59,6 +80,7 @@ namespace Infrastructure.Repositories
             return await _context.Items
                 .AsNoTracking()
                 .Include(i => i.Images)
+                .Include(i => i.ItemVariants)
                 .Include(i => i.Wardrobe)
                     .ThenInclude(w => w.Account)
                 .OrderByDescending(i => i.CreatedAt)
@@ -71,6 +93,7 @@ namespace Infrastructure.Repositories
                 .AsNoTracking()
                 .Where(i => i.WardrobeId == wardrobeId)
                 .Include(i => i.Images)
+                .Include(i => i.ItemVariants)
                 .OrderByDescending(i => i.CreatedAt)
                 .ToListAsync();
         }
@@ -81,7 +104,6 @@ namespace Infrastructure.Repositories
                 .Where(i => i.WardrobeId == wardrobeId)
                 .Where(i => string.IsNullOrEmpty(search) || i.ItemName.Contains(search) || (i.Style.Contains(search)));
             var totalCount = await query.CountAsync();
-
             var items = await query
                 .Include(i => i.Images)
                 .Include(i => i.Wardrobe)
@@ -93,6 +115,22 @@ namespace Infrastructure.Repositories
 
             return (items, totalCount);
         }
+
+        public async Task<IEnumerable<Item>> GetSellableItemsByWardrobeIdAsync(int wardrobeId)
+        {
+            return await _context.Items
+                .AsNoTracking()
+                .Where(i =>
+                    i.WardrobeId == wardrobeId &&
+                    i.IsForSale &&
+                    i.Status == ItemStatus.Active)
+                .Include(i => i.Images)
+                .Include(i => i.ItemVariants.Where(v => v.Status == ItemVariantStatus.Active))
+                .OrderByDescending(i => i.PublishedAt ?? i.CreatedAt)
+                .ToListAsync();
+        }
+
+
         public async Task<int> CountPublicItemsByAccountIdAsync(int accountId)
         {
             return await _context.Items
@@ -104,9 +142,9 @@ namespace Infrastructure.Repositories
         }
 
         public async Task<List<PublicWardrobeItemDto>> GetPublicItemsByAccountIdAsync(
-            int accountId,
-            int page,
-            int pageSize)
+    int accountId,
+    int page,
+    int pageSize)
         {
             return await _context.Items
                 .AsNoTracking()
@@ -138,7 +176,11 @@ namespace Infrastructure.Repositories
                     ThumbnailUrl = i.Images
                         .OrderBy(img => img.CreatedAt)
                         .Select(img => img.ImageUrl)
-                        .FirstOrDefault()
+                        .FirstOrDefault(),
+
+                    IsForSale = i.IsForSale,
+                    ListedPrice = i.ListedPrice,
+                    Condition = i.Condition
                 })
                 .ToListAsync();
         }
@@ -156,7 +198,6 @@ namespace Infrastructure.Repositories
                     ItemId = i.ItemId,
                     WardrobeId = i.WardrobeId,
                     AccountId = i.Wardrobe.AccountId,
-
                     ItemName = i.ItemName,
                     ItemType = i.ItemType,
                     Category = i.Category,
@@ -175,13 +216,33 @@ namespace Infrastructure.Repositories
                     Brand = i.Brand,
                     Description = i.Description,
                     CreatedAt = i.CreatedAt,
-
                     ImageUrls = i.Images
                         .OrderBy(img => img.CreatedAt)
                         .Select(img => img.ImageUrl)
                         .ToList(),
+                    OwnerUserName = i.Wardrobe.Account.UserName,
 
-                    OwnerUserName = i.Wardrobe.Account.UserName
+                    IsForSale = i.IsForSale,
+                    ListedPrice = i.ListedPrice,
+                    Condition = i.Condition,
+
+                    Variants = i.ItemVariants
+                        .Where(v => v.Status == ItemVariantStatus.Active)
+                        .Select(v => new ItemVariantResponseDto
+                        {
+                            ItemVariantId = v.ItemVariantId,
+                            ItemId = v.ItemId,
+                            Sku = v.Sku,
+                            SizeCode = v.SizeCode,
+                            Color = v.Color,
+                            Price = v.Price,
+                            StockQuantity = v.StockQuantity,
+                            ReservedQuantity = v.ReservedQuantity,
+                            Status = v.Status,
+                            CreatedAt = v.CreatedAt,
+                            UpdatedAt = v.UpdatedAt
+                        })
+                        .ToList()
                 })
                 .FirstOrDefaultAsync();
         }
@@ -190,6 +251,7 @@ namespace Infrastructure.Repositories
         {
             return await _context.Items
                 .AsNoTracking()
+                .Include(i => i.Images)
                 .OrderBy(i => i.ItemEmbedding.CosineDistance(embedding))
                 .Take(limit)
                 .Select(i => new Item
@@ -197,7 +259,12 @@ namespace Infrastructure.Repositories
                     ItemId = i.ItemId,
                     ItemName = i.ItemName,
                     MainColor = i.MainColor,
-                    Images = i.Images.Take(1).ToList()
+                    Category = i.Category,
+                    Size = i.Size,
+                    Images = i.Images
+                        .OrderBy(img => img.CreatedAt)
+                        .Take(1)
+                        .ToList()
                 })
                 .ToListAsync();
         }
@@ -208,18 +275,20 @@ namespace Infrastructure.Repositories
             int currentAccountId,
             SmartRecommendationDto scopeRequest)
         {
-            var query = _context.Items.AsQueryable();
+            IQueryable<Item> query = _context.Items;
 
             query = query.Where(item =>
                 (scopeRequest.IncludeMyWardrobe && item.Wardrobe.AccountId == currentAccountId) ||
 
-                (scopeRequest.TargetWardrobeIds.Any() &&
-                 scopeRequest.TargetWardrobeIds.Contains(item.WardrobeId) &&
-                 item.IsPublic == true) ||
+                (scopeRequest.TargetWardrobeIds.Any()
+                 && scopeRequest.TargetWardrobeIds.Contains(item.WardrobeId)
+                 && item.IsPublic == true) ||
 
-                 (scopeRequest.IncludeSavedItems &&
-         _context.SavedItems.Any(s => s.AccountId == currentAccountId && s.ItemId == item.ItemId))
+                (scopeRequest.IncludeSavedItems
+                 && _context.SavedItems.Any(s => s.AccountId == currentAccountId && s.ItemId == item.ItemId))
             );
+
+            query = query.Where(i => i.Status == ItemStatus.Active);
 
             if (!string.IsNullOrEmpty(scopeRequest.ReferenceCategory))
             {
@@ -244,8 +313,8 @@ namespace Infrastructure.Repositories
 
             if (!string.IsNullOrEmpty(intent.Category) && intent.Category != "Unknown")
             {
-                bool isAiHallucinating = !string.IsNullOrEmpty(scopeRequest.ReferenceCategory) &&
-                                         intent.Category.Equals(scopeRequest.ReferenceCategory, StringComparison.OrdinalIgnoreCase);
+                bool isAiHallucinating = !string.IsNullOrEmpty(scopeRequest.ReferenceCategory)
+                                         && intent.Category.Equals(scopeRequest.ReferenceCategory, StringComparison.OrdinalIgnoreCase);
 
                 if (!isAiHallucinating)
                 {
@@ -269,8 +338,7 @@ namespace Infrastructure.Repositories
                 {
                     query = query.Where(i =>
                         (i.Material == null || !i.Material.Contains(excludeWord)) &&
-                        (i.Style == null || !i.Style.Contains(excludeWord))
-                    );
+                        (i.Style == null || !i.Style.Contains(excludeWord)));
                 }
             }
 
@@ -279,9 +347,44 @@ namespace Infrastructure.Repositories
                 .Include(i => i.Images)
                 .Include(i => i.Wardrobe)           
                     .ThenInclude(w => w.Account)
+                .Include(i => i.ItemVariants)
                 .OrderBy(i => i.ItemEmbedding.CosineDistance(queryVector))
                 .Take(scopeRequest.Limit > 0 ? scopeRequest.Limit : 15)
                 .ToListAsync();
+        }
+
+        public async Task<List<Item>> GetPublicSellableItemsAsync(int page, int pageSize)
+        {
+            return await _context.Items
+                .AsNoTracking()
+                .Where(i =>
+                    i.IsPublic == true &&
+                    i.IsForSale &&
+                    i.Status == ItemStatus.Active &&
+                    i.ItemVariants.Any(v =>
+                        v.Status == ItemVariantStatus.Active &&
+                        v.StockQuantity > v.ReservedQuantity))
+                .Include(i => i.Images)
+                .Include(i => i.ItemVariants.Where(v => v.Status == ItemVariantStatus.Active))
+                .Include(i => i.Wardrobe)
+                    .ThenInclude(w => w.Account)
+                .OrderByDescending(i => i.PublishedAt ?? i.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+        }
+
+        public async Task<int> CountPublicSellableItemsAsync()
+        {
+            return await _context.Items
+                .AsNoTracking()
+                .CountAsync(i =>
+                    i.IsPublic == true &&
+                    i.IsForSale &&
+                    i.Status == ItemStatus.Active &&
+                    i.ItemVariants.Any(v =>
+                        v.Status == ItemVariantStatus.Active &&
+                        v.StockQuantity > v.ReservedQuantity));
         }
 
         public async Task AddAsync(Item item)

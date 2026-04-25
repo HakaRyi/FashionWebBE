@@ -1,5 +1,6 @@
 using Application.Helpers;
 using Application.Interfaces;
+using Application.Jobs;
 using Application.Mappers;
 using Application.RabbitMQ;
 using Application.Services;
@@ -11,12 +12,14 @@ using Application.Services.EventServices;
 using Application.Services.Follow;
 using Application.Services.ImageImp;
 using Application.Services.Items;
+using Application.Services.ItemSaveImp;
 using Application.Services.ModelImp;
 using Application.Services.NotificationImp;
 using Application.Services.OrderImp;
 using Application.Services.OutfitImp;
 using Application.Services.PaymentService;
 using Application.Services.PostImp;
+using Application.Services.RecommendationImp;
 using Application.Services.SearchImp;
 using Application.Services.SocialImp;
 using Application.Services.TryOn;
@@ -34,7 +37,6 @@ using Infrastructure;
 using Infrastructure.Persistence.Seeders;
 using Infrastructure.Repositories;
 using Infrastructure.UnitOfWork;
-using Application.Services.ItemSaveImp;
 using Mapster;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.SignalR;
@@ -46,7 +48,6 @@ using Presentation.Middlewares;
 using Presentation.Services;
 using Quartz;
 using System.Text;
-using Application.Services.RecommendationImp;
 
 
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
@@ -133,6 +134,8 @@ builder.Services.AddScoped<IEventCriterionRepository, EventCriterionRepository>(
 builder.Services.AddScoped<IRecommendationHistoryRepository, RecommendationHistoryRepository>();
 builder.Services.AddScoped<IPhysicalProfileRepository, PhysicalProfileRepository>();
 builder.Services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>();
+builder.Services.AddScoped<IItemVariantRepository, ItemVariantRepository>();
+
 
 
 #endregion
@@ -236,6 +239,19 @@ builder.Services.AddQuartz(q =>
         s.UseNewtonsoftJsonSerializer();
         s.UseClustering();
     });
+
+    var autoReleaseOrderJobKey = new JobKey("AutoReleaseDeliveredOrdersJob");
+
+    q.AddJob<AutoReleaseDeliveredOrdersJob>(opts =>
+        opts.WithIdentity(autoReleaseOrderJobKey)
+            .StoreDurably());
+
+    q.AddTrigger(opts => opts
+        .ForJob(autoReleaseOrderJobKey)
+        .WithIdentity("AutoReleaseDeliveredOrdersJob-trigger")
+        .WithSimpleSchedule(x => x
+            .WithIntervalInHours(1)
+            .RepeatForever()));
 });
 
 builder.Services.AddQuartzHostedService(opt =>

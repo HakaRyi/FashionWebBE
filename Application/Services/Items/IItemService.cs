@@ -1,7 +1,7 @@
 using Application.Request.ItemReq;
 using Application.Request.ItemRequest;
 using Application.Response.ItemResp;
-using Domain.Dto.Wardrobe;
+using Domain.Contracts.Wardrobe;
 
 namespace Application.Services.Items
 {
@@ -16,5 +16,14 @@ namespace Application.Services.Items
         Task<(IEnumerable<ItemResponseDto> Items, int TotalCount)> GetMyItemsAsync(int accountId, int page, int pageSize, string? search);
         Task UpdateItemAsync(int itemId, UpdateItemRequest request);
         Task DeleteItemAsync(int itemId);
+        Task<ItemVariantResponseDto> UpdateItemVariantAsync(int itemVariantId, UpdateItemVariantRequest request);
+        Task DeleteItemVariantAsync(int itemVariantId);
+        Task<ItemVariantResponseDto> CreateItemVariantAsync(int itemId, CreateItemVariantRequest request);
+        Task<List<ItemVariantResponseDto>> GetItemVariantsAsync(int itemId);
+        Task<ItemCommerceResponseDto> UnpublishItemAsync(int itemId);
+        Task<ItemCommerceResponseDto> PublishItemForSaleAsync(int itemId, PublishItemForSaleRequest request);
+        Task<List<PublicWardrobeItemDto>> GetMySavedItemsAsync();
+        Task SaveItemAsync(int itemId);
+        Task UnsaveItemAsync(int itemId);
     }
 }

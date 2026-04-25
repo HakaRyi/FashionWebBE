@@ -52,6 +52,8 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
     public virtual DbSet<Item> Items { get; set; }
 
+    public virtual DbSet<ItemVariant> ItemVariants { get; set; }
+
     public virtual DbSet<Message> Messages { get; set; }
 
     public virtual DbSet<MessReaction> MessReactions { get; set; }
@@ -1070,6 +1072,22 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasColumnName("is_public")
                 .HasDefaultValue(false);
 
+            entity.Property(e => e.IsForSale)
+                .HasColumnName("is_for_sale")
+                .HasDefaultValue(false);
+
+            entity.Property(e => e.ListedPrice)
+                .HasColumnType("decimal(18,2)")
+                .HasColumnName("listed_price");
+
+            entity.Property(e => e.Condition)
+                .HasMaxLength(50)
+                .HasColumnName("condition");
+
+            entity.Property(e => e.PublishedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("published_at");
+
             entity.Property(e => e.CreatedAt)
                 .HasColumnType("timestamp with time zone")
                 .HasDefaultValueSql("CURRENT_TIMESTAMP")
@@ -1079,17 +1097,10 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasColumnType("timestamp with time zone")
                 .HasColumnName("update_at");
 
-            entity.HasIndex(e => e.WardrobeId)
-                .HasDatabaseName("IX_Item_WardrobeId");
-
-            entity.HasIndex(e => e.IsPublic)
-                .HasDatabaseName("IX_Item_IsPublic");
-
-            entity.HasIndex(e => e.Category)
-                .HasDatabaseName("IX_Item_Category");
-
-            entity.HasIndex(e => e.Gender)
-                .HasDatabaseName("IX_Item_Gender");
+            entity.HasIndex(e => e.WardrobeId).HasDatabaseName("IX_Item_WardrobeId");
+            entity.HasIndex(e => e.IsPublic).HasDatabaseName("IX_Item_IsPublic");
+            entity.HasIndex(e => e.Category).HasDatabaseName("IX_Item_Category");
+            entity.HasIndex(e => e.Gender).HasDatabaseName("IX_Item_Gender");
 
             entity.HasIndex(e => new { e.IsPublic, e.Category })
                 .HasDatabaseName("IX_Item_IsPublic_Category");
@@ -1099,6 +1110,68 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasForeignKey(d => d.WardrobeId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("Item_wardrobe_id_fkey");
+
+            entity.HasMany(d => d.ItemVariants)
+                .WithOne(v => v.Item)
+                .HasForeignKey(v => v.ItemId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ItemVariant>(entity =>
+        {
+            entity.HasKey(e => e.ItemVariantId).HasName("ItemVariant_pkey");
+
+            entity.ToTable("ItemVariant", "public");
+
+            entity.Property(e => e.ItemVariantId).HasColumnName("item_variant_id");
+            entity.Property(e => e.ItemId).HasColumnName("item_id");
+
+            entity.Property(e => e.Sku)
+                .HasMaxLength(100)
+                .IsRequired()
+                .HasColumnName("sku");
+
+            entity.Property(e => e.SizeCode)
+                .HasMaxLength(20)
+                .HasColumnName("size_code");
+
+            entity.Property(e => e.Color)
+                .HasMaxLength(50)
+                .HasColumnName("color");
+
+            entity.Property(e => e.Price)
+                .HasColumnType("decimal(18,2)")
+                .IsRequired()
+                .HasColumnName("price");
+
+            entity.Property(e => e.StockQuantity)
+                .HasDefaultValue(0)
+                .HasColumnName("stock_quantity");
+
+            entity.Property(e => e.ReservedQuantity)
+                .HasDefaultValue(0)
+                .HasColumnName("reserved_quantity");
+
+            entity.Property(e => e.Status)
+                .HasDefaultValue(ItemVariantStatus.Active)
+                .HasColumnName("status");
+
+            entity.Property(e => e.CreatedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("created_at");
+
+            entity.Property(e => e.UpdatedAt)
+                .HasColumnType("timestamp with time zone")
+                .HasColumnName("updated_at");
+
+            entity.HasIndex(e => e.ItemId).HasDatabaseName("IX_ItemVariant_ItemId");
+
+            entity.HasOne(d => d.Item)
+                .WithMany(p => p.ItemVariants)
+                .HasForeignKey(d => d.ItemId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("ItemVariant_item_id_fkey");
         });
 
         modelBuilder.Entity<SavedItem>(entity =>
@@ -1265,6 +1338,30 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("updated_at");
 
+            entity.Property(e => e.OrderCode)
+                .HasMaxLength(50)
+                .HasColumnName("order_code");
+
+            entity.Property(e => e.CancelReason)
+                .HasMaxLength(255)
+                .HasColumnName("cancel_reason");
+
+            entity.Property(e => e.PaidAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("paid_at");
+
+            entity.Property(e => e.DeliveredAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("delivered_at");
+
+            entity.Property(e => e.CompletedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("completed_at");
+
+            entity.Property(e => e.CancelledAt)
+                .HasColumnType("timestamp without time zone")
+                .HasColumnName("cancelled_at");
+
             entity.HasOne(d => d.Buyer)
                 .WithMany()
                 .HasForeignKey(d => d.BuyerId)
@@ -1292,15 +1389,26 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
             entity.Property(e => e.OrderDetailId).HasColumnName("order_detail_id");
             entity.Property(e => e.OrderId).HasColumnName("order_id");
-            entity.Property(e => e.OutfitId).HasColumnName("outfit_id");
+
             entity.Property(e => e.ItemId).HasColumnName("item_id");
 
-            entity.Property(e => e.ItemName)
-                .HasMaxLength(255)
-                .HasColumnName("item_name");
+            entity.Property(e => e.ItemVariantId).HasColumnName("item_variant_id");
 
-            entity.Property(e => e.ImageUrl)
-                .HasColumnName("image_url");
+            entity.Property(e => e.ItemNameSnapshot)
+                .HasMaxLength(255)
+                .IsRequired()
+                .HasColumnName("item_name_snapshot");
+
+            entity.Property(e => e.VariantSnapshot)
+                .HasMaxLength(100)
+                .HasColumnName("variant_snapshot");
+
+            entity.Property(e => e.SkuSnapshot)
+                .HasMaxLength(100)
+                .HasColumnName("sku_snapshot");
+
+            entity.Property(e => e.ImageUrlSnapshot)
+                .HasColumnName("image_url_snapshot");
 
             entity.Property(e => e.Quantity)
                 .IsRequired()
@@ -1312,23 +1420,28 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .IsRequired()
                 .HasColumnName("unit_price");
 
+            entity.Property(e => e.LineTotal)
+                .HasColumnType("decimal(18,2)")
+                .IsRequired()
+                .HasColumnName("line_total");
+
             entity.HasOne(d => d.Order)
                 .WithMany(p => p.OrderDetails)
                 .HasForeignKey(d => d.OrderId)
                 .OnDelete(DeleteBehavior.Cascade)
                 .HasConstraintName("OrderDetail_order_id_fkey");
 
-            entity.HasOne(d => d.Outfit)
-                .WithMany()
-                .HasForeignKey(d => d.OutfitId)
-                .OnDelete(DeleteBehavior.SetNull)
-                .HasConstraintName("OrderDetail_outfit_id_fkey");
-
             entity.HasOne(d => d.Item)
-                .WithMany()
+                .WithMany(p => p.OrderDetails)
                 .HasForeignKey(d => d.ItemId)
-                .OnDelete(DeleteBehavior.SetNull)
+                .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("OrderDetail_item_id_fkey");
+
+            entity.HasOne(d => d.ItemVariant)
+                .WithMany(v => v.OrderDetails)
+                .HasForeignKey(d => d.ItemVariantId)
+                .OnDelete(DeleteBehavior.Restrict)
+                .HasConstraintName("OrderDetail_item_variant_id_fkey");
         });
 
         modelBuilder.Entity<Outfit>(entity =>

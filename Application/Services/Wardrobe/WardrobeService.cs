@@ -3,6 +3,7 @@ using Application.Interfaces;
 using Application.Request.WardrobeReq;
 using Application.Response.ItemResp;
 using Application.Response.WardrobeResp;
+using Domain.Contracts.Wardrobe;
 using Domain.Dto.Common;
 using Domain.Dto.Wardrobe;
 using Domain.Entities;

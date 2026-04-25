@@ -2,30 +2,30 @@
 {
     public static class OrderStatus
     {
-        public const string PendingPayment = "PENDING";
-        public const string Confirm = "CONFIRMED";
+        public const string PendingPayment = "PENDING_PAYMENT";
+        public const string Confirmed = "CONFIRMED";
         public const string Processing = "PROCESSING";
         public const string Shipping = "SHIPPING";
+        public const string Delivered = "DELIVERED";
         public const string Completed = "COMPLETED";
         public const string Cancelled = "CANCELLED";
         public const string Refunding = "REFUNDING";
         public const string Refunded = "REFUNDED";
-        public const string Done = "DONE";
 
-        public static readonly List<string> All = new()
+        public static readonly HashSet<string> All = new(StringComparer.OrdinalIgnoreCase)
         {
             PendingPayment,
-            Confirm,
+            Confirmed,
             Processing,
             Shipping,
+            Delivered,
             Completed,
             Cancelled,
-            Refunded,
             Refunding,
-            Done,
+            Refunded
         };
 
-        public static bool IsValid(string? status)
+        public static bool IsValid(string status)
         {
             return !string.IsNullOrWhiteSpace(status) && All.Contains(status);
         }

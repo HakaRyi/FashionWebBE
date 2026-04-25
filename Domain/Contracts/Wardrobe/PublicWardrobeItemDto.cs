@@ -1,4 +1,4 @@
-﻿namespace Domain.Dto.Wardrobe
+﻿namespace Domain.Contracts.Wardrobe
 {
     public class PublicWardrobeItemDto
     {
@@ -17,9 +17,23 @@
         public string? Size { get; set; }
         public string? Brand { get; set; }
         public string? Description { get; set; }
+
+        public string? Neckline { get; set; }
+        public string? SleeveLength { get; set; }
+        public string? Length { get; set; }
+        public string? Placement { get; set; }
+        public string? Texture { get; set; }
+
         public DateTime? CreatedAt { get; set; }
+        public DateTime? UpdateAt { get; set; }
+
         public string? ThumbnailUrl { get; set; }
-        public bool IsSaved { get; set; }
-        public bool IsOwner { get; set; }
+
+        public bool IsForSale { get; set; }
+        public decimal? ListedPrice { get; set; }
+        public string? Condition { get; set; }
+
+        public bool? IsSaved { get; set; }
+        public bool? IsOwner { get; set; }
     }
 }
