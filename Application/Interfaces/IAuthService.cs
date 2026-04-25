@@ -1,5 +1,6 @@
 ﻿using Application.Request.AccountReq;
 using Application.Response.AccountRep;
+using Domain.Entities;
 
 namespace Application.Interfaces
 {
@@ -11,6 +12,7 @@ namespace Application.Interfaces
         Task<AuthResponse> LogoutAsync();
         Task<AuthResponse> RefreshTokenAsync(string refreshToken);
         Task<AuthResponse> LoginWithGoogleAsync(GoogleLoginRequest request);
+        Task<string> GenerateAccessToken(Account user);
 
     }
 }
