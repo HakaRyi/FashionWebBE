@@ -731,5 +731,14 @@ namespace Application.Services.Items
             await _itemSaveRepo.DeleteSaveItem(savedItem);
             await _unitOfWork.CommitAsync();
         }
+        public async Task<IEnumerable<ItemResponseDto>> GetAllMyItemsAsync(int accountId)
+        {
+            var wardrobe = await _wardrobeRepository.GetByAccountIdAsync(accountId);
+            if (wardrobe == null)
+                return new List<ItemResponseDto>();
+
+            var items = await _itemRepo.GetByWardrobeIdAsync(wardrobe.WardrobeId);
+            return items.Adapt<List<ItemResponseDto>>();
+        }
     }
 }

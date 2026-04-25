@@ -1,3 +1,4 @@
+using Abp.Net.Mail;
 using Application.Request.ItemReq;
 using Application.Request.ItemRequest;
 using Application.Response.ItemResp;
@@ -25,5 +26,6 @@ namespace Application.Services.Items
         Task<List<PublicWardrobeItemDto>> GetMySavedItemsAsync();
         Task SaveItemAsync(int itemId);
         Task UnsaveItemAsync(int itemId);
+        Task<IEnumerable<ItemResponseDto>> GetAllMyItemsAsync(int accountId);
     }
 }

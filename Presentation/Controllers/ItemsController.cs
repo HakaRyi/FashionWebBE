@@ -57,6 +57,23 @@ namespace Presentation.Controllers
             });
         }
 
+
+        [Authorize]
+        [HttpGet("my-item")]
+        public async Task<ActionResult<IEnumerable<ItemResponseDto>>> GetAllMyItems()
+        {
+            var accountId = _currentUserService.GetRequiredUserId();
+            var results = await _itemService.GetAllMyItemsAsync(accountId);
+
+            return Ok(new
+            {
+                message = "Lấy danh sách item của tôi thành công.",
+                data = results
+            });
+        }
+
+        // Route này chỉ nên dùng cho internal / owner / admin nếu bạn muốn giữ.
+        // Không nên cho FE public detail dùng route này.
         [HttpGet("{id:int}")]
         public async Task<ActionResult<ItemResponseDto>> GetById(int id)
         {
