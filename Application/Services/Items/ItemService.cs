@@ -358,5 +358,15 @@ namespace Application.Services.Items
             _itemRepo.Delete(item);
             await _itemRepo.SaveChangesAsync();
         }
+
+        public async Task<IEnumerable<ItemResponseDto>> GetAllMyItemsAsync(int accountId)
+        {
+            var wardrobe = await _wardrobeRepository.GetByAccountIdAsync(accountId);
+            if (wardrobe == null)
+                return new List<ItemResponseDto>();
+
+            var items = await _itemRepo.GetByWardrobeIdAsync(wardrobe.WardrobeId);
+            return items.Adapt<List<ItemResponseDto>>();
+        }
     }
 }

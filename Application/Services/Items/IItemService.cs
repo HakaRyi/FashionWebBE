@@ -1,3 +1,4 @@
+using Abp.Net.Mail;
 using Application.Request.ItemReq;
 using Application.Request.ItemRequest;
 using Application.Response.ItemResp;
@@ -16,5 +17,6 @@ namespace Application.Services.Items
         Task<(IEnumerable<ItemResponseDto> Items, int TotalCount)> GetMyItemsAsync(int accountId, int page, int pageSize, string? search);
         Task UpdateItemAsync(int itemId, UpdateItemRequest request);
         Task DeleteItemAsync(int itemId);
+        Task<IEnumerable<ItemResponseDto>> GetAllMyItemsAsync(int accountId);
     }
 }
