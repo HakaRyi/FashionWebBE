@@ -390,11 +390,8 @@ if (app.Environment.IsDevelopment())
 
 #region MIDDLEWARE
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseCors("AllowAll");
 
@@ -419,5 +416,7 @@ app.MapControllers();
 #endregion
 
 app.MapQuartzEndpoints();
+
+app.MapGet("/health", () => Results.Ok("healthy"));
 
 app.Run();
