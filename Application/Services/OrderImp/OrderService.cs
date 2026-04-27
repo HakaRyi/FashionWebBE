@@ -5,6 +5,7 @@ using Application.Response.RefundResp;
 using Application.Utils;
 using Application.Utils.SignalR;
 using Domain.Constants;
+using Domain.Contracts.Common;
 using Domain.Entities;
 using Domain.Interfaces;
 using Microsoft.AspNetCore.Http;
@@ -960,7 +961,12 @@ namespace Application.Services.OrderImp
                     ItemName = d.ItemNameSnapshot,
                     VariantSnapshot = d.VariantSnapshot,
                     SkuSnapshot = d.SkuSnapshot,
-                    ImageUrl = d.ImageUrlSnapshot
+                    ImageUrl = !string.IsNullOrWhiteSpace(d.ImageUrlSnapshot)
+                        ? d.ImageUrlSnapshot
+                        : d.Item?.Images
+                            .OrderBy(i => i.CreatedAt)
+                            .Select(i => i.ImageUrl)
+                            .FirstOrDefault()
                 }).ToList()
             };
         }
@@ -1003,6 +1009,98 @@ namespace Application.Services.OrderImp
         private static string GenerateOrderCode()
         {
             return $"ORD-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
+        }
+
+        public async Task<PagedResultDto<OrderResponse>> GetMyPurchasesFilteredAsync(
+    int buyerId,
+    OrderFilterRequest request)
+        {
+            request ??= new OrderFilterRequest();
+
+            int page = request.Page <= 0 ? 1 : request.Page;
+            int pageSize = request.PageSize <= 0 ? 10 : request.PageSize;
+
+            if (pageSize > 50)
+                pageSize = 50;
+
+            string? status = string.IsNullOrWhiteSpace(request.Status)
+                ? null
+                : request.Status.Trim();
+
+            if (!string.IsNullOrWhiteSpace(status) && !OrderStatus.IsValid(status))
+                throw new Exception("Invalid order status.");
+
+            if (request.FromDate.HasValue &&
+                request.ToDate.HasValue &&
+                request.FromDate.Value.Date > request.ToDate.Value.Date)
+            {
+                throw new Exception("From date cannot be later than to date.");
+            }
+
+            var result = await _orderRepo.GetOrdersByBuyerIdFilteredAsync(
+                buyerId,
+                page,
+                pageSize,
+                status,
+                request.FromDate,
+                request.ToDate,
+                request.SellerName,
+                request.OrderCode);
+
+            return new PagedResultDto<OrderResponse>
+            {
+                Items = result.Orders.Select(MapToResponse).ToList(),
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = result.TotalCount,
+                HasMore = page * pageSize < result.TotalCount
+            };
+        }
+
+        public async Task<PagedResultDto<OrderResponse>> GetMySalesFilteredAsync(
+            int sellerId,
+            OrderFilterRequest request)
+        {
+            request ??= new OrderFilterRequest();
+
+            int page = request.Page <= 0 ? 1 : request.Page;
+            int pageSize = request.PageSize <= 0 ? 10 : request.PageSize;
+
+            if (pageSize > 50)
+                pageSize = 50;
+
+            string? status = string.IsNullOrWhiteSpace(request.Status)
+                ? null
+                : request.Status.Trim();
+
+            if (!string.IsNullOrWhiteSpace(status) && !OrderStatus.IsValid(status))
+                throw new Exception("Invalid order status.");
+
+            if (request.FromDate.HasValue &&
+                request.ToDate.HasValue &&
+                request.FromDate.Value.Date > request.ToDate.Value.Date)
+            {
+                throw new Exception("From date cannot be later than to date.");
+            }
+
+            var result = await _orderRepo.GetOrdersBySellerIdFilteredAsync(
+                sellerId,
+                page,
+                pageSize,
+                status,
+                request.FromDate,
+                request.ToDate,
+                request.SellerName,
+                request.OrderCode);
+
+            return new PagedResultDto<OrderResponse>
+            {
+                Items = result.Orders.Select(MapToResponse).ToList(),
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = result.TotalCount,
+                HasMore = page * pageSize < result.TotalCount
+            };
         }
     }
 }

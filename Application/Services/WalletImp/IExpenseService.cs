@@ -1,6 +1,6 @@
 ﻿using Application.Request.WalletReq;
 using Application.Response.WalletResp;
-using Domain.Dto.Common;
+using Domain.Contracts.Common;
 using Domain.Dto.Wallet;
 
 namespace Application.Services.WalletImp

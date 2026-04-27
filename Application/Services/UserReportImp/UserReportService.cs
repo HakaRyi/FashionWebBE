@@ -2,8 +2,8 @@
 using Application.Request.UserReportReq;
 using Application.Response.UserReportResp;
 using Domain.Constants;
+using Domain.Contracts.Common;
 using Domain.Contracts.UserReport;
-using Domain.Dto.Common;
 using Domain.Entities;
 using Domain.Interfaces;
 

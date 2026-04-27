@@ -1,4 +1,4 @@
-﻿using Domain.Dto.Common;
+﻿using Domain.Contracts.Common;
 using Domain.Dto.Social.SavedPost;
 
 namespace Application.Services.PostImp

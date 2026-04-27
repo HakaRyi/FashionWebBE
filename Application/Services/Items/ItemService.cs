@@ -29,9 +29,9 @@ namespace Application.Services.Items
         private readonly IItemSaveRepository _itemSaveRepo;
         private readonly IWalletRepository _walletRepository;
         private readonly ITransactionRepository _transactionRepository;
-        private readonly decimal _smartRecommendPrice = 2000;
         private readonly IUserProfileService _userProfileService;
 
+        private readonly decimal _smartRecommendPrice = 2000m;
 
         public ItemService(
             IItemRepository itemRepo,
@@ -63,7 +63,6 @@ namespace Application.Services.Items
             _walletRepository = walletRepository;
             _transactionRepository = transactionRepository;
             _userProfileService = userProfileService;
-
         }
 
         public async Task<IEnumerable<ItemResponseDto>> GetAllItemsAsync()
@@ -109,7 +108,6 @@ namespace Application.Services.Items
             newItem.ItemEmbedding = vectorObject;
             newItem.Status = ItemStatus.Active;
 
-            // default wardrobe flow
             newItem.IsForSale = false;
             newItem.ListedPrice = null;
             newItem.Condition = null;
@@ -150,90 +148,99 @@ namespace Application.Services.Items
             if (request == null)
                 return new List<ItemResponseDto>();
 
-            int currentAccountId = _currentUserService.GetRequiredUserId();
-
             if (string.IsNullOrWhiteSpace(request.Prompt) &&
                 (!request.ReferenceItemId.HasValue || request.ReferenceItemId <= 0))
             {
                 return new List<ItemResponseDto>();
             }
 
+            int currentAccountId = _currentUserService.GetRequiredUserId();
+
             var wallet = await _walletRepository.GetByAccountIdAsync(currentAccountId)
-                ?? throw new KeyNotFoundException("Không tìm thấy ví.");
+                ?? throw new KeyNotFoundException("Wallet not found.");
 
             var availableBalance = wallet.Balance - wallet.LockedBalance;
             if (availableBalance < _smartRecommendPrice)
-                throw new InvalidOperationException("Số dư không đủ để sử dụng AI Stylist.");
+                throw new InvalidOperationException("Insufficient wallet balance for smart recommendation.");
 
-            string userContext = "NONE";
-            if (request.UseMyStylePreferences || request.UseMyPhysicalProfile)
-            {
-                var profile = await _userProfileService.GetUserProfileAsync();
-                if (profile != null)
-                {
-                    var age = profile.DateOfBirth.HasValue ? (DateTime.Now.Year - profile.DateOfBirth.Value.Year).ToString() : "N/A";
-                    userContext = $@"
-                    - Demographic: Gender {profile.Gender}, Age {age}
-                    - Style: {(request.UseMyStylePreferences ? string.Join(", ", profile.FavoriteStyles) : "Not specified")}
-                    - Colors: {(request.UseMyStylePreferences ? string.Join(", ", profile.FavoriteColors) : "Not specified")}
-                    - Physique: {(request.UseMyPhysicalProfile ? $"Shape {profile.BodyShape}, SkinTone {profile.SkinTone}" : "Not specified")}";
-                }
-            }
+            string userContext = await BuildUserContextAsync(request);
 
             string taskInstruction = $@"
-                ### ROLE: Expert Fashion Stylist
-                ### USER CONTEXT:
-                {userContext}
+### ROLE: Expert Fashion Stylist
 
-                ### USER INPUT:
-                '{request.Prompt}'";
+### USER CONTEXT:
+{userContext}
+
+### USER INPUT:
+'{request.Prompt}'";
 
             var scopeRequestForRepo = request.Adapt<SmartRecommendationDto>();
 
-            if (request.ReferenceItemId.HasValue && request.ReferenceItemId > 0)
+            if (request.ReferenceItemId.HasValue && request.ReferenceItemId.Value > 0)
             {
                 var referenceItem = await _itemRepo.GetByIdAsync(request.ReferenceItemId.Value);
+
                 if (referenceItem != null)
                 {
                     taskInstruction += $@"
-                    ### REFERENCE ITEM (User is already wearing this):
-                    - Category: {referenceItem.Category}
-                    - Color: {referenceItem.MainColor}
-                    - Style: {referenceItem.Style}
-    
-                    ### TASK: 
-                    1. Analyze which item category would perfectly complement the REFERENCE ITEM.
-                    2. Consider the USER CONTEXT to ensure it matches their body shape and age.
-                    3. Output search metadata for the NEW recommended item only.";
 
+### REFERENCE ITEM:
+The user already owns or wears this item:
+- Category: {referenceItem.Category}
+- Color: {referenceItem.MainColor}
+- Style: {referenceItem.Style}
+- Material: {referenceItem.Material}
+
+### TASK:
+1. Recommend one complementary fashion item that creates a good outfit with the reference item.
+2. Consider the user context when choosing the style, color, material, and category.
+3. Do not output metadata for the reference item.
+4. Output metadata only for the new recommended item.";
 
                     scopeRequestForRepo.ReferenceCategory = referenceItem.Category;
                 }
             }
             else
             {
-                taskInstruction += "\n### TASK: Convert user request into search metadata matching their style/physique.";
+                taskInstruction += @"
+
+### TASK:
+Convert the user request into structured fashion search metadata.";
             }
 
             taskInstruction += @"
-                ### CONSTRAINT:
-                - Do NOT include the Reference Item in the output.
-                - Be specific about Material, Style, and Color.
-                - Output ONLY the structured metadata string for searching.";
+
+### CONSTRAINT:
+- Do NOT include the reference item in the output.
+- Be specific about material, style, category, and color.
+- Output only the structured metadata string for searching.";
+
+            var intent = await _geminiService.AnalyzePromptAsync(taskInstruction);
+            Vector queryVector = await _aiService.GetTextEmbeddingAsync(intent.CleanPrompt);
+
+            scopeRequestForRepo.IncludeSavedItems = request.IncludeSavedItems;
+
+            var candidates = await _itemRepo.GetHybridRecommendationsAsync(
+                queryVector,
+                intent,
+                currentAccountId,
+                scopeRequestForRepo);
+
+            if (!candidates.Any())
+                return new List<ItemResponseDto>();
 
             await _unitOfWork.BeginTransactionAsync();
             try
             {
-                // 3.1 Trừ tiền và tạo lịch sử giao dịch
                 wallet = await _walletRepository.GetByAccountIdAsync(currentAccountId)
-                    ?? throw new KeyNotFoundException("Không tìm thấy ví.");
-
+                    ?? throw new KeyNotFoundException("Wallet not found.");
 
                 availableBalance = wallet.Balance - wallet.LockedBalance;
                 if (availableBalance < _smartRecommendPrice)
                     throw new InvalidOperationException("Insufficient balance.");
 
                 decimal balanceBefore = wallet.Balance;
+
                 wallet.Balance -= _smartRecommendPrice;
                 wallet.UpdatedAt = DateTime.UtcNow;
                 _walletRepository.Update(wallet);
@@ -242,47 +249,35 @@ namespace Application.Services.Items
                 {
                     WalletId = wallet.WalletId,
                     PaymentId = null,
-                    // Sinh mã code random, nếu ông có hàm GenerateTransactionCode() thì xài hàm đó
-                    TransactionCode = "SM_" + Guid.NewGuid().ToString("N")[..10].ToUpper(),
+                    TransactionCode = $"RECOM-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}",
                     Amount = _smartRecommendPrice,
                     BalanceBefore = balanceBefore,
                     BalanceAfter = wallet.Balance,
                     Type = TransactionType.Debit,
-                    ReferenceType = TransactionReferenceType.TryOn, 
+                    ReferenceType = TransactionReferenceType.AIRecommendation,
                     ReferenceId = null,
-                    Description = "Thanh toán AI Stylist (Smart Match)",
-
+                    Description = "Smart outfit recommendation payment",
                     CreatedAt = DateTime.UtcNow,
                     Status = TransactionStatus.Success
                 };
+
                 await _transactionRepository.AddAsync(transaction);
 
-                var intent = await _geminiService.AnalyzePromptAsync(taskInstruction);
-                Vector queryVector = await _aiService.GetTextEmbeddingAsync(intent.CleanPrompt);
-
-                scopeRequestForRepo.IncludeSavedItems = request.IncludeSavedItems;
-                var candidates = await _itemRepo.GetHybridRecommendationsAsync(
-                    queryVector,
-                    intent,
-                    currentAccountId,
-                    scopeRequestForRepo
-                );
-                if (candidates.Any())
+                var history = new RecommendationHistory
                 {
-                    var history = new RecommendationHistory
+                    AccountId = currentAccountId,
+                    ReferenceItemId = request.ReferenceItemId,
+                    Prompt = request.Prompt,
+                    CreatedAt = DateTime.UtcNow,
+                    RecommendedItems = candidates.Select(c => new RecommendationDetail
                     {
-                        AccountId = currentAccountId,
-                        ReferenceItemId = request.ReferenceItemId,
-                        Prompt = request.Prompt,
-                        CreatedAt = DateTime.UtcNow,
-                        RecommendedItems = candidates.Select(c => new RecommendationDetail
-                        {
-                            ItemId = c.ItemId
-                        }).ToList()
-                    };
-                    await _recommendationHistoryRepository.AddAsync(history);
-                }
+                        ItemId = c.ItemId
+                    }).ToList()
+                };
+
+                await _recommendationHistoryRepository.AddAsync(history);
                 await _unitOfWork.CommitAsync();
+
                 return candidates.Adapt<List<ItemResponseDto>>();
             }
             catch
@@ -292,16 +287,45 @@ namespace Application.Services.Items
             }
         }
 
-        public async Task<(IEnumerable<ItemResponseDto> Items, int TotalCount)> GetMyItemsAsync(int accountId, int page, int pageSize, string? search)
+        public async Task<IEnumerable<ItemResponseDto>> GetMyItemsAsync(int accountId)
+        {
+            var wardrobe = await _wardrobeRepository.GetByAccountIdAsync(accountId);
+            if (wardrobe == null)
+                return new List<ItemResponseDto>();
+
+            var items = await _itemRepo.GetByWardrobeIdAsync(wardrobe.WardrobeId);
+            return items.Adapt<List<ItemResponseDto>>();
+        }
+
+        public async Task<(IEnumerable<ItemResponseDto> Items, int TotalCount)> GetMyItemsAsync(
+            int accountId,
+            int page,
+            int pageSize,
+            string? search)
         {
             var wardrobe = await _wardrobeRepository.GetByAccountIdAsync(accountId);
             if (wardrobe == null)
                 return (new List<ItemResponseDto>(), 0);
 
-            var result = await _itemRepo.GetByWardrobeIdAsync2(wardrobe.WardrobeId, page, pageSize, search);
+            var result = await _itemRepo.GetByWardrobeIdAsync2(
+                wardrobe.WardrobeId,
+                page,
+                pageSize,
+                search);
+
             var itemDtos = result.Items.Adapt<List<ItemResponseDto>>();
 
             return (itemDtos, result.TotalCount);
+        }
+
+        public async Task<IEnumerable<ItemResponseDto>> GetAllMyItemsAsync(int accountId)
+        {
+            var wardrobe = await _wardrobeRepository.GetByAccountIdAsync(accountId);
+            if (wardrobe == null)
+                return new List<ItemResponseDto>();
+
+            var items = await _itemRepo.GetByWardrobeIdAsync(wardrobe.WardrobeId);
+            return items.Adapt<List<ItemResponseDto>>();
         }
 
         public async Task UpdateItemAsync(int itemId, UpdateItemRequest request)
@@ -374,7 +398,9 @@ namespace Application.Services.Items
             await _itemRepo.SaveChangesAsync();
         }
 
-        public async Task<ItemCommerceResponseDto> PublishItemForSaleAsync(int itemId, PublishItemForSaleRequest request)
+        public async Task<ItemCommerceResponseDto> PublishItemForSaleAsync(
+            int itemId,
+            PublishItemForSaleRequest request)
         {
             if (request == null)
                 throw new ArgumentNullException(nameof(request));
@@ -439,7 +465,9 @@ namespace Application.Services.Items
                         Price = v.Price,
                         StockQuantity = v.StockQuantity,
                         ReservedQuantity = 0,
-                        Status = v.StockQuantity > 0 ? ItemVariantStatus.Active : ItemVariantStatus.OutOfStock
+                        Status = v.StockQuantity > 0
+                            ? ItemVariantStatus.Active
+                            : ItemVariantStatus.OutOfStock
                     });
                 }
 
@@ -475,9 +503,12 @@ namespace Application.Services.Items
                 _itemRepo.Update(item);
 
                 var variants = await _itemVariantRepository.GetByItemIdAsync(itemId);
+
                 foreach (var variant in variants)
                 {
-                    var variantForUpdate = await _itemVariantRepository.GetByIdForUpdateAsync(variant.ItemVariantId);
+                    var variantForUpdate =
+                        await _itemVariantRepository.GetByIdForUpdateAsync(variant.ItemVariantId);
+
                     if (variantForUpdate == null)
                         continue;
 
@@ -511,24 +542,12 @@ namespace Application.Services.Items
                 throw new UnauthorizedAccessException("You do not have permission to view this item's variants.");
 
             var variants = await _itemVariantRepository.GetByItemIdAsync(itemId);
-
-            return variants.Select(v => new ItemVariantResponseDto
-            {
-                ItemVariantId = v.ItemVariantId,
-                ItemId = v.ItemId,
-                Sku = v.Sku,
-                SizeCode = v.SizeCode,
-                Color = v.Color,
-                Price = v.Price,
-                StockQuantity = v.StockQuantity,
-                ReservedQuantity = v.ReservedQuantity,
-                Status = v.Status,
-                CreatedAt = v.CreatedAt,
-                UpdatedAt = v.UpdatedAt
-            }).ToList();
+            return variants.Select(MapVariantToResponse).ToList();
         }
 
-        public async Task<ItemVariantResponseDto> CreateItemVariantAsync(int itemId, CreateItemVariantRequest request)
+        public async Task<ItemVariantResponseDto> CreateItemVariantAsync(
+            int itemId,
+            CreateItemVariantRequest request)
         {
             if (request == null)
                 throw new ArgumentNullException(nameof(request));
@@ -567,7 +586,9 @@ namespace Application.Services.Items
                 Price = request.Price,
                 StockQuantity = request.StockQuantity,
                 ReservedQuantity = 0,
-                Status = request.StockQuantity > 0 ? ItemVariantStatus.Active : ItemVariantStatus.OutOfStock
+                Status = request.StockQuantity > 0
+                    ? ItemVariantStatus.Active
+                    : ItemVariantStatus.OutOfStock
             };
 
             await _itemVariantRepository.AddAsync(variant);
@@ -576,7 +597,9 @@ namespace Application.Services.Items
             return MapVariantToResponse(variant);
         }
 
-        public async Task<ItemVariantResponseDto> UpdateItemVariantAsync(int itemVariantId, UpdateItemVariantRequest request)
+        public async Task<ItemVariantResponseDto> UpdateItemVariantAsync(
+            int itemVariantId,
+            UpdateItemVariantRequest request)
         {
             if (request == null)
                 throw new ArgumentNullException(nameof(request));
@@ -587,8 +610,12 @@ namespace Application.Services.Items
             if (variant == null)
                 throw new KeyNotFoundException("Variant not found.");
 
-            if (variant.Item == null || variant.Item.Wardrobe == null || variant.Item.Wardrobe.AccountId != currentUserId)
+            if (variant.Item == null ||
+                variant.Item.Wardrobe == null ||
+                variant.Item.Wardrobe.AccountId != currentUserId)
+            {
                 throw new UnauthorizedAccessException("You do not have permission to update this variant.");
+            }
 
             if (string.IsNullOrWhiteSpace(request.Sku))
                 throw new InvalidOperationException("SKU is required.");
@@ -640,8 +667,12 @@ namespace Application.Services.Items
             if (variant == null)
                 throw new KeyNotFoundException("Variant not found.");
 
-            if (variant.Item == null || variant.Item.Wardrobe == null || variant.Item.Wardrobe.AccountId != currentUserId)
+            if (variant.Item == null ||
+                variant.Item.Wardrobe == null ||
+                variant.Item.Wardrobe.AccountId != currentUserId)
+            {
                 throw new UnauthorizedAccessException("You do not have permission to delete this variant.");
+            }
 
             if (variant.ReservedQuantity > 0)
                 throw new InvalidOperationException("Cannot delete a reserved variant.");
@@ -650,47 +681,9 @@ namespace Application.Services.Items
             await _itemVariantRepository.SaveChangesAsync();
         }
 
-        private async Task<ItemCommerceResponseDto> BuildCommerceResponseAsync(int itemId)
-        {
-            var item = await _itemRepo.GetByIdAsync(itemId)
-                ?? throw new KeyNotFoundException("Item not found.");
-
-            var variants = await _itemVariantRepository.GetByItemIdAsync(itemId);
-
-            return new ItemCommerceResponseDto
-            {
-                ItemId = item.ItemId,
-                ItemName = item.ItemName,
-                IsForSale = item.IsForSale,
-                ListedPrice = item.ListedPrice,
-                Condition = item.Condition,
-                PublishedAt = item.PublishedAt,
-                Variants = variants.Select(MapVariantToResponse).ToList()
-            };
-        }
-
-        private static ItemVariantResponseDto MapVariantToResponse(ItemVariant variant)
-        {
-            return new ItemVariantResponseDto
-            {
-                ItemVariantId = variant.ItemVariantId,
-                ItemId = variant.ItemId,
-                Sku = variant.Sku,
-                SizeCode = variant.SizeCode,
-                Color = variant.Color,
-                Price = variant.Price,
-                StockQuantity = variant.StockQuantity,
-                ReservedQuantity = variant.ReservedQuantity,
-                Status = variant.Status,
-                CreatedAt = variant.CreatedAt,
-                UpdatedAt = variant.UpdatedAt
-            };
-        }
-
         public async Task<List<PublicWardrobeItemDto>> GetMySavedItemsAsync()
         {
             int currentUserId = _currentUserService.GetRequiredUserId();
-
             return await _itemSaveRepo.GetMySavedItemDtosAsync(currentUserId);
         }
 
@@ -731,14 +724,100 @@ namespace Application.Services.Items
             await _itemSaveRepo.DeleteSaveItem(savedItem);
             await _unitOfWork.CommitAsync();
         }
-        public async Task<IEnumerable<ItemResponseDto>> GetAllMyItemsAsync(int accountId)
-        {
-            var wardrobe = await _wardrobeRepository.GetByAccountIdAsync(accountId);
-            if (wardrobe == null)
-                return new List<ItemResponseDto>();
 
-            var items = await _itemRepo.GetByWardrobeIdAsync(wardrobe.WardrobeId);
-            return items.Adapt<List<ItemResponseDto>>();
+        private async Task<string> BuildUserContextAsync(SmartRecommendationRequestDto request)
+        {
+            if (!request.UseMyStylePreferences && !request.UseMyPhysicalProfile)
+                return "NONE";
+
+            var profile = await _userProfileService.GetUserProfileAsync();
+            if (profile == null)
+                return "NONE";
+
+            var age = profile.DateOfBirth.HasValue
+                ? GetAge(profile.DateOfBirth.Value).ToString()
+                : "N/A";
+
+            var favoriteStyles = request.UseMyStylePreferences
+                ? FormatList(profile.FavoriteStyles)
+                : "Not specified";
+
+            var favoriteColors = request.UseMyStylePreferences
+                ? FormatList(profile.FavoriteColors)
+                : "Not specified";
+
+            var physique = request.UseMyPhysicalProfile
+                ? $"Shape {profile.BodyShape}, SkinTone {profile.SkinTone}"
+                : "Not specified";
+
+            return $@"
+            - Demographic: Gender {profile.Gender}, Age {age}
+            - Style: {favoriteStyles}
+            - Colors: {favoriteColors}
+            - Physique: {physique}";
+        }
+
+        private static int GetAge(DateTime dateOfBirth)
+        {
+            var today = DateTime.UtcNow.Date;
+            var age = today.Year - dateOfBirth.Year;
+
+            if (dateOfBirth.Date > today.AddYears(-age))
+                age--;
+
+            return age;
+        }
+
+        private static string FormatList(IEnumerable<string>? values)
+        {
+            if (values == null)
+                return "Not specified";
+
+            var list = values
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .Select(v => v.Trim())
+                .ToList();
+
+            return list.Any()
+                ? string.Join(", ", list)
+                : "Not specified";
+        }
+
+        private async Task<ItemCommerceResponseDto> BuildCommerceResponseAsync(int itemId)
+        {
+            var item = await _itemRepo.GetByIdAsync(itemId)
+                ?? throw new KeyNotFoundException("Item not found.");
+
+            var variants = await _itemVariantRepository.GetByItemIdAsync(itemId);
+
+            return new ItemCommerceResponseDto
+            {
+                ItemId = item.ItemId,
+                ItemName = item.ItemName,
+                IsForSale = item.IsForSale,
+                ListedPrice = item.ListedPrice,
+                Condition = item.Condition,
+                PublishedAt = item.PublishedAt,
+                Variants = variants.Select(MapVariantToResponse).ToList()
+            };
+        }
+
+        private static ItemVariantResponseDto MapVariantToResponse(ItemVariant variant)
+        {
+            return new ItemVariantResponseDto
+            {
+                ItemVariantId = variant.ItemVariantId,
+                ItemId = variant.ItemId,
+                Sku = variant.Sku,
+                SizeCode = variant.SizeCode,
+                Color = variant.Color,
+                Price = variant.Price,
+                StockQuantity = variant.StockQuantity,
+                ReservedQuantity = variant.ReservedQuantity,
+                Status = variant.Status,
+                CreatedAt = variant.CreatedAt,
+                UpdatedAt = variant.UpdatedAt
+            };
         }
     }
 }

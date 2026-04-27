@@ -22,5 +22,24 @@ namespace Domain.Interfaces
         Task<List<Order>> GetShippingOrdersAsync();
 
         Task<bool> ExistsPendingOrderByBuyerAsync(int buyerId, int itemVariantId);
+        Task<(List<Order> Orders, int TotalCount)> GetOrdersByBuyerIdFilteredAsync(
+            int buyerId,
+            int page,
+            int pageSize,
+            string? status,
+            DateTime? fromDate,
+            DateTime? toDate,
+            string? sellerName,
+            string? orderCode);
+
+        Task<(List<Order> Orders, int TotalCount)> GetOrdersBySellerIdFilteredAsync(
+            int sellerId,
+            int page,
+            int pageSize,
+            string? status,
+            DateTime? fromDate,
+            DateTime? toDate,
+            string? buyerName,
+            string? orderCode);
     }
 }

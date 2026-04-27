@@ -1,6 +1,6 @@
-﻿using Domain.Contracts.Social.Post;
+﻿using Domain.Contracts.Common;
+using Domain.Contracts.Social.Post;
 using Domain.Dto.Admin;
-using Domain.Dto.Common;
 using Domain.Entities;
 using System.Linq.Expressions;
 
