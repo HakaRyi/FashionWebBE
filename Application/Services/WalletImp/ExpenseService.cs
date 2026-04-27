@@ -2,7 +2,7 @@
 using Application.Request.WalletReq;
 using Application.Response.WalletResp;
 using Domain.Constants;
-using Domain.Dto.Common;
+using Domain.Contracts.Common;
 using Domain.Dto.Wallet;
 using Domain.Entities;
 using Domain.Interfaces;

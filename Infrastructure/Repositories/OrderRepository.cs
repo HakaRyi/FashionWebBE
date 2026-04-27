@@ -131,6 +131,7 @@ namespace Infrastructure.Repositories
                 .Include(o => o.RefundRequest)
                 .Include(o => o.OrderDetails)
                     .ThenInclude(od => od.Item)
+                        .ThenInclude(i => i.Images)
                 .Include(o => o.OrderDetails)
                     .ThenInclude(od => od.ItemVariant);
         }
@@ -145,6 +146,120 @@ namespace Infrastructure.Repositories
                     o.DeliveredAt != null &&
                     o.DeliveredAt <= deadline)
                 .ToListAsync();
+        }
+
+        public async Task<(List<Order> Orders, int TotalCount)> GetOrdersByBuyerIdFilteredAsync(
+    int buyerId,
+    int page,
+    int pageSize,
+    string? status,
+    DateTime? fromDate,
+    DateTime? toDate,
+    string? sellerName,
+    string? orderCode)
+        {
+            var query = BuildOrderDetailQuery(isTracking: false)
+                .Where(o => o.BuyerId == buyerId);
+
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                query = query.Where(o => o.Status == status.Trim());
+            }
+
+            if (fromDate.HasValue)
+            {
+                query = query.Where(o => o.CreatedAt >= fromDate.Value);
+            }
+
+            if (toDate.HasValue)
+            {
+                var endDate = toDate.Value.Date.AddDays(1);
+                query = query.Where(o => o.CreatedAt < endDate);
+            }
+
+            if (!string.IsNullOrWhiteSpace(sellerName))
+            {
+                string keyword = sellerName.Trim().ToLower();
+
+                query = query.Where(o =>
+                    o.Seller != null &&
+                    o.Seller.UserName.ToLower().Contains(keyword));
+            }
+
+            if (!string.IsNullOrWhiteSpace(orderCode))
+            {
+                string keyword = orderCode.Trim().ToLower();
+
+                query = query.Where(o =>
+                    o.OrderCode.ToLower().Contains(keyword));
+            }
+
+            int totalCount = await query.CountAsync();
+
+            var orders = await query
+                .OrderByDescending(o => o.UpdatedAt ?? o.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (orders, totalCount);
+        }
+
+        public async Task<(List<Order> Orders, int TotalCount)> GetOrdersBySellerIdFilteredAsync(
+            int sellerId,
+            int page,
+            int pageSize,
+            string? status,
+            DateTime? fromDate,
+            DateTime? toDate,
+            string? buyerName,
+            string? orderCode)
+        {
+            var query = BuildOrderDetailQuery(isTracking: false)
+                .Where(o => o.SellerId == sellerId);
+
+            if (!string.IsNullOrWhiteSpace(status))
+            {
+                query = query.Where(o => o.Status == status.Trim());
+            }
+
+            if (fromDate.HasValue)
+            {
+                query = query.Where(o => o.CreatedAt >= fromDate.Value);
+            }
+
+            if (toDate.HasValue)
+            {
+                var endDate = toDate.Value.Date.AddDays(1);
+                query = query.Where(o => o.CreatedAt < endDate);
+            }
+
+            if (!string.IsNullOrWhiteSpace(buyerName))
+            {
+                string keyword = buyerName.Trim().ToLower();
+
+                query = query.Where(o =>
+                    o.Buyer != null &&
+                    o.Buyer.UserName.ToLower().Contains(keyword));
+            }
+
+            if (!string.IsNullOrWhiteSpace(orderCode))
+            {
+                string keyword = orderCode.Trim().ToLower();
+
+                query = query.Where(o =>
+                    o.OrderCode.ToLower().Contains(keyword));
+            }
+
+            int totalCount = await query.CountAsync();
+
+            var orders = await query
+                .OrderByDescending(o => o.UpdatedAt ?? o.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (orders, totalCount);
         }
     }
 }

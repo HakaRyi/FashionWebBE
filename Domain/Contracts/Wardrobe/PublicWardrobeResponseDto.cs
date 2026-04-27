@@ -1,5 +1,5 @@
-﻿using Domain.Contracts.Wardrobe;
-using Domain.Dto.Common;
+﻿using Domain.Contracts.Common;
+using Domain.Contracts.Wardrobe;
 
 namespace Domain.Dto.Wardrobe
 {

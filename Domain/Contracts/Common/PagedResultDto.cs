@@ -1,4 +1,4 @@
-﻿namespace Domain.Dto.Common
+﻿namespace Domain.Contracts.Common
 {
     public class PagedResultDto<T>
     {
