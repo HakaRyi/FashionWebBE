@@ -5,10 +5,15 @@ using Application.Response.DashboardResp;
 using Application.Response.EventResp;
 using Application.Response.PostResp;
 using Application.Services.NotificationImp;
+using Application.Utils;
 using Application.Utils.File;
+using Domain.Constants;
+using Domain.Dto.Social.Post;
 using Domain.Entities;
 using Domain.Interfaces;
 using Mapster;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Quartz;
 
 namespace Application.Services.EventServices
@@ -24,6 +29,11 @@ namespace Application.Services.EventServices
         private readonly ICurrentUserService _currentUserService;
         private readonly ISchedulerFactory _schedulerFactory;
         private readonly INotificationService _notificationService;
+        private readonly IImageRepository _imageRepo;
+        private readonly UserManager<Account> _userManager;
+        private readonly ICloudStorageService _storage;
+
+        private const int MAX_IMAGES = 5;
 
         public EventService(
             IEventRepository eventRepo,
@@ -34,7 +44,10 @@ namespace Application.Services.EventServices
             INotificationService notificationService,
             IUnitOfWork unitOfWork,
             ISchedulerFactory schedulerFactory,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            UserManager<Account> userManager,
+            IImageRepository imageRepo,
+            ICloudStorageService storage)
         {
             _eventRepo = eventRepo;
             _walletRepo = walletRepo;
@@ -45,7 +58,197 @@ namespace Application.Services.EventServices
             _unitOfWork = unitOfWork;
             _currentUserService = currentUserService;
             _schedulerFactory = schedulerFactory;
+            _userManager = userManager;
+            _imageRepo = imageRepo;
+            _storage = storage;
         }
+
+        #region User Join Event
+        public async Task<PostResponse> JoinEventByPostAsync(int accountId, CreatePostDto dto)
+        {
+            if (!dto.EventId.HasValue) throw new Exception("Missing EventId to participate in the event.");
+
+            var ev = await _eventRepo.GetByIdAsync(dto.EventId.Value);
+
+            if (ev == null) throw new Exception("The event does not exist.");
+
+            var isJoined = await _postRepo.AnyAsync(p => p.AccountId == accountId && p.EventId == dto.EventId);
+            if (isJoined) throw new Exception("You have already participated in this event.");
+
+            if (ev.Status != "Active" ||
+               (ev.SubmissionDeadline.HasValue && ev.SubmissionDeadline.Value.ToUniversalTime() < DateTime.UtcNow))
+            {
+                throw new Exception("The event is no longer open for participation.");
+            }
+
+            var imageUrls = dto.Images != null ? await UploadImages(dto.Images.ToList()) : new List<string>();
+
+            await _unitOfWork.BeginTransactionAsync();
+
+            try
+            {
+                if (ev.EntryFee > 0)
+                {
+                    var userWallet = await _walletRepo.GetByAccountIdAsync(accountId);
+                    if (userWallet == null || userWallet.Balance < ev.EntryFee)
+                        throw new Exception($"Insufficient wallet balance. Participation fee applies: {ev.EntryFee:N0} VNĐ.");
+
+                    var creatorWallet = await _walletRepo.GetByAccountIdAsync(ev.CreatorId);
+                    if (creatorWallet == null) throw new Exception("Organizer's wallet not found.");
+
+                    decimal userBalanceBefore = userWallet.Balance;
+                    userWallet.Balance -= ev.EntryFee;
+                    _walletRepo.Update(userWallet);
+
+                    decimal creatorLockedBefore = creatorWallet.LockedBalance;
+                    creatorWallet.LockedBalance += ev.EntryFee;
+                    _walletRepo.Update(creatorWallet);
+
+                    // 3. Ghi log giao dịch (Loại: Tham gia sự kiện - Chờ xử lý)
+                    await _transactionRepo.AddAsync(new Transaction
+                    {
+                        TransactionCode = $"JOIN_PAY_{ev.EventId}_{accountId}_{DateTime.UtcNow.Ticks}",
+                        WalletId = userWallet.WalletId,
+                        Amount = -ev.EntryFee,
+                        BalanceBefore = userBalanceBefore,
+                        BalanceAfter = userWallet.Balance,
+                        Type = "Event_Entry_Fee_Paid",
+                        Status = "Success",
+                        Description = $"Paid entry fee for event: {ev.Title}",
+                        ReferenceId = ev.EventId,
+                        ReferenceType = "Event",
+                        CreatedAt = DateTime.UtcNow
+                    });
+
+                    await _transactionRepo.AddAsync(new Transaction
+                    {
+                        TransactionCode = $"JOIN_REVENUE_LOCKED_{ev.EventId}_{accountId}_{DateTime.UtcNow.Ticks}",
+                        WalletId = creatorWallet.WalletId,
+                        Amount = ev.EntryFee,
+                        BalanceBefore = creatorLockedBefore,
+                        BalanceAfter = creatorWallet.LockedBalance,
+                        Type = "Event_Revenue_Locked",
+                        Status = "Success",
+                        Description = $"Entry fee for event '{ev.Title}' from User #{accountId} is being held by the system.",
+                        ReferenceId = ev.EventId,
+                        ReferenceType = "Event",
+                        CreatedAt = DateTime.UtcNow
+                    });
+                }
+
+                // --- LOGIC TẠO POST ---
+                var now = DateTime.UtcNow;
+
+                var post = new Post
+                {
+                    AccountId = accountId,
+                    Title = dto.Title?.Trim(),
+                    Content = dto.Content?.Trim(),
+                    EventId = dto.EventId,
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                    Status = PostStatus.Published,
+                    Visibility = PostVisibility.Visible,
+                    LikeCount = 0,
+                    CommentCount = 0,
+                    ShareCount = 0
+                };
+
+                await _postRepo.AddAsync(post);
+                await _unitOfWork.SaveChangesAsync();
+
+                var images = imageUrls.Select(url => new Image
+                {
+                    PostId = post.PostId,
+                    ImageUrl = url,
+                    OwnerType = "Post",
+                    CreatedAt = now
+                }).ToList();
+
+                await _imageRepo.AddRangeAsync(images);
+
+                var account = await _userManager.FindByIdAsync(accountId.ToString());
+                if (account != null)
+                {
+                    account.CountPost += 1;
+                    await _userManager.UpdateAsync(account);
+                }
+
+                await _unitOfWork.SaveChangesAsync();
+                await _unitOfWork.CommitAsync();
+
+                post.Images = images;
+                return MapToResponse(post);
+            }
+            catch (Exception ex)
+            {
+                await _unitOfWork.RollbackAsync();
+                throw new Exception($"Event participation error: {ex.Message}");
+            }
+        }
+
+        private PostResponse MapToResponse(Post post)
+        {
+            var currentUserId = _currentUserService.GetUserId();
+
+            return new PostResponse
+            {
+                PostId = post.PostId,
+                AccountId = post.AccountId,
+
+                UserName = post.Account?.UserName,
+                AvatarUrl = post.Account?.Avatars?
+                    .OrderByDescending(a => a.CreatedAt)
+                    .FirstOrDefault()?.ImageUrl,
+
+                EventId = post.EventId,
+                EventName = post.Event?.Title,
+
+                Title = post.Title,
+                Content = post.Content,
+
+                ImageUrls = post.Images?
+                    .OrderBy(i => i.CreatedAt)
+                    .Select(i => i.ImageUrl)
+                    .ToList() ?? new List<string>(),
+
+                IsExpertPost = post.IsExpertPost ?? false,
+
+                IsLikedByExpert = post.Reactions.Any(r =>
+                    r.Account != null &&
+                    r.Account.ExpertProfile != null &&
+                    r.Account.ExpertProfile.Verified == true
+                ),
+
+                Status = post.Status,
+
+                IsLiked = currentUserId.HasValue &&
+                          post.Reactions.Any(r => r.AccountId == currentUserId.Value),
+
+                IsSaved = currentUserId.HasValue &&
+                          post.Saves.Any(s => s.AccountId == currentUserId.Value),
+
+                LikeCount = post.LikeCount,
+                CommentCount = post.CommentCount,
+                ShareCount = post.ShareCount,
+
+                CreatedAt = post.CreatedAt,
+                UpdatedAt = post.UpdatedAt
+            };
+        }
+
+        private async Task<List<string>> UploadImages(List<IFormFile> files)
+        {
+            if (files == null || files.Count == 0)
+                throw new Exception("Post must contain at least one image.");
+
+            if (files.Count > MAX_IMAGES)
+                throw new Exception("Maximum 5 images allowed.");
+
+            var tasks = files.Select(f => _storage.UploadImageAsync(f));
+            return (await Task.WhenAll(tasks)).ToList();
+        }
+        #endregion
 
         #region Admin Workflow
         public async Task ApproveEventAsync(int eventId)
@@ -153,7 +356,7 @@ namespace Application.Services.EventServices
                 var refundTransaction = new Domain.Entities.Transaction
                 {
                     WalletId = wallet.WalletId,
-                    TransactionCode = $"REFUND_EV_{ev.EventId}_{DateTime.Now.Ticks}",
+                    TransactionCode = $"REFUND_EV_{ev.EventId}_{DateTime.UtcNow.Ticks}",
                     Amount = totalToRefund,
                     BalanceBefore = balanceBefore,
                     BalanceAfter = wallet.Balance,
@@ -276,104 +479,44 @@ namespace Application.Services.EventServices
             }).ToList();
         }
 
-        public async Task<AnalyticsDashboardResponse> GetAnalyticsAsync(string period)
+        public async Task<EventAnalyticsRawResponse> GetAnalyticsAsync(string period)
         {
             int expertId = _currentUserService.GetRequiredUserId();
 
-            // 1. Xác định mốc thời gian khớp với FE truyền lên ("30d", "90d")
-            DateTime startDate = period.ToLower() switch
-            {
-                "30d" => DateTime.Now.AddDays(-30),
-                "90d" => DateTime.Now.AddDays(-90),
-                _ => DateTime.Now.AddDays(-30) // Mặc định 30 ngày
-            };
+            int days;
+            string numericPart = new string(period.Where(char.IsDigit).ToArray());
 
-            // Lấy dữ liệu từ Repo (Nhớ Include Posts và Posts.ExpertRatings)
+            if (!int.TryParse(numericPart, out days))
+            {
+                days = 30;
+            }
+
+            DateTime startDate = DateTime.UtcNow.AddDays(-days);
+
             var events = await _eventRepo.GetAnalyticsDataAsync(expertId, startDate);
-            var eventList = events.ToList();
 
-            var response = new AnalyticsDashboardResponse();
-
-            // 2. Tính toán tổng quan cho StatCards
-            int totalPosts = eventList.SelectMany(e => e.Posts).Count();
-
-            // Đếm số lượng bài thi ĐÃ ĐƯỢC CHẤM BỞI CHUYÊN GIA NÀY
-            int totalRatedPosts = eventList.SelectMany(e => e.Posts)
-                .Count(p => p.ExpertRatings.Any(er => er.ExpertId == expertId));
-
-            // Tổng số lượng Like + Share + Comment từ tất cả các bài thi
-            int totalEngagements = eventList.SelectMany(e => e.Posts)
-                .Sum(p => (p.LikeCount ?? 0) + (p.ShareCount ?? 0) + (p.CommentCount ?? 0));
-
-            // Tổng chi phí (AppliedFee) chuyên gia đã trả để tạo sự kiện
-            decimal totalCost = eventList.Sum(e => e.AppliedFee);
-
-            // Tính % tiến độ chấm bài
-            string gradingProgress = totalPosts > 0
-                ? $"{(totalRatedPosts * 100.0 / totalPosts):0.0}%"
-                : "0%";
-
-            response.Stats = new List<StatCardDto>
+            var response = new EventAnalyticsRawResponse
             {
-                new StatCardDto {
-                    Label = "Total number of entries",
-                    Value = totalPosts.ToString("N0"),
-                    Change = "+0%",
-                    IsUp = true
-                },
-                new StatCardDto {
-                    Label = "Scoring progress",
-                    Value = gradingProgress,
-                    Change = "+0%",
-                    IsUp = true
-                },
-                new StatCardDto {
-                    Label = "Community interaction",
-                    Value = totalEngagements.ToString("N0"),
-                    Change = "+0%",
-                    IsUp = true
-                },
-                new StatCardDto {
-                    Label = "Event creation costs",
-                    Value = totalCost.ToString("N0") + "đ",
-                    Change = "-0%",
-                    IsUp = false
-                }
-            };
-
-            // 3. Xử lý TopEvents (Ưu tiên những sự kiện có nhiều bài thi nhất)
-            response.TopEvents = eventList
-                .OrderByDescending(e => e.Posts.Count)
-                .Take(5)
-                .Select(e =>
+                ExpertId = expertId,
+                Events = events.Select(e => new EventRawDto
                 {
-                    int ePosts = e.Posts.Count;
-                    int eRated = e.Posts.Count(p => p.ExpertRatings.Any(er => er.ExpertId == expertId));
-                    int eEngagements = e.Posts.Sum(p => (p.LikeCount ?? 0) + (p.ShareCount ?? 0) + (p.CommentCount ?? 0));
-
-                    return new TopEventDto
+                    EventId = e.EventId,
+                    Title = e.Title,
+                    AppliedFee = e.AppliedFee,
+                    EntryFee = e.EntryFee,
+                    Status = e.Status,
+                    CreatedAt = e.CreatedAt ?? DateTime.MinValue,
+                    Posts = e.Posts.Select(p => new PostRawDto
                     {
-                        Id = e.EventId,
-                        Title = e.Title,
-                        Posts = ePosts,
-                        Rated = eRated,
-                        Engagements = eEngagements >= 1000 ? (eEngagements / 1000.0).ToString("0.1") + "K" : eEngagements.ToString()
-                    };
-                }).ToList();
-
-            // 4. Xử lý ChartData (Gom nhóm BÀI THI theo ngày để xem biểu đồ tăng trưởng)
-            // Lấy tất cả Posts trong sự kiện được tạo sau startDate
-            response.ChartData = eventList.SelectMany(e => e.Posts)
-                .Where(p => p.CreatedAt.HasValue && p.CreatedAt.Value >= startDate)
-                .GroupBy(p => p.CreatedAt.Value.Date) // Group bằng Date gốc để sắp xếp theo thời gian cho chuẩn
-                .OrderBy(g => g.Key) // Sắp xếp từ ngày cũ -> ngày mới
-                .Select(g => new ChartDataDto
-                {
-                    Date = g.Key.ToString("dd/MM"), // Format chuỗi để hiển thị trục X
-                    Submissions = g.Count(),
-                    Engagements = g.Sum(p => (p.LikeCount ?? 0) + (p.ShareCount ?? 0) + (p.CommentCount ?? 0))
-                })
-                .ToList();
+                        PostId = p.PostId,
+                        LikeCount = p.LikeCount ?? 0,
+                        ShareCount = p.ShareCount ?? 0,
+                        CommentCount = p.CommentCount ?? 0,
+                        CreatedAt = p.CreatedAt ?? DateTime.MinValue,
+                        IsRatedByExpert = p.ExpertRatings.Any(er => er.ExpertId == expertId)
+                    }).ToList()
+                }).ToList()
+            };
 
             return response;
         }
@@ -546,6 +689,8 @@ namespace Application.Services.EventServices
                 SubmissionDeadline = e.SubmissionDeadline,
                 EndTime = e.EndTime,
                 CreatedAt = e.CreatedAt,
+                CreatorId = e.CreatorId,
+                EntryFee = e.EntryFee,
                 CreatorName = e.Creator?.UserName,
                 CreatorAvatarUrl = e.Creator?.Avatars.OrderByDescending(img => img.CreatedAt)
                     .Select(img => img.ImageUrl)

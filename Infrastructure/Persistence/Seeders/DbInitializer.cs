@@ -116,13 +116,13 @@ namespace Infrastructure.Persistence.Seeders
         {
             var settings = new List<SystemSetting>
             {
-                new SystemSetting
-                {
-                    SettingKey = "EVENT_FEE_PERCENTAGE",
-                    SettingValue = "5",
-                    DataType = "Decimal",
-                    Description = "Percentage of event creation fees (%)"
-                },
+                //new SystemSetting
+                //{
+                //    SettingKey = "EVENT_FEE_PERCENTAGE",
+                //    SettingValue = "5",
+                //    DataType = "Decimal",
+                //    Description = "Percentage of event creation fees (%)"
+                //},
                 new SystemSetting
                 {
                     SettingKey = "EVENT_MIN_FEE",
@@ -136,6 +136,13 @@ namespace Infrastructure.Persistence.Seeders
                     SettingValue = "2",
                     DataType = "Number",
                     Description = "Minimum number of professionals required for the event to begin."
+                },
+                new SystemSetting
+                {
+                    SettingKey = "MaxEarlyStartHours",
+                    SettingValue = "24",
+                    DataType = "Number",
+                    Description = "The maximum number of hours allowed for starting an event earlier than scheduled."
                 }
             };
 

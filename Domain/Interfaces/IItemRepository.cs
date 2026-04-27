@@ -16,6 +16,7 @@ namespace Domain.Interfaces
         Task<List<Item>> GetItemsWithDetailsByIdsAsync(List<int> itemIds);
 
         Task<IEnumerable<Item>> GetAllAsync();
+        Task<(IEnumerable<Item> Items, int TotalCount)> GetByWardrobeIdAsync2(int wardrobeId, int page, int pageSize, string? search);
         Task<IEnumerable<Item>> GetByWardrobeIdAsync(int wardrobeId);
         Task<IEnumerable<Item>> GetSellableItemsByWardrobeIdAsync(int wardrobeId);
 

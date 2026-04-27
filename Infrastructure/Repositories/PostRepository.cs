@@ -1,9 +1,13 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Domain.Constants;
+﻿using Domain.Constants;
+using Domain.Contracts.Social.Post;
 using Domain.Dto.Admin;
+using Domain.Dto.Common;
 using Infrastructure.Persistence;
 using Domain.Entities;
 using Domain.Interfaces;
+using Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 using Domain.Contracts.Social.Post;
 using Domain.Contracts.Common;
 
@@ -525,6 +529,11 @@ namespace Infrastructure.Repositories
                 .Where(r => r.AccountId == viewerId && postIds.Contains(r.PostId))
                 .Select(r => r.PostId)
                 .ToListAsync();
+        }
+
+        public async Task<bool> AnyAsync(Expression<Func<Post, bool>> predicate)
+        {
+            return await _db.Posts.AnyAsync(predicate);
         }
     }
 }

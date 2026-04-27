@@ -15,7 +15,10 @@ namespace Application.Mappers
         {
             TypeAdapterConfig<Item, ItemResponseDto>.NewConfig()
                 .Map(dest => dest.PrimaryImageUrl, src => src.Images.Select(img => img.ImageUrl).FirstOrDefault())
-                .Map(dest => dest.Category, src => src.Category != null ? src.Category.ToString() : null);
+                .Map(dest => dest.Category, src => src.Category != null ? src.Category.ToString() : null)
+                .Map(dest => dest.OwnerUsername, src => src.Wardrobe != null && src.Wardrobe.Account != null
+                                        ? src.Wardrobe.Account.UserName
+                                        : "N/A");
 
             TypeAdapterConfig<RecommendationDetail, ItemResponseDto>.NewConfig()
                 .Map(dest => dest, src => src.Item)
@@ -23,7 +26,10 @@ namespace Application.Mappers
 
             TypeAdapterConfig<SavedItem, ItemResponseDto>.NewConfig()
                 .Map(dest => dest.PrimaryImageUrl, src => src.Item.Images.Select(img => img.ImageUrl).FirstOrDefault())
-                .Map(dest => dest, src => src.Item);
+                .Map(dest => dest, src => src.Item)
+                .Map(dest => dest.OwnerUsername, src => src.Item.Wardrobe != null && src.Item.Wardrobe.Account != null
+                                            ? src.Item.Wardrobe.Account.UserName
+                                            : "N/A");
 
             TypeAdapterConfig<Request.ItemReq.ProductUploadDto, Item>.NewConfig()
                 .Ignore(dest => dest.ItemEmbedding)

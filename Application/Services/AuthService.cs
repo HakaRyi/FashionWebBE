@@ -246,7 +246,7 @@ namespace Application.Services
                 return new AuthResponse
                 {
                     Success = false,
-                    Message = "Email hoặc mật khẩu không chính xác."
+                    Message = "Incorrect email or password."
                 };
             }
 
@@ -257,7 +257,7 @@ namespace Application.Services
                 return new AuthResponse
                 {
                     Success = false,
-                    Message = "Tài khoản chưa được xác thực email."
+                    Message = "The account has not been verified with an email address."
                 };
             }
 
@@ -301,7 +301,8 @@ namespace Application.Services
                 Success = true,
                 AccessToken = accessToken,
                 RefreshToken = refreshTokenString,
-                Message = "Đăng nhập thành công."
+                Message = "Login successful.",
+                HasCompletedOnboarding = user.HasCompletedOnboarding
             };
         }
 
@@ -344,7 +345,7 @@ namespace Application.Services
             };
         }
 
-        private async Task<string> GenerateAccessToken(Account user)
+        public async Task<string> GenerateAccessToken(Account user)
         {
             var roles = await _userManager.GetRolesAsync(user);
             var avatarUrl = user.Avatars?.FirstOrDefault()?.ImageUrl ?? "";
@@ -357,7 +358,8 @@ namespace Application.Services
                 new Claim(JwtRegisteredClaimNames.Email, user.Email ?? string.Empty),
                 new Claim("AccountId", user.Id.ToString()),
                 new Claim("Username", user.UserName ?? string.Empty),
-                new Claim("Avatar", avatarUrl)
+                new Claim("Avatar", avatarUrl),
+                new Claim("HasCompletedOnboarding", user.HasCompletedOnboarding.ToString().ToLower()),
             };
 
             foreach (var role in roles)
@@ -545,8 +547,9 @@ namespace Application.Services
                 Success = true,
                 AccessToken = accessToken,
                 RefreshToken = refreshTokenString,
-                Message = "Đăng nhập thành công.",
-                IsNewUser = isNewUser
+                Message = "Login successful.",
+                IsNewUser = isNewUser,
+                HasCompletedOnboarding = user.HasCompletedOnboarding
             };
         }
 

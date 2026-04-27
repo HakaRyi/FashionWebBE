@@ -39,5 +39,19 @@ namespace Infrastructure.Repositories
             _context.Notifications.Update(notification);
             await _context.SaveChangesAsync();
         }
+
+        public async Task MarkAllAsReadAsync(int userId)
+        {
+            var unreadNotifications = await _context.Notifications
+                .Where(n => n.TargetUserId == userId && n.Status == "Unread")
+                .ToListAsync();
+
+            foreach (var notification in unreadNotifications)
+            {
+                notification.Status = "Read";
+            }
+
+            await _context.SaveChangesAsync();
+        }
     }
 }

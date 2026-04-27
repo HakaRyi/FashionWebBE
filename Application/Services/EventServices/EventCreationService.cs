@@ -8,6 +8,7 @@ using Application.Utils;
 using Domain.Entities;
 using Domain.Interfaces;
 using Mapster;
+using Microsoft.Extensions.Logging;
 using Quartz;
 
 namespace Application.Services.EventServices
@@ -69,23 +70,15 @@ namespace Application.Services.EventServices
 
             ValidateEventRequest(dto, minExpertsSystemConfig);
 
-            decimal feePercentage = await _settingRepo.GetDecimalValueAsync("EVENT_FEE_PERCENTAGE", 5.0m);
-
-            decimal minFee = await _settingRepo.GetDecimalValueAsync("EVENT_MIN_FEE", 10000m);
+            decimal fixedSystemFee = await _settingRepo.GetDecimalValueAsync("EVENT_MIN_FEE", 10000m);
 
             var totalPrize = dto.Prizes.Sum(p => p.RewardAmount);
 
-            decimal calculatedFee = totalPrize * (feePercentage / 100m);
-
-            decimal currentFee = Math.Max(calculatedFee, minFee);
+            decimal totalToLock = totalPrize + fixedSystemFee;
 
             var wallet = await _walletRepo.GetByAccountIdAsync(creatorId);
-            if (wallet == null || wallet.Balance < totalPrize + currentFee)
-                throw new Exception($"Số dư ví không đủ. Cần {totalPrize + currentFee:N0} VNĐ (bao gồm phí tạo).");
-
-            decimal totalToLock = totalPrize + currentFee;
-
-            await CheckSpendingLimitAsync(wallet, totalToLock);
+            if (wallet == null || wallet.Balance < totalToLock)
+                throw new Exception($"Số dư ví không đủ. Cần {totalToLock:N0} VNĐ (bao gồm phí tạo).");
 
             await _unitOfWork.BeginTransactionAsync();
             try
@@ -94,9 +87,14 @@ namespace Application.Services.EventServices
 
                 var eventData = dto.Adapt<Event>();
 
+                eventData.StartTime = dto.StartTime.ToUniversalTime();
+                eventData.SubmissionDeadline = dto.SubmissionDeadline.ToUniversalTime();
+                eventData.EndTime = dto.EndTime.ToUniversalTime();
+
                 eventData.MinExpertsToStart = dto.MinExpertsRequired;
                 eventData.CreatorId = creatorId;
-                eventData.AppliedFee = currentFee;
+                eventData.AppliedFee = fixedSystemFee;
+                eventData.EntryFee = dto.EntryFee;
                 eventData.Status = "Pending_Review";
                 eventData.CreatedAt = DateTime.UtcNow;
 
@@ -126,7 +124,6 @@ namespace Application.Services.EventServices
                 await CreatePrizesAsync(eventData.EventId, dto.Prizes);
                 await SetupExpertPanelAsync(eventData.EventId, creatorId, dto.InvitedExpertIds, isDraft: true);
 
-                //decimal totalToLock = totalPrize + currentFee;
                 wallet.Balance -= totalToLock;
                 wallet.LockedBalance += totalToLock;
                 _walletRepo.Update(wallet);
@@ -172,12 +169,8 @@ namespace Application.Services.EventServices
                 // TRƯỜNG HỢP 2: Thành công - Kích hoạt và Ký quỹ
                 else
                 {
-                    //await CollectSystemFeeAsync(wallet, ev);
-                    //await ProcessEscrowFromLockedAsync(eventId, ev.CreatorId, totalPrizeAmount, wallet);
-                    decimal totalEventSpending = ev.AppliedFee + totalPrizeAmount;
-                    await CheckSpendingLimitAsync(wallet, totalEventSpending);
                     await CollectSystemFeeAsync(wallet, ev);
-                    await ProcessEscrowFromLockedAsync(eventId, ev.CreatorId, totalPrizeAmount, wallet);
+                    await ProcessEscrowFromLockedAsync(ev, ev.CreatorId, totalPrizeAmount, wallet);
 
                     ev.Status = "Active";
                     _eventRepo.Update(ev);
@@ -221,8 +214,8 @@ namespace Application.Services.EventServices
                 ReferenceId = ev.EventId,
                 ReferenceType = "Event",
                 Status = "Success",
-                Description = $"Thanh toán phí hệ thống cho sự kiện: {ev.Title}",
-                CreatedAt = DateTime.Now
+                Description = $"Pay the system fee for the event: {ev.Title}",
+                CreatedAt = DateTime.UtcNow
             });
 
             // --- 2. XỬ LÝ VÍ ADMIN (HỆ THỐNG) ---
@@ -241,8 +234,8 @@ namespace Application.Services.EventServices
                 ReferenceId = ev.EventId,
                 ReferenceType = "Event",
                 Status = "Success",
-                Description = $"Thu phí hệ thống từ sự kiện: {ev.EventId}",
-                CreatedAt = DateTime.Now
+                Description = $"Collect system fees from events: {ev.EventId}",
+                CreatedAt = DateTime.UtcNow
             });
 
             // Cập nhật trạng thái ví vào DB
@@ -250,7 +243,7 @@ namespace Application.Services.EventServices
             _walletRepo.Update(adminWallet);
         }
 
-        private async Task ProcessEscrowFromLockedAsync(int eventId, int expertId, decimal amount, Wallet wallet)
+        private async Task ProcessEscrowFromLockedAsync(Event ev, int expertId, decimal amount, Wallet wallet)
         {
             // 1. Lấy số dư trước khi thay đổi để log giao dịch
             decimal beforeLocked = wallet.LockedBalance;
@@ -262,18 +255,18 @@ namespace Application.Services.EventServices
             // 3. Tạo phiên ký quỹ (Escrow) để giữ tiền thưởng
             await _escrowRepo.AddAsync(new EscrowSession
             {
-                EventId = eventId,
+                EventId = ev.EventId,
                 SenderId = expertId,
                 Amount = amount,
                 Status = "Held",
-                CreatedAt = DateTime.Now
+                CreatedAt = DateTime.UtcNow
             });
 
             // 4. Log giao dịch chuyển tiền vào hệ thống ký quỹ
             await _transactionRepo.AddAsync(new Transaction
             {
                 // FIX LỖI: Thêm mã giao dịch duy nhất
-                TransactionCode = $"ESCROW_HOLD_{eventId}_{DateTime.Now.Ticks}",
+                TransactionCode = $"ESCROW_HOLD_{ev.EventId}_{DateTime.Now.Ticks}",
 
                 WalletId = wallet.WalletId,
                 Amount = -amount, // Số tiền âm vì đang chuyển ra khỏi ví (vào Escrow)
@@ -283,11 +276,11 @@ namespace Application.Services.EventServices
                 BalanceAfter = wallet.LockedBalance,
 
                 Type = "Escrow_Hold",
-                ReferenceId = eventId,
+                ReferenceId = ev.EventId,
                 ReferenceType = "Event",
                 Status = "Success",
-                Description = $"Ký quỹ tiền thưởng cho sự kiện ID: {eventId}",
-                CreatedAt = DateTime.Now
+                Description = $"Deposit prize money for the event: {ev.Title}",
+                CreatedAt = DateTime.UtcNow
             });
         }
 
@@ -302,19 +295,25 @@ namespace Application.Services.EventServices
 
             // 2. CHECK GIỚI HẠN THỜI GIAN
             double maxEarlyHours = await _settingRepo.GetDoubleValueAsync("MaxEarlyStartHours", 24.0);
-            DateTime now = DateTime.Now;
+            DateTime now = DateTime.UtcNow;
 
-            if ((ev.StartTime.Value - now).TotalHours > maxEarlyHours)
+            DateTime dbTime = ev.StartTime.Value;
+
+            DateTime eventStartUtc = ev.StartTime.Value.ToUniversalTime();
+
+            double hoursUntilStart = (eventStartUtc - now).TotalHours;
+
+            if (hoursUntilStart > maxEarlyHours)
             {
-                throw new Exception($"Bạn chỉ có thể bắt đầu sớm tối đa {maxEarlyHours} tiếng so với lịch dự kiến.");
+                throw new Exception($"You can only start a maximum of {maxEarlyHours} hours earlier than scheduled.");
             }
 
             if (ev.IsAutoStart)
             {
                 // Sự kiện Tự động: Đã đến giờ StartTime -> Cấm bấm tay, bắt chờ Quartz xử lý
-                if (now >= ev.StartTime)
+                if (now >= eventStartUtc)
                 {
-                    throw new Exception("Sự kiện này được cài đặt Tự động. Đã đến giờ, vui lòng đợi hệ thống kích hoạt trong giây lát.");
+                    throw new Exception("This event is set to Automatic. It's time, please wait a moment for the system to activate.");
                 }
             }
             else
@@ -322,7 +321,7 @@ namespace Application.Services.EventServices
                 // Sự kiện Thủ công: Nếu ngâm quá 12 tiếng kể từ giờ StartTime dự kiến -> cấm Start
                 if ((now - ev.StartTime.Value).TotalHours > 12)
                 {
-                    throw new Exception("Đã quá 12 tiếng kể từ thời gian bắt đầu dự kiến. Bạn không thể kích hoạt sự kiện này được nữa.");
+                    throw new Exception("More than 12 hours have passed since the scheduled start time. You can no longer trigger this event.");
                     // TIP: Chỗ này sau này bạn có thể viết thêm logic tự động Cancel Event và hoàn tiền (Refund) nếu muốn.
                 }
             }
@@ -342,12 +341,8 @@ namespace Application.Services.EventServices
                 decimal totalPrizeAmount = prizesData.Sum(p => p.RewardAmount);
 
                 // 1. Thu phí hệ thống & Chuyển tiền vào Escrow (Ký quỹ)
-                //await CollectSystemFeeAsync(wallet, ev);
-                //await ProcessEscrowFromLockedAsync(eventId, ev.CreatorId, totalPrizeAmount, wallet);
-                decimal totalEventSpending = ev.AppliedFee + totalPrizeAmount;
-                await CheckSpendingLimitAsync(wallet, totalEventSpending);
                 await CollectSystemFeeAsync(wallet, ev);
-                await ProcessEscrowFromLockedAsync(eventId, ev.CreatorId, totalPrizeAmount, wallet);
+                await ProcessEscrowFromLockedAsync(ev, ev.CreatorId, totalPrizeAmount, wallet);
 
                 // 2. Cập nhật thông tin Event: Chuyển sang Active và cập nhật StartTime thực tế
                 ev.Status = "Active";
@@ -370,7 +365,7 @@ namespace Application.Services.EventServices
                             SenderId = ev.CreatorId,
                             TargetUserId = exp.ExpertId,
                             Title = "The event has begun!",
-                            Content = $"The '{ev.Title}' has officially begun.",
+                            Content = $"The '{ev.Title}' has officially begin.",
                             Type = "Event_Started",
                             RelatedId = eventId.ToString()
                         });
@@ -448,7 +443,7 @@ namespace Application.Services.EventServices
                     ReferenceType = "Event",
                     Status = "Success",
                     Description = $"Hoàn tiền hủy sự kiện: {ev.Title}",
-                    CreatedAt = DateTime.Now
+                    CreatedAt = DateTime.UtcNow
                 });
 
                 // 5. Cập nhật trạng thái sự kiện và chuyên gia
@@ -478,15 +473,6 @@ namespace Application.Services.EventServices
                     }
                 }
 
-                foreach (var exp in experts)
-                {
-                    if (exp.Status == "Pending" || exp.Status == "Accepted" || exp.Status == "Awaiting_Review")
-                    {
-                        exp.Status = "Event_Cancelled";
-                        _eventExpertRepo.Update(exp);
-                    }
-                }
-
                 // 6. Hủy bỏ Background Job kích hoạt tự động (nếu có)
                 var scheduler = await _schedulerFactory.GetScheduler();
                 var jobKey = new JobKey($"Job_Activate_{ev.EventId}", "EventGroup");
@@ -513,19 +499,16 @@ namespace Application.Services.EventServices
 
             var job = JobBuilder.Create<FinalizeEventJob>()
                 .WithIdentity($"Job_Finalize_{ev.EventId}", "EventAwardGroup")
-                .WithDescription($"Tự động trao giải sự kiện: {ev.Title} (ID: {ev.EventId})")
+                .WithDescription($"Automatically award prizes for events: {ev.Title} (ID: {ev.EventId})")
                 .UsingJobData("EventId", ev.EventId)
                 .Build();
 
-            DateTime processTime = ev.EndTime.Value.Kind == DateTimeKind.Unspecified
-                ? DateTime.SpecifyKind(ev.EndTime.Value, DateTimeKind.Local)
-                : ev.EndTime.Value;
-
-            DateTimeOffset endTimeOffset = new DateTimeOffset(processTime);
+            DateTime endTimeUtc = ev.EndTime.Value.ToUniversalTime();
+            DateTimeOffset endTimeOffset = new DateTimeOffset(endTimeUtc);
 
             var trigger = TriggerBuilder.Create()
                 .WithIdentity($"Trigger_Finalize_{ev.EventId}", "EventAwardGroup")
-                .WithDescription($"Lịch trao giải sự kiện '{ev.Title}' vào {endTimeOffset:dd/MM/yyyy HH:mm}")
+                .WithDescription($"Award Ceremony Schedule '{ev.Title}' on {endTimeOffset:dd/MM/yyyy HH:mm}")
                 .StartAt(endTimeOffset)
                 // Misfire Instruction: Nếu Server tắt ngay lúc EndTime, khi bật lại sẽ bắn bù ngay!
                 .WithSimpleSchedule(x => x.WithMisfireHandlingInstructionFireNow())
@@ -556,7 +539,7 @@ namespace Application.Services.EventServices
             if (dto.Criteria == null || !dto.Criteria.Any())
             {
                 throw new Exception("Sự kiện cần có ít nhất một tiêu chí chấm điểm.");
-            }   
+            }
         }
 
         private async Task CreatePrizesAsync(int eventId, List<PrizeRequest> prizeRequests)
@@ -595,37 +578,6 @@ namespace Application.Services.EventServices
                 }));
             }
             await _eventExpertRepo.AddRangeAsync(expertPanel);
-        }
-
-        private async Task CheckSpendingLimitAsync(Wallet wallet, decimal debitAmount)
-        {
-            if (wallet == null)
-                throw new KeyNotFoundException("Ví không tồn tại.");
-
-            if (debitAmount <= 0)
-                throw new ArgumentException("Số tiền chi không hợp lệ.");
-
-            if (!wallet.MonthlySpendingLimit.HasValue || wallet.MonthlySpendingLimit.Value <= 0)
-                return;
-
-            var now = DateTime.UtcNow;
-
-            decimal spentThisMonth = await _transactionRepo.GetMonthlyDebitTotalAsync(
-                wallet.WalletId,
-                now.Month,
-                now.Year);
-
-            decimal projectedSpent = spentThisMonth + debitAmount;
-            decimal limitAmount = wallet.MonthlySpendingLimit.Value;
-
-            if (wallet.IsHardSpendingLimit && projectedSpent > limitAmount)
-            {
-                throw new InvalidOperationException(
-                    $"Bạn đã vượt hạn mức chi tiêu tháng. " +
-                    $"Đã chi: {spentThisMonth:N0} VND, " +
-                    $"chi phí sự kiện: {debitAmount:N0} VND, " +
-                    $"hạn mức: {limitAmount:N0} VND.");
-            }
         }
     }
 }

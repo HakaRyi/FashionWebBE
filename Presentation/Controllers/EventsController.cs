@@ -38,7 +38,7 @@ namespace Presentation.Controllers
 
                 return Ok(new
                 {
-                    message = "Sự kiện đã được tạo thành công! Hệ thống đang chờ các Expert chấp nhận lời mời để kích hoạt.",
+                    message = "The event has been successfully created! The system is waiting for Experts to accept the invitation to activate it.",
                     eventId = result.EventId,
                     status = result.Status,
                     startTime = result.StartTime
@@ -56,7 +56,7 @@ namespace Presentation.Controllers
             try
             {
                 await _eventCreationService.CancelEventAsync(id);
-                return Ok(new { Message = "Sự kiện đã được hủy và hoàn tiền thành công." });
+                return Ok(new { Message = "The event has been canceled and a refund has been successfully issued." });
             }
             catch (Exception ex)
             {
@@ -73,7 +73,7 @@ namespace Presentation.Controllers
             try
             {
                 await _eventAwardingService.FinalizeAndAwardEventAsync(id);
-                return Ok(new { message = "Sự kiện đã kết thúc. Tiền thưởng đã được chuyển đến ví của những người thắng cuộc." });
+                return Ok(new { message = "The event has ended. The prize money has been transferred to the winners' wallets." });
             }
             catch (Exception ex)
             {
@@ -112,7 +112,7 @@ namespace Presentation.Controllers
 
                 return Ok(new
                 {
-                    Message = "Sự kiện đã được kích hoạt thành công sớm hơn dự kiến.",
+                    Message = "The event was successfully activated earlier than expected.",
                     ActivatedAt = DateTime.Now
                 });
             }
@@ -214,8 +214,6 @@ namespace Presentation.Controllers
 
         #endregion
 
-        #region --- General Queries (User & Guest) ---
-
         /// <summary>
         /// Lấy chi tiết một sự kiện cụ thể
         /// </summary>
@@ -227,7 +225,6 @@ namespace Presentation.Controllers
             return Ok(detail);
         }
 
-        #endregion
 
         #region --- Expert Specific ---
 

@@ -132,7 +132,10 @@ builder.Services.AddScoped<ISearchHistoryRepository, SearchHistoryRepository>();
 builder.Services.AddScoped<IItemSaveRepository, ItemSaveRepository>();
 builder.Services.AddScoped<IEventCriterionRepository, EventCriterionRepository>();
 builder.Services.AddScoped<IRecommendationHistoryRepository, RecommendationHistoryRepository>();
+builder.Services.AddScoped<IPhysicalProfileRepository, PhysicalProfileRepository>();
+builder.Services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>();
 builder.Services.AddScoped<IItemVariantRepository, ItemVariantRepository>();
+
 
 
 #endregion
@@ -183,6 +186,7 @@ builder.Services.AddScoped<IItemSaveService, ItemSaveService>();
 builder.Services.AddScoped<IRefundRequestRepository, RefundRequestRepository>();
 builder.Services.AddScoped<IRecommendationService,RecommendationService>();
 builder.Services.AddScoped<IReputationHistoryService, ReputationHistoryService>();
+builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 builder.Services.AddScoped<IFileService, GoogleDriveService>();
 builder.Services.AddScoped<IChatShareService, ChatShareService>();
 

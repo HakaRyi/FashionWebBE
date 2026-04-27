@@ -1,3 +1,4 @@
+using Abp.Net.Mail;
 using Application.Request.ItemReq;
 using Application.Request.ItemRequest;
 using Application.Response.ItemResp;
@@ -13,7 +14,7 @@ namespace Application.Services.Items
         Task<ItemResponseDto> CreateFashionItemAsync(ProductUploadDto dto, int accountId);
         Task<List<ItemResponseDto>> GetRecommendationsAsync(string prompt);
         Task<List<ItemResponseDto>> GetSmartRecommendationsAsync(SmartRecommendationRequestDto request);
-        Task<IEnumerable<ItemResponseDto>> GetMyItemsAsync(int accountId);
+        Task<(IEnumerable<ItemResponseDto> Items, int TotalCount)> GetMyItemsAsync(int accountId, int page, int pageSize, string? search);
         Task UpdateItemAsync(int itemId, UpdateItemRequest request);
         Task DeleteItemAsync(int itemId);
         Task<ItemVariantResponseDto> UpdateItemVariantAsync(int itemVariantId, UpdateItemVariantRequest request);
@@ -25,5 +26,6 @@ namespace Application.Services.Items
         Task<List<PublicWardrobeItemDto>> GetMySavedItemsAsync();
         Task SaveItemAsync(int itemId);
         Task UnsaveItemAsync(int itemId);
+        Task<IEnumerable<ItemResponseDto>> GetAllMyItemsAsync(int accountId);
     }
 }

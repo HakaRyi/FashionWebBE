@@ -2,6 +2,7 @@
 using Domain.Contracts.Social.Post;
 using Domain.Dto.Admin;
 using Domain.Entities;
+using System.Linq.Expressions;
 
 namespace Domain.Interfaces
 
@@ -31,5 +32,6 @@ namespace Domain.Interfaces
 
         Task<(List<Post> Posts, List<Account> Users)> SearchRawDataAsync(string keyword, int limit);
         Task<List<int>> GetLikedPostIdsAsync(int viewerId, List<int> postIds);
+        Task<bool> AnyAsync(Expression<Func<Post, bool>> predicate);
     }
 }

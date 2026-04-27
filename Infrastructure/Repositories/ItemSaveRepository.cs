@@ -26,6 +26,9 @@ namespace Infrastructure.Repositories
             return await _db.SavedItems
                 .Include(s => s.Item)
                     .ThenInclude(i => i.Images)
+                .Include(s => s.Item)
+                    .ThenInclude(i=>i.Wardrobe)
+                        .ThenInclude(w => w.Account)
                 .Where(s => s.AccountId == accId)
                 .ToListAsync();
         }

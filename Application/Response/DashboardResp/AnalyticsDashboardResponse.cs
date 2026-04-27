@@ -1,33 +1,32 @@
 ﻿namespace Application.Response.DashboardResp
 {
-    public class AnalyticsDashboardResponse
+    public class EventAnalyticsRawResponse
     {
-        public List<StatCardDto> Stats { get; set; } = new();
-        public List<TopEventDto> TopEvents { get; set; } = new();
-        public List<ChartDataDto> ChartData { get; set; } = new();
+        public int ExpertId { get; set; }
+        public List<EventRawDto> Events { get; set; } = new List<EventRawDto>();
     }
 
-    public class StatCardDto
+    public class EventRawDto
     {
-        public string Label { get; set; } = "";
-        public string Value { get; set; } = "";
-        public string Change { get; set; } = "";
-        public bool IsUp { get; set; }
+        public int EventId { get; set; }
+        public string Title { get; set; }
+        public decimal AppliedFee { get; set; }
+        public decimal EntryFee { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public string Status { get; set; }
+        public List<PostRawDto> Posts { get; set; }
+
+        public int TotalPosts => Posts?.Count ?? 0;
+        public decimal TotalEntryRevenue => TotalPosts * EntryFee;
     }
 
-    public class TopEventDto
+    public class PostRawDto
     {
-        public int Id { get; set; }
-        public string Title { get; set; } = "";
-        public int Posts { get; set; }
-        public int Rated { get; set; }
-        public string Engagements { get; set; } = "";
-    }
-
-    public class ChartDataDto
-    {
-        public string Date { get; set; } = "";
-        public int Submissions { get; set; }
-        public int Engagements { get; set; }
+        public int PostId { get; set; }
+        public int LikeCount { get; set; }
+        public int ShareCount { get; set; }
+        public int CommentCount { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public bool IsRatedByExpert { get; set; }
     }
 }

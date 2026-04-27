@@ -97,6 +97,24 @@ namespace Infrastructure.Repositories
                 .OrderByDescending(i => i.CreatedAt)
                 .ToListAsync();
         }
+        public async Task<(IEnumerable<Item> Items, int TotalCount)> GetByWardrobeIdAsync2(int wardrobeId, int page, int pageSize, string? search)
+        {
+            var query = _context.Items
+                .AsNoTracking()
+                .Where(i => i.WardrobeId == wardrobeId)
+                .Where(i => string.IsNullOrEmpty(search) || i.ItemName.Contains(search) || (i.Style.Contains(search)));
+            var totalCount = await query.CountAsync();
+            var items = await query
+                .Include(i => i.Images)
+                .Include(i => i.Wardrobe)
+                    .ThenInclude(w => w.Account)
+                .OrderByDescending(i => i.CreatedAt)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (items, totalCount);
+        }
 
         public async Task<IEnumerable<Item>> GetSellableItemsByWardrobeIdAsync(int wardrobeId)
         {
@@ -111,6 +129,7 @@ namespace Infrastructure.Repositories
                 .OrderByDescending(i => i.PublishedAt ?? i.CreatedAt)
                 .ToListAsync();
         }
+
 
         public async Task<int> CountPublicItemsByAccountIdAsync(int accountId)
         {
@@ -326,6 +345,8 @@ namespace Infrastructure.Repositories
             return await query
                 .AsNoTracking()
                 .Include(i => i.Images)
+                .Include(i => i.Wardrobe)           
+                    .ThenInclude(w => w.Account)
                 .Include(i => i.ItemVariants)
                 .OrderBy(i => i.ItemEmbedding.CosineDistance(queryVector))
                 .Take(scopeRequest.Limit > 0 ? scopeRequest.Limit : 15)

@@ -73,10 +73,10 @@ namespace Application.Services.EventServices
         public async Task FinalizeAndAwardEventAsync(int eventId)
         {
             var ev = await _eventRepo.GetByIdAsync(eventId);
-            if (ev == null) throw new Exception("Sự kiện không tồn tại.");
+            if (ev == null) throw new Exception("The event does not exist.");
 
             if (ev.Status != "Active" && ev.Status != "Judging")
-                throw new Exception($"Không thể trao giải. Trạng thái hiện tại: {ev.Status}");
+                throw new Exception($"The award cannot be given. Current status: {ev.Status}");
 
             await _unitOfWork.BeginTransactionAsync();
             try
@@ -86,7 +86,7 @@ namespace Application.Services.EventServices
 
                 // 2. Lấy thông tin Escrow
                 var escrow = await _escrowRepo.GetActiveEscrowByEventIdAsync(eventId);
-                if (escrow == null) throw new Exception("Không tìm thấy khoản ký quỹ hợp lệ cho sự kiện này.");
+                if (escrow == null) throw new Exception("No valid deposit was found for this event.");
 
                 // 3. Trao giải cho người thắng (Trả về tổng số tiền đã phát)
                 decimal totalDistributedAmount = await DistributePrizesAsync(eventId, ev, rankedPosts);
@@ -94,19 +94,36 @@ namespace Application.Services.EventServices
                 // 4. Xử lý hoàn tiền ký quỹ (nếu số người thắng ít hơn số giải)
                 await RefundRemainingEscrowAsync(ev, escrow, totalDistributedAmount);
 
-                // 5. ĐÁNH GIÁ VÀ TRỪ ĐIỂM CHUYÊN GIA
+                // 5. Giải ngân tiền PHÍ THAM GIA (Entry Fee Revenue) cho Creator
+                await ReleaseEventRevenueToCreatorAsync(ev);
+
+                // 6. ĐÁNH GIÁ VÀ TRỪ ĐIỂM CHUYÊN GIA
                 await EvaluateExpertPerformanceAsync(eventId, ev);
 
-                // 6. Đóng sự kiện và dọn dẹp Quartz Job
+                // 7. Đóng sự kiện và dọn dẹp Quartz Job
                 await CloseEventAndCleanupAsync(ev);
 
                 // CHỐT GIAO DỊCH
                 await _unitOfWork.CommitAsync();
+
+                try
+                {
+                    var scheduler = await _schedulerFactory.GetScheduler();
+                    var jobKeyFinalize = new JobKey($"Job_Finalize_{ev.EventId}", "EventAwardGroup");
+
+                    if (await scheduler.CheckExists(jobKeyFinalize))
+                    {
+                        await scheduler.DeleteJob(jobKeyFinalize);
+                    }
+                }
+                catch (Exception ex)
+                {
+                }
             }
             catch (Exception ex)
             {
                 await _unitOfWork.RollbackAsync();
-                throw new Exception($"Lỗi trong quá trình kết thúc và trao giải sự kiện: {ex.Message}");
+                throw new Exception($"Error during the event's closing and awards ceremony: {ex.Message}");
             }
         }
 
@@ -115,29 +132,29 @@ namespace Application.Services.EventServices
             var allPosts = await _postRepo.GetPostsByEventIdAsync(eventId);
             if (!allPosts.Any()) return new List<Post>();
 
+            var allRatings = await _ratingRepo.GetAllRatingsByEventIdAsync(eventId);
+            var ratingsLookup = allRatings.ToLookup(r => r.PostId);
+
             double maxRawScore = await _postRepo.GetMaxRawCommunityScoreAsync(eventId, ev.PointPerLike, ev.PointPerShare);
             if (maxRawScore == 0) maxRawScore = 1;
-
-            int totalExpertsInEvent = await _eventExpertRepo.CountAcceptedExpertsAsync(eventId);
-            if (totalExpertsInEvent == 0) totalExpertsInEvent = 1;
 
             double totalWeight = ev.ExpertWeight + ev.UserWeight;
 
             foreach (var post in allPosts)
             {
                 double currentRaw = (post.LikeCount ?? 0) * ev.PointPerLike + (post.ShareCount ?? 0) * ev.PointPerShare;
-                double normalizedCommunityScore = currentRaw / maxRawScore * 10;
+                double normalizedCommunityScore = (currentRaw / maxRawScore) * 10;
 
-                var ratings = (await _ratingRepo.GetRatingsByPostIdAsync(post.PostId)).ToList();
-                double avgExpertScore = ratings.Sum(r => r.Score) / totalExpertsInEvent;
+
+                var postRatings = ratingsLookup[post.PostId].ToList();
+                double avgExpertScore = postRatings.Any() ? postRatings.Average(r => r.Score) : 0;
 
                 double rawFinalScore = totalWeight > 0
                     ? (avgExpertScore * ev.ExpertWeight + normalizedCommunityScore * ev.UserWeight) / totalWeight
                     : 0;
                 double finalScore = Math.Round(rawFinalScore, 3);
 
-                var sb = await _scoreboardRepo.GetByPostIdAsync(post.PostId) ?? new Scoreboard();
-
+                var sb = await _scoreboardRepo.GetByPostIdAsync(post.PostId) ?? new Scoreboard { CreatedAt = DateTime.UtcNow };
                 sb.PostId = post.PostId;
                 sb.ExpertScore = avgExpertScore;
                 sb.CommunityScore = normalizedCommunityScore;
@@ -146,25 +163,17 @@ namespace Application.Services.EventServices
                 sb.FinalShareCount = post.ShareCount ?? 0;
                 sb.Status = "Completed";
 
-                if (sb.ScoreboardId == 0)
-                {
-                    sb.CreatedAt = DateTime.UtcNow;
-                    await _scoreboardRepo.AddAsync(sb);
-                }
-                else
-                {
-                    _scoreboardRepo.Update(sb);
-                }
+                if (sb.ScoreboardId == 0) await _scoreboardRepo.AddAsync(sb);
+                else _scoreboardRepo.Update(sb);
 
-                post.Scoreboard = sb; // Gán vào RAM để lát sort
+                post.Scoreboard = sb;
             }
 
-            await _unitOfWork.SaveChangesAsync(); // Lưu bảng điểm xuống DB
+            await _unitOfWork.SaveChangesAsync();
 
-            // Trả về danh sách đã sắp xếp (Bỏ qua bước query lại từ DB)
             return allPosts
                 .OrderByDescending(p => p.Scoreboard!.FinalScore)
-                .ThenBy(p => p.CreatedAt) // Điểm bằng nhau thì ai nộp trước người đó thắng
+                .ThenBy(p => p.CreatedAt)
                 .ToList();
         }
 
@@ -217,7 +226,7 @@ namespace Application.Services.EventServices
                     Type = "Prize_Reward",
                     ReferenceId = eventId,
                     ReferenceType = "Event",
-                    Description = $"Nhận thưởng Giải {prize.Ranked} sự kiện '{ev.Title}'",
+                    Description = $"Prize award for {prize.Ranked} place in event '{ev.Title}'",
                     Status = "Success",
                     CreatedAt = DateTime.UtcNow
                 });
@@ -253,7 +262,7 @@ namespace Application.Services.EventServices
                         Type = "Event_Refund",
                         ReferenceId = ev.EventId,
                         ReferenceType = "Event",
-                        Description = $"Hoàn tiền ký quỹ dư từ sự kiện '{ev.Title}' do không đủ người đạt giải.",
+                        Description = $"Refund of surplus escrow from event '{ev.Title}' due to insufficient winners.",
                         Status = "Success",
                         CreatedAt = DateTime.UtcNow
                     });
@@ -263,7 +272,7 @@ namespace Application.Services.EventServices
             // Tất toán Escrow
             escrow.Status = "Resolved";
             escrow.ResolvedAt = DateTime.UtcNow;
-            escrow.Description = $"Đã giải ngân {totalDistributedAmount:N0}. Hoàn trả {refundAmount:N0}.";
+            escrow.Description = $"Disbursed {totalDistributedAmount:N0}. Refund {refundAmount:N0}.";
             _escrowRepo.Update(escrow);
 
             await _unitOfWork.SaveChangesAsync();
@@ -292,40 +301,23 @@ namespace Application.Services.EventServices
                 });
             }
 
-            var scheduler = await _schedulerFactory.GetScheduler();
-            var jobKeyFinalize = new JobKey($"Job_Finalize_{ev.EventId}", "EventAwardGroup");
-
-            if (await scheduler.CheckExists(jobKeyFinalize))
-            {
-                await scheduler.DeleteJob(jobKeyFinalize);
-            }
-
             await _unitOfWork.SaveChangesAsync();
         }
 
         private async Task EvaluateExpertPerformanceAsync(int eventId, Event ev)
         {
-            // 1. Lấy tổng số bài viết trong sự kiện
             var allPosts = await _postRepo.GetPostsByEventIdAsync(eventId);
             int totalPosts = allPosts.Count();
 
             if (totalPosts == 0) return;
 
-            // 2. Lấy danh sách chuyên gia ĐÃ ĐỒNG Ý tham gia sự kiện
             var eventExperts = await _eventExpertRepo.GetByEventIdAsync(eventId);
             var acceptedExperts = eventExperts.Where(e => e.Status == "Accepted").ToList();
 
             if (!acceptedExperts.Any()) return;
 
-            // 3. Lấy tất cả lượt đánh giá của các bài viết trong sự kiện này
-            var postIds = allPosts.Select(p => p.PostId).ToList();
-            var allRatingsInEvent = new List<ExpertRating>();
-
-            foreach (var postId in postIds)
-            {
-                var ratings = await _ratingRepo.GetRatingsByPostIdAsync(postId);
-                allRatingsInEvent.AddRange(ratings);
-            }
+            var allRatings = await _ratingRepo.GetAllRatingsByEventIdAsync(eventId);
+            var ratingsByExpert = allRatings.ToLookup(r => r.ExpertId);
 
             // 4. Bắt đầu đánh giá từng chuyên gia
             foreach (var eventExpert in acceptedExperts)
@@ -333,84 +325,124 @@ namespace Application.Services.EventServices
                 var expertProfile = await _profileRepo.GetByAccountIdAsync(eventExpert.ExpertId);
                 if (expertProfile == null) continue;
 
-                int ratedCount = allRatingsInEvent.Count(r => r.ExpertId == expertProfile.AccountId);
+                int ratedCount = ratingsByExpert[expertProfile.AccountId].Count();
                 int missingCount = totalPosts - ratedCount;
 
                 int currentScore = expertProfile.ReputationScore ?? 100;
+                int pointChange = 0;
+                string reason = "";
+                bool isUpdated = false;
 
-                //plus score
+                // --- LOGIC CỘNG ĐIỂM (Plus Score) ---
                 if (missingCount <= 0)
                 {
                     if (currentScore < 100)
                     {
                         int bonusPoints = 5;
                         int newScore = Math.Min(100, currentScore + bonusPoints);
-                        int actualPointAdded = newScore - currentScore;
+                        pointChange = newScore - currentScore;
+                        reason = $"Completed grading 100% of the exam papers during the event: '{ev.Title}'. (Reputation score restoration)";
 
                         expertProfile.ReputationScore = newScore;
-                        _profileRepo.Update(expertProfile);
-
-                        await _reputationHistory.AddAsync(new ReputationHistory
-                        {
-                            ExpertProfileId = expertProfile.ExpertProfileId,
-                            PointChange = actualPointAdded,
-                            CurrentPoint = newScore,
-                            Reason = $"Hoàn thành chấm 100% bài thi trong sự kiện '{ev.Title}'. (Phục hồi điểm uy tín)",
-                            CreatedAt = DateTime.UtcNow
-                        });
+                        isUpdated = true;
                     }
-                    continue;
                 }
-
-                // minus score
-                double missingPercentage = (double)missingCount / totalPosts * 100;
-
-                int penaltyPoint = 0;
-                string penaltyReason = "";
-
-                if (missingPercentage <= 10)
-                {
-                    penaltyPoint = -2;
-                    penaltyReason = $"Missed {missingCount} evaluations (under 10%) in the event '{ev.Title}'.";
-                }
-                else if (missingPercentage <= 50)
-                {
-                    penaltyPoint = -10;
-                    penaltyReason = $"Withdrawing from the judging process (missing {missingPercentage:0.0}%) in the event '{ev.Title}'.";
-                }
+                // --- LOGIC TRỪ ĐIỂM (Minus Score) ---
                 else
                 {
-                    penaltyPoint = -20;
-                    penaltyReason = $"Giving up, failing to fulfill the responsibilities of a judge ({missingPercentage:0.0}% missing) in the event '{ev.Title}'.";
+                    double missingPercentage = (double)missingCount / totalPosts * 100;
+
+                    if (missingPercentage <= 10)
+                    {
+                        pointChange = -2;
+                        reason = $"Missed {missingCount} evaluations (under 10%) in the event '{ev.Title}'.";
+                    }
+                    else if (missingPercentage <= 50)
+                    {
+                        pointChange = -10;
+                        reason = $"Withdrawing from the judging process (missing {missingPercentage:0.0}%) in the event '{ev.Title}'.";
+                    }
+                    else
+                    {
+                        pointChange = -20;
+                        reason = $"Giving up, failing to fulfill the responsibilities of a judge ({missingPercentage:0.0}% missing) in the event '{ev.Title}'.";
+                    }
+
+                    int penalizedScore = Math.Max(0, currentScore + pointChange);
+                    expertProfile.ReputationScore = penalizedScore;
+                    isUpdated = true;
                 }
 
-                // Cập nhật điểm (Không để rớt xuống dưới 0)
-                int penalizedScore = Math.Max(0, currentScore + penaltyPoint);
-                expertProfile.ReputationScore = penalizedScore;
-
-                _profileRepo.Update(expertProfile);
-
-                await _reputationHistory.AddAsync(new ReputationHistory
+                if (isUpdated)
                 {
-                    ExpertProfileId = expertProfile.ExpertProfileId,
-                    PointChange = penaltyPoint, // Lưu số âm
-                    CurrentPoint = penalizedScore,
-                    Reason = penaltyReason,
+                    _profileRepo.Update(expertProfile);
+
+                    await _reputationHistory.AddAsync(new ReputationHistory
+                    {
+                        ExpertProfileId = expertProfile.ExpertProfileId,
+                        PointChange = pointChange,
+                        CurrentPoint = expertProfile.ReputationScore.Value,
+                        Reason = reason,
+                        CreatedAt = DateTime.UtcNow
+                    });
+
+                    try
+                    {
+                        await _notificationService.SendNotificationAsync(new Application.Request.NotificationReq.SendNotificationRequest
+                        {
+                            SenderId = 1,
+                            TargetUserId = expertProfile.AccountId,
+                            Title = pointChange >= 0 ? "Update your reputation score (Rewards)" : "Update reputation score (Penalties)",
+                            Content = reason,
+                            Type = "Reputation_Updated",
+                            RelatedId = ev.EventId.ToString()
+                        });
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Error sending notification to Expert {expertProfile.AccountId}: {ex.Message}");
+                    }
+                }
+
+                await _unitOfWork.SaveChangesAsync();
+            }
+        }
+
+        private async Task ReleaseEventRevenueToCreatorAsync(Event ev)
+        {
+            if (ev.EntryFee <= 0) return;
+
+            var creatorWallet = await _walletRepo.GetByAccountIdAsync(ev.CreatorId);
+            if (creatorWallet == null) return;
+
+            decimal amountToRelease = creatorWallet.LockedBalance;
+
+            if (amountToRelease > 0)
+            {
+                decimal balanceBefore = creatorWallet.Balance;
+                decimal lockedBefore = creatorWallet.LockedBalance;
+
+                creatorWallet.Balance += amountToRelease;
+                creatorWallet.LockedBalance = 0;
+                creatorWallet.UpdatedAt = DateTime.UtcNow;
+
+                _walletRepo.Update(creatorWallet);
+
+                await _transactionRepo.AddAsync(new Transaction
+                {
+                    WalletId = creatorWallet.WalletId,
+                    TransactionCode = $"REVENUE_RELEASE_{ev.EventId}_{DateTime.UtcNow.Ticks}",
+                    Amount = amountToRelease,
+                    BalanceBefore = balanceBefore,
+                    BalanceAfter = creatorWallet.Balance,
+                    Type = "Event_Revenue_Released",
+                    Status = "Success",
+                    Description = $"Receive revenue from event participation fees: {ev.Title}",
+                    ReferenceId = ev.EventId,
+                    ReferenceType = "Event",
                     CreatedAt = DateTime.UtcNow
                 });
-
-                await _notificationService.SendNotificationAsync(new Application.Request.NotificationReq.SendNotificationRequest
-                {
-                    SenderId = 1,
-                    TargetUserId = expertProfile.AccountId,
-                    Title = penaltyPoint >= 0 ? "Update your reputation score (Rewards)" : "Update reputation score (Penalties)",
-                    Content = penaltyReason,
-                    Type = "Reputation_Updated",
-                    RelatedId = ev.EventId.ToString()
-                });
             }
-
-            await _unitOfWork.SaveChangesAsync();
         }
     }
 }
