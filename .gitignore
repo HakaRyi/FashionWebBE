@@ -367,3 +367,5 @@ EVSwapping/appsettings.Development.json
 # Chặn các file appsettings chứa thông tin nhạy cảm/cấu hình riêng
 Presentation/appsettings.json
 Presentation/appsettings.Development.json
+
+appsettings.Development.json
