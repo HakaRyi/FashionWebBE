@@ -4,7 +4,6 @@ using Application.Request.ItemRequest;
 using Application.Response.ItemResp;
 using Application.Services.Items;
 using Domain.Contracts.Wardrobe;
-using Domain.Dto.Wardrobe;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -39,24 +38,32 @@ namespace Presentation.Controllers
 
         [Authorize]
         [HttpGet("me")]
-        public async Task<ActionResult> GetMyItems([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null)
+        public async Task<ActionResult> GetMyItems(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] string? search = null)
         {
             var accountId = _currentUserService.GetRequiredUserId();
-            var result = await _itemService.GetMyItemsAsync(accountId, page, pageSize, search);
+
+            var result = await _itemService.GetMyItemsAsync(
+                accountId,
+                page,
+                pageSize,
+                search);
 
             return Ok(new
             {
-                message = "Lấy danh sách item của tôi thành công.",
+                message = "Get my items successfully.",
                 data = new
                 {
                     items = result.Items,
                     totalCount = result.TotalCount,
                     currentPage = page,
+                    pageSize = pageSize,
                     totalPages = (int)Math.Ceiling(result.TotalCount / (double)pageSize)
                 }
             });
         }
-
 
         [Authorize]
         [HttpGet("my-item")]
@@ -67,13 +74,11 @@ namespace Presentation.Controllers
 
             return Ok(new
             {
-                message = "Lấy danh sách item của tôi thành công.",
+                message = "Get all my items successfully.",
                 data = results
             });
         }
 
-        // Route này chỉ nên dùng cho internal / owner / admin nếu bạn muốn giữ.
-        // Không nên cho FE public detail dùng route này.
         [HttpGet("{id:int}")]
         public async Task<ActionResult<ItemResponseDto>> GetById(int id)
         {
