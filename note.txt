@@ -8,7 +8,7 @@ dotnet ef database drop --project Infrastructure --startup-project Presentation
 
 dotnet ef database update --project Infrastructure --startup-project Presentation
 
-dotnet ef migrations add InitialIdentity --project Infrastructure --startup-project Presentation --output-dir Migrations
+dotnet ef migrations add InitialIdentity5 --project Infrastructure --startup-project Presentation --output-dir Migrations
 
 123456Aa@
 
