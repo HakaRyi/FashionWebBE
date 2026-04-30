@@ -49,7 +49,6 @@ using Presentation.Services;
 using Quartz;
 using System.Text;
 
-
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
