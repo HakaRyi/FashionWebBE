@@ -4,31 +4,38 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
+using Pgvector;
 
 namespace Infrastructure
 {
     public static class DependencyInjection
     {
-        public static IServiceCollection AddInfrastructureServices(this IServiceCollection services, IConfiguration configuration)
+        public static IServiceCollection AddInfrastructureServices(
+            this IServiceCollection services,
+            IConfiguration configuration)
         {
-            var connectionString = configuration.GetConnectionString("DefaultConnection");
+            var connectionString = configuration.GetConnectionString("DefaultConnection")
+                ?? throw new InvalidOperationException("ConnectionString 'DefaultConnection' not found.");
 
-            // 1. Database Setup
+            var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
+            dataSourceBuilder.UseVector();
+
+            var dataSource = dataSourceBuilder.Build();
+
+            services.AddSingleton(dataSource);
+
             services.AddDbContext<FashionDbContext>(options =>
             {
-                options.UseNpgsql(connectionString, npgsql =>
+                options.UseNpgsql(dataSource, npgsql =>
                 {
                     npgsql.UseVector();
                     npgsql.MigrationsAssembly(typeof(FashionDbContext).Assembly.FullName);
                 });
             });
 
-            // 2. Identity Setup
-            // Note: Specifying IdentityRole<int> to match your custom PK requirement
-            // 2. Identity Setup (Optimized for APIs)
             services.AddIdentityCore<Account>(options =>
             {
-                // Your password/lockout settings stay the same
                 options.Password.RequireDigit = false;
                 options.Password.RequiredLength = 5;
                 options.Password.RequireNonAlphanumeric = false;
@@ -38,13 +45,10 @@ namespace Infrastructure
                 options.User.RequireUniqueEmail = true;
                 options.SignIn.RequireConfirmedEmail = true;
             })
-            .AddRoles<IdentityRole<int>>() // Manually add role support
+            .AddRoles<IdentityRole<int>>()
             .AddEntityFrameworkStores<FashionDbContext>()
             .AddSignInManager<SignInManager<Account>>()
             .AddDefaultTokenProviders();
-
-            // 3. Repository Registrations
-            // services.AddScoped<ISystemSettingRepository, SystemSettingRepository>();
 
             return services;
         }
