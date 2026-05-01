@@ -9,14 +9,16 @@ namespace Application.Services.Follow
         private readonly IFollowRepository _followRepository;
         private readonly IAccountRepository _accountRepository;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ICacheService _cacheService;
         public FollowService(IFollowRepository followRepository
             , IAccountRepository accountRepository
             , IUnitOfWork unitOfWork
-            )
+            , ICacheService cacheService)
         {
             _followRepository = followRepository;
             _accountRepository = accountRepository;
             _unitOfWork = unitOfWork;
+            _cacheService = cacheService;
         }
 
         public async Task<int> CountMyFollowers(int userId)
@@ -59,6 +61,9 @@ namespace Application.Services.Follow
                 await _followRepository.FollowUserAsync(follow);
 
                 await _unitOfWork.CommitAsync();
+
+                await _cacheService.RemoveDataAsync($"my_profile_{currentUserId}");
+                await _cacheService.RemoveDataAsync($"my_profile_{targetUserId}");
 
                 return true;
             }
@@ -186,7 +191,8 @@ namespace Application.Services.Follow
                 await _followRepository.UnfollowUserAsync(targetUserId, currentUserId);
 
                 await _unitOfWork.CommitAsync();
-
+                await _cacheService.RemoveDataAsync($"my_profile_{currentUserId}");
+                await _cacheService.RemoveDataAsync($"my_profile_{targetUserId}");
                 return true;
             }
             catch (Exception)

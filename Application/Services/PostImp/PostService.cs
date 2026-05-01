@@ -29,6 +29,7 @@ namespace Application.Services.PostImp
         private readonly IEventRepository _eventRepo;
         private readonly ICurrentUserService _currentUserService;
         private readonly UserManager<Account> _userManager;
+        private readonly ICacheService _cacheService;
 
         private const int MAX_IMAGES = 5;
 
@@ -41,7 +42,8 @@ namespace Application.Services.PostImp
             IWalletRepository walletRepository,
             IEventRepository eventRepository,
             ICurrentUserService currentUserService,
-            UserManager<Account> userManager)
+            UserManager<Account> userManager,
+            ICacheService cacheService)
         {
             _postRepo = postRepo;
             _imageRepo = imageRepo;
@@ -52,6 +54,7 @@ namespace Application.Services.PostImp
             _eventRepo = eventRepository;
             _currentUserService = currentUserService;
             _userManager = userManager;
+            _cacheService = cacheService;
         }
 
 
@@ -107,6 +110,7 @@ namespace Application.Services.PostImp
 
             account.CountPost += 1;
             await _userManager.UpdateAsync(account);
+            await _cacheService.RemoveDataAsync($"my_profile_{accountId}");
 
             return MapToResponse(post);
         }
@@ -176,6 +180,7 @@ namespace Application.Services.PostImp
             account.CountPost -= 1;
             await _userManager.UpdateAsync(account);
             await _uow.SaveChangesAsync();
+            await _cacheService.RemoveDataAsync($"my_profile_{accountId}");
 
         }
 
