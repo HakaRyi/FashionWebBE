@@ -174,61 +174,44 @@ namespace Application.Services.WalletImp
         public async Task<WalletDashboardResponse> GetWalletDashboardAsync()
         {
             int accountId = _currentUserService.GetRequiredUserId();
+
+            // 1. Gọi Repo lấy ví
             var wallet = await _walletRepo.GetByAccountIdAsync(accountId);
+            if (wallet == null) throw new KeyNotFoundException("The wallet doesn't exist.");
 
-            if (wallet == null)
-                throw new Exception("Ví không tồn tại.");
-
-            var transactions = await _transactionRepo.GetByWalletIdAsync(wallet.WalletId);
-
-            decimal totalExpense = transactions
-                .Where(t => t.Type == TransactionType.Debit
-                         && t.Status == TransactionStatus.Success)
-                .Sum(t => t.Amount);
-
-            var response = new WalletDashboardResponse
-            {
-                Stats = new List<StatCardDto>
-                {
-                    new StatCardDto
-                    {
-                        Label = "Số dư khả dụng",
-                        Value = wallet.Balance.ToString("N0"),
-                        Sub = "Coins",
-                        Icon = "Wallet"
-                    },
-                    new StatCardDto
-                    {
-                        Label = "Số dư đóng băng",
-                        Value = wallet.LockedBalance.ToString("N0"),
-                        Sub = "Coins",
-                        Icon = "Lock"
-                    },
-                    new StatCardDto
-                    {
-                        Label = "Tổng chi tiêu",
-                        Value = totalExpense.ToString("N0"),
-                        Sub = "Coins",
-                        Icon = "ArrowUpRight"
-                    }
-                },
-                Transactions = transactions.Select(t =>
-                {
-                    bool isPositive = t.Type == TransactionType.Credit;
-
-                    return new TransactionDto
-                    {
-                        Id = $"GD{t.TransactionId:D5}",
-                        Detail = t.Description,
-                        Date = t.CreatedAt.ToString("dd/MM/yyyy HH:mm"),
-                        Amount = t.Amount,
-                        Type = isPositive ? "deposit" : "expense",
-                        Status = t.Status
-                    };
-                }).ToList()
+            // 2. Định nghĩa các loại cần lấy (Nạp/Rút)
+            var walletReferenceTypes = new List<string> {
+                TransactionType.Credit,
+                TransactionType.Debit
             };
 
-            return response;
+            // 3. Gọi Repo lấy giao dịch
+            var transactions = await _walletRepo.GetWalletTransactionsAsync(wallet.WalletId, walletReferenceTypes);
+
+            // 4. Map dữ liệu sang DTO
+            return new WalletDashboardResponse
+            {
+                Wallet = new WalletSummaryDto
+                {
+                    Balance = wallet.Balance,
+                    LockedBalance = wallet.LockedBalance,
+                    Currency = wallet.Currency
+                },
+                Transactions = transactions.Select(t => new WalletTransactionDto
+                {
+                    TransactionId = t.TransactionId,
+                    TransactionCode = t.TransactionCode,
+                    Amount = t.Amount,
+                    BalanceBefore = t.BalanceBefore,
+                    BalanceAfter = t.BalanceAfter,
+                    Type = t.Type,
+                    ReferenceType = t.ReferenceType,
+                    Description = t.Description,
+                    CreatedAt = t.CreatedAt,
+                    Status = t.Status,
+                    PaymentProvider = t.Payment?.Provider
+                }).ToList()
+            };
         }
 
         private static string GenerateTransactionCode(string prefix)

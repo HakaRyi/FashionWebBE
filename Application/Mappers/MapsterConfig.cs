@@ -1,10 +1,12 @@
-﻿using Mapster;
-using Domain.Entities;
-using Application.Request.EventReq;
+﻿using Application.Request.EventReq;
+using Application.Response.EscrowSessionResp;
 using Application.Response.EventResp;
 using Application.Response.ExpertResp;
 using Application.Response.ItemResp;
 using Application.Response.PostResp;
+using Application.Response.TransactionResp;
+using Domain.Entities;
+using Mapster;
 
 
 namespace Application.Mappers
@@ -63,6 +65,11 @@ namespace Application.Mappers
                 .Map(dest => dest.ParticipantCount, src => src.Posts.Select(p => p.AccountId).Distinct().Count())
                 .MaxDepth(3);
 
+            TypeAdapterConfig<EventCriterion, CriterionDto>.NewConfig()
+                .Map(dest => dest.Name, src => src.Name)
+                .Map(dest => dest.Description, src => src.Description)
+                .Map(dest => dest.WeightPercentage, src => src.WeightPercentage);
+
             TypeAdapterConfig<Event, EventDetailDto>.NewConfig()
                 .Map(dest => dest.CreatorName, src => src.Creator != null ? src.Creator.UserName : null)
                 .Map(dest => dest.ParticipantCount, src => src.Posts != null ? src.Posts.Count : 0)
@@ -73,6 +80,7 @@ namespace Application.Mappers
                     : null)
                 .Map(dest => dest.Prizes, src => src.PrizeEvents != null ? src.PrizeEvents.OrderBy(p => p.Ranked) : null)
                 .Map(dest => dest.Experts, src => src.EventExperts)
+                .Map(dest => dest.Criteria, src => src.EventCriteria)
                 .Ignore(dest => dest.IsJoined)
                 .Ignore(dest => dest.CanManualStart)
                 .Ignore(dest => dest.AcceptedExpertsCount);
@@ -99,6 +107,15 @@ namespace Application.Mappers
 
                 .Ignore(dest => dest.Score)
                 .Ignore(dest => dest.Reason);
+
+            TypeAdapterConfig<EscrowSession, EscrowResponse>.NewConfig()
+                .Map(dest => dest.EventTitle, src => src.Event != null ? src.Event.Title : "Off-event trading")
+                .Map(dest => dest.SenderName, src => src.Sender != null ? src.Sender.UserName : "N/A");
+
+            TypeAdapterConfig<Transaction, TransactionResponse>.NewConfig()
+                .Map(dest => dest.UserName, src => src.Wallet != null && src.Wallet.Account != null
+                    ? src.Wallet.Account.UserName
+                    : "System");
         }
     }
 }

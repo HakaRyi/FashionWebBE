@@ -1,7 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Infrastructure.Persistence;
-using Domain.Entities;
+﻿using Domain.Entities;
 using Domain.Interfaces;
+using Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using System.Linq.Expressions;
 
 namespace Infrastructure.Repositories
 {
@@ -20,12 +21,31 @@ namespace Infrastructure.Repositories
             return session;
         }
 
-        public async Task<EscrowSession?> GetByIdAsync(int sessionId)
+        public async Task<EscrowSession?> GetByIdAsync(int id, params Expression<Func<EscrowSession, object>>[] includes)
         {
-            return await _context.EscrowSessions
-                .FirstOrDefaultAsync(x => x.EscrowSessionId == sessionId);
+            IQueryable<EscrowSession> query = _context.EscrowSessions;
+            foreach (var include in includes) query = query.Include(include);
+
+            return await query.FirstOrDefaultAsync(x => x.EscrowSessionId == id);
         }
 
+        public async Task<List<EscrowSession>> GetAllAsync(params Expression<Func<EscrowSession, object>>[] includes)
+        {
+            IQueryable<EscrowSession> query = _context.EscrowSessions;
+            foreach (var include in includes) query = query.Include(include);
+
+            return await query.OrderByDescending(x => x.CreatedAt).ToListAsync();
+        }
+
+        public async Task<List<EscrowSession>> GetEscrowsByUserIdAsync(int userId)
+        {
+            return await _context.EscrowSessions
+                .Include(e => e.Sender)
+                .Include(e => e.Event)
+                .Where(e => e.SenderId == userId || e.ReceiverId == userId)
+                .OrderByDescending(e => e.CreatedAt)
+                .ToListAsync();
+        }
 
         public async Task<EscrowSession?> GetActiveEscrowByEventIdAsync(int eventId)
         {
