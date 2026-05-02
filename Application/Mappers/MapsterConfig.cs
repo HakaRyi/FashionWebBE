@@ -1,4 +1,5 @@
-﻿using Application.Request.EventReq;
+﻿using Application.Request.CollectionDto;
+using Application.Request.EventReq;
 using Application.Response.EscrowSessionResp;
 using Application.Response.EventResp;
 using Application.Response.ExpertResp;
@@ -116,6 +117,9 @@ namespace Application.Mappers
                 .Map(dest => dest.UserName, src => src.Wallet != null && src.Wallet.Account != null
                     ? src.Wallet.Account.UserName
                     : "System");
+            TypeAdapterConfig<Collection, CollectionResponseDto>.NewConfig()
+                .Map(dest => dest.Items, src => src.CollectionItems.Select(ci => ci.Item));
+
         }
     }
 }

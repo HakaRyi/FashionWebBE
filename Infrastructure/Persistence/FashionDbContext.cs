@@ -122,6 +122,10 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
     public virtual DbSet<RecommendationDetail> RecommendationDetails { get; set; }
 
+    public virtual DbSet<Collection> Collections { get; set; }
+
+    public virtual DbSet<CollectionItem> CollectionItems { get; set; }
+
     public static string GetConnectionString(string connectionStringName)
     {
         var config = new ConfigurationBuilder()
@@ -1474,12 +1478,15 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
         modelBuilder.Entity<OutfitItem>(entity =>
         {
-            entity.HasKey(ei => new { ei.OutfitId, ei.ItemId }).HasName("OutfitItem_pkey");
+            entity.HasKey(ei => new { ei.OutfitId, ei.ItemId, ei.CreatedAt }).HasName("OutfitItem_pkey");
 
             entity.ToTable("OutfitItem", "public");
 
             entity.Property(e => e.OutfitId).HasColumnName("outfit_id");
             entity.Property(e => e.ItemId).HasColumnName("item_id");
+            entity.Property(e => e.CreatedAt)
+                  .HasColumnName("created_at")
+                  .HasDefaultValueSql("CURRENT_TIMESTAMP");
             entity.Property(e => e.Slot).HasMaxLength(50).HasColumnName("slot");
 
             entity.HasOne(d => d.Outfit)
@@ -1494,7 +1501,44 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("OutfitItem_item_id_fkey");
         });
+        modelBuilder.Entity<Collection>(entity =>
+        {
+            entity.HasKey(e => e.CollectionId).HasName("Collection_pkey");
+            entity.ToTable("Collection", "public");
 
+            entity.Property(e => e.CollectionId).ValueGeneratedOnAdd().HasColumnName("collection_id");
+            entity.Property(e => e.AccountId).HasColumnName("account_id");
+            entity.Property(e => e.Title).HasMaxLength(200).IsRequired().HasColumnName("title");
+            entity.Property(e => e.Description).HasColumnName("description");
+            entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP").HasColumnName("created_at");
+
+            entity.HasOne(d => d.Account)
+                .WithMany(p => p.Collections)
+                .HasForeignKey(d => d.AccountId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("Collection_account_id_fkey");
+        });
+        modelBuilder.Entity<CollectionItem>(entity =>
+        {
+            entity.HasKey(ci => new { ci.CollectionId, ci.ItemId }).HasName("CollectionItem_pkey");
+
+            entity.ToTable("CollectionItem", "public");
+
+            entity.Property(ci => ci.CollectionId).HasColumnName("collection_id");
+            entity.Property(ci => ci.ItemId).HasColumnName("item_id");
+            entity.Property(ci => ci.AddedAt).HasDefaultValueSql("CURRENT_TIMESTAMP").HasColumnName("added_at");
+
+            entity.HasOne(d => d.Collection)
+                .WithMany(p => p.CollectionItems)
+                .HasForeignKey(d => d.CollectionId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("CollectionItem_collection_id_fkey");
+            entity.HasOne(d => d.Item)
+                .WithMany(p => p.CollectionItems)
+                .HasForeignKey(d => d.ItemId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("CollectionItem_item_id_fkey");
+        });
 
         modelBuilder.Entity<Payment>(entity =>
         {

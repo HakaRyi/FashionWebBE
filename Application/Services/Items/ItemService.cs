@@ -266,7 +266,7 @@ Convert the user request into structured fashion search metadata.";
                 var history = new RecommendationHistory
                 {
                     AccountId = currentAccountId,
-                    ReferenceItemId = request.ReferenceItemId,
+                    ReferenceItemId = (request.ReferenceItemId.HasValue && request.ReferenceItemId.Value > 0) ? request.ReferenceItemId.Value : null,
                     Prompt = request.Prompt,
                     CreatedAt = DateTime.UtcNow,
                     RecommendedItems = candidates.Select(c => new RecommendationDetail

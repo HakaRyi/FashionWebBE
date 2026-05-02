@@ -134,8 +134,7 @@ builder.Services.AddScoped<IRecommendationHistoryRepository, RecommendationHisto
 builder.Services.AddScoped<IPhysicalProfileRepository, PhysicalProfileRepository>();
 builder.Services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>();
 builder.Services.AddScoped<IItemVariantRepository, ItemVariantRepository>();
-
-
+builder.Services.AddScoped<ICollectionRepository, CollectionRepository>();
 
 #endregion
 
@@ -189,6 +188,7 @@ builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 builder.Services.AddScoped<IFileService, GoogleDriveService>();
 builder.Services.AddScoped<IChatShareService, ChatShareService>();
 builder.Services.AddScoped<ICacheService, MemoryCacheService>();
+builder.Services.AddScoped<ICollectionService, CollectionService>();
 
 #endregion
 

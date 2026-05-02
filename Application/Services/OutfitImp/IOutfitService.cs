@@ -1,5 +1,4 @@
 ﻿using Application.Request.OufitReq;
-using Application.Request.OutfitItemReq;
 using Application.Response.OutfitResp;
 using Domain.Entities;
 using Microsoft.AspNetCore.Http;

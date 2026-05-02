@@ -9,7 +9,7 @@ public partial class OutfitItem
     public int ItemId { get; set; }
 
     public virtual Item Item { get; set; } = null!;
-    public DateTime CreatedAt { get; set; }
 
     public string? Slot { get; set; }
+    public DateTime CreatedAt { get; set; }
 }

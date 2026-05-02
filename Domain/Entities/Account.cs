@@ -90,4 +90,5 @@ public partial class Account : IdentityUser<int>
     public virtual ICollection<PhysicalProfile> PhysicalProfiles { get; set; } = new List<PhysicalProfile>();
 
     public virtual ICollection<UserPreference> UserPreferences { get; set; } = new List<UserPreference>();
+    public virtual ICollection<Collection> Collections { get; set; } = new List<Collection>();
 }

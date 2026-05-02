@@ -1,7 +1,6 @@
 ﻿using Abp.Domain.Uow;
 using Application.Interfaces;
 using Application.Request.OufitReq;
-using Application.Request.OutfitItemReq;
 using Application.Response.OutfitResp;
 using Application.Utils;
 using Domain.Entities;
