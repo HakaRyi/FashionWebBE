@@ -1,10 +1,12 @@
-﻿using Application.Interfaces;
-using Microsoft.AspNetCore.Http;
-using Domain.Entities;
+﻿using Abp.Domain.Uow;
+using Application.Interfaces;
 using Application.Request.OufitReq;
+using Application.Request.OutfitItemReq;
 using Application.Response.OutfitResp;
 using Application.Utils;
+using Domain.Entities;
 using Domain.Interfaces;
+using Microsoft.AspNetCore.Http;
 
 
 namespace Application.Services.OutfitImp
@@ -15,17 +17,20 @@ namespace Application.Services.OutfitImp
         private readonly IItemRepository _itemRepo;
         private readonly ICloudStorageService _storageService;
         private readonly ICurrentUserService _currentUserService;
+        private readonly Interfaces.IUnitOfWork _unitOfWork;
 
         public OutfitService(
             IOutfitRepository outfitRepo,
             IItemRepository itemRepo,
             ICloudStorageService storageService,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            Interfaces.IUnitOfWork unitOfWork)
         {
             _outfitRepo = outfitRepo;
             _itemRepo = itemRepo;
             _storageService = storageService;
             _currentUserService = currentUserService;
+            _unitOfWork = unitOfWork;
         }
 
         //User TỰ TẠO bộ đồ và tự up ảnh

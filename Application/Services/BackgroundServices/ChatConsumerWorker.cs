@@ -39,6 +39,9 @@ namespace Application.Services.BackgroundServices
 
         private void InitRabbitMQ()
         {
+            var hostName = _config["RabbitMQSettings:HostName"] ?? "localhost";
+
+            bool useSsl = hostName != "localhost";
             var factory = new ConnectionFactory
             {
                 HostName = _config["RabbitMQSettings:HostName"],
@@ -51,8 +54,8 @@ namespace Application.Services.BackgroundServices
 
                 Ssl = new SslOption
                 {
-                    Enabled = true,
-                    ServerName = _config["RabbitMQSettings:HostName"],
+                    Enabled = useSsl,
+                    ServerName = hostName,
                     Version = System.Security.Authentication.SslProtocols.Tls12
                 }
             };

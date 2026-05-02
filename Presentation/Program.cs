@@ -140,7 +140,7 @@ builder.Services.AddScoped<IItemVariantRepository, ItemVariantRepository>();
 #endregion
 
 #region SERVICES
-
+builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IGroupService, GroupService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -188,6 +188,7 @@ builder.Services.AddScoped<IReputationHistoryService, ReputationHistoryService>(
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 builder.Services.AddScoped<IFileService, GoogleDriveService>();
 builder.Services.AddScoped<IChatShareService, ChatShareService>();
+builder.Services.AddScoped<ICacheService, MemoryCacheService>();
 
 #endregion
 

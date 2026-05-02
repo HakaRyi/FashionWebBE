@@ -1,7 +1,8 @@
-﻿using Microsoft.AspNetCore.Http;
-using Domain.Entities;
-using Application.Request.OufitReq;
+﻿using Application.Request.OufitReq;
+using Application.Request.OutfitItemReq;
 using Application.Response.OutfitResp;
+using Domain.Entities;
+using Microsoft.AspNetCore.Http;
 
 
 namespace Application.Services.OutfitImp
