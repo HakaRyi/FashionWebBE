@@ -6,6 +6,7 @@
         public int WalletId { get; set; }
         public string? UserName { get; set; }
         public int? PaymentId { get; set; }
+        public string TransactionCode { get; set; } = null!;
         public decimal Amount { get; set; }
         public decimal BalanceBefore { get; set; }
         public decimal BalanceAfter { get; set; }

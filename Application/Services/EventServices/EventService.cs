@@ -72,6 +72,18 @@ namespace Application.Services.EventServices
 
             if (ev == null) throw new Exception("The event does not exist.");
 
+            if (ev.CreatorId == accountId)
+            {
+                throw new Exception("As the event creator, you cannot participate in this event.");
+            }
+
+            var eventExpert = await _eventExpertRepo.GetByEventAndExpertAsync(ev.EventId, accountId);
+
+            if (eventExpert != null && eventExpert.Status == "Accepted")
+            {
+                throw new Exception("You are a confirmed judge for this event and cannot participate as a contestant.");
+            }
+
             var isJoined = await _postRepo.AnyAsync(p => p.AccountId == accountId && p.EventId == dto.EventId);
             if (isJoined) throw new Exception("You have already participated in this event.");
 
@@ -82,6 +94,10 @@ namespace Application.Services.EventServices
             }
 
             var imageUrls = dto.Images != null ? await UploadImages(dto.Images.ToList()) : new List<string>();
+
+            var account = await _userManager.FindByIdAsync(accountId.ToString());
+
+            if (account == null) throw new Exception("User not found.");
 
             await _unitOfWork.BeginTransactionAsync();
 
@@ -129,7 +145,7 @@ namespace Application.Services.EventServices
                         BalanceAfter = creatorWallet.LockedBalance,
                         Type = "Event_Revenue_Locked",
                         Status = "Success",
-                        Description = $"Entry fee for event '{ev.Title}' from User #{accountId} is being held by the system.",
+                        Description = $"Holding entry fee for event '{ev.Title}' from user '{account.UserName}'.",
                         ReferenceId = ev.EventId,
                         ReferenceType = "Event",
                         CreatedAt = DateTime.UtcNow
@@ -167,7 +183,6 @@ namespace Application.Services.EventServices
 
                 await _imageRepo.AddRangeAsync(images);
 
-                var account = await _userManager.FindByIdAsync(accountId.ToString());
                 if (account != null)
                 {
                     account.CountPost += 1;
@@ -342,7 +357,7 @@ namespace Application.Services.EventServices
                     throw new Exception("Không tìm thấy ví của người tạo sự kiện.");
 
                 if (wallet.LockedBalance < totalToRefund)
-                    throw new Exception("Số dư bị khóa không đủ để thực hiện hoàn tiền (Lỗi logic dữ liệu).");
+                    throw new Exception("The locked balance is insufficient to process the refund (Data logic error).");
 
                 decimal balanceBefore = wallet.Balance;
 

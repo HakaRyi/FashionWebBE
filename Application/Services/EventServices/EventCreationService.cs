@@ -78,7 +78,7 @@ namespace Application.Services.EventServices
 
             var wallet = await _walletRepo.GetByAccountIdAsync(creatorId);
             if (wallet == null || wallet.Balance < totalToLock)
-                throw new Exception($"Số dư ví không đủ. Cần {totalToLock:N0} VNĐ (bao gồm phí tạo).");
+                throw new Exception($"Insufficient wallet balance. You need {totalToLock:N0} VNĐ (including creation fee).");
 
             await _unitOfWork.BeginTransactionAsync();
             try
@@ -136,7 +136,7 @@ namespace Application.Services.EventServices
             catch (Exception ex)
             {
                 await _unitOfWork.RollbackAsync();
-                throw new Exception($"Lỗi tạo Event: {ex.Message}");
+                throw new Exception($"Event creation error: {ex.Message}");
             }
         }
 
@@ -195,7 +195,7 @@ namespace Application.Services.EventServices
             int adminAccountId = await _settingRepo.GetIntValueAsync("SystemAdminAccountId", 1);
             var adminWallet = await _walletRepo.GetByAccountIdAsync(adminAccountId);
 
-            if (adminWallet == null) throw new Exception("Không tìm thấy ví hệ thống.");
+            if (adminWallet == null) throw new Exception("System wallet not found.");
             if (ev.AppliedFee <= 0) return; // Không có phí thì không cần chạy tiếp
 
             // --- 1. XỬ LÝ VÍ EXPERT (NGƯỜI TẠO) ---
@@ -287,11 +287,11 @@ namespace Application.Services.EventServices
         public async Task ManualStartEventAsync(int eventId)
         {
             var ev = await _eventRepo.GetByIdAsync(eventId);
-            if (ev == null) throw new Exception("Sự kiện không tồn tại.");
+            if (ev == null) throw new Exception("The event does not exist.");
 
             // 1. Kiểm tra trạng thái
             if (ev.Status != "Inviting")
-                throw new Exception("Sự kiện chưa được duyệt hoặc đã bắt đầu/kết thúc.");
+                throw new Exception("The event has not been approved or has already started/ended.");
 
             // 2. CHECK GIỚI HẠN THỜI GIAN
             double maxEarlyHours = await _settingRepo.GetDoubleValueAsync("MaxEarlyStartHours", 24.0);
@@ -331,7 +331,7 @@ namespace Application.Services.EventServices
             int acceptedCount = experts.Count(e => e.Status == "Accepted");
 
             if (acceptedCount < ev.MinExpertsToStart)
-                throw new Exception($"Chưa đủ số lượng chuyên gia tối thiểu ({ev.MinExpertsToStart}).");
+                throw new Exception($"The minimum number of experts is not yet available: ({ev.MinExpertsToStart}).");
 
             await _unitOfWork.BeginTransactionAsync();
             try
@@ -365,7 +365,7 @@ namespace Application.Services.EventServices
                             SenderId = ev.CreatorId,
                             TargetUserId = exp.ExpertId,
                             Title = "The event has begun!",
-                            Content = $"The '{ev.Title}' has officially begin.",
+                            Content = $"The '{ev.Title}' has officially begun.",
                             Type = "Event_Started",
                             RelatedId = eventId.ToString()
                         });
@@ -521,24 +521,24 @@ namespace Application.Services.EventServices
         {
             if (dto.StartTime >= dto.SubmissionDeadline)
             {
-                throw new Exception("Ngày bắt đầu phải trước hạn chót nộp bài.");
+                throw new Exception("The start date must be before the submission deadline.");
             }
 
             if (dto.SubmissionDeadline >= dto.EndTime)
             {
-                throw new Exception("Hạn chót nộp bài phải trước ngày kết thúc sự kiện (để Expert có thời gian chấm).");
+                throw new Exception("The submission deadline must be before the event end date (to allow experts time to review).");
             }
 
             if (Math.Abs(dto.ExpertWeight + dto.UserWeight - 1.0) > 0.001)
-                throw new Exception("Tổng trọng số Expert và User phải bằng 1.0.");
+                throw new Exception("The total weight of Expert and User must equal 1.0.");
 
             if (dto.MinExpertsRequired < minExpertsRequiredBySystem)
             {
-                throw new Exception($"Số lượng Expert yêu cầu tối thiểu cho mỗi sự kiện theo quy định hệ thống là {minExpertsRequiredBySystem} người.");
+                throw new Exception($"The minimum number of Experts required for each event, as stipulated by the system, is{minExpertsRequiredBySystem} people.");
             }
             if (dto.Criteria == null || !dto.Criteria.Any())
             {
-                throw new Exception("Sự kiện cần có ít nhất một tiêu chí chấm điểm.");
+                throw new Exception("The event needs to have at least one scoring criterion.");
             }
         }
 
