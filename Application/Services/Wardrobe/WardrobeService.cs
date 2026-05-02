@@ -31,8 +31,8 @@ namespace Application.Services.Wardrobe
             _wardrobeRepository = wardrobeRepository;
             _itemRepository = itemRepository;
             _accountRepository = accountRepository;
-            _imageRepository = imageRepository;
             _currentUserService = currentUserService;
+            _imageRepository = imageRepository;
             _itemSaveRepository = itemSaveRepository;
         }
 
@@ -43,7 +43,7 @@ namespace Application.Services.Wardrobe
 
             var existingWardrobe = await _wardrobeRepository.GetByAccountIdAsync(request.AccountId);
             if (existingWardrobe != null)
-                throw new InvalidOperationException("Tài khoản này đã có tủ đồ.");
+                throw new InvalidOperationException("This account already has a wardrobe.");
 
             var wardrobe = new Domain.Entities.Wardrobe
             {
@@ -140,16 +140,18 @@ namespace Application.Services.Wardrobe
             var wardrobe = await _wardrobeRepository.GetByAccountIdAsync(accountId);
             if (wardrobe == null)
                 return null;
-            var currentUserId = _currentUserService.GetUserId()??0;
-            if (currentUserId==0)
+
+            var currentUserId = _currentUserService.GetUserId() ?? 0;
+            if (currentUserId == 0)
             {
-                throw new UnauthorizedAccessException("Bạn cần đăng nhập để xem tủ đồ công khai.");
+                throw new UnauthorizedAccessException("You need to log in to view this public wardrobe.");
             }
 
             var totalPublicItems = await _itemRepository.CountPublicItemsByAccountIdAsync(accountId);
             var items = await _itemRepository.GetPublicItemsByAccountIdAsync(accountId, page, pageSize);
+
             var savedItemIds = new HashSet<int>();
-            if (currentUserId!=0)
+            if (currentUserId != 0)
             {
                 var savedItems = await _itemSaveRepository.GetMySaveItems(currentUserId);
                 savedItemIds = savedItems.Select(s => s.ItemId).ToHashSet();
@@ -158,8 +160,9 @@ namespace Application.Services.Wardrobe
             foreach (var item in items)
             {
                 item.IsSaved = savedItemIds.Contains(item.ItemId);
-                item.IsOwner = currentUserId !=0 && currentUserId == accountId;
+                item.IsOwner = currentUserId != 0 && currentUserId == accountId;
             }
+
             return new PublicWardrobeResponseDto
             {
                 AccountId = accountId,
@@ -175,18 +178,20 @@ namespace Application.Services.Wardrobe
                 }
             };
         }
+
         public async Task<List<WardrobeSearchResponseDto>> SearchWardrobeByUsernameAsync(string username)
         {
             if (string.IsNullOrWhiteSpace(username)) return new List<WardrobeSearchResponseDto>();
 
             var accounts = await _wardrobeRepository.SearchAccountWithWardrobeAsync(username);
+
             return accounts.Select(a => new WardrobeSearchResponseDto
             {
                 WardrobeId = a.Wardrobe?.WardrobeId ?? 0,
                 UserName = a.UserName,
                 AvatarUrl = a.Avatars.OrderByDescending(v => v.CreatedAt)
-                                     .Select(v => v.ImageUrl)
-                                     .FirstOrDefault()
+                    .Select(v => v.ImageUrl)
+                    .FirstOrDefault()
             }).Where(x => x.WardrobeId > 0).ToList();
         }
     }

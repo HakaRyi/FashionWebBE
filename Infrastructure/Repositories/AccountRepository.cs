@@ -32,7 +32,10 @@ namespace Infrastructure.Repositories
 
         public async Task<RefreshToken?> GetRefreshTokenByAccountIdAsync(int accountId)
         {
-            return await _db.RefreshTokens.FirstOrDefaultAsync(x => x.AccountId == accountId);
+            return await _db.RefreshTokens
+                .Where(token => token.AccountId == accountId)
+                .OrderByDescending(token => token.CreatedAt)
+                .FirstOrDefaultAsync();
         }
 
         public async Task UpdateRefreshTokenAsync(RefreshToken token)
@@ -83,6 +86,17 @@ namespace Infrastructure.Repositories
                 .Include(a => a.PhysicalProfiles.Where(p => p.IsCurrent))
                 .Include(a => a.UserPreferences)
                 .FirstOrDefaultAsync(a => a.Id == accountId);
+        }
+
+        public async Task<List<RefreshToken>> GetActiveRefreshTokensByAccountIdAsync(int accountId)
+        {
+            return await _db.RefreshTokens
+                .Where(token =>
+                    token.AccountId == accountId &&
+                    token.IsAvailable == true &&
+                    token.ExpiryDate > DateTime.UtcNow)
+                .OrderBy(token => token.CreatedAt)
+                .ToListAsync();
         }
     }
 }

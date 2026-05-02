@@ -5,10 +5,6 @@ namespace Application.Request.ItemReq
 {
     public class UpdateItemVariantRequest
     {
-        [Required]
-        [MaxLength(100)]
-        public string Sku { get; set; } = null!;
-
         [MaxLength(20)]
         public string? SizeCode { get; set; }
 

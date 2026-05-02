@@ -150,7 +150,7 @@ namespace Presentation.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Unauthorized(new
+                return StatusCode(403, new
                 {
                     message = ex.Message
                 });
@@ -167,7 +167,8 @@ namespace Presentation.Controllers
 
         [Authorize]
         [HttpPost("smart-match")]
-        public async Task<ActionResult<List<ItemResponseDto>>> GetSmartRecommendations([FromBody] SmartRecommendationRequestDto request)
+        public async Task<ActionResult<List<ItemResponseDto>>> GetSmartRecommendations(
+            [FromBody] SmartRecommendationRequestDto request)
         {
             if (request == null)
             {
@@ -207,7 +208,21 @@ namespace Presentation.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Unauthorized(new
+                return StatusCode(403, new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new
                 {
                     message = ex.Message
                 });
@@ -224,7 +239,9 @@ namespace Presentation.Controllers
 
         [Authorize]
         [HttpPut("{itemId:int}")]
-        public async Task<ActionResult> Update([FromRoute] int itemId, [FromBody] UpdateItemRequest request)
+        public async Task<ActionResult> Update(
+            [FromRoute] int itemId,
+            [FromBody] UpdateItemRequest request)
         {
             try
             {
@@ -249,9 +266,19 @@ namespace Presentation.Controllers
                     message = ex.Message
                 });
             }
-            catch (UnauthorizedAccessException)
+            catch (UnauthorizedAccessException ex)
             {
-                return Forbid();
+                return StatusCode(403, new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
             }
             catch (Exception ex)
             {
@@ -283,9 +310,12 @@ namespace Presentation.Controllers
                     message = ex.Message
                 });
             }
-            catch (UnauthorizedAccessException)
+            catch (UnauthorizedAccessException ex)
             {
-                return Forbid();
+                return StatusCode(403, new
+                {
+                    message = ex.Message
+                });
             }
             catch (InvalidOperationException ex)
             {
@@ -303,10 +333,6 @@ namespace Presentation.Controllers
                 });
             }
         }
-
-        // =========================================================
-        // COMMERCE: publish / unpublish
-        // =========================================================
 
         [Authorize]
         [HttpPost("{itemId:int}/publish")]
@@ -346,9 +372,12 @@ namespace Presentation.Controllers
                     message = ex.Message
                 });
             }
-            catch (UnauthorizedAccessException)
+            catch (UnauthorizedAccessException ex)
             {
-                return Forbid();
+                return StatusCode(403, new
+                {
+                    message = ex.Message
+                });
             }
             catch (InvalidOperationException ex)
             {
@@ -388,9 +417,12 @@ namespace Presentation.Controllers
                     message = ex.Message
                 });
             }
-            catch (UnauthorizedAccessException)
+            catch (UnauthorizedAccessException ex)
             {
-                return Forbid();
+                return StatusCode(403, new
+                {
+                    message = ex.Message
+                });
             }
             catch (InvalidOperationException ex)
             {
@@ -408,10 +440,6 @@ namespace Presentation.Controllers
                 });
             }
         }
-
-        // =========================================================
-        // VARIANTS
-        // =========================================================
 
         [Authorize]
         [HttpGet("{itemId:int}/variants")]
@@ -434,9 +462,19 @@ namespace Presentation.Controllers
                     message = ex.Message
                 });
             }
-            catch (UnauthorizedAccessException)
+            catch (UnauthorizedAccessException ex)
             {
-                return Forbid();
+                return StatusCode(403, new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
             }
             catch (Exception ex)
             {
@@ -486,9 +524,12 @@ namespace Presentation.Controllers
                     message = ex.Message
                 });
             }
-            catch (UnauthorizedAccessException)
+            catch (UnauthorizedAccessException ex)
             {
-                return Forbid();
+                return StatusCode(403, new
+                {
+                    message = ex.Message
+                });
             }
             catch (InvalidOperationException ex)
             {
@@ -545,9 +586,12 @@ namespace Presentation.Controllers
                     message = ex.Message
                 });
             }
-            catch (UnauthorizedAccessException)
+            catch (UnauthorizedAccessException ex)
             {
-                return Forbid();
+                return StatusCode(403, new
+                {
+                    message = ex.Message
+                });
             }
             catch (InvalidOperationException ex)
             {
@@ -586,9 +630,12 @@ namespace Presentation.Controllers
                     message = ex.Message
                 });
             }
-            catch (UnauthorizedAccessException)
+            catch (UnauthorizedAccessException ex)
             {
-                return Forbid();
+                return StatusCode(403, new
+                {
+                    message = ex.Message
+                });
             }
             catch (InvalidOperationException ex)
             {
@@ -623,7 +670,7 @@ namespace Presentation.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Unauthorized(new
+                return StatusCode(403, new
                 {
                     message = ex.Message
                 });
@@ -660,7 +707,7 @@ namespace Presentation.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Unauthorized(new
+                return StatusCode(403, new
                 {
                     message = ex.Message
                 });
@@ -704,7 +751,7 @@ namespace Presentation.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Unauthorized(new
+                return StatusCode(403, new
                 {
                     message = ex.Message
                 });

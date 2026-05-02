@@ -10,6 +10,7 @@ using Domain.Dto;
 using Domain.Entities;
 using Domain.Interfaces;
 using Mapster;
+using Microsoft.Extensions.Configuration;
 using Pgvector;
 
 namespace Application.Services.Items
@@ -31,7 +32,7 @@ namespace Application.Services.Items
         private readonly ITransactionRepository _transactionRepository;
         private readonly IUserProfileService _userProfileService;
 
-        private readonly decimal _smartRecommendPrice = 2000m;
+        private readonly decimal _smartRecommendPrice;
 
         public ItemService(
             IItemRepository itemRepo,
@@ -47,7 +48,8 @@ namespace Application.Services.Items
             IItemSaveRepository itemSaveRepo,
             IWalletRepository walletRepository,
             ITransactionRepository transactionRepository,
-            IUserProfileService userProfileService)
+            IUserProfileService userProfileService,
+            IConfiguration configuration)
         {
             _itemRepo = itemRepo;
             _itemVariantRepository = itemVariantRepository;
@@ -63,6 +65,12 @@ namespace Application.Services.Items
             _walletRepository = walletRepository;
             _transactionRepository = transactionRepository;
             _userProfileService = userProfileService;
+
+            _smartRecommendPrice = decimal.TryParse(
+                configuration["RecommendationSettings:SmartRecommendPrice"],
+                out var price)
+                ? price
+                : 2000m;
         }
 
         public async Task<IEnumerable<ItemResponseDto>> GetAllItemsAsync()
@@ -342,6 +350,9 @@ Convert the user request into structured fashion search metadata.";
             if (item.Wardrobe == null || item.Wardrobe.AccountId != currentUserId)
                 throw new UnauthorizedAccessException("You do not have permission to update this item.");
 
+            if (item.Status == ItemStatus.Deleted)
+                throw new InvalidOperationException("Cannot update deleted item.");
+
             item.ItemName = request.ItemName;
             item.ItemType = request.ItemType;
             item.Category = request.Category;
@@ -377,22 +388,11 @@ Convert the user request into structured fashion search metadata.";
             if (item.Wardrobe == null || item.Wardrobe.AccountId != currentUserId)
                 throw new UnauthorizedAccessException("You do not have permission to delete this item.");
 
+            if (item.Status == ItemStatus.Deleted)
+                throw new InvalidOperationException("Item has already been deleted.");
+
             if (item.ItemVariants.Any(v => v.ReservedQuantity > 0))
                 throw new InvalidOperationException("Cannot delete item while some variants are reserved.");
-
-            if (item.Images != null && item.Images.Any())
-            {
-                foreach (var img in item.Images)
-                {
-                    try
-                    {
-                        await _cloudStorageService.DeleteImageAsync(img.ImageUrl);
-                    }
-                    catch
-                    {
-                    }
-                }
-            }
 
             _itemRepo.Delete(item);
             await _itemRepo.SaveChangesAsync();
@@ -417,61 +417,90 @@ Convert the user request into structured fashion search metadata.";
             if (item.Status != ItemStatus.Active)
                 throw new InvalidOperationException("Only active items can be published for sale.");
 
-            if (request.ListedPrice <= 0)
-                throw new InvalidOperationException("Listed price must be greater than 0.");
-
-            var requestSkus = request.Variants
-                .Select(v => v.Sku?.Trim())
-                .Where(s => !string.IsNullOrWhiteSpace(s))
+            var existingVariants = item.ItemVariants
+                .Where(v =>
+                    v.Status != ItemVariantStatus.Deleted &&
+                    v.Status != ItemVariantStatus.Archived)
                 .ToList();
-
-            if (requestSkus.Count != requestSkus.Distinct(StringComparer.OrdinalIgnoreCase).Count())
-                throw new InvalidOperationException("Duplicate SKU is not allowed.");
 
             await _unitOfWork.BeginTransactionAsync();
             try
             {
-                item.IsForSale = true;
-                item.IsPublic = true;
-                item.ListedPrice = request.ListedPrice;
-                item.Condition = request.Condition;
-                item.PublishedAt = DateTime.UtcNow;
-                item.UpdateAt = DateTime.UtcNow;
-                _itemRepo.Update(item);
-
-                var variants = new List<ItemVariant>();
-
-                foreach (var v in request.Variants)
+                if (existingVariants.Any())
                 {
-                    if (string.IsNullOrWhiteSpace(v.Sku))
-                        throw new InvalidOperationException("SKU is required.");
+                    var sellableVariants = existingVariants
+                        .Where(v =>
+                            v.Status == ItemVariantStatus.Active &&
+                            v.StockQuantity > v.ReservedQuantity &&
+                            v.Price > 0)
+                        .ToList();
 
-                    if (v.Price <= 0)
-                        throw new InvalidOperationException("Variant price must be greater than 0.");
+                    if (!sellableVariants.Any())
+                        throw new InvalidOperationException("Item must have at least one active variant with available stock.");
 
-                    if (v.StockQuantity < 0)
-                        throw new InvalidOperationException("Stock quantity cannot be negative.");
+                    item.IsForSale = true;
+                    item.IsPublic = true;
+                    item.ListedPrice = sellableVariants.Min(v => v.Price);
+                    item.Condition = request.Condition;
+                    item.PublishedAt = DateTime.UtcNow;
+                    item.UpdateAt = DateTime.UtcNow;
 
-                    bool skuExists = await _itemVariantRepository.ExistsSkuAsync(item.ItemId, v.Sku.Trim());
-                    if (skuExists)
-                        throw new InvalidOperationException($"SKU '{v.Sku}' already exists for this item.");
+                    _itemRepo.Update(item);
+                }
+                else
+                {
+                    if (request.Variants == null || !request.Variants.Any())
+                        throw new InvalidOperationException("At least one variant is required.");
 
-                    variants.Add(new ItemVariant
+                    var variants = new List<ItemVariant>();
+                    var usedSkus = new HashSet<string>();
+
+                    foreach (var v in request.Variants)
                     {
-                        ItemId = item.ItemId,
-                        Sku = v.Sku.Trim(),
-                        SizeCode = string.IsNullOrWhiteSpace(v.SizeCode) ? null : v.SizeCode.Trim(),
-                        Color = string.IsNullOrWhiteSpace(v.Color) ? item.MainColor : v.Color.Trim(),
-                        Price = v.Price,
-                        StockQuantity = v.StockQuantity,
-                        ReservedQuantity = 0,
-                        Status = v.StockQuantity > 0
-                            ? ItemVariantStatus.Active
-                            : ItemVariantStatus.OutOfStock
-                    });
+                        if (v.Price <= 0)
+                            throw new InvalidOperationException("Variant price must be greater than 0.");
+
+                        if (v.StockQuantity < 0)
+                            throw new InvalidOperationException("Stock quantity cannot be negative.");
+
+                        string sku = await GenerateUniqueVariantSkuAsync(item.ItemId, usedSkus);
+
+                        variants.Add(new ItemVariant
+                        {
+                            ItemId = item.ItemId,
+                            Sku = sku,
+                            SizeCode = string.IsNullOrWhiteSpace(v.SizeCode) ? null : v.SizeCode.Trim(),
+                            Color = string.IsNullOrWhiteSpace(v.Color) ? item.MainColor : v.Color.Trim(),
+                            Price = v.Price,
+                            StockQuantity = v.StockQuantity,
+                            ReservedQuantity = 0,
+                            Status = v.StockQuantity > 0
+                                ? ItemVariantStatus.Active
+                                : ItemVariantStatus.OutOfStock
+                        });
+                    }
+
+                    var sellableVariants = variants
+                        .Where(v =>
+                            v.Status == ItemVariantStatus.Active &&
+                            v.StockQuantity > v.ReservedQuantity &&
+                            v.Price > 0)
+                        .ToList();
+
+                    if (!sellableVariants.Any())
+                        throw new InvalidOperationException("Item must have at least one active variant with available stock.");
+
+                    item.IsForSale = true;
+                    item.IsPublic = true;
+                    item.ListedPrice = sellableVariants.Min(v => v.Price);
+                    item.Condition = request.Condition;
+                    item.PublishedAt = DateTime.UtcNow;
+                    item.UpdateAt = DateTime.UtcNow;
+
+                    _itemRepo.Update(item);
+                    await _itemVariantRepository.AddRangeAsync(variants);
                 }
 
-                await _itemVariantRepository.AddRangeAsync(variants);
                 await _unitOfWork.CommitAsync();
 
                 return await BuildCommerceResponseAsync(item.ItemId);
@@ -494,30 +523,20 @@ Convert the user request into structured fashion search metadata.";
             if (item.Wardrobe == null || item.Wardrobe.AccountId != currentUserId)
                 throw new UnauthorizedAccessException("You do not have permission to unpublish this item.");
 
+            if (item.Status == ItemStatus.Deleted)
+                throw new InvalidOperationException("Cannot unpublish deleted item.");
+
+            if (!item.IsForSale)
+                throw new InvalidOperationException("Item is already unpublished.");
+
             await _unitOfWork.BeginTransactionAsync();
             try
             {
                 item.IsForSale = false;
                 item.PublishedAt = null;
                 item.UpdateAt = DateTime.UtcNow;
+
                 _itemRepo.Update(item);
-
-                var variants = await _itemVariantRepository.GetByItemIdAsync(itemId);
-
-                foreach (var variant in variants)
-                {
-                    var variantForUpdate =
-                        await _itemVariantRepository.GetByIdForUpdateAsync(variant.ItemVariantId);
-
-                    if (variantForUpdate == null)
-                        continue;
-
-                    if (variantForUpdate.ReservedQuantity > 0)
-                        throw new InvalidOperationException("Cannot unpublish item while some variants are reserved.");
-
-                    variantForUpdate.Status = ItemVariantStatus.Inactive;
-                    _itemVariantRepository.Update(variantForUpdate);
-                }
 
                 await _unitOfWork.CommitAsync();
 
@@ -546,8 +565,8 @@ Convert the user request into structured fashion search metadata.";
         }
 
         public async Task<ItemVariantResponseDto> CreateItemVariantAsync(
-            int itemId,
-            CreateItemVariantRequest request)
+    int itemId,
+    CreateItemVariantRequest request)
         {
             if (request == null)
                 throw new ArgumentNullException(nameof(request));
@@ -561,11 +580,8 @@ Convert the user request into structured fashion search metadata.";
             if (item.Wardrobe == null || item.Wardrobe.AccountId != currentUserId)
                 throw new UnauthorizedAccessException("You do not have permission to add variant for this item.");
 
-            if (!item.IsForSale)
-                throw new InvalidOperationException("Item must be published for sale before adding variants.");
-
-            if (string.IsNullOrWhiteSpace(request.Sku))
-                throw new InvalidOperationException("SKU is required.");
+            if (item.Status != ItemStatus.Active)
+                throw new InvalidOperationException("Only active item can have variants.");
 
             if (request.Price <= 0)
                 throw new InvalidOperationException("Price must be greater than 0.");
@@ -573,16 +589,18 @@ Convert the user request into structured fashion search metadata.";
             if (request.StockQuantity < 0)
                 throw new InvalidOperationException("Stock quantity cannot be negative.");
 
-            bool skuExists = await _itemVariantRepository.ExistsSkuAsync(itemId, request.Sku.Trim());
-            if (skuExists)
-                throw new InvalidOperationException("SKU already exists for this item.");
+            string sku = await GenerateUniqueVariantSkuAsync(itemId);
 
             var variant = new ItemVariant
             {
                 ItemId = itemId,
-                Sku = request.Sku.Trim(),
-                SizeCode = string.IsNullOrWhiteSpace(request.SizeCode) ? null : request.SizeCode.Trim(),
-                Color = string.IsNullOrWhiteSpace(request.Color) ? item.MainColor : request.Color.Trim(),
+                Sku = sku,
+                SizeCode = string.IsNullOrWhiteSpace(request.SizeCode)
+                    ? null
+                    : request.SizeCode.Trim(),
+                Color = string.IsNullOrWhiteSpace(request.Color)
+                    ? item.MainColor
+                    : request.Color.Trim(),
                 Price = request.Price,
                 StockQuantity = request.StockQuantity,
                 ReservedQuantity = 0,
@@ -591,15 +609,28 @@ Convert the user request into structured fashion search metadata.";
                     : ItemVariantStatus.OutOfStock
             };
 
-            await _itemVariantRepository.AddAsync(variant);
-            await _itemVariantRepository.SaveChangesAsync();
+            await _unitOfWork.BeginTransactionAsync();
+            try
+            {
+                await _itemVariantRepository.AddAsync(variant);
 
-            return MapVariantToResponse(variant);
+                RefreshCommerceStateAfterVariantChange(item, variant);
+                _itemRepo.Update(item);
+
+                await _unitOfWork.CommitAsync();
+
+                return MapVariantToResponse(variant);
+            }
+            catch
+            {
+                await _unitOfWork.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task<ItemVariantResponseDto> UpdateItemVariantAsync(
-            int itemVariantId,
-            UpdateItemVariantRequest request)
+    int itemVariantId,
+    UpdateItemVariantRequest request)
         {
             if (request == null)
                 throw new ArgumentNullException(nameof(request));
@@ -617,8 +648,17 @@ Convert the user request into structured fashion search metadata.";
                 throw new UnauthorizedAccessException("You do not have permission to update this variant.");
             }
 
-            if (string.IsNullOrWhiteSpace(request.Sku))
-                throw new InvalidOperationException("SKU is required.");
+            if (variant.Status == ItemVariantStatus.Deleted)
+                throw new InvalidOperationException("Cannot update deleted variant.");
+
+            if (variant.Status == ItemVariantStatus.Archived)
+                throw new InvalidOperationException("Cannot update archived variant.");
+
+            if (request.Status == ItemVariantStatus.Deleted ||
+                request.Status == ItemVariantStatus.Archived)
+            {
+                throw new InvalidOperationException("Use delete or archive flow instead of update flow.");
+            }
 
             if (request.Price <= 0)
                 throw new InvalidOperationException("Price must be greater than 0.");
@@ -629,34 +669,49 @@ Convert the user request into structured fashion search metadata.";
             if (request.StockQuantity < variant.ReservedQuantity)
                 throw new InvalidOperationException("Stock quantity cannot be less than reserved quantity.");
 
-            bool skuExists = await _itemVariantRepository.ExistsOtherSkuAsync(
-                variant.ItemVariantId,
-                variant.ItemId,
-                request.Sku.Trim());
-
-            if (skuExists)
-                throw new InvalidOperationException("SKU already exists for this item.");
-
-            variant.Sku = request.Sku.Trim();
-            variant.SizeCode = string.IsNullOrWhiteSpace(request.SizeCode) ? null : request.SizeCode.Trim();
-            variant.Color = string.IsNullOrWhiteSpace(request.Color) ? variant.Item.MainColor : request.Color.Trim();
-            variant.Price = request.Price;
-            variant.StockQuantity = request.StockQuantity;
-            variant.Status = request.Status;
-
-            if (variant.StockQuantity == 0 && variant.ReservedQuantity == 0)
+            await _unitOfWork.BeginTransactionAsync();
+            try
             {
-                variant.Status = ItemVariantStatus.OutOfStock;
+                variant.SizeCode = string.IsNullOrWhiteSpace(request.SizeCode)
+                    ? null
+                    : request.SizeCode.Trim();
+
+                variant.Color = string.IsNullOrWhiteSpace(request.Color)
+                    ? variant.Item.MainColor
+                    : request.Color.Trim();
+
+                variant.Price = request.Price;
+                variant.StockQuantity = request.StockQuantity;
+
+                int availableStock = variant.StockQuantity - variant.ReservedQuantity;
+
+                if (request.Status == ItemVariantStatus.Inactive)
+                {
+                    variant.Status = ItemVariantStatus.Inactive;
+                }
+                else if (availableStock <= 0)
+                {
+                    variant.Status = ItemVariantStatus.OutOfStock;
+                }
+                else
+                {
+                    variant.Status = ItemVariantStatus.Active;
+                }
+
+                _itemVariantRepository.Update(variant);
+
+                RefreshCommerceStateAfterVariantChange(variant.Item);
+                _itemRepo.Update(variant.Item);
+
+                await _unitOfWork.CommitAsync();
+
+                return MapVariantToResponse(variant);
             }
-            else if (variant.Status == ItemVariantStatus.OutOfStock && variant.StockQuantity > 0)
+            catch
             {
-                variant.Status = ItemVariantStatus.Active;
+                await _unitOfWork.RollbackAsync();
+                throw;
             }
-
-            _itemVariantRepository.Update(variant);
-            await _itemVariantRepository.SaveChangesAsync();
-
-            return MapVariantToResponse(variant);
         }
 
         public async Task DeleteItemVariantAsync(int itemVariantId)
@@ -674,11 +729,30 @@ Convert the user request into structured fashion search metadata.";
                 throw new UnauthorizedAccessException("You do not have permission to delete this variant.");
             }
 
+            if (variant.Status == ItemVariantStatus.Deleted)
+                throw new InvalidOperationException("Variant has already been deleted.");
+
+            if (variant.Status == ItemVariantStatus.Archived)
+                throw new InvalidOperationException("Variant has already been archived.");
+
             if (variant.ReservedQuantity > 0)
                 throw new InvalidOperationException("Cannot delete a reserved variant.");
 
-            _itemVariantRepository.Delete(variant);
-            await _itemVariantRepository.SaveChangesAsync();
+            await _unitOfWork.BeginTransactionAsync();
+            try
+            {
+                _itemVariantRepository.Delete(variant);
+
+                RefreshCommerceStateAfterVariantChange(variant.Item);
+                _itemRepo.Update(variant.Item);
+
+                await _unitOfWork.CommitAsync();
+            }
+            catch
+            {
+                await _unitOfWork.RollbackAsync();
+                throw;
+            }
         }
 
         public async Task<List<PublicWardrobeItemDto>> GetMySavedItemsAsync()
@@ -783,6 +857,36 @@ Convert the user request into structured fashion search metadata.";
                 : "Not specified";
         }
 
+        private async Task<string> GenerateUniqueVariantSkuAsync(int itemId)
+        {
+            var usedSkus = new HashSet<string>();
+            return await GenerateUniqueVariantSkuAsync(itemId, usedSkus);
+        }
+
+        private async Task<string> GenerateUniqueVariantSkuAsync(
+            int itemId,
+            HashSet<string> usedSkus)
+        {
+            int index = 1;
+
+            while (true)
+            {
+                string sku = $"ITEM-{itemId}-VAR-{index}";
+                string normalizedSku = sku.ToLower();
+
+                bool existsInCurrentRequest = usedSkus.Contains(normalizedSku);
+                bool existsInDatabase = await _itemVariantRepository.ExistsSkuAsync(itemId, sku);
+
+                if (!existsInCurrentRequest && !existsInDatabase)
+                {
+                    usedSkus.Add(normalizedSku);
+                    return sku;
+                }
+
+                index++;
+            }
+        }
+
         private async Task<ItemCommerceResponseDto> BuildCommerceResponseAsync(int itemId)
         {
             var item = await _itemRepo.GetByIdAsync(itemId)
@@ -818,6 +922,47 @@ Convert the user request into structured fashion search metadata.";
                 CreatedAt = variant.CreatedAt,
                 UpdatedAt = variant.UpdatedAt
             };
+        }
+
+        private static void RefreshCommerceStateAfterVariantChange(
+            Item item,
+            ItemVariant? changedVariant = null)
+        {
+            var sellablePrices = item.ItemVariants
+                .Where(v =>
+                    v.Status == ItemVariantStatus.Active &&
+                    v.StockQuantity > v.ReservedQuantity &&
+                    v.Price > 0)
+                .Select(v => v.Price)
+                .ToList();
+
+            if (changedVariant != null &&
+                changedVariant.Status == ItemVariantStatus.Active &&
+                changedVariant.StockQuantity > changedVariant.ReservedQuantity &&
+                changedVariant.Price > 0)
+            {
+                sellablePrices.Add(changedVariant.Price);
+            }
+
+            if (sellablePrices.Any())
+            {
+                item.IsForSale = true;
+                item.IsPublic = true;
+                item.ListedPrice = sellablePrices.Min();
+
+                if (item.PublishedAt == null)
+                {
+                    item.PublishedAt = DateTime.UtcNow;
+                }
+            }
+            else
+            {
+                item.IsForSale = false;
+                item.ListedPrice = null;
+                item.PublishedAt = null;
+            }
+
+            item.UpdateAt = DateTime.UtcNow;
         }
     }
 }
