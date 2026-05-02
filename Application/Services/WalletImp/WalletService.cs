@@ -41,7 +41,7 @@ namespace Application.Services.WalletImp
             var wallet = await _walletRepo.GetByAccountIdAsync(accountId);
 
             if (wallet == null)
-                throw new Exception("Không tìm thấy ví người dùng.");
+                throw new Exception("User wallet not found.");
 
             return new WalletResponse
             {
@@ -58,7 +58,7 @@ namespace Application.Services.WalletImp
             var wallet = await _walletRepo.GetByAccountIdAsync(accountId);
 
             if (wallet == null)
-                throw new Exception("Ví không tồn tại.");
+                throw new Exception("Wallet not found.");
 
             var transactions = await _transactionRepo.GetByWalletIdAsync(wallet.WalletId);
 
@@ -87,16 +87,16 @@ namespace Application.Services.WalletImp
             int accountId = _currentUserService.GetRequiredUserId();
 
             if (request == null)
-                throw new Exception("Dữ liệu nạp tiền không hợp lệ.");
+                throw new Exception("Invalid top-up data.");
 
             if (request.Amount <= 0)
-                throw new Exception("Số tiền nạp phải lớn hơn 0.");
+                throw new Exception("Top-up amount must be greater than 0.");
 
             if (string.IsNullOrWhiteSpace(request.OrderCode))
-                throw new Exception("Mã giao dịch không hợp lệ.");
+                throw new Exception("Invalid transaction code.");
 
             if (string.IsNullOrWhiteSpace(request.Provider))
-                throw new Exception("Nhà cung cấp thanh toán không hợp lệ.");
+                throw new Exception("Invalid payment provider.");
 
             await _unitOfWork.BeginTransactionAsync();
 
@@ -104,7 +104,7 @@ namespace Application.Services.WalletImp
             {
                 var wallet = await _walletRepo.GetByAccountIdAsync(accountId);
                 if (wallet == null)
-                    throw new Exception("Ví không tồn tại.");
+                    throw new Exception("Wallet not found.");
 
                 var payment = new Payment
                 {
@@ -137,7 +137,7 @@ namespace Application.Services.WalletImp
                     Type = TransactionType.Credit,
                     ReferenceType = TransactionReferenceType.TopUp,
                     ReferenceId = payment.PaymentId,
-                    Description = $"Nạp tiền qua {request.Provider}",
+                    Description = $"Top up via {request.Provider}",
                     Status = TransactionStatus.Success,
                     CreatedAt = DateTime.UtcNow
                 };
@@ -150,8 +150,8 @@ namespace Application.Services.WalletImp
                 {
                     SenderId = accountId,
                     TargetUserId = accountId,
-                    Title = "Nạp ví thành công",
-                    Content = $"Bạn đã nạp thành công {request.Amount:N0} VND vào ví.",
+                    Title = "Wallet top-up successful",
+                    Content = $"You have successfully topped up {request.Amount:N0} VND to your wallet.",
                     Type = "WalletTopUp"
                 });
 
@@ -177,7 +177,7 @@ namespace Application.Services.WalletImp
             var wallet = await _walletRepo.GetByAccountIdAsync(accountId);
 
             if (wallet == null)
-                throw new Exception("Ví không tồn tại.");
+                throw new Exception("Wallet not found.");
 
             var transactions = await _transactionRepo.GetByWalletIdAsync(wallet.WalletId);
 
@@ -192,21 +192,21 @@ namespace Application.Services.WalletImp
                 {
                     new StatCardDto
                     {
-                        Label = "Số dư khả dụng",
+                        Label = "Available Balance",
                         Value = wallet.Balance.ToString("N0"),
                         Sub = "Coins",
                         Icon = "Wallet"
                     },
                     new StatCardDto
                     {
-                        Label = "Số dư đóng băng",
+                        Label = "Locked Balance",
                         Value = wallet.LockedBalance.ToString("N0"),
                         Sub = "Coins",
                         Icon = "Lock"
                     },
                     new StatCardDto
                     {
-                        Label = "Tổng chi tiêu",
+                        Label = "Total Spending",
                         Value = totalExpense.ToString("N0"),
                         Sub = "Coins",
                         Icon = "ArrowUpRight"

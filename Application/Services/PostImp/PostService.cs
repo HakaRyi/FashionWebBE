@@ -172,11 +172,12 @@ namespace Application.Services.PostImp
 
             _imageRepo.DeleteRange(images);
             _postRepo.Delete(post);
+
             var account = await _userManager.FindByIdAsync(accountId.ToString());
             account.CountPost -= 1;
+
             await _userManager.UpdateAsync(account);
             await _uow.SaveChangesAsync();
-
         }
 
         public async Task<string> AdminCheckTheStatusPost(CheckPostRequest request, int id)
@@ -470,7 +471,7 @@ namespace Application.Services.PostImp
                 if (originalPost?.Scoreboard != null)
                 {
                     res.Score = originalPost.Scoreboard.FinalScore;
-                    res.Reason = originalPost.Scoreboard.ExpertReason; 
+                    res.Reason = originalPost.Scoreboard.ExpertReason;
                 }
             }
 
@@ -550,7 +551,7 @@ namespace Application.Services.PostImp
             //if (request.EventId.HasValue)
             //{
             //    var eventExists = await _eventRepo.ExistsAsync(request.EventId.Value);
-            //    if (!eventExists) throw new KeyNotFoundException("Event không tồn tại.");
+            //    if (!eventExists) throw new KeyNotFoundException("Event not found.");
             //}
 
             var now = DateTime.UtcNow;
@@ -596,16 +597,17 @@ namespace Application.Services.PostImp
                     ImageUrls = imageUrls
                 });
             }
+
             return MapToResponse(post);
         }
 
         public async Task<PostResponse> UpdatePostAsync(int postId, int accountId, UpdatePostRequest request)
         {
             var post = await _postRepo.GetByIdAsync(postId);
-            if (post == null) throw new KeyNotFoundException("Bài viết không tồn tại");
+            if (post == null) throw new KeyNotFoundException("Post not found.");
 
             if (post.AccountId != accountId)
-                throw new UnauthorizedAccessException("Không chính chủ");
+                throw new UnauthorizedAccessException("You are not the owner of this post.");
 
             var account = await _userManager.Users
                 .Include(x => x.ExpertProfile)
@@ -710,7 +712,7 @@ namespace Application.Services.PostImp
         {
             if (string.IsNullOrWhiteSpace(keyword)) return new GlobalSearchResultDto();
 
-            // 1. Lấy dữ liệu thô từ Repo
+            // Get raw data from the repository.
             var (postEntities, userEntities) = await _postRepo.SearchRawDataAsync(keyword, 5);
 
             List<int> likedPostIds = new();
@@ -720,7 +722,7 @@ namespace Application.Services.PostImp
                 likedPostIds = await _postRepo.GetLikedPostIdsAsync(viewerId.Value, postIds);
             }
 
-            // 2. Map Users
+            // Map users.
             var userDtos = userEntities.Select(u => new UserSearchDto
             {
                 AccountId = u.Id,
@@ -731,7 +733,7 @@ namespace Application.Services.PostImp
                 FollowerCount = u.CountFollower
             }).ToList();
 
-            // 3. Map Posts (Xử lý các logic like/save phức tạp ở đây)
+            // Map posts and handle viewer interaction flags.
             var postDtos = postEntities.Select(p => new PostFeedDto
             {
                 PostId = p.PostId,
@@ -745,7 +747,7 @@ namespace Application.Services.PostImp
                 CommentCount = p.CommentCount ?? 0,
                 CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
 
-                // Logic check tương tác của người xem
+                // Check viewer interaction.
                 IsLiked = likedPostIds.Contains(p.PostId),
                 IsExpertPost = p.IsExpertPost ?? false
             }).ToList();

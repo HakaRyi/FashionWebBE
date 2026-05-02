@@ -33,47 +33,47 @@ namespace Application.Services.UserReportImp
 
             if (request.PostId <= 0)
             {
-                throw new ArgumentException("PostId không hợp lệ.");
+                throw new ArgumentException("Invalid PostId.");
             }
 
             if (request.ReportTypeId <= 0)
             {
-                throw new ArgumentException("ReportTypeId không hợp lệ.");
+                throw new ArgumentException("Invalid ReportTypeId.");
             }
 
             request.Reason = request.Reason?.Trim();
 
             if (!string.IsNullOrWhiteSpace(request.Reason) && request.Reason.Length > 1000)
             {
-                throw new ArgumentException("Reason không được vượt quá 1000 ký tự.");
+                throw new ArgumentException("Reason must not exceed 1000 characters.");
             }
 
             var postInfo = await _userReportRepository.GetPostValidationInfoAsync(request.PostId);
             if (postInfo == null)
             {
-                throw new KeyNotFoundException("Bài viết không tồn tại.");
+                throw new KeyNotFoundException("Post not found.");
             }
 
             if (postInfo.AccountId == currentUserId)
             {
-                throw new InvalidOperationException("Bạn không thể báo cáo bài viết của chính mình.");
+                throw new InvalidOperationException("You cannot report your own post.");
             }
 
             if (postInfo.Status == PostStatus.Deleted || postInfo.Status == PostStatus.Banned)
             {
-                throw new InvalidOperationException("Bài viết này hiện không thể báo cáo.");
+                throw new InvalidOperationException("This post cannot be reported at the moment.");
             }
 
             var reportType = await _userReportRepository.GetReportTypeByIdAsync(request.ReportTypeId);
             if (reportType == null)
             {
-                throw new KeyNotFoundException("Loại báo cáo không hợp lệ.");
+                throw new KeyNotFoundException("Invalid report type.");
             }
 
             var isAlreadyReported = await _userReportRepository.IsAlreadyReportedAsync(request.PostId, currentUserId);
             if (isAlreadyReported)
             {
-                throw new InvalidOperationException("Bạn đã báo cáo bài viết này rồi.");
+                throw new InvalidOperationException("You have already reported this post.");
             }
 
             var report = new UserReport
@@ -99,7 +99,7 @@ namespace Application.Services.UserReportImp
                 Reason = report.Reason,
                 Status = report.Status,
                 CreatedAt = report.CreatedAt,
-                Message = "Báo cáo bài viết thành công."
+                Message = "Post reported successfully."
             };
         }
 
@@ -115,7 +115,7 @@ namespace Application.Services.UserReportImp
         {
             if (!string.IsNullOrWhiteSpace(status) && !ReportStatus.IsValid(status))
             {
-                throw new ArgumentException("Status không hợp lệ.");
+                throw new ArgumentException("Invalid status.");
             }
 
             if (pageNumber <= 0)
@@ -140,7 +140,7 @@ namespace Application.Services.UserReportImp
         {
             if (userReportId <= 0)
             {
-                throw new ArgumentException("userReportId không hợp lệ.");
+                throw new ArgumentException("Invalid userReportId.");
             }
 
             return await _userReportRepository.GetAdminReportDetailAsync(userReportId);
@@ -153,7 +153,7 @@ namespace Application.Services.UserReportImp
         {
             if (userReportId <= 0)
             {
-                throw new ArgumentException("userReportId không hợp lệ.");
+                throw new ArgumentException("Invalid userReportId.");
             }
 
             if (request == null)
@@ -163,38 +163,38 @@ namespace Application.Services.UserReportImp
 
             if (string.IsNullOrWhiteSpace(request.NewStatus))
             {
-                throw new ArgumentException("NewStatus không được để trống.");
+                throw new ArgumentException("NewStatus must not be empty.");
             }
 
             request.NewStatus = request.NewStatus.Trim();
 
             if (!ReportStatus.IsValid(request.NewStatus))
             {
-                throw new ArgumentException("NewStatus không hợp lệ.");
+                throw new ArgumentException("Invalid NewStatus.");
             }
 
             if (request.NewStatus != ReportStatus.Resolved && request.NewStatus != ReportStatus.Rejected)
             {
-                throw new ArgumentException("Admin chỉ được chuyển report sang Resolved hoặc Rejected.");
+                throw new ArgumentException("Admin can only change the report status to Resolved or Rejected.");
             }
 
             request.AdminNote = request.AdminNote?.Trim();
 
             if (!string.IsNullOrWhiteSpace(request.AdminNote) && request.AdminNote.Length > 1000)
             {
-                throw new ArgumentException("AdminNote không được vượt quá 1000 ký tự.");
+                throw new ArgumentException("AdminNote must not exceed 1000 characters.");
             }
 
             var report = await _userReportRepository.GetByIdAsync(userReportId);
             if (report == null)
             {
-                throw new KeyNotFoundException("Không tìm thấy báo cáo.");
+                throw new KeyNotFoundException("Report not found.");
             }
 
             if (!ReportStatus.CanTransition(report.Status, request.NewStatus))
             {
                 throw new InvalidOperationException(
-                    $"Không thể chuyển trạng thái từ '{report.Status}' sang '{request.NewStatus}'.");
+                    $"Cannot change status from '{report.Status}' to '{request.NewStatus}'.");
             }
 
             report.Status = request.NewStatus;
@@ -214,7 +214,7 @@ namespace Application.Services.UserReportImp
                 {
                     if (!PostStatus.IsValid(request.PostStatusToApply))
                     {
-                        throw new ArgumentException("PostStatusToApply không hợp lệ.");
+                        throw new ArgumentException("Invalid PostStatusToApply.");
                     }
 
                     report.Post.Status = request.PostStatusToApply;
@@ -236,8 +236,8 @@ namespace Application.Services.UserReportImp
                 PostStatus = report.Post.Status,
                 PostVisibility = report.Post.Visibility,
                 Message = request.NewStatus == ReportStatus.Resolved
-                    ? "Xử lý báo cáo thành công."
-                    : "Đã từ chối báo cáo."
+                    ? "Report resolved successfully."
+                    : "Report rejected."
             };
         }
     }

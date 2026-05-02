@@ -26,7 +26,7 @@ namespace Application.Services.TryOn
         public async Task<int> CreateTryOnHistoryAsync(int accountId, CreateHistoryTryOnRequest request)
         {
             if (request == null || request.Image == null || request.Image.Length == 0)
-                throw new ArgumentException("Ảnh kết quả thử đồ không hợp lệ.");
+                throw new ArgumentException("The try-on result image is invalid.");
 
             await _unitOfWork.BeginTransactionAsync();
 
@@ -76,10 +76,10 @@ namespace Application.Services.TryOn
                 var history = await _historyRepo.GetByIdAsync(tryOnId);
 
                 if (history == null)
-                    throw new KeyNotFoundException("Không tìm thấy lịch sử thử đồ.");
+                    throw new KeyNotFoundException("Try-on history not found.");
 
                 if (history.AccountId != accountId)
-                    throw new UnauthorizedAccessException("Bạn không có quyền xóa lịch sử này.");
+                    throw new UnauthorizedAccessException("You are not allowed to delete this try-on history.");
 
                 if (!string.IsNullOrWhiteSpace(history.ImageUrl))
                 {

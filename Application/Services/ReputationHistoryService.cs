@@ -28,7 +28,7 @@ namespace Application.Services
             var expertProfile = await _repository.GetFullReputationDataByAccountIdAsync(currentExpertId);
 
             if (expertProfile == null)
-                throw new Exception("Expert profile không tồn tại.");
+                throw new Exception("Expert profile does not exist.");
 
             var summary = new ExpertReputationSummaryDto
             {

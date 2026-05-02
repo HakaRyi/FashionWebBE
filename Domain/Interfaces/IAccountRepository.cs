@@ -4,6 +4,7 @@ namespace Domain.Interfaces
 {
     public interface IAccountRepository
     {
+        Task<List<RefreshToken>> GetActiveRefreshTokensByAccountIdAsync(int accountId);
         Task<Account?> GetAccountWithProfileAndAvatarsAsync(int accountId);
         Task<List<Account>> GetFashionExperts();
         Task<List<Account>> GetAll();
