@@ -1,7 +1,9 @@
 ﻿using Application.Interfaces;
+using Application.Request.NotificationReq;
 using Application.Request.OrderReq;
 using Application.Response.OrderResp;
 using Application.Response.RefundResp;
+using Application.Services.NotificationImp;
 using Application.Utils;
 using Application.Utils.SignalR;
 using Domain.Constants;
@@ -26,6 +28,7 @@ namespace Application.Services.OrderImp
         private readonly IUnitOfWork _unitOfWork;
         private readonly IRefundRequestRepository _refundRepo;
         private readonly ICloudStorageService _cloudStorageService;
+        private readonly INotificationService _notificationService;
 
         public OrderService(
             IOrderRepository orderRepo,
@@ -36,7 +39,8 @@ namespace Application.Services.OrderImp
             ITransactionRepository transactionRepo,
             IUnitOfWork unitOfWork,
             IRefundRequestRepository refundRepo,
-            ICloudStorageService cloudStorageService)
+            ICloudStorageService cloudStorageService,
+            INotificationService notificationService)
         {
             _orderRepo = orderRepo;
             _variantRepo = variantRepo;
@@ -47,6 +51,7 @@ namespace Application.Services.OrderImp
             _unitOfWork = unitOfWork;
             _refundRepo = refundRepo;
             _cloudStorageService = cloudStorageService;
+            _notificationService = notificationService;
         }
 
         public async Task<OrderResponse> CreateOrderAsync(int sellerId, int buyerId, CreateOrderRequest request)
@@ -159,7 +164,10 @@ namespace Application.Services.OrderImp
                     ?? throw new Exception("Unable to reload the order after creation.");
 
                 var response = MapToResponse(createdOrder);
+
                 await NotifyOrder(response);
+                await NotifyOrderEventAsync(response, NotificationType.OrderCreated, buyerId);
+
                 return response;
             }
             catch
@@ -261,7 +269,10 @@ namespace Application.Services.OrderImp
                 ?? throw new Exception("Order not found after payment.");
 
             var response = MapToResponse(updatedOrder);
+
             await NotifyOrder(response);
+            await NotifyOrderEventAsync(response, NotificationType.OrderPaid, buyerId);
+
             return response;
         }
 
@@ -386,7 +397,22 @@ namespace Application.Services.OrderImp
                 ?? throw new Exception("Order not found after update.");
 
             var response = MapToResponse(updatedOrder);
+
             await NotifyOrder(response);
+
+            var notificationType = response.Status switch
+            {
+                OrderStatus.Shipping => NotificationType.OrderShipping,
+                OrderStatus.Completed => NotificationType.OrderCompleted,
+                OrderStatus.Cancelled => NotificationType.OrderCancelled,
+                _ => null
+            };
+
+            if (notificationType != null)
+            {
+                await NotifyOrderEventAsync(response, notificationType, currentUserId);
+            }
+
             return response;
         }
 
@@ -438,7 +464,21 @@ namespace Application.Services.OrderImp
                 ?? throw new Exception("Order not found after shipper update.");
 
             var response = MapToResponse(updatedOrder);
+
             await NotifyOrder(response);
+
+            var notificationType = response.Status switch
+            {
+                OrderStatus.Shipping => NotificationType.OrderShipping,
+                OrderStatus.Delivered => NotificationType.OrderDelivered,
+                _ => null
+            };
+
+            if (notificationType != null)
+            {
+                await NotifyOrderEventAsync(response, notificationType, response.SellerId);
+            }
+
             return response;
         }
 
@@ -514,7 +554,10 @@ namespace Application.Services.OrderImp
                 ?? throw new Exception("Order not found after refund request.");
 
             var response = MapToResponse(updatedOrder);
+
             await NotifyOrder(response);
+            await NotifyOrderEventAsync(response, NotificationType.RefundRequested, buyerId);
+
             return response;
         }
 
@@ -619,7 +662,10 @@ namespace Application.Services.OrderImp
                 ?? throw new Exception("Order not found after reject refund.");
 
             var response = MapToResponse(updatedOrder);
+
             await NotifyOrder(response);
+            await NotifyOrderEventAsync(response, NotificationType.RefundRejected, response.SellerId);
+
             return response;
         }
 
@@ -707,7 +753,10 @@ namespace Application.Services.OrderImp
                 ?? throw new Exception("Order not found after refund approval.");
 
             var response = MapToResponse(updatedOrder);
+
             await NotifyOrder(response);
+            await NotifyOrderEventAsync(response, NotificationType.RefundApproved, response.SellerId);
+
             return response;
         }
 
@@ -738,7 +787,10 @@ namespace Application.Services.OrderImp
                 ?? throw new Exception("Order not found after auto complete.");
 
             var response = MapToResponse(updatedOrder);
+
             await NotifyOrder(response);
+            await NotifyOrderEventAsync(response, NotificationType.OrderCompleted, response.BuyerId);
+
             return response;
         }
 
@@ -1101,6 +1153,144 @@ namespace Application.Services.OrderImp
                 TotalCount = result.TotalCount,
                 HasMore = page * pageSize < result.TotalCount
             };
+        }
+
+        private async Task NotifyOrderUserAsync(
+            OrderResponse order,
+            string type,
+            int senderId,
+            int targetUserId,
+            string title,
+            string content)
+        {
+            await _notificationService.SendNotificationAsync(new SendNotificationRequest
+            {
+                SenderId = senderId,
+                TargetUserId = targetUserId,
+                Title = title,
+                Content = content,
+                Type = type,
+                RelatedId = order.OrderId.ToString()
+            });
+        }
+
+        private async Task NotifyOrderEventAsync(
+            OrderResponse order,
+            string type,
+            int actorId)
+        {
+            switch (type)
+            {
+                case NotificationType.OrderCreated:
+                    await NotifyOrderUserAsync(
+                        order,
+                        type,
+                        actorId,
+                        order.SellerId,
+                        "New order received",
+                        $"You have received a new order {order.OrderCode} from {order.BuyerName}.");
+                    break;
+
+                case NotificationType.OrderPaid:
+                    await NotifyOrderUserAsync(
+                        order,
+                        type,
+                        actorId,
+                        order.SellerId,
+                        "Order paid",
+                        $"Order {order.OrderCode} has been paid by {order.BuyerName}.");
+                    break;
+
+                case NotificationType.OrderShipping:
+                    await NotifyOrderUserAsync(
+                        order,
+                        type,
+                        actorId,
+                        order.BuyerId,
+                        "Order is shipping",
+                        $"Your order {order.OrderCode} is now shipping.");
+                    break;
+
+                case NotificationType.OrderDelivered:
+                    await NotifyOrderUserAsync(
+                        order,
+                        type,
+                        actorId,
+                        order.BuyerId,
+                        "Order delivered",
+                        $"Your order {order.OrderCode} has been delivered. Please confirm it if everything is okay.");
+                    break;
+
+                case NotificationType.OrderCompleted:
+                    await NotifyOrderUserAsync(
+                        order,
+                        type,
+                        actorId,
+                        order.SellerId,
+                        "Order completed",
+                        $"Order {order.OrderCode} has been completed. Payment has been released to your wallet.");
+
+                    await NotifyOrderUserAsync(
+                        order,
+                        type,
+                        actorId,
+                        order.BuyerId,
+                        "Order completed",
+                        $"Your order {order.OrderCode} has been completed.");
+                    break;
+
+                case NotificationType.OrderCancelled:
+                    var targetId = actorId == order.BuyerId
+                        ? order.SellerId
+                        : order.BuyerId;
+
+                    await NotifyOrderUserAsync(
+                        order,
+                        type,
+                        actorId,
+                        targetId,
+                        "Order cancelled",
+                        $"Order {order.OrderCode} has been cancelled.");
+                    break;
+
+                case NotificationType.RefundRequested:
+                    await NotifyOrderUserAsync(
+                        order,
+                        type,
+                        actorId,
+                        order.SellerId,
+                        "Refund requested",
+                        $"{order.BuyerName} requested a refund for order {order.OrderCode}.");
+                    break;
+
+                case NotificationType.RefundApproved:
+                    await NotifyOrderUserAsync(
+                        order,
+                        type,
+                        actorId,
+                        order.BuyerId,
+                        "Refund approved",
+                        $"Your refund request for order {order.OrderCode} has been approved.");
+
+                    await NotifyOrderUserAsync(
+                        order,
+                        type,
+                        actorId,
+                        order.SellerId,
+                        "Order refunded",
+                        $"Order {order.OrderCode} has been refunded to the buyer.");
+                    break;
+
+                case NotificationType.RefundRejected:
+                    await NotifyOrderUserAsync(
+                        order,
+                        type,
+                        actorId,
+                        order.BuyerId,
+                        "Refund rejected",
+                        $"Your refund request for order {order.OrderCode} has been rejected.");
+                    break;
+            }
         }
     }
 }
