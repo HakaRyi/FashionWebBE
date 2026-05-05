@@ -40,14 +40,15 @@ namespace Application.Services.NotificationImp
             {
                 await _hubContext.Clients
                     .User(request.TargetUserId.Value.ToString())
-                    .SendAsync("ReceiveNotification", new
+                    .SendAsync("ReceiveNotification", new NotificationResponse
                     {
-                        notification.NotificationId,
-                        notification.Title,
-                        notification.Content,
-                        notification.Type,
-                        notification.Status,
-                        notification.CreatedAt
+                        Id = notification.NotificationId,
+                        Title = notification.Title,
+                        Content = notification.Content,
+                        Type = notification.Type,
+                        Status = notification.Status,
+                        CreatedAt = notification.CreatedAt ?? DateTime.UtcNow,
+                        RelatedId = notification.RelatedId
                     });
             }
         }
