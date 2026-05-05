@@ -57,21 +57,22 @@ namespace Application.Services.OrderImp
         public async Task<OrderResponse> CreateOrderAsync(int sellerId, int buyerId, CreateOrderRequest request)
         {
             if (request == null)
-                throw new Exception("Invalid order data.");
+                throw new ArgumentException("Invalid order data.");
 
             if (buyerId <= 0)
-                throw new Exception("Invalid buyer.");
+                throw new ArgumentException("Invalid buyer.");
 
             if (request.Details == null || !request.Details.Any())
-                throw new Exception("The order must contain at least one product.");
+                throw new ArgumentException("The order must contain at least one product.");
 
             if (request.Details.Any(d => d.ItemVariantId <= 0))
-                throw new Exception("Each order line must contain a valid item variant.");
+                throw new ArgumentException("Each order line must contain a valid item variant.");
 
             if (request.Details.Any(d => d.Quantity <= 0))
-                throw new Exception("Product quantity must be greater than 0.");
+                throw new ArgumentException("Product quantity must be greater than 0.");
 
             await _unitOfWork.BeginTransactionAsync();
+
             try
             {
                 decimal subTotal = 0m;
@@ -81,24 +82,24 @@ namespace Application.Services.OrderImp
                 foreach (var detail in request.Details)
                 {
                     var variant = await _variantRepo.GetByIdForUpdateAsync(detail.ItemVariantId)
-                        ?? throw new Exception($"Variant {detail.ItemVariantId} not found.");
+                        ?? throw new KeyNotFoundException($"Variant {detail.ItemVariantId} not found.");
 
                     if (variant.Status != ItemVariantStatus.Active)
-                        throw new Exception($"Variant {detail.ItemVariantId} is not active.");
+                        throw new InvalidOperationException($"Variant {detail.ItemVariantId} is not active.");
 
                     if (variant.Item == null)
-                        throw new Exception("Variant item not found.");
+                        throw new KeyNotFoundException("Variant item not found.");
 
                     if (variant.Item.Status != ItemStatus.Active)
-                        throw new Exception("Item is not active.");
+                        throw new InvalidOperationException("Item is not active.");
 
                     if (!variant.Item.IsForSale)
-                        throw new Exception("Item is not available for sale.");
+                        throw new InvalidOperationException("Item is not available for sale.");
 
                     int variantSellerId = variant.Item.Wardrobe.AccountId;
 
                     if (variantSellerId == buyerId)
-                        throw new Exception("Buyer cannot create an order for their own item.");
+                        throw new InvalidOperationException("Buyer cannot create an order for their own item.");
 
                     if (detectedSellerId == null)
                     {
@@ -106,14 +107,14 @@ namespace Application.Services.OrderImp
                     }
                     else if (detectedSellerId.Value != variantSellerId)
                     {
-                        throw new Exception("All order items must belong to the same seller.");
+                        throw new InvalidOperationException("All order items must belong to the same seller.");
                     }
 
                     if (variantSellerId != sellerId)
-                        throw new Exception("Invalid seller for selected item.");
+                        throw new ArgumentException("Invalid seller for selected item.");
 
                     if (!_variantRepo.HasEnoughStock(variant, detail.Quantity))
-                        throw new Exception($"Not enough stock for SKU {variant.Sku}.");
+                        throw new InvalidOperationException($"Not enough stock for SKU {variant.Sku}.");
 
                     _variantRepo.ReserveStock(variant, detail.Quantity);
 
@@ -161,7 +162,7 @@ namespace Application.Services.OrderImp
                 await _unitOfWork.CommitAsync();
 
                 var createdOrder = await _orderRepo.GetByIdAsync(order.OrderId)
-                    ?? throw new Exception("Unable to reload the order after creation.");
+                    ?? throw new KeyNotFoundException("Unable to reload the order after creation.");
 
                 var response = MapToResponse(createdOrder);
 
@@ -197,6 +198,7 @@ namespace Application.Services.OrderImp
             await CheckSpendingLimitAsync(buyerWallet, order.TotalAmount);
 
             await _unitOfWork.BeginTransactionAsync();
+
             try
             {
                 buyerWallet = await _walletRepo.GetByAccountIdAsync(buyerId)
@@ -288,7 +290,7 @@ namespace Application.Services.OrderImp
                 return null;
 
             if (order.BuyerId != currentUserId && order.SellerId != currentUserId)
-                throw new UnauthorizedAccessException();
+                throw new UnauthorizedAccessException("You are not allowed to access this order.");
 
             return MapToResponse(order);
         }
@@ -304,7 +306,6 @@ namespace Application.Services.OrderImp
             var orders = await _orderRepo.GetOrdersByBuyerIdAsync(buyerId);
             return orders.Select(MapToResponse).ToList();
         }
-
 
         public async Task<List<OrderResponse>> GetPaidOrdersAsync()
         {
@@ -339,7 +340,7 @@ namespace Application.Services.OrderImp
         public async Task<OrderResponse> GetOrderDetailByIdAsync(int orderId)
         {
             var order = await _orderRepo.GetByIdAsync(orderId)
-                ?? throw new Exception("Order not found.");
+                ?? throw new KeyNotFoundException("Order not found.");
 
             return MapToResponse(order);
         }
@@ -347,15 +348,16 @@ namespace Application.Services.OrderImp
         public async Task<OrderResponse> UpdateOrderStatusAsync(int orderId, string status, int currentUserId)
         {
             if (!OrderStatus.IsValid(status))
-                throw new Exception("Invalid order status.");
+                throw new ArgumentException("Invalid order status.");
 
             var order = await _orderRepo.GetByIdAsync(orderId)
-                ?? throw new Exception("Order not found.");
+                ?? throw new KeyNotFoundException("Order not found.");
 
             if (order.BuyerId != currentUserId && order.SellerId != currentUserId)
-                throw new UnauthorizedAccessException();
+                throw new UnauthorizedAccessException("You are not allowed to update this order.");
 
             await _unitOfWork.BeginTransactionAsync();
+
             try
             {
                 switch (status)
@@ -365,7 +367,7 @@ namespace Application.Services.OrderImp
                         break;
 
                     case OrderStatus.Delivered:
-                        throw new Exception("Delivered status must be updated by shipper flow.");
+                        throw new InvalidOperationException("Delivered status must be updated by shipper flow.");
 
                     case OrderStatus.Completed:
                         await CompleteOrderAndReleaseEscrowAsync(
@@ -379,7 +381,7 @@ namespace Application.Services.OrderImp
                         break;
 
                     default:
-                        throw new Exception("This status update is not allowed in this flow.");
+                        throw new InvalidOperationException("This status update is not allowed in this flow.");
                 }
 
                 order.UpdatedAt = DateTime.UtcNow;
@@ -394,7 +396,7 @@ namespace Application.Services.OrderImp
             }
 
             var updatedOrder = await _orderRepo.GetByIdAsync(orderId)
-                ?? throw new Exception("Order not found after update.");
+                ?? throw new KeyNotFoundException("Order not found after update.");
 
             var response = MapToResponse(updatedOrder);
 
@@ -419,10 +421,10 @@ namespace Application.Services.OrderImp
         public async Task<OrderResponse> UpdateOrderStatusByShipperAsync(int orderId, string status)
         {
             if (!OrderStatus.IsValid(status))
-                throw new Exception("Invalid order status.");
+                throw new ArgumentException("Invalid order status.");
 
             var order = await _orderRepo.GetByIdAsync(orderId)
-                ?? throw new Exception("Order not found.");
+                ?? throw new KeyNotFoundException("Order not found.");
 
             await _unitOfWork.BeginTransactionAsync();
 
@@ -432,7 +434,7 @@ namespace Application.Services.OrderImp
                 {
                     case OrderStatus.Shipping:
                         if (order.Status != OrderStatus.Processing)
-                            throw new Exception("Only processing orders can be marked as shipping.");
+                            throw new InvalidOperationException("Only processing orders can be marked as shipping.");
 
                         order.Status = OrderStatus.Shipping;
                         order.UpdatedAt = DateTime.UtcNow;
@@ -440,7 +442,7 @@ namespace Application.Services.OrderImp
 
                     case OrderStatus.Delivered:
                         if (order.Status != OrderStatus.Shipping)
-                            throw new Exception("Only shipping orders can be marked as delivered.");
+                            throw new InvalidOperationException("Only shipping orders can be marked as delivered.");
 
                         order.Status = OrderStatus.Delivered;
                         order.DeliveredAt = DateTime.UtcNow;
@@ -448,7 +450,7 @@ namespace Application.Services.OrderImp
                         break;
 
                     default:
-                        throw new Exception("Shipper can only update order to shipping or delivered.");
+                        throw new InvalidOperationException("Shipper can only update order to shipping or delivered.");
                 }
 
                 _orderRepo.Update(order);
@@ -461,7 +463,7 @@ namespace Application.Services.OrderImp
             }
 
             var updatedOrder = await _orderRepo.GetByIdAsync(orderId)
-                ?? throw new Exception("Order not found after shipper update.");
+                ?? throw new KeyNotFoundException("Order not found after shipper update.");
 
             var response = MapToResponse(updatedOrder);
 
@@ -497,13 +499,13 @@ namespace Application.Services.OrderImp
             CreateRefundRequestDto request)
         {
             if (request == null)
-                throw new Exception("Invalid refund request data.");
+                throw new ArgumentException("Invalid refund request data.");
 
             if (string.IsNullOrWhiteSpace(request.Reason))
-                throw new Exception("Refund reason is required.");
+                throw new ArgumentException("Refund reason is required.");
 
             if (request.ProofImage1 == null || request.ProofImage1.Length == 0)
-                throw new Exception("At least one proof image is required.");
+                throw new ArgumentException("At least one proof image is required.");
 
             ValidateRefundImage(request.ProofImage1);
 
@@ -513,17 +515,17 @@ namespace Application.Services.OrderImp
             }
 
             var order = await _orderRepo.GetByIdAsync(orderId)
-                ?? throw new Exception("Order not found.");
+                ?? throw new KeyNotFoundException("Order not found.");
 
             if (order.BuyerId != buyerId)
-                throw new UnauthorizedAccessException();
+                throw new UnauthorizedAccessException("You are not allowed to request a refund for this order.");
 
             if (order.Status != OrderStatus.Delivered)
-                throw new Exception("Only delivered orders can request a refund.");
+                throw new InvalidOperationException("Only delivered orders can request a refund.");
 
             var existingRequest = await _refundRepo.GetByOrderIdAsync(orderId);
             if (existingRequest != null)
-                throw new Exception("Refund request already exists.");
+                throw new InvalidOperationException("Refund request already exists.");
 
             string proofImage1Url = await _cloudStorageService.UploadImageAsync(request.ProofImage1);
             string? proofImage2Url = null;
@@ -534,6 +536,7 @@ namespace Application.Services.OrderImp
             }
 
             await _unitOfWork.BeginTransactionAsync();
+
             try
             {
                 order.Status = OrderStatus.Refunding;
@@ -560,7 +563,7 @@ namespace Application.Services.OrderImp
             }
 
             var updatedOrder = await _orderRepo.GetByIdAsync(orderId)
-                ?? throw new Exception("Order not found after refund request.");
+                ?? throw new KeyNotFoundException("Order not found after refund request.");
 
             var response = MapToResponse(updatedOrder);
 
@@ -613,36 +616,22 @@ namespace Application.Services.OrderImp
             }).ToList();
         }
 
-        private static string? GetRefundItemImage(RefundRequest refundRequest)
-        {
-            var firstDetail = refundRequest.Order.OrderDetails.FirstOrDefault();
-
-            if (!string.IsNullOrWhiteSpace(firstDetail?.ImageUrlSnapshot))
-            {
-                return firstDetail.ImageUrlSnapshot;
-            }
-
-            return firstDetail?.Item?.Images
-                .OrderBy(i => i.CreatedAt)
-                .Select(i => i.ImageUrl)
-                .FirstOrDefault();
-        }
-
         public async Task<OrderResponse> RejectRefundAsync(int orderId, string adminNote)
         {
             var order = await _orderRepo.GetByIdAsync(orderId)
-                ?? throw new Exception("Order not found.");
+                ?? throw new KeyNotFoundException("Order not found.");
 
             var refundRequest = await _refundRepo.GetByOrderIdAsync(orderId)
-                ?? throw new Exception("Refund request not found.");
+                ?? throw new KeyNotFoundException("Refund request not found.");
 
             if (refundRequest.Status != "PENDING")
-                throw new Exception("Refund request already processed.");
+                throw new InvalidOperationException("Refund request already processed.");
 
             if (order.Status != OrderStatus.Refunding)
-                throw new Exception("Order is not in refunding status.");
+                throw new InvalidOperationException("Order is not in refunding status.");
 
             await _unitOfWork.BeginTransactionAsync();
+
             try
             {
                 refundRequest.Status = "REJECTED";
@@ -668,7 +657,7 @@ namespace Application.Services.OrderImp
             }
 
             var updatedOrder = await _orderRepo.GetByIdAsync(orderId)
-                ?? throw new Exception("Order not found after reject refund.");
+                ?? throw new KeyNotFoundException("Order not found after reject refund.");
 
             var response = MapToResponse(updatedOrder);
 
@@ -681,27 +670,28 @@ namespace Application.Services.OrderImp
         public async Task<OrderResponse> UpdateRefundStatus(int orderId)
         {
             var refundRequest = await _refundRepo.GetByOrderIdAsync(orderId)
-                ?? throw new Exception("Refund request not found.");
+                ?? throw new KeyNotFoundException("Refund request not found.");
 
             if (refundRequest.Status != "PENDING")
-                throw new Exception("Refund request already processed.");
+                throw new InvalidOperationException("Refund request already processed.");
 
             var order = await _orderRepo.GetByIdAsync(orderId)
-                ?? throw new Exception("Order not found.");
+                ?? throw new KeyNotFoundException("Order not found.");
 
             if (order.Status != OrderStatus.Refunding)
-                throw new Exception("Order is not in refunding status.");
+                throw new InvalidOperationException("Order is not in refunding status.");
 
             var buyerWallet = await _walletRepo.GetByAccountIdAsync(order.BuyerId)
-                ?? throw new Exception("Buyer wallet not found.");
+                ?? throw new KeyNotFoundException("Buyer wallet not found.");
 
             var escrow = await _escrowRepo.GetByOrderIdAsync(orderId)
-                ?? throw new Exception("Escrow session not found.");
+                ?? throw new KeyNotFoundException("Escrow session not found.");
 
             if (escrow.Status != EscrowStatus.Held)
-                throw new Exception("Escrow is not in a valid held state.");
+                throw new InvalidOperationException("Escrow is not in a valid held state.");
 
             await _unitOfWork.BeginTransactionAsync();
+
             try
             {
                 decimal buyerBefore = buyerWallet.Balance;
@@ -759,7 +749,7 @@ namespace Application.Services.OrderImp
             }
 
             var updatedOrder = await _orderRepo.GetByIdAsync(orderId)
-                ?? throw new Exception("Order not found after refund approval.");
+                ?? throw new KeyNotFoundException("Order not found after refund approval.");
 
             var response = MapToResponse(updatedOrder);
 
@@ -772,9 +762,10 @@ namespace Application.Services.OrderImp
         public async Task<OrderResponse> AutoCompleteDeliveredOrderAsync(int orderId)
         {
             var order = await _orderRepo.GetByIdAsync(orderId)
-                ?? throw new Exception("Order not found.");
+                ?? throw new KeyNotFoundException("Order not found.");
 
             await _unitOfWork.BeginTransactionAsync();
+
             try
             {
                 await CompleteOrderAndReleaseEscrowAsync(
@@ -793,7 +784,7 @@ namespace Application.Services.OrderImp
             }
 
             var updatedOrder = await _orderRepo.GetByIdAsync(orderId)
-                ?? throw new Exception("Order not found after auto complete.");
+                ?? throw new KeyNotFoundException("Order not found after auto complete.");
 
             var response = MapToResponse(updatedOrder);
 
@@ -803,13 +794,105 @@ namespace Application.Services.OrderImp
             return response;
         }
 
+        public async Task<PagedResultDto<OrderResponse>> GetMyPurchasesFilteredAsync(
+            int buyerId,
+            OrderFilterRequest request)
+        {
+            request ??= new OrderFilterRequest();
+
+            int page = request.Page <= 0 ? 1 : request.Page;
+            int pageSize = request.PageSize <= 0 ? 10 : request.PageSize;
+
+            if (pageSize > 50)
+                pageSize = 50;
+
+            string? status = string.IsNullOrWhiteSpace(request.Status)
+                ? null
+                : request.Status.Trim();
+
+            if (!string.IsNullOrWhiteSpace(status) && !OrderStatus.IsValid(status))
+                throw new ArgumentException("Invalid order status.");
+
+            if (request.FromDate.HasValue &&
+                request.ToDate.HasValue &&
+                request.FromDate.Value.Date > request.ToDate.Value.Date)
+            {
+                throw new ArgumentException("From date cannot be later than to date.");
+            }
+
+            var result = await _orderRepo.GetOrdersByBuyerIdFilteredAsync(
+                buyerId,
+                page,
+                pageSize,
+                status,
+                request.FromDate,
+                request.ToDate,
+                request.SellerName,
+                request.OrderCode);
+
+            return new PagedResultDto<OrderResponse>
+            {
+                Items = result.Orders.Select(MapToResponse).ToList(),
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = result.TotalCount,
+                HasMore = page * pageSize < result.TotalCount
+            };
+        }
+
+        public async Task<PagedResultDto<OrderResponse>> GetMySalesFilteredAsync(
+            int sellerId,
+            OrderFilterRequest request)
+        {
+            request ??= new OrderFilterRequest();
+
+            int page = request.Page <= 0 ? 1 : request.Page;
+            int pageSize = request.PageSize <= 0 ? 10 : request.PageSize;
+
+            if (pageSize > 50)
+                pageSize = 50;
+
+            string? status = string.IsNullOrWhiteSpace(request.Status)
+                ? null
+                : request.Status.Trim();
+
+            if (!string.IsNullOrWhiteSpace(status) && !OrderStatus.IsValid(status))
+                throw new ArgumentException("Invalid order status.");
+
+            if (request.FromDate.HasValue &&
+                request.ToDate.HasValue &&
+                request.FromDate.Value.Date > request.ToDate.Value.Date)
+            {
+                throw new ArgumentException("From date cannot be later than to date.");
+            }
+
+            var result = await _orderRepo.GetOrdersBySellerIdFilteredAsync(
+                sellerId,
+                page,
+                pageSize,
+                status,
+                request.FromDate,
+                request.ToDate,
+                request.SellerName,
+                request.OrderCode);
+
+            return new PagedResultDto<OrderResponse>
+            {
+                Items = result.Orders.Select(MapToResponse).ToList(),
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = result.TotalCount,
+                HasMore = page * pageSize < result.TotalCount
+            };
+        }
+
         private void MarkShipping(Order order, int currentUserId)
         {
             if (order.SellerId != currentUserId)
                 throw new UnauthorizedAccessException("Only the seller can confirm shipment.");
 
             if (order.Status != OrderStatus.Processing)
-                throw new Exception("The order is not in a shippable state.");
+                throw new InvalidOperationException("The order is not in a shippable state.");
 
             order.Status = OrderStatus.Shipping;
         }
@@ -823,23 +906,23 @@ namespace Application.Services.OrderImp
                 throw new UnauthorizedAccessException("Only the buyer can complete this order.");
 
             if (order.Status != OrderStatus.Delivered)
-                throw new Exception("Only delivered orders can be completed.");
+                throw new InvalidOperationException("Only delivered orders can be completed.");
 
             var sellerWallet = await _walletRepo.GetByAccountIdAsync(order.SellerId)
-                ?? throw new Exception("Seller wallet not found.");
+                ?? throw new KeyNotFoundException("Seller wallet not found.");
 
             var escrow = order.EscrowSession ?? await _escrowRepo.GetByOrderIdAsync(order.OrderId);
             if (escrow == null)
-                throw new Exception("Escrow session not found for this order.");
+                throw new KeyNotFoundException("Escrow session not found for this order.");
 
             if (escrow.Status != EscrowStatus.Held)
-                throw new Exception("Escrow is not in a valid held state.");
+                throw new InvalidOperationException("Escrow is not in a valid held state.");
 
             decimal sellerBefore = sellerWallet.Balance;
             decimal sellerReceiveAmount = order.TotalAmount - order.ServiceFee;
 
             if (sellerReceiveAmount <= 0)
-                throw new Exception("Invalid seller payout amount.");
+                throw new InvalidOperationException("Invalid seller payout amount.");
 
             sellerWallet.Balance += sellerReceiveAmount;
             sellerWallet.UpdatedAt = DateTime.UtcNow;
@@ -877,7 +960,7 @@ namespace Application.Services.OrderImp
             if (order.Status == OrderStatus.PendingPayment)
             {
                 if (order.BuyerId != currentUserId && order.SellerId != currentUserId)
-                    throw new UnauthorizedAccessException();
+                    throw new UnauthorizedAccessException("You are not allowed to cancel this order.");
 
                 foreach (var detail in order.OrderDetails)
                 {
@@ -899,10 +982,10 @@ namespace Application.Services.OrderImp
             if (order.Status == OrderStatus.Processing)
             {
                 if (order.BuyerId != currentUserId && order.SellerId != currentUserId)
-                    throw new UnauthorizedAccessException();
+                    throw new UnauthorizedAccessException("You are not allowed to cancel this order.");
 
                 var buyerWallet = await _walletRepo.GetByAccountIdAsync(order.BuyerId)
-                    ?? throw new Exception("Buyer wallet not found.");
+                    ?? throw new KeyNotFoundException("Buyer wallet not found.");
 
                 decimal buyerBefore = buyerWallet.Balance;
 
@@ -951,16 +1034,16 @@ namespace Application.Services.OrderImp
                 return;
             }
 
-            throw new Exception("This order can no longer be cancelled.");
+            throw new InvalidOperationException("This order can no longer be cancelled.");
         }
 
         private async Task CheckSpendingLimitAsync(Wallet wallet, decimal debitAmount)
         {
             if (wallet == null)
-                throw new Exception("Wallet not found.");
+                throw new KeyNotFoundException("Wallet not found.");
 
             if (debitAmount <= 0)
-                throw new Exception("Invalid spending amount.");
+                throw new ArgumentException("Invalid spending amount.");
 
             if (!wallet.MonthlySpendingLimit.HasValue || wallet.MonthlySpendingLimit.Value <= 0)
                 return;
@@ -977,7 +1060,7 @@ namespace Application.Services.OrderImp
 
             if (wallet.IsHardSpendingLimit && projectedSpent > limitAmount)
             {
-                throw new Exception(
+                throw new InvalidOperationException(
                     $"You have exceeded your monthly spending limit. " +
                     $"Spent this month: {spentThisMonth:N0} VND, " +
                     $"new transaction: {debitAmount:N0} VND, " +
@@ -1038,12 +1121,12 @@ namespace Application.Services.OrderImp
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
 
             if (!allowedExtensions.Contains(extension))
-                throw new Exception("Only JPG, JPEG, PNG, and WEBP images are allowed.");
+                throw new ArgumentException("Only JPG, JPEG, PNG, and WEBP images are allowed.");
 
             const long maxFileSize = 5 * 1024 * 1024;
 
             if (file.Length > maxFileSize)
-                throw new Exception("Each proof image must be less than 5MB.");
+                throw new ArgumentException("Each proof image must be less than 5MB.");
         }
 
         private async Task NotifyOrder(OrderResponse response)
@@ -1059,6 +1142,7 @@ namespace Application.Services.OrderImp
         {
             string size = string.IsNullOrWhiteSpace(variant.SizeCode) ? "N/A" : variant.SizeCode;
             string color = string.IsNullOrWhiteSpace(variant.Color) ? "N/A" : variant.Color;
+
             return $"Size: {size}, Color: {color}";
         }
 
@@ -1072,96 +1156,19 @@ namespace Application.Services.OrderImp
             return $"ORD-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
         }
 
-        public async Task<PagedResultDto<OrderResponse>> GetMyPurchasesFilteredAsync(
-    int buyerId,
-    OrderFilterRequest request)
+        private static string? GetRefundItemImage(RefundRequest refundRequest)
         {
-            request ??= new OrderFilterRequest();
+            var firstDetail = refundRequest.Order.OrderDetails.FirstOrDefault();
 
-            int page = request.Page <= 0 ? 1 : request.Page;
-            int pageSize = request.PageSize <= 0 ? 10 : request.PageSize;
-
-            if (pageSize > 50)
-                pageSize = 50;
-
-            string? status = string.IsNullOrWhiteSpace(request.Status)
-                ? null
-                : request.Status.Trim();
-
-            if (!string.IsNullOrWhiteSpace(status) && !OrderStatus.IsValid(status))
-                throw new Exception("Invalid order status.");
-
-            if (request.FromDate.HasValue &&
-                request.ToDate.HasValue &&
-                request.FromDate.Value.Date > request.ToDate.Value.Date)
+            if (!string.IsNullOrWhiteSpace(firstDetail?.ImageUrlSnapshot))
             {
-                throw new Exception("From date cannot be later than to date.");
+                return firstDetail.ImageUrlSnapshot;
             }
 
-            var result = await _orderRepo.GetOrdersByBuyerIdFilteredAsync(
-                buyerId,
-                page,
-                pageSize,
-                status,
-                request.FromDate,
-                request.ToDate,
-                request.SellerName,
-                request.OrderCode);
-
-            return new PagedResultDto<OrderResponse>
-            {
-                Items = result.Orders.Select(MapToResponse).ToList(),
-                Page = page,
-                PageSize = pageSize,
-                TotalCount = result.TotalCount,
-                HasMore = page * pageSize < result.TotalCount
-            };
-        }
-
-        public async Task<PagedResultDto<OrderResponse>> GetMySalesFilteredAsync(
-            int sellerId,
-            OrderFilterRequest request)
-        {
-            request ??= new OrderFilterRequest();
-
-            int page = request.Page <= 0 ? 1 : request.Page;
-            int pageSize = request.PageSize <= 0 ? 10 : request.PageSize;
-
-            if (pageSize > 50)
-                pageSize = 50;
-
-            string? status = string.IsNullOrWhiteSpace(request.Status)
-                ? null
-                : request.Status.Trim();
-
-            if (!string.IsNullOrWhiteSpace(status) && !OrderStatus.IsValid(status))
-                throw new Exception("Invalid order status.");
-
-            if (request.FromDate.HasValue &&
-                request.ToDate.HasValue &&
-                request.FromDate.Value.Date > request.ToDate.Value.Date)
-            {
-                throw new Exception("From date cannot be later than to date.");
-            }
-
-            var result = await _orderRepo.GetOrdersBySellerIdFilteredAsync(
-                sellerId,
-                page,
-                pageSize,
-                status,
-                request.FromDate,
-                request.ToDate,
-                request.SellerName,
-                request.OrderCode);
-
-            return new PagedResultDto<OrderResponse>
-            {
-                Items = result.Orders.Select(MapToResponse).ToList(),
-                Page = page,
-                PageSize = pageSize,
-                TotalCount = result.TotalCount,
-                HasMore = page * pageSize < result.TotalCount
-            };
+            return firstDetail?.Item?.Images
+                .OrderBy(i => i.CreatedAt)
+                .Select(i => i.ImageUrl)
+                .FirstOrDefault();
         }
 
         private async Task NotifyOrderUserAsync(
