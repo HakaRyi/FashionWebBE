@@ -195,7 +195,7 @@ namespace Application.Services.AdminImp
             var start = request.StartDate ?? DateTime.Now.AddDays(-7);
             var end = request.EndDate?.Date.AddDays(1).AddTicks(-1) ?? DateTime.Now;
             var transactions = await _dashboardRepository.GetRevenueTransactions()
-                .Include(t => t.Wallet)            // Nạp bảng Wallet
+                .Include(t => t.Wallet)           
                     .ThenInclude(w => w.Account)
                 .Where(a => a.CreatedAt >= start && a.CreatedAt <= end)
                 .ToListAsync();
@@ -203,6 +203,17 @@ namespace Application.Services.AdminImp
 
             foreach (var tran in transactions)
             {
+                string? displayName = tran.Wallet.Account.UserName;
+                string? eventName = null;
+                if (tran.Type == "System_Fee_Revenue" && tran.ReferenceId.HasValue)
+                {
+                    var ev = await _eventRepository.GetByIdAsync(tran.ReferenceId.Value);
+                    if (ev != null && ev.Creator != null)
+                    {
+                        displayName = ev.Creator.UserName;
+                        eventName = ev.Title;
+                    }
+                }
                 responses.Add(new TransactionResponse
                 {
                     Amount = tran.Amount,
@@ -216,12 +227,9 @@ namespace Application.Services.AdminImp
                     Status = tran.Status,
                     TransactionId = tran.TransactionId,
                     Type = tran.Type,
-                    UserName = tran.Wallet.Account.UserName,
-                    WalletId = tran.WalletId
-
-
-
-
+                    UserName = displayName,
+                    WalletId = tran.WalletId,
+                    EventName = eventName,
                 });
             }
             return responses;
