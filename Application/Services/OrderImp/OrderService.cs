@@ -180,19 +180,19 @@ namespace Application.Services.OrderImp
         public async Task<OrderResponse> PayOrderWithWalletAsync(int orderId, int buyerId)
         {
             var order = await _orderRepo.GetByIdAsync(orderId)
-                ?? throw new Exception("Order not found.");
+                ?? throw new KeyNotFoundException("Order not found.");
 
             if (order.BuyerId != buyerId)
-                throw new UnauthorizedAccessException();
+                throw new UnauthorizedAccessException("You are not allowed to pay for this order.");
 
             if (order.Status != OrderStatus.PendingPayment)
-                throw new Exception("Invalid order status.");
+                throw new InvalidOperationException("Only pending payment orders can be paid.");
 
             var buyerWallet = await _walletRepo.GetByAccountIdAsync(buyerId)
-                ?? throw new Exception("Buyer wallet not found.");
+                ?? throw new KeyNotFoundException("Buyer wallet not found.");
 
             if (buyerWallet.Balance < order.TotalAmount)
-                throw new Exception("Insufficient balance.");
+                throw new InvalidOperationException("Insufficient balance. Please top up your wallet and try again.");
 
             await CheckSpendingLimitAsync(buyerWallet, order.TotalAmount);
 
@@ -200,10 +200,10 @@ namespace Application.Services.OrderImp
             try
             {
                 buyerWallet = await _walletRepo.GetByAccountIdAsync(buyerId)
-                    ?? throw new Exception("Buyer wallet not found.");
+                    ?? throw new KeyNotFoundException("Buyer wallet not found.");
 
                 if (buyerWallet.Balance < order.TotalAmount)
-                    throw new Exception("Insufficient balance.");
+                    throw new InvalidOperationException("Insufficient balance. Please top up your wallet and try again.");
 
                 await CheckSpendingLimitAsync(buyerWallet, order.TotalAmount);
 
@@ -216,10 +216,10 @@ namespace Application.Services.OrderImp
                 foreach (var detail in order.OrderDetails)
                 {
                     if (!detail.ItemVariantId.HasValue)
-                        throw new Exception("Order detail does not contain item variant.");
+                        throw new InvalidOperationException("Order detail does not contain item variant.");
 
                     var variant = await _variantRepo.GetByIdForUpdateAsync(detail.ItemVariantId.Value)
-                        ?? throw new Exception("Variant not found.");
+                        ?? throw new KeyNotFoundException("Variant not found.");
 
                     _variantRepo.ConfirmReservedStock(variant, detail.Quantity);
                 }
@@ -266,7 +266,7 @@ namespace Application.Services.OrderImp
             }
 
             var updatedOrder = await _orderRepo.GetByIdAsync(order.OrderId)
-                ?? throw new Exception("Order not found after payment.");
+                ?? throw new KeyNotFoundException("Order not found after payment.");
 
             var response = MapToResponse(updatedOrder);
 
@@ -467,16 +467,25 @@ namespace Application.Services.OrderImp
 
             await NotifyOrder(response);
 
-            var notificationType = response.Status switch
+            if (response.Status == OrderStatus.Shipping)
             {
-                OrderStatus.Shipping => NotificationType.OrderShipping,
-                OrderStatus.Delivered => NotificationType.OrderDelivered,
-                _ => null
-            };
-
-            if (notificationType != null)
+                await NotifyOrderUserAsync(
+                    response,
+                    NotificationType.OrderShipping,
+                    response.SellerId,
+                    response.BuyerId,
+                    "Order is shipping",
+                    $"Your order {response.OrderCode} is now shipping.");
+            }
+            else if (response.Status == OrderStatus.Delivered)
             {
-                await NotifyOrderEventAsync(response, notificationType, response.SellerId);
+                await NotifyOrderUserAsync(
+                    response,
+                    NotificationType.OrderDelivered,
+                    response.SellerId,
+                    response.BuyerId,
+                    "Order delivered",
+                    $"Your order {response.OrderCode} has been delivered. Please confirm it if everything is okay.");
             }
 
             return response;
