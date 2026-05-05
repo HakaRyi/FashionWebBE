@@ -442,7 +442,7 @@ namespace Application.Services.EventServices
                     ReferenceId = eventId,
                     ReferenceType = "Event",
                     Status = "Success",
-                    Description = $"Hoàn tiền hủy sự kiện: {ev.Title}",
+                    Description = $"Event cancellation refund: {ev.Title}",
                     CreatedAt = DateTime.UtcNow
                 });
 
