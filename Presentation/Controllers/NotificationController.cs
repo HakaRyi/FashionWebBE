@@ -1,7 +1,7 @@
 ﻿using Application.Interfaces;
+using Application.Services.NotificationImp;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Application.Services.NotificationImp;
 
 namespace Presentation.Controllers
 {
@@ -25,20 +25,31 @@ namespace Presentation.Controllers
         public async Task<IActionResult> GetMyNotifications()
         {
             int userId = _currentUserService.GetRequiredUserId();
+
             var result = await _notificationService.GetMyNotificationsAsync(userId);
+
             return Ok(result);
         }
 
-        [HttpPut("{id}/read")]
+        [HttpPut("{id:int}/read")]
         public async Task<IActionResult> MarkAsRead(int id)
         {
             int userId = _currentUserService.GetRequiredUserId();
 
-            var result = await _notificationService.MarkAsReadAsync(id, userId);
+            var isUpdated = await _notificationService.MarkAsReadAsync(id, userId);
 
-            if (!result) return NotFound(new { message = "Notification not found, or you do not have permission." });
+            if (!isUpdated)
+            {
+                return NotFound(new
+                {
+                    message = "Notification not found, or you do not have permission."
+                });
+            }
 
-            return Ok();
+            return Ok(new
+            {
+                message = "Notification has been marked as read."
+            });
         }
 
         [HttpPut("read-all")]
@@ -48,7 +59,10 @@ namespace Presentation.Controllers
 
             await _notificationService.MarkAllAsReadAsync(userId);
 
-            return Ok(new { message = "All notifications have been marked as read." });
+            return Ok(new
+            {
+                message = "All notifications have been marked as read."
+            });
         }
     }
 }
