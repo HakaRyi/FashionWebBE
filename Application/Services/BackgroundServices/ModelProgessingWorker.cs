@@ -14,16 +14,13 @@ public class ModelProcessingWorker : BackgroundService
 {
     private readonly IBackgroundTaskQueue _taskQueue;
     private readonly IServiceProvider _serviceProvider;
-    private readonly ICloudStorageService _storageService;
 
     public ModelProcessingWorker(
         IBackgroundTaskQueue taskQueue,
-        IServiceProvider serviceProvider,
-        ICloudStorageService storageService)
+        IServiceProvider serviceProvider)
     {
         _taskQueue = taskQueue;
         _serviceProvider = serviceProvider;
-        _storageService = storageService;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
