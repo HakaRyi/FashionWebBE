@@ -14,5 +14,7 @@ namespace Application.Response.AiResp
 
         [JsonPropertyName("message")]
         public string? Message { get; set; }
+        [JsonPropertyName("processed_path")]
+        public string? ProcessedPath { get; set; }
     }
 }

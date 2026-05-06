@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.AspNetCore.Http;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -11,7 +12,11 @@ namespace Application.Services.BackgroundServices
     {
         public int ModelId { get; set; }
         public int AccountId { get; set; }
-        public string ImageUrl { get; set; } = string.Empty;
+        public byte[]? ImageBytes { get; set; }
+        public string? FileName { get; set; }
+        public string? ContentType { get; set; }
+
+        public string? ImageUrl { get; set; }
     }
 
     public interface IBackgroundTaskQueue
