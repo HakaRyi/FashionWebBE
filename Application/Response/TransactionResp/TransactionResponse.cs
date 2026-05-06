@@ -13,6 +13,7 @@
         public string? Type { get; set; }
         public string? ReferenceType { get; set; }
         public int? ReferenceId { get; set; }
+        public string? EventName { get; set; }
         public string? Description { get; set; }
         public DateTime CreatedAt { get; set; }
         public string? Status { get; set; }

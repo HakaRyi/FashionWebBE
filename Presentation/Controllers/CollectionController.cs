@@ -42,8 +42,8 @@ namespace Presentation.Controllers
         [HttpPut("{id}/items")]
         public async Task<IActionResult> UpdateCollectionItems(int id, [FromBody] CollectionUpdateDto dto)
         {
-            if (dto.NewItemIds == null || !dto.NewItemIds.Any())
-                return BadRequest("Danh sách món đồ không được để trống.");
+            if (dto.NewItemIds == null)
+                return BadRequest("Danh sách món đồ không hợp lệ.");
 
             var success = await _collectionService.UpdateCollectionItemsAsync(id, dto);
 

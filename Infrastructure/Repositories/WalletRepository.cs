@@ -36,11 +36,18 @@ namespace Infrastructure.Repositories
                 .ToListAsync();
         }
 
-        public async Task<IEnumerable<Transaction>> GetWalletTransactionsAsync(int walletId, List<string> referenceTypes)
+        public async Task<IEnumerable<Transaction>> GetWalletTransactionsAsync(int walletId, List<string> Types)
         {
-            return await _context.Transactions
+            IQueryable<Transaction> query = _context.Transactions
                 .Include(t => t.Payment)
-                .Where(t => t.WalletId == walletId && referenceTypes.Contains(t.ReferenceType))
+                .Where(t => t.WalletId == walletId);
+
+            if (Types != null && Types.Any())
+            {
+                query = query.Where(t => Types.Contains(t.Type));
+            }
+
+            return await query
                 .OrderByDescending(t => t.CreatedAt)
                 .AsNoTracking()
                 .ToListAsync();

@@ -180,13 +180,13 @@ namespace Application.Services.WalletImp
             if (wallet == null) throw new KeyNotFoundException("The wallet doesn't exist.");
 
             // 2. Định nghĩa các loại cần lấy (Nạp/Rút)
-            var walletReferenceTypes = new List<string> {
+            var walletTypes = new List<string> {
                 TransactionType.Credit,
                 TransactionType.Debit
             };
 
             // 3. Gọi Repo lấy giao dịch
-            var transactions = await _walletRepo.GetWalletTransactionsAsync(wallet.WalletId, walletReferenceTypes);
+            var transactions = await _walletRepo.GetWalletTransactionsAsync(wallet.WalletId, walletTypes);
 
             // 4. Map dữ liệu sang DTO
             return new WalletDashboardResponse
