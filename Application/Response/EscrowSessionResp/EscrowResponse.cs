@@ -1,16 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Application.Response.EscrowSessionResp
+﻿namespace Application.Response.EscrowSessionResp
 {
     public class EscrowResponse
     {
         public int EscrowSessionId { get; set; }
         public int? EventId { get; set; }
         public string? EventTitle { get; set; }
+        public int? OrderId { get; set; }
+        public string? OrderCode { get; set; }
         public int SenderId { get; set; }
         public string SenderName { get; set; } = null!;
         public int? ReceiverId { get; set; }

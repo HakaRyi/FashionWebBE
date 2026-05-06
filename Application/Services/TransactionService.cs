@@ -122,8 +122,46 @@ namespace Application.Services
         // HÀM 4: Get thông tin bảng Escrow cho Admin quản lý
         public async Task<List<EscrowResponse>> AdminGetEscrowManagementAsync()
         {
-            var escrows = await _escrowRepository.GetAllAsync(e => e.Sender!, e => e.Event!);
-            return escrows.Adapt<List<EscrowResponse>>();
+            var escrows = await _escrowRepository.Query()
+                .Include(e => e.Sender)
+                .Include(e => e.Event)
+                .Include(e => e.Order)
+                    .ThenInclude(o => o.Seller)
+                .OrderByDescending(e => e.CreatedAt)
+                .Select(e => new EscrowResponse
+                {
+                    EscrowSessionId = e.EscrowSessionId,
+
+                    EventId = e.EventId,
+                    EventTitle = e.Event != null ? e.Event.Title : null,
+
+                    OrderId = e.OrderId,
+                    OrderCode = e.Order != null ? e.Order.OrderCode : null,
+
+                    SenderId = e.SenderId,
+                    SenderName = e.Sender != null
+                        ? e.Sender.UserName ?? "Unknown"
+                        : "Unknown",
+
+                    ReceiverId = e.ReceiverId,
+                    ReceiverName = e.Order != null && e.Order.Seller != null
+                        ? e.Order.Seller.UserName ?? "Unknown"
+                        : "System",
+
+                    Amount = e.Amount,
+                    ServiceFee = e.ServiceFee,
+                    FinalAmount = e.FinalAmount > 0
+                        ? e.FinalAmount
+                        : e.Amount - e.ServiceFee,
+
+                    Status = e.Status,
+                    Description = e.Description,
+                    CreatedAt = e.CreatedAt,
+                    ResolvedAt = e.ResolvedAt
+                })
+                .ToListAsync();
+
+            return escrows;
         }
 
         public async Task<List<EscrowResponse>> ExpertGetEscrowManagementAsync()
