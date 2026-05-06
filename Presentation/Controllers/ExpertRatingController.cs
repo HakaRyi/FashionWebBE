@@ -1,0 +1,77 @@
+﻿using Application.Interfaces;
+using Application.Request.ExpertRatingReq;
+using Application.Response.EventResp;
+using Application.Services.PostImp;
+using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
+
+namespace Presentation.Controllers
+{
+    [ApiController]
+    [Route("api/expert-rating")]
+    public class ExpertRatingController : ControllerBase
+    {
+        private readonly IExpertRatingService _eventRatingService;
+        private readonly IPostService _postService;
+
+
+
+        public ExpertRatingController(IExpertRatingService eventRatingService, IPostService postService)
+        {
+            _eventRatingService = eventRatingService;
+            _postService = postService;
+        }
+
+        /// <summary>
+        /// Chuyên gia chấm điểm cho bài thi trong sự kiện
+        /// </summary>
+        [HttpPost("submit-rating")]
+        //[Authorize(Roles = "Expert")]
+        public async Task<IActionResult> SubmitRating([FromBody] ExpertRatingRequest request)
+        {
+            try
+            {
+                await _eventRatingService.SubmitExpertRatingAsync(request);
+                return Ok(new { message = "Chấm điểm thành công và đã cập nhật bảng điểm tổng." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpGet("event-criteria/{eventId}")]
+        public async Task<IActionResult> GetEventCriteriaForRatingAsync(int eventId)
+        {
+            var data = await _eventRatingService.GetEventCriteriaForRating(eventId);
+
+            return Ok(data);
+        }
+
+        [HttpGet("my-reviews/{eventId}")]
+        //[Authorize(Roles = "Expert")]
+        public async Task<IActionResult> GetMyReviews(int eventId)
+        {
+            var data = await _postService.GetPostsForExpertReviewAsync(eventId);
+            return Ok(data);
+        }
+
+        /// <summary>
+        /// Xem chi tiết quá trình chấm điểm (của tất cả chuyên gia) cho một bài viết cụ thể
+        /// </summary>
+        [HttpGet("post/{postId}/details")]
+        // [Authorize(Roles = "Expert, Admin")] // Mở comment nếu cần phân quyền
+        public async Task<IActionResult> GetPostRatingDetails(int postId)
+        {
+            try
+            {
+                var data = await _eventRatingService.GetPostRatingDetailsAsync(postId);
+                return Ok(data);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+    }
+}
