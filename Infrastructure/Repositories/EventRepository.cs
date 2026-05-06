@@ -16,6 +16,7 @@ namespace Infrastructure.Repositories
                 .Include(e => e.Images)
                 .Include(e => e.Posts)
                 .Include(e => e.PrizeEvents)
+                .Include(e => e.EventCriteria)
                 .Include(e => e.EventExperts)
                     .ThenInclude(ee => ee.Expert).ThenInclude(ex => ex.Avatars)
                 .FirstOrDefaultAsync(e => e.EventId == id);

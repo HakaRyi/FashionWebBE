@@ -1,12 +1,12 @@
 ﻿using Domain.Constants;
 using Domain.Contracts.Social.Post;
 using Domain.Dto.Admin;
-using Domain.Dto.Common;
+using Infrastructure.Persistence;
 using Domain.Entities;
 using Domain.Interfaces;
-using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
+using Domain.Contracts.Common;
 
 namespace Infrastructure.Repositories
 {

@@ -49,20 +49,20 @@ namespace Application.Services.EventServices
 
             var post = await _postRepo.GetByIdAsync(dto.PostId);
             if (post == null || post.EventId == null)
-                throw new Exception("Bài viết không tồn tại hoặc không thuộc sự kiện nào.");
+                throw new Exception("The article does not exist or is not related to any event.");
 
             var ev = await _eventRepo.GetByIdAsync(post.EventId.Value);
             if (ev == null || (ev.Status != "Active" && ev.Status != "Judging"))
-                throw new Exception("Sự kiện không trong thời gian cho phép chấm điểm.");
+                throw new Exception("The event was not within the allowed scoring time.");
 
             var isMember = await _eventExpertRepo.AnyAsync(ee =>
                 ee.EventId == post.EventId && ee.ExpertId == currentExpertId && ee.Status == "Accepted");
             if (!isMember)
-                throw new Exception("Bạn không có quyền chấm điểm cho sự kiện này.");
+                throw new Exception("You are not allowed to rate this event.");
 
             var eventCriteria = await _criterionRepo.GetCriteriaByEventIdAsync(post.EventId.Value);
             if (!eventCriteria.Any())
-                throw new Exception("Sự kiện này chưa được thiết lập tiêu chí chấm điểm.");
+                throw new Exception("This event does not yet have established scoring criteria.");
 
             double calculatedTotalScore = 0;
             var newCriterionRatings = new List<ExpertCriterionRating>();
@@ -71,7 +71,7 @@ namespace Application.Services.EventServices
             {
                 var inputRating = dto.CriterionRatings.FirstOrDefault(c => c.EventCriterionId == criteria.EventCriterionId);
                 if (inputRating == null)
-                    throw new Exception($"Vui lòng chấm điểm đầy đủ cho tiêu chí: {criteria.Name}");
+                    throw new Exception($"Please provide a full score for each criterion: {criteria.Name}");
 
                 calculatedTotalScore += (inputRating.Score * criteria.WeightPercentage) / 100.0;
 
@@ -123,14 +123,14 @@ namespace Application.Services.EventServices
             catch (Exception ex)
             {
                 await _unitOfWork.RollbackAsync();
-                throw new Exception($"Lỗi trong quá trình chấm điểm: Lỗi hệ thống. Chi tiết: {ex.Message}");
+                throw new Exception($"Error during scoring: System error. Details: {ex.Message}");
             }
         }
 
         public async Task<PostRatingDetailResponse> GetPostRatingDetailsAsync(int postId)
         {
             var post = await _postRepo.GetByIdFullRangeAsync(postId);
-            if (post == null) throw new Exception("Không tìm thấy bài viết.");
+            if (post == null) throw new Exception("No article found.");
 
             var expertRatings = await _ratingRepo.GetDetailedRatingsByPostIdAsync(postId);
 

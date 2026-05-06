@@ -2,7 +2,7 @@
 using Application.Request.WalletReq;
 using Application.Response.WalletResp;
 using Domain.Constants;
-using Domain.Dto.Common;
+using Domain.Contracts.Common;
 using Domain.Dto.Wallet;
 using Domain.Entities;
 using Domain.Interfaces;
@@ -156,7 +156,7 @@ namespace Application.Services.WalletImp
             var wallet = await _walletRepository.GetByAccountIdAsync(accountId);
             if (wallet == null)
             {
-                throw new KeyNotFoundException("Không tìm thấy ví.");
+                throw new KeyNotFoundException("Wallet not found.");
             }
 
             var query = _transactionRepository.Query()
@@ -321,16 +321,16 @@ namespace Application.Services.WalletImp
         }
 
         public async Task<SpendingLimitResponseDto> GetMySpendingLimitAsync(
-    int accountId,
-    int month,
-    int year)
+            int accountId,
+            int month,
+            int year)
         {
             ValidateMonthYear(month, year);
 
             var wallet = await _walletRepository.GetByAccountIdAsync(accountId);
             if (wallet == null)
             {
-                throw new KeyNotFoundException("Không tìm thấy ví.");
+                throw new KeyNotFoundException("Wallet not found.");
             }
 
             var spentThisMonth = await _transactionRepository.Query()
@@ -397,7 +397,7 @@ namespace Application.Services.WalletImp
             var wallet = await _walletRepository.GetByAccountIdAsync(accountId);
             if (wallet == null)
             {
-                throw new KeyNotFoundException("Không tìm thấy ví.");
+                throw new KeyNotFoundException("Wallet not found.");
             }
 
             wallet.MonthlySpendingLimit = request.MonthlySpendingLimit;

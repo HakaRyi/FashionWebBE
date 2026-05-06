@@ -19,7 +19,6 @@ namespace Application.Services
         private readonly UserManager<Account> _userManager;
         private readonly INotificationService _notificationService;
 
-
         public ExpertService(
             IExpertProfileRepository profileRepo,
             IExpertRequestRepository fileRepo,
@@ -42,7 +41,7 @@ namespace Application.Services
         public async Task<bool> RegisterExpertAsync(ExpertRegistrationDto dto)
         {
             var userId = _currentUser.GetUserId();
-            if (userId == null) throw new UnauthorizedAccessException("Cần đăng nhập.");
+            if (userId == null) throw new UnauthorizedAccessException("You need to log in.");
 
             await _unitOfWork.BeginTransactionAsync();
 
@@ -71,14 +70,13 @@ namespace Application.Services
                 else _profileRepo.Update(profile);
 
                 await _unitOfWork.SaveChangesAsync();
-                
 
                 var existingRequests = await _fileRepo.GetByProfileIdAsync(profile.ExpertProfileId);
 
                 var hasPending = await _fileRepo.AnyPendingRequestAsync(profile.ExpertProfileId);
                 if (hasPending)
                 {
-                    throw new Exception("Bạn đã có một đơn đăng ký đang chờ duyệt. Vui lòng đợi phản hồi từ hệ thống.");
+                    throw new Exception("You already have a pending expert application. Please wait for the system response.");
                 }
 
                 var newRequest = new Domain.Entities.ExpertRequest
@@ -167,17 +165,16 @@ namespace Application.Services
         {
             var validStatuses = new[] { "Approved", "Rejected" };
             if (!validStatuses.Any(s => s.Equals(dto.Status, StringComparison.OrdinalIgnoreCase)))
-                throw new ArgumentException("Trạng thái không hợp lệ. Chỉ chấp nhận 'Approved' hoặc 'Rejected'.");
-
+                throw new ArgumentException("Invalid application status. Only 'Approved' or 'Rejected' is allowed.");
 
             var file = await _fileRepo.GetById(dto.FileId);
             if (file == null) return false;
 
             if (!file.Status.Equals("Pending", StringComparison.OrdinalIgnoreCase))
-                throw new InvalidOperationException("Đơn đăng ký này đã được xử lý trước đó.");
+                throw new InvalidOperationException("This expert application has already been processed.");
 
             var profile = await _profileRepo.GetById(file.ExpertProfileId);
-            if (profile == null) throw new Exception("Không tìm thấy hồ sơ chuyên gia liên quan.");
+            if (profile == null) throw new Exception("Related expert profile not found.");
 
             int accountId = profile.AccountId;
             bool isApproved = dto.Status.Equals("Approved", StringComparison.OrdinalIgnoreCase);

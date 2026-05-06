@@ -48,11 +48,11 @@ namespace Application.Services.EventServices
             int currentExpertId = _currentUser.GetRequiredUserId();
             var invite = await _eventExpertRepo.GetByEventAndExpertAsync(eventId, currentExpertId);
 
-            if (invite == null) throw new Exception("Không tìm thấy lời mời.");
-            if (invite.Status != "Pending") throw new Exception("Lời mời này đã được xử lý trước đó.");
+            if (invite == null) throw new Exception("No invitation found.");
+            if (invite.Status != "Pending") throw new Exception("This invitation has been processed previously.");
 
             var ev = await _eventRepo.GetByIdAsync(eventId);
-            if (ev == null) throw new Exception("Sự kiện không còn tồn tại.");
+            if (ev == null) throw new Exception("The event no longer exists.");
 
             invite.Status = accept ? "Accepted" : "Rejected";
             invite.JoinedAt = DateTime.Now;
@@ -171,10 +171,10 @@ namespace Application.Services.EventServices
             int creatorId = _currentUser.GetRequiredUserId();
             var ev = await _eventRepo.GetByIdAsync(eventId);
 
-            if (ev == null) throw new Exception("Sự kiện không tồn tại.");
-            if (ev.CreatorId != creatorId) throw new Exception("Bạn không có quyền mời chuyên gia cho sự kiện này.");
+            if (ev == null) throw new Exception("The event did not exist.");
+            if (ev.CreatorId != creatorId) throw new Exception("You are not allowed to invite experts for this event.");
             if (ev.Status != "Pending_Review" && ev.Status != "Inviting")
-                throw new Exception("Sự kiện hiện không ở trạng thái có thể mời thêm chuyên gia.");
+                throw new Exception("The event is currently not in a state where additional experts can be invited.");
 
             var existingExperts = await _eventExpertRepo.GetByEventIdAsync(eventId);
             var existingIds = existingExperts.Select(e => e.ExpertId).ToList();
@@ -205,12 +205,12 @@ namespace Application.Services.EventServices
 
             // 1. Kiểm tra bài viết và quyền chấm điểm
             var post = await _postRepo.GetByIdAsync(dto.PostId);
-            if (post == null || post.EventId == null) throw new Exception("Bài viết không tồn tại hoặc không thuộc sự kiện.");
+            if (post == null || post.EventId == null) throw new Exception("The article does not exist or is not related to the event.");
 
             var isMember = await _eventExpertRepo.AnyAsync(ee =>
                 ee.EventId == post.EventId && ee.ExpertId == currentExpertId && ee.Status == "Accepted");
 
-            if (!isMember) throw new Exception("Bạn không có quyền chấm điểm cho sự kiện này.");
+            if (!isMember) throw new Exception("You are not allowed to rate this event.");
 
             // 2. Thực hiện lưu điểm (Sử dụng UnitOfWork để đảm bảo tính toàn vẹn khi tính lại Scoreboard)
             await _unitOfWork.BeginTransactionAsync();
@@ -246,7 +246,7 @@ namespace Application.Services.EventServices
             catch (Exception ex)
             {
                 await _unitOfWork.RollbackAsync();
-                throw new Exception($"Lỗi trong quá trình lưu điểm: {ex.Message}");
+                throw new Exception($"Error during point saving: {ex.Message}");
             }
         }
 
@@ -318,7 +318,7 @@ namespace Application.Services.EventServices
             return posts.Select(p => new PostReviewDto
             {
                 PostId = p.PostId,
-                Title = p.Title ?? "Chưa có tiêu đề",
+                Title = p.Title ?? "No title",
                 Content = p.Content,
                 ImageUrl = p.Images.OrderBy(i => i.ImageId).FirstOrDefault()?.ImageUrl,
                 AuthorName = p.Account?.UserName,

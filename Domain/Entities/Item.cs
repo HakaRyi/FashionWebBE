@@ -91,6 +91,7 @@ namespace Domain.Entities
         public virtual ICollection<ItemVariant> ItemVariants { get; set; } = new List<ItemVariant>();
 
         public virtual ICollection<OrderDetail> OrderDetails { get; set; } = new List<OrderDetail>();
+        public virtual ICollection<CollectionItem> CollectionItems { get; set; } = new List<CollectionItem>();
     }
 
     public enum ItemStatus

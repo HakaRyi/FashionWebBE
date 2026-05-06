@@ -1,6 +1,7 @@
 ﻿using Application.Request.OrderReq;
 using Application.Response.OrderResp;
 using Application.Response.RefundResp;
+using Domain.Contracts.Common;
 using Domain.Entities;
 
 namespace Application.Services.OrderImp
@@ -35,5 +36,13 @@ namespace Application.Services.OrderImp
         Task<OrderResponse> UpdateRefundStatus(int orderId);
         Task<List<OrderResponse>> GetDeliveredOrdersAsync();
         Task<OrderResponse> AutoCompleteDeliveredOrderAsync(int orderId);
+
+        Task<PagedResultDto<OrderResponse>> GetMyPurchasesFilteredAsync(
+    int buyerId,
+    OrderFilterRequest request);
+
+        Task<PagedResultDto<OrderResponse>> GetMySalesFilteredAsync(
+            int sellerId,
+            OrderFilterRequest request);
     }
 }

@@ -49,7 +49,6 @@ using Presentation.Services;
 using Quartz;
 using System.Text;
 
-
 System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
@@ -135,13 +134,12 @@ builder.Services.AddScoped<IRecommendationHistoryRepository, RecommendationHisto
 builder.Services.AddScoped<IPhysicalProfileRepository, PhysicalProfileRepository>();
 builder.Services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>();
 builder.Services.AddScoped<IItemVariantRepository, ItemVariantRepository>();
-
-
+builder.Services.AddScoped<ICollectionRepository, CollectionRepository>();
 
 #endregion
 
 #region SERVICES
-
+builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<IGroupService, GroupService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -189,6 +187,8 @@ builder.Services.AddScoped<IReputationHistoryService, ReputationHistoryService>(
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 builder.Services.AddScoped<IFileService, GoogleDriveService>();
 builder.Services.AddScoped<IChatShareService, ChatShareService>();
+builder.Services.AddScoped<ICacheService, MemoryCacheService>();
+builder.Services.AddScoped<ICollectionService, CollectionService>();
 
 #endregion
 
@@ -368,19 +368,14 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
-
-        policy.WithOrigins("http://localhost:5173")
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials();
-
-        policy.WithOrigins("http://localhost:5174")
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials();
+        policy.WithOrigins(
+                "http://localhost:5173",
+                "http://localhost:5174",
+                "http://localhost:5175"
+            )
+            .AllowAnyMethod()
+            .AllowAnyHeader()
+            .AllowCredentials();
     });
 });
 
@@ -395,11 +390,8 @@ if (app.Environment.IsDevelopment())
 
 #region MIDDLEWARE
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseCors("AllowAll");
 
@@ -424,5 +416,7 @@ app.MapControllers();
 #endregion
 
 app.MapQuartzEndpoints();
+
+app.MapGet("/health", () => Results.Ok("healthy"));
 
 app.Run();

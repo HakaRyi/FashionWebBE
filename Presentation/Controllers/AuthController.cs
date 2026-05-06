@@ -31,7 +31,6 @@ namespace Presentation.Controllers
             return Ok(new { message = result.Message });
         }
 
-        // API Đăng nhập: POST api/WAuth/login
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginRequest request)
         {
@@ -48,7 +47,6 @@ namespace Presentation.Controllers
             SetTokenCookie("accessToken", result.AccessToken);
             SetTokenCookie("refreshToken", result.RefreshToken);
 
-            // Mobile sẽ đọc field accessToken và lưu vào Secure Storage
             return Ok(new
             {
                 message = "Đăng nhập thành công",
@@ -63,13 +61,38 @@ namespace Presentation.Controllers
 
         [HttpPost("logout")]
         [Authorize]
-        public async Task<IActionResult> Logout()
+        public async Task<IActionResult> Logout([FromBody] LogoutRequest request)
         {
+            var refreshToken = request.RefreshToken;
+
+            if (string.IsNullOrWhiteSpace(refreshToken))
+            {
+                Response.Cookies.Delete("accessToken");
+                Response.Cookies.Delete("refreshToken");
+
+                return BadRequest(new
+                {
+                    message = "Refresh token is required."
+                });
+            }
+
+            var result = await _authService.LogoutAsync(refreshToken);
+
             Response.Cookies.Delete("accessToken");
             Response.Cookies.Delete("refreshToken");
-            await _authService.LogoutAsync();
 
-            return Ok(new { message = "Đăng xuất thành công" });
+            if (!result.Success)
+            {
+                return BadRequest(new
+                {
+                    message = result.Message
+                });
+            }
+
+            return Ok(new
+            {
+                message = "Logout successful."
+            });
         }
 
         // HELPER METHODS
@@ -83,7 +106,6 @@ namespace Presentation.Controllers
                 HttpOnly = true,
                 Expires = DateTime.UtcNow.AddDays(7),
 
-                // Bắt buộc dùng HTTPS (Nếu chạy localhost không có https thì set false tạm)
                 Secure = false,
                 SameSite = SameSiteMode.Lax
             };

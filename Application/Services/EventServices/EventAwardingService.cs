@@ -208,7 +208,7 @@ namespace Application.Services.EventServices
 
                 // 3. Cộng tiền vào ví
                 var winnerWallet = await _walletRepo.GetByAccountIdAsync(post.AccountId);
-                if (winnerWallet == null) throw new Exception($"Ví của người dùng {post.AccountId} không tồn tại.");
+                if (winnerWallet == null) throw new Exception($"User {post.AccountId}'s wallet could not be found.");
 
                 decimal balanceBefore = winnerWallet.Balance;
                 winnerWallet.Balance += rewardAmount;

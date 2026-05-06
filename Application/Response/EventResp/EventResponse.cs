@@ -74,6 +74,7 @@
 
         public List<PrizeDtoV1> Prizes { get; set; } = new();
         public List<ExpertInEventDto> Experts { get; set; } = new();
+        public List<CriterionDto> Criteria { get; set; } = new();
     }
 
     public class PrizeDtoV1
@@ -91,6 +92,12 @@
         public string? ExpertiseField { get; set; }
         public string? AvatarUrl { get; set; }
         public string? Status { get; set; }
+    }
+    public class CriterionDto
+    {
+        public string Name { get; set; } = null!;
+        public string? Description { get; set; }
+        public double WeightPercentage { get; set; }
     }
 
     public class EventAdminListDto

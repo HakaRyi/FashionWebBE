@@ -41,10 +41,10 @@ namespace Application.Services.TryOn
             _httpClient.Timeout = TimeSpan.FromMinutes(15);
 
             _ootdUrl = config["AISettings:OOTDUrl"]
-                ?? throw new Exception("Thiếu cấu hình AISettings:OOTDUrl");
+                ?? throw new Exception("Missing configuration: AISettings:OOTDUrl.");
 
             _aiPredictUrl = config["AISettings:Fashin_PredictionUrl"]
-                ?? throw new Exception("Thiếu cấu hình AISettings:Fashin_PredictionUrl");
+                ?? throw new Exception("Missing configuration: AISettings:Fashin_PredictionUrl.");
 
             _tryOnPrice = decimal.TryParse(config["TryOnSettings:Price"], out var price)
                 ? price
@@ -64,19 +64,19 @@ namespace Application.Services.TryOn
             int? category)
         {
             if (modelImage == null || modelImage.Length == 0)
-                throw new ArgumentException("Ảnh người mẫu không hợp lệ.");
+                throw new ArgumentException("The model image is invalid.");
 
             if (clothImage == null || clothImage.Length == 0)
-                throw new ArgumentException("Ảnh quần áo không hợp lệ.");
+                throw new ArgumentException("The clothing image is invalid.");
 
             var userId = _currentUserService.GetRequiredUserId();
 
             var wallet = await _walletRepository.GetByAccountIdAsync(userId)
-                ?? throw new KeyNotFoundException("Không tìm thấy ví.");
+                ?? throw new KeyNotFoundException("Wallet not found.");
 
             var availableBalance = wallet.Balance - wallet.LockedBalance;
             if (availableBalance < _tryOnPrice)
-                throw new InvalidOperationException("Số dư không đủ.");
+                throw new InvalidOperationException("Insufficient balance.");
 
             await CheckSpendingLimitAsync(wallet, _tryOnPrice);
 
@@ -99,11 +99,11 @@ namespace Application.Services.TryOn
             try
             {
                 wallet = await _walletRepository.GetByAccountIdAsync(userId)
-                    ?? throw new KeyNotFoundException("Không tìm thấy ví.");
+                    ?? throw new KeyNotFoundException("Wallet not found.");
 
                 availableBalance = wallet.Balance - wallet.LockedBalance;
                 if (availableBalance < _tryOnPrice)
-                    throw new InvalidOperationException("Số dư không đủ.");
+                    throw new InvalidOperationException("Insufficient balance.");
 
                 await CheckSpendingLimitAsync(wallet, _tryOnPrice);
 
@@ -124,7 +124,7 @@ namespace Application.Services.TryOn
                     Type = TransactionType.Debit,
                     ReferenceType = TransactionReferenceType.TryOn,
                     ReferenceId = null,
-                    Description = "Thanh toán thử đồ AI",
+                    Description = "AI try-on payment.",
                     CreatedAt = DateTime.UtcNow,
                     Status = TransactionStatus.Success
                 };
@@ -157,7 +157,7 @@ namespace Application.Services.TryOn
             var userId = _currentUserService.GetRequiredUserId();
 
             var wallet = await _walletRepository.GetByAccountIdAsync(userId)
-                ?? throw new KeyNotFoundException("Không tìm thấy ví của người dùng.");
+                ?? throw new KeyNotFoundException("User wallet not found.");
 
             var availableBalance = wallet.Balance - wallet.LockedBalance;
 
@@ -169,18 +169,18 @@ namespace Application.Services.TryOn
                 AvailableBalance = availableBalance,
                 CanTryOn = availableBalance >= _tryOnPrice,
                 Message = availableBalance >= _tryOnPrice
-                    ? "Đủ số dư để thử đồ."
-                    : "Số dư không đủ để thử đồ."
+                    ? "Your balance is enough to use AI try-on."
+                    : "Your balance is not enough to use AI try-on."
             };
         }
 
         private async Task CheckSpendingLimitAsync(Wallet wallet, decimal debitAmount)
         {
             if (wallet == null)
-                throw new KeyNotFoundException("Ví không tồn tại.");
+                throw new KeyNotFoundException("Wallet not found.");
 
             if (debitAmount <= 0)
-                throw new ArgumentException("Số tiền chi không hợp lệ.");
+                throw new ArgumentException("Invalid debit amount.");
 
             if (!wallet.MonthlySpendingLimit.HasValue || wallet.MonthlySpendingLimit.Value <= 0)
                 return;
@@ -276,10 +276,10 @@ namespace Application.Services.TryOn
                 });
 
             if (prediction == null)
-                throw new Exception("Không đọc được kết quả phân loại ảnh.");
+                throw new Exception("Unable to read the image classification result.");
 
             if (!prediction.IsClothing)
-                throw new Exception("Ảnh quần áo không hợp lệ.");
+                throw new Exception("The clothing image is invalid.");
 
             return MapLabelToCategory(prediction.Label ?? string.Empty);
         }

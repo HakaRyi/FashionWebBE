@@ -1,10 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Domain.Constants;
-using Domain.Dto.Common;
 using Domain.Dto.Social.SavedPost;
 using Domain.Entities;
 using Domain.Interfaces;
 using Application.Interfaces;
+using Domain.Contracts.Common;
 
 namespace Application.Services.PostImp
 {

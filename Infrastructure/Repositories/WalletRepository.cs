@@ -23,6 +23,7 @@ namespace Infrastructure.Repositories
         public async Task<Wallet?> GetByAccountIdAsync(int accountId)
         {
             return await _context.Wallets
+                .Include(x => x.Account)
                 .FirstOrDefaultAsync(x => x.AccountId == accountId);
         }
 
@@ -32,6 +33,23 @@ namespace Infrastructure.Repositories
                 .AsNoTracking()
                 .Where(t => t.WalletId == walletId)
                 .OrderByDescending(t => t.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<IEnumerable<Transaction>> GetWalletTransactionsAsync(int walletId, List<string> Types)
+        {
+            IQueryable<Transaction> query = _context.Transactions
+                .Include(t => t.Payment)
+                .Where(t => t.WalletId == walletId);
+
+            if (Types != null && Types.Any())
+            {
+                query = query.Where(t => Types.Contains(t.Type));
+            }
+
+            return await query
+                .OrderByDescending(t => t.CreatedAt)
+                .AsNoTracking()
                 .ToListAsync();
         }
 

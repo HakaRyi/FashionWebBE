@@ -163,5 +163,31 @@ namespace API.Controllers
             var result = await _orderService.GetDeliveredOrdersAsync();
             return Ok(result);
         }
+
+        [HttpGet("purchases/me")]
+        public async Task<IActionResult> GetMyPurchaseOrders(
+    [FromQuery] OrderFilterRequest request)
+        {
+            var buyerId = _currentUser.GetRequiredUserId();
+
+            var result = await _orderService.GetMyPurchasesFilteredAsync(
+                buyerId,
+                request);
+
+            return Ok(result);
+        }
+
+        [HttpGet("sales/me")]
+        public async Task<IActionResult> GetMySalesOrders(
+            [FromQuery] OrderFilterRequest request)
+        {
+            var sellerId = _currentUser.GetRequiredUserId();
+
+            var result = await _orderService.GetMySalesFilteredAsync(
+                sellerId,
+                request);
+
+            return Ok(result);
+        }
     }
 }

@@ -19,6 +19,7 @@ namespace Application.Services.ChatImp
         private readonly IAccountRepository _accountRepository;
         private readonly ICloudStorageService _storage;
         private readonly IHubContext<ChatHub> _hubContext;
+
         public GroupService(IUnitOfWork unitOfWork,
             IGroupRepository groupRepository,
             ICurrentUserService currentUserService,
@@ -38,17 +39,20 @@ namespace Application.Services.ChatImp
         {
             var currentUserId = _currentUserService.GetUserId() ?? 0;
             if (currentUserId == 0) throw new Exception("User not authenticated");
+
             if (request.MemberIds == null || !request.MemberIds.Any())
             {
-                throw new Exception("Cần ít nhất 2 thành viên để tạo nhóm.");
+                throw new Exception("At least two members are required to create a group.");
             }
+
             var groupUsers = new List<GroupUser>
             {
                 new GroupUser { AccountId = currentUserId, JoinedAt = DateTime.UtcNow }
             };
+
             foreach (var memberId in request.MemberIds.Distinct())
             {
-                if (memberId != currentUserId) 
+                if (memberId != currentUserId)
                 {
                     groupUsers.Add(new GroupUser
                     {
@@ -57,14 +61,16 @@ namespace Application.Services.ChatImp
                     });
                 }
             }
+
             var group = new Group
             {
-                Name = string.IsNullOrWhiteSpace(request.Name) ? "Nhóm mới" : request.Name,
+                Name = string.IsNullOrWhiteSpace(request.Name) ? "New Group" : request.Name,
                 IsGroup = true,
                 CreateBy = currentUserId,
                 CreatedAt = DateTime.UtcNow,
                 GroupUsers = groupUsers
             };
+
             if (request.Avatar != null)
             {
                 var avatarUrl = await _storage.UploadImageAsync(request.Avatar);
@@ -75,26 +81,31 @@ namespace Application.Services.ChatImp
                     CreatedAt = DateTime.UtcNow
                 });
             }
+
             await _groupRepository.CreateGroup(group);
             await _unitOfWork.CommitAsync();
+
             foreach (var memberId in request.MemberIds)
             {
                 await _hubContext.Clients.User(memberId.ToString()).SendAsync("NewGroupCreated", group.GroupId);
             }
-            await _hubContext.Clients.User(currentUserId.ToString()).SendAsync("NewGroupCreated", group.GroupId);
 
+            await _hubContext.Clients.User(currentUserId.ToString()).SendAsync("NewGroupCreated", group.GroupId);
         }
+
         public async Task AddMemberToGroup(int groupId, int userId)
         {
             var currentUserId = _currentUserService.GetUserId() ?? 0;
             if (currentUserId == 0) throw new Exception("User not authenticated");
-            //kiem tra th user dang dang nhap da trong group chua, neu chua thi khong the them nguoi khac vao group duoc
+
+            // Check whether the current user is already in the group.
             var checkUser1IsInGroup = await _groupRepository.GetAccountFromGroup(groupId, currentUserId);
             if (checkUser1IsInGroup == null)
             {
                 throw new Exception("You are not in this group");
             }
-            //kiem tra user can them da trong group chua, neu roi thi khong the them nua
+
+            // Check whether the target user is already in the group.
             var checkUser2IsInGroup = await _groupRepository.GetAccountFromGroup(groupId, userId);
             if (checkUser2IsInGroup != null)
             {
@@ -107,9 +118,11 @@ namespace Application.Services.ChatImp
                 GroupId = groupId,
                 JoinedAt = DateTime.UtcNow
             });
+
             await _unitOfWork.CommitAsync();
             await _hubContext.Clients.User(userId.ToString()).SendAsync("NewGroupCreated", groupId);
         }
+
         public async Task KickMemberToGroup(int groupId, int userId)
         {
             var account = await _groupRepository.GetAccountFromGroup(groupId, userId);
@@ -117,9 +130,11 @@ namespace Application.Services.ChatImp
             {
                 throw new Exception("User not found in group");
             }
+
             await _groupRepository.KickMemberFromGroup(account);
             await _unitOfWork.CommitAsync();
         }
+
         public async Task<int?> CheckExisting1v1Group(int targetUserId)
         {
             var currentUserId = _currentUserService.GetUserId() ?? 0;
@@ -128,12 +143,15 @@ namespace Application.Services.ChatImp
             var room = await _groupRepository.GetExisting1v1Room(currentUserId, targetUserId);
             return room?.GroupId;
         }
+
         public async Task<int> CreateGroup2User(int targetUserId)
         {
             var currentUserId = _currentUserService.GetUserId() ?? 0;
             if (currentUserId == 0) throw new Exception("User not authenticated");
+
             var existingRoom = await _groupRepository.GetExisting1v1Room(currentUserId, targetUserId);
-            if (existingRoom!=null) return existingRoom.GroupId;
+            if (existingRoom != null) return existingRoom.GroupId;
+
             var group = new Group
             {
                 Name = "Private Chat",
@@ -145,21 +163,24 @@ namespace Application.Services.ChatImp
                     new GroupUser { AccountId = targetUserId, JoinedAt = DateTime.UtcNow }
                 }
             };
+
             _groupRepository.CreateGroup(group);
             await _unitOfWork.CommitAsync();
+
             await _hubContext.Clients.User(currentUserId.ToString()).SendAsync("NewGroupCreated", group.GroupId);
             await _hubContext.Clients.User(targetUserId.ToString()).SendAsync("NewGroupCreated", group.GroupId);
+
             return group.GroupId;
         }
-
 
         public async Task DeleteGroup(int groupId)
         {
             var group = await _groupRepository.GetGroupById(groupId);
             if (group == null || group.IsGroup == false)
             {
-                throw new Exception("Group not found or this is not group");
+                throw new Exception("Group not found or this is not a group");
             }
+
             _groupRepository.DeleteGroup(group);
             await _unitOfWork.CommitAsync();
         }
@@ -171,14 +192,15 @@ namespace Application.Services.ChatImp
             {
                 throw new Exception("Group not found");
             }
+
             return new GroupResponse
             {
                 GroupId = group.GroupId,
                 Name = group.Name,
                 IsGroup = group.IsGroup,
                 CreateBy = group.GroupUsers
-                        .FirstOrDefault(gu => gu.AccountId == group.CreateBy)?
-                        .Account?.UserName ?? "Unknown",
+                    .FirstOrDefault(gu => gu.AccountId == group.CreateBy)?
+                    .Account?.UserName ?? "Unknown",
                 CreatedAt = group.CreatedAt
             };
         }
@@ -186,14 +208,15 @@ namespace Application.Services.ChatImp
         public async Task<List<GroupResponse>> GetGroupsByAccountId(int accountId)
         {
             var groups = await _groupRepository.GetGroupsByAccountId(accountId);
+
             return groups.Select(group => new GroupResponse
             {
                 GroupId = group.GroupId,
                 Name = group.Name,
                 IsGroup = group.IsGroup,
                 CreateBy = group.GroupUsers
-                        .FirstOrDefault(gu => gu.AccountId == group.CreateBy)?
-                        .Account?.UserName ?? "Unknown",
+                    .FirstOrDefault(gu => gu.AccountId == group.CreateBy)?
+                    .Account?.UserName ?? "Unknown",
                 CreatedAt = group.CreatedAt
             }).ToList();
         }
@@ -205,11 +228,14 @@ namespace Application.Services.ChatImp
             {
                 throw new Exception("Group not found");
             }
+
             groupExingting.Name = request.Name;
+
             if (request.Avatar != null)
             {
                 var avatarUrl = await _storage.UploadImageAsync(request.Avatar);
-                // Thêm ảnh mới vào bảng Image cho Group
+
+                // Add the new image to the Image table for this group.
                 groupExingting.Images.Add(new Image
                 {
                     ImageUrl = avatarUrl,
@@ -217,6 +243,7 @@ namespace Application.Services.ChatImp
                     CreatedAt = DateTime.UtcNow,
                 });
             }
+
             await _groupRepository.UpdateGroup(groupExingting);
             await _unitOfWork.CommitAsync();
         }
@@ -225,23 +252,27 @@ namespace Application.Services.ChatImp
         {
             var currentUserId = _currentUserService.GetUserId() ?? 0;
             if (currentUserId == 0) throw new Exception("User not authenticated");
+
             var groups = await _groupRepository.GetGroupsByAccountId(currentUserId);
+
             return groups.Select(group =>
             {
                 var lastMsg = group.Messages.OrderByDescending(m => m.SentAt).FirstOrDefault();
+
                 var response = new GroupResponse
                 {
                     GroupId = group.GroupId,
                     IsGroup = group.IsGroup,
                     CreatedAt = group.CreatedAt,
-                    LastMessage = lastMsg?.IsRecalled == true ? "Tin nhắn đã bị thu hồi" : lastMsg?.Content ?? "Tap to start chatting",
+                    LastMessage = lastMsg?.IsRecalled == true ? "This message has been recalled." : lastMsg?.Content ?? "Tap to start chatting",
                     LastMessageAt = lastMsg?.SentAt ?? group.CreatedAt
                 };
 
                 if (group.IsGroup == false)
                 {
                     var otherUser = group.GroupUsers.FirstOrDefault(gu => gu.AccountId != currentUserId)?.Account;
-                    response.Name = otherUser?.UserName ?? "Người dùng hệ thống";
+
+                    response.Name = otherUser?.UserName ?? "System User";
                     response.IsOnline = otherUser?.IsOnline;
                     response.Avatar = otherUser?.Avatars
                         .OrderByDescending(img => img.CreatedAt)
@@ -256,6 +287,7 @@ namespace Application.Services.ChatImp
                         .OrderByDescending(img => img.CreatedAt)
                         .FirstOrDefault()?.ImageUrl ?? "https://static.vecteezy.com/system/resources/previews/009/292/244/non_2x/default-avatar-icon-of-social-media-user-vector.jpg";
                 }
+
                 return response;
             }).OrderByDescending(r => r.LastMessageAt)
             .ToList();
@@ -264,6 +296,7 @@ namespace Application.Services.ChatImp
         public async Task<List<UserInGroupResponse>> GetUsersInGroup(int groupId)
         {
             var groupUsers = await _groupRepository.GetUsersInGroup(groupId);
+
             return groupUsers.Select(gu => new UserInGroupResponse
             {
                 Id = gu.AccountId,
@@ -280,6 +313,7 @@ namespace Application.Services.ChatImp
         public async Task<List<PhotoInGroupResponse>> GetPhotos(int groupId)
         {
             var photos = await _groupRepository.GetPhotosInGroup(groupId);
+
             return photos.Select(p => new PhotoInGroupResponse
             {
                 PhotoId = p.PhotoId,

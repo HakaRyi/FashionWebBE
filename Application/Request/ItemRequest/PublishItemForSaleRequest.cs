@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Application.Request.ItemRequest;
+using System.ComponentModel.DataAnnotations;
 
 namespace Application.Request.ItemReq
 {
@@ -10,6 +11,6 @@ namespace Application.Request.ItemReq
         [MaxLength(50)]
         public string? Condition { get; set; }
 
-        public List<CreateItemVariantRequest> Variants { get; set; } = new();
+        public List<CreateItemVariantRequest>? Variants { get; set; }
     }
 }

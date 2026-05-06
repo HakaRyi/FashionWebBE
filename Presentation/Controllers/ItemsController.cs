@@ -4,7 +4,6 @@ using Application.Request.ItemRequest;
 using Application.Response.ItemResp;
 using Application.Services.Items;
 using Domain.Contracts.Wardrobe;
-using Domain.Dto.Wardrobe;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -39,24 +38,32 @@ namespace Presentation.Controllers
 
         [Authorize]
         [HttpGet("me")]
-        public async Task<ActionResult> GetMyItems([FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null)
+        public async Task<ActionResult> GetMyItems(
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 20,
+            [FromQuery] string? search = null)
         {
             var accountId = _currentUserService.GetRequiredUserId();
-            var result = await _itemService.GetMyItemsAsync(accountId, page, pageSize, search);
+
+            var result = await _itemService.GetMyItemsAsync(
+                accountId,
+                page,
+                pageSize,
+                search);
 
             return Ok(new
             {
-                message = "Lấy danh sách item của tôi thành công.",
+                message = "Get my items successfully.",
                 data = new
                 {
                     items = result.Items,
                     totalCount = result.TotalCount,
                     currentPage = page,
+                    pageSize = pageSize,
                     totalPages = (int)Math.Ceiling(result.TotalCount / (double)pageSize)
                 }
             });
         }
-
 
         [Authorize]
         [HttpGet("my-item")]
@@ -67,13 +74,11 @@ namespace Presentation.Controllers
 
             return Ok(new
             {
-                message = "Lấy danh sách item của tôi thành công.",
+                message = "Get all my items successfully.",
                 data = results
             });
         }
 
-        // Route này chỉ nên dùng cho internal / owner / admin nếu bạn muốn giữ.
-        // Không nên cho FE public detail dùng route này.
         [HttpGet("{id:int}")]
         public async Task<ActionResult<ItemResponseDto>> GetById(int id)
         {
@@ -145,7 +150,7 @@ namespace Presentation.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Unauthorized(new
+                return StatusCode(403, new
                 {
                     message = ex.Message
                 });
@@ -162,7 +167,8 @@ namespace Presentation.Controllers
 
         [Authorize]
         [HttpPost("smart-match")]
-        public async Task<ActionResult<List<ItemResponseDto>>> GetSmartRecommendations([FromBody] SmartRecommendationRequestDto request)
+        public async Task<ActionResult<List<ItemResponseDto>>> GetSmartRecommendations(
+            [FromBody] SmartRecommendationRequestDto request)
         {
             if (request == null)
             {
@@ -202,7 +208,21 @@ namespace Presentation.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Unauthorized(new
+                return StatusCode(403, new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new
                 {
                     message = ex.Message
                 });
@@ -219,7 +239,9 @@ namespace Presentation.Controllers
 
         [Authorize]
         [HttpPut("{itemId:int}")]
-        public async Task<ActionResult> Update([FromRoute] int itemId, [FromBody] UpdateItemRequest request)
+        public async Task<ActionResult> Update(
+            [FromRoute] int itemId,
+            [FromBody] UpdateItemRequest request)
         {
             try
             {
@@ -244,9 +266,19 @@ namespace Presentation.Controllers
                     message = ex.Message
                 });
             }
-            catch (UnauthorizedAccessException)
+            catch (UnauthorizedAccessException ex)
             {
-                return Forbid();
+                return StatusCode(403, new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
             }
             catch (Exception ex)
             {
@@ -278,9 +310,12 @@ namespace Presentation.Controllers
                     message = ex.Message
                 });
             }
-            catch (UnauthorizedAccessException)
+            catch (UnauthorizedAccessException ex)
             {
-                return Forbid();
+                return StatusCode(403, new
+                {
+                    message = ex.Message
+                });
             }
             catch (InvalidOperationException ex)
             {
@@ -298,10 +333,6 @@ namespace Presentation.Controllers
                 });
             }
         }
-
-        // =========================================================
-        // COMMERCE: publish / unpublish
-        // =========================================================
 
         [Authorize]
         [HttpPost("{itemId:int}/publish")]
@@ -341,9 +372,12 @@ namespace Presentation.Controllers
                     message = ex.Message
                 });
             }
-            catch (UnauthorizedAccessException)
+            catch (UnauthorizedAccessException ex)
             {
-                return Forbid();
+                return StatusCode(403, new
+                {
+                    message = ex.Message
+                });
             }
             catch (InvalidOperationException ex)
             {
@@ -383,9 +417,12 @@ namespace Presentation.Controllers
                     message = ex.Message
                 });
             }
-            catch (UnauthorizedAccessException)
+            catch (UnauthorizedAccessException ex)
             {
-                return Forbid();
+                return StatusCode(403, new
+                {
+                    message = ex.Message
+                });
             }
             catch (InvalidOperationException ex)
             {
@@ -403,10 +440,6 @@ namespace Presentation.Controllers
                 });
             }
         }
-
-        // =========================================================
-        // VARIANTS
-        // =========================================================
 
         [Authorize]
         [HttpGet("{itemId:int}/variants")]
@@ -429,9 +462,19 @@ namespace Presentation.Controllers
                     message = ex.Message
                 });
             }
-            catch (UnauthorizedAccessException)
+            catch (UnauthorizedAccessException ex)
             {
-                return Forbid();
+                return StatusCode(403, new
+                {
+                    message = ex.Message
+                });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new
+                {
+                    message = ex.Message
+                });
             }
             catch (Exception ex)
             {
@@ -481,9 +524,12 @@ namespace Presentation.Controllers
                     message = ex.Message
                 });
             }
-            catch (UnauthorizedAccessException)
+            catch (UnauthorizedAccessException ex)
             {
-                return Forbid();
+                return StatusCode(403, new
+                {
+                    message = ex.Message
+                });
             }
             catch (InvalidOperationException ex)
             {
@@ -540,9 +586,12 @@ namespace Presentation.Controllers
                     message = ex.Message
                 });
             }
-            catch (UnauthorizedAccessException)
+            catch (UnauthorizedAccessException ex)
             {
-                return Forbid();
+                return StatusCode(403, new
+                {
+                    message = ex.Message
+                });
             }
             catch (InvalidOperationException ex)
             {
@@ -581,9 +630,12 @@ namespace Presentation.Controllers
                     message = ex.Message
                 });
             }
-            catch (UnauthorizedAccessException)
+            catch (UnauthorizedAccessException ex)
             {
-                return Forbid();
+                return StatusCode(403, new
+                {
+                    message = ex.Message
+                });
             }
             catch (InvalidOperationException ex)
             {
@@ -618,7 +670,7 @@ namespace Presentation.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Unauthorized(new
+                return StatusCode(403, new
                 {
                     message = ex.Message
                 });
@@ -655,7 +707,7 @@ namespace Presentation.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Unauthorized(new
+                return StatusCode(403, new
                 {
                     message = ex.Message
                 });
@@ -699,7 +751,7 @@ namespace Presentation.Controllers
             }
             catch (UnauthorizedAccessException ex)
             {
-                return Unauthorized(new
+                return StatusCode(403, new
                 {
                     message = ex.Message
                 });

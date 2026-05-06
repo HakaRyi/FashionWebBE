@@ -69,7 +69,7 @@ namespace Application.Services
 
                 if (progress.Status == Google.Apis.Upload.UploadStatus.Failed)
                 {
-                    throw new Exception($"Lỗi Drive: {progress.Exception?.Message}");
+                    throw new Exception($"Drive Error: {progress.Exception?.Message}");
                 }
 
                 return request.ResponseBody.WebViewLink;

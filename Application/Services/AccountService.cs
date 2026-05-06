@@ -17,6 +17,7 @@ namespace Application.Services
         private readonly IImageRepository _imageRepository;
         private readonly ICurrentUserService _currentUserService;
         private readonly ICloudStorageService _cloudStorageService;
+        private readonly ICacheService _cacheService;
 
         public AccountService(
             IAccountRepository accountRepository,
@@ -25,7 +26,8 @@ namespace Application.Services
             IPostRepository postRepository,
             UserManager<Domain.Entities.Account> userManager,
             ICurrentUserService currentUserService,
-            ICloudStorageService cloudStorageService)
+            ICloudStorageService cloudStorageService,
+            ICacheService cacheService)
         {
             _accountRepository = accountRepository;
             _expertProfileRepository = expertProfileRepository;
@@ -34,6 +36,7 @@ namespace Application.Services
             _postRepository = postRepository;
             _currentUserService = currentUserService;
             _cloudStorageService = cloudStorageService;
+            _cacheService = cacheService;
 
         }
 
@@ -293,6 +296,64 @@ namespace Application.Services
             var result = await _userManager.UpdateAsync(user);
             return result.Succeeded ? user.Id : 0;
 
+        }
+
+        public async Task<AccountUserResponse?> GetMyProfileAsync()
+        {
+            var currentUserId = _currentUserService.GetUserId();
+            if (currentUserId == null) return null;
+
+            var accountId = currentUserId.Value;
+            var cacheKey = $"my_profile_{accountId}";
+
+            return await _cacheService.GetOrSetAsync(
+                cacheKey,
+                async () =>
+                {
+                    var account = await _accountRepository.GetAccountWithProfileAndAvatarsAsync(accountId);
+                    if (account == null) return null;
+                    bool isChanged = false;
+
+                    if (isChanged)
+                    {
+                        await _accountRepository.UpdateAccount(account);
+                    }
+
+                    var roles = await _userManager.GetRolesAsync(account);
+                    var avatarUrl = account.Avatars.OrderByDescending(img => img.CreatedAt).FirstOrDefault()?.ImageUrl;
+
+                    var response = new AccountUserResponse
+                    {
+                        Id = account.Id,
+                        Username = account.UserName ?? string.Empty,
+                        Email = account.Email ?? string.Empty,
+                        Avatar = avatarUrl,
+                        Role = roles.FirstOrDefault() ?? "User",
+                        CreatedAt = account.CreatedAt,
+                        Status = account.Status,
+                        FollowerCount = account.CountFollower,
+                        FollowingCount = account.CountFollowing,
+                        PostCount = account.CountPost,
+                        Description = account.Description,
+                        IsOnline = account.IsOnline,
+                        IsExpert = account.ExpertProfile != null
+                    };
+
+                    if (account.ExpertProfile != null)
+                    {
+                        var profile = account.ExpertProfile;
+                        response.ReputationScore = profile.ReputationScore;
+                        response.ExpertiseField = profile.ExpertiseField;
+                        response.YearsOfExperience = profile.YearsOfExperience;
+                        response.Rating = profile.RatingAvg;
+                        response.Bio = profile.Bio;
+                        response.Verified = profile.Verified;
+                    }
+
+                    return response;
+                },
+                TimeSpan.FromDays(7)
+            );
         }
     }
 }

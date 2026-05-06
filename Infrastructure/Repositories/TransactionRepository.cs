@@ -3,6 +3,8 @@ using Domain.Entities;
 using Domain.Interfaces;
 using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Polly;
+using System.Linq.Expressions;
 
 namespace Infrastructure.Repositories
 {
@@ -31,14 +33,16 @@ namespace Infrastructure.Repositories
                 .FirstOrDefaultAsync(t => t.TransactionId == transactionId);
         }
 
-        public async Task<List<Transaction>> GetTransactionsAsync()
+        public async Task<List<Transaction>> GetTransactionsAsync(string? type = null, string? refType = null, int? refId = null, params Expression<Func<Transaction, object>>[] includes)
         {
-            return await _db.Transactions
-                .AsNoTracking()
-                .Include(t => t.Wallet)
-                    .ThenInclude(w => w.Account)
-                .OrderByDescending(t => t.CreatedAt)
-                .ToListAsync();
+            IQueryable<Transaction> query = _db.Transactions;
+            foreach (var include in includes) query = query.Include(include);
+
+            if (!string.IsNullOrEmpty(type)) query = query.Where(t => t.Type == type);
+            if (!string.IsNullOrEmpty(refType)) query = query.Where(t => t.ReferenceType == refType);
+            if (refId.HasValue) query = query.Where(t => t.ReferenceId == refId);
+
+            return await query.OrderByDescending(t => t.CreatedAt).ToListAsync();
         }
 
         public async Task<List<Transaction>> GetHistoryByWalletIdAsync(int walletId)
@@ -54,6 +58,8 @@ namespace Infrastructure.Repositories
         {
             return await _db.Transactions
                 .AsNoTracking()
+                .Include(t => t.Wallet)
+                .ThenInclude(w => w.Account)
                 .Where(t => t.WalletId == walletId)
                 .OrderByDescending(t => t.CreatedAt)
                 .ToListAsync();
@@ -69,6 +75,16 @@ namespace Infrastructure.Repositories
                          && t.CreatedAt.Month == month
                          && t.CreatedAt.Year == year)
                 .SumAsync(t => (decimal?)t.Amount) ?? 0;
+        }
+
+        public async Task<List<Transaction>> GetByReferenceAsync(string refType, int refId)
+        {
+            return await _db.Transactions
+                .Include(t => t.Wallet)
+                .ThenInclude(w => w.Account)
+                .Where(t => t.ReferenceType == refType && t.ReferenceId == refId)
+                .OrderByDescending(t => t.CreatedAt)
+                .ToListAsync();
         }
 
         public async Task AddAsync(Transaction transaction)

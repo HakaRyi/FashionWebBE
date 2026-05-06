@@ -10,7 +10,6 @@ using Application.Response.AccountRep;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
-using System.Security.Principal;
 using System.Text;
 using Domain.Entities;
 using Domain.Interfaces;
@@ -57,8 +56,6 @@ namespace Application.Services
             _imageRepository = imageRepository;
         }
 
-        #region Helper Methods
-
         private string GetClientDeviceInfo()
         {
             var userAgent = _httpContextAccessor.HttpContext?.Request.Headers["User-Agent"].ToString();
@@ -69,38 +66,53 @@ namespace Application.Services
         {
             var ip = _httpContextAccessor.HttpContext?.Request.Headers["X-Forwarded-For"].ToString();
 
-            if (string.IsNullOrEmpty(ip))
+            if (!string.IsNullOrWhiteSpace(ip))
             {
-                ip = _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
+                return ip.Split(',')[0].Trim();
             }
 
-            return string.IsNullOrEmpty(ip) ? "127.0.0.1" : ip;
+            ip = _httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
+
+            return string.IsNullOrWhiteSpace(ip) ? "127.0.0.1" : ip;
         }
 
         private string GenerateRandomVerificationCode()
         {
-            return new Random().Next(100000, 999999).ToString();
+            return RandomNumberGenerator.GetInt32(100000, 999999).ToString();
         }
 
-        #endregion
+        private int GetVerificationCodeExpiryMinutes()
+        {
+            return int.Parse(_configuration["Auth:VerificationCodeExpiryMinutes"] ?? "15");
+        }
+
+        private int GetRefreshTokenExpiryDays()
+        {
+            return int.Parse(_configuration["Auth:RefreshTokenExpiryDays"] ?? "7");
+        }
+
+        private int GetMaxActiveDevices()
+        {
+            return int.Parse(_configuration["Auth:MaxActiveDevices"] ?? "5");
+        }
 
         public async Task<AuthResponse> RegisterAsync(RegisterRequest request)
         {
             var existingEmail = await _userManager.FindByEmailAsync(request.Email);
             if (existingEmail != null)
             {
-                return new AuthResponse { Success = false, Message = "Email này đã được sử dụng." };
+                return new AuthResponse { Success = false, Message = "This email is already in use." };
             }
 
             var existingUser = await _userManager.FindByNameAsync(request.Username);
             if (existingUser != null)
             {
-                return new AuthResponse { Success = false, Message = "Tên đăng nhập này đã tồn tại." };
+                return new AuthResponse { Success = false, Message = "This username already exists." };
             }
 
             if (request.DateOfBirth > DateTime.UtcNow.AddYears(-13))
             {
-                return new AuthResponse { Success = false, Message = "Bạn phải trên 13 tuổi để đăng ký." };
+                return new AuthResponse { Success = false, Message = "You must be at least 13 years old to register." };
             }
 
             var verificationCode = GenerateRandomVerificationCode();
@@ -113,7 +125,7 @@ namespace Application.Services
                 CreatedAt = DateTime.UtcNow,
                 Status = "Unverified",
                 VerificationCode = verificationCode,
-                CodeExpiredAt = DateTime.UtcNow.AddMinutes(15),
+                CodeExpiredAt = DateTime.UtcNow.AddMinutes(GetVerificationCodeExpiryMinutes()),
                 FreeTryOn = 3,
                 CountPost = 0,
                 CountFollower = 0,
@@ -123,7 +135,8 @@ namespace Application.Services
             var result = await _userManager.CreateAsync(newAccount, request.Password);
             if (!result.Succeeded)
             {
-                var error = result.Errors.FirstOrDefault()?.Description ?? "Đăng ký thất bại.";
+                var error = result.Errors.FirstOrDefault()?.Description ?? "Registration failed.";
+
                 return new AuthResponse
                 {
                     Success = false,
@@ -142,14 +155,14 @@ namespace Application.Services
                 return new AuthResponse
                 {
                     Success = true,
-                    Message = "Đăng ký thành công nhưng gửi email xác thực thất bại. Vui lòng yêu cầu gửi lại sau."
+                    Message = "Registration was successful, but the verification email could not be sent. Please request a new verification email later."
                 };
             }
 
             return new AuthResponse
             {
                 Success = true,
-                Message = "Đăng ký thành công. Vui lòng kiểm tra email để xác thực tài khoản."
+                Message = "Registration successful. Please check your email to verify your account."
             };
         }
 
@@ -162,7 +175,7 @@ namespace Application.Services
                 return new AuthResponse
                 {
                     Success = false,
-                    Message = "Không tìm thấy tài khoản."
+                    Message = "Account not found."
                 };
             }
 
@@ -171,7 +184,7 @@ namespace Application.Services
                 return new AuthResponse
                 {
                     Success = false,
-                    Message = "Tài khoản đã được xác thực trước đó."
+                    Message = "This account has already been verified."
                 };
             }
 
@@ -180,7 +193,7 @@ namespace Application.Services
                 return new AuthResponse
                 {
                     Success = false,
-                    Message = "Mã xác thực không chính xác."
+                    Message = "The verification code is incorrect."
                 };
             }
 
@@ -189,7 +202,7 @@ namespace Application.Services
                 return new AuthResponse
                 {
                     Success = false,
-                    Message = "Mã xác thực đã hết hạn."
+                    Message = "The verification code has expired."
                 };
             }
 
@@ -204,7 +217,7 @@ namespace Application.Services
                 return new AuthResponse
                 {
                     Success = false,
-                    Message = "Có lỗi xảy ra khi cập nhật trạng thái."
+                    Message = "An error occurred while updating the account status."
                 };
             }
 
@@ -224,7 +237,7 @@ namespace Application.Services
             await _wardrobeRepository.CreateWardrobe(new Domain.Entities.Wardrobe
             {
                 AccountId = user.Id,
-                Name = $"Tủ đồ của {user.UserName}",
+                Name = $"{user.UserName}'s wardrobe",
                 CreatedAt = DateTime.UtcNow
             });
 
@@ -233,7 +246,7 @@ namespace Application.Services
             return new AuthResponse
             {
                 Success = true,
-                Message = "Xác thực tài khoản thành công."
+                Message = "Account verified successfully."
             };
         }
 
@@ -250,17 +263,16 @@ namespace Application.Services
                 };
             }
 
-            user.IsOnline = "Online";
-
             if (user.Status != "Active")
             {
                 return new AuthResponse
                 {
                     Success = false,
-                    Message = "The account has not been verified with an email address."
+                    Message = "This account has not been verified by email."
                 };
             }
 
+            user.IsOnline = "Online";
             await _userManager.UpdateAsync(user);
 
             var accessToken = await GenerateAccessToken(user);
@@ -269,32 +281,18 @@ namespace Application.Services
             var deviceInfo = GetClientDeviceInfo();
             var ipAddress = GetClientIpAddress();
 
-            var existingToken = await _accountRepository.GetRefreshTokenByAccountIdAsync(user.Id);
+            await LimitActiveDevicesAsync(user.Id);
 
-            if (existingToken != null)
+            await _accountRepository.AddRefreshTokenAsync(new RefreshToken
             {
-                existingToken.Token = refreshTokenString;
-                existingToken.ExpiryDate = DateTime.UtcNow.AddDays(7);
-                existingToken.CreatedAt = DateTime.UtcNow;
-                existingToken.DeviceInfo = deviceInfo;
-                existingToken.IpAddress = ipAddress;
-                existingToken.IsAvailable = true;
-
-                await _accountRepository.UpdateRefreshTokenAsync(existingToken);
-            }
-            else
-            {
-                await _accountRepository.AddRefreshTokenAsync(new RefreshToken
-                {
-                    Token = refreshTokenString,
-                    AccountId = user.Id,
-                    ExpiryDate = DateTime.UtcNow.AddDays(7),
-                    CreatedAt = DateTime.UtcNow,
-                    IsAvailable = true,
-                    DeviceInfo = deviceInfo,
-                    IpAddress = ipAddress
-                });
-            }
+                Token = refreshTokenString,
+                AccountId = user.Id,
+                ExpiryDate = DateTime.UtcNow.AddDays(GetRefreshTokenExpiryDays()),
+                CreatedAt = DateTime.UtcNow,
+                IsAvailable = true,
+                DeviceInfo = deviceInfo,
+                IpAddress = ipAddress
+            });
 
             return new AuthResponse
             {
@@ -306,42 +304,50 @@ namespace Application.Services
             };
         }
 
-        public async Task<AuthResponse> LogoutAsync()
+        public async Task<AuthResponse> LogoutAsync(string refreshTokenString)
         {
-            var accountIdClaim = _currentUserService.GetUserId() ?? 0;
-            if (accountIdClaim == 0)
+            var accountId = _currentUserService.GetUserId() ?? 0;
+            if (accountId == 0)
             {
                 return new AuthResponse
                 {
                     Success = false,
-                    Message = "Không tìm thấy thông tin tài khoản."
+                    Message = "Account information was not found."
                 };
             }
 
-            var user = await _userManager.FindByIdAsync(accountIdClaim.ToString());
+            var user = await _userManager.FindByIdAsync(accountId.ToString());
             if (user == null)
             {
                 return new AuthResponse
                 {
                     Success = false,
-                    Message = "Tài khoản không tồn tại."
+                    Message = "Account does not exist."
                 };
             }
 
-            user.IsOnline = "Offline";
-            await _userManager.UpdateAsync(user);
-
-            var refreshToken = await _accountRepository.GetRefreshTokenByAccountIdAsync(accountIdClaim);
-            if (refreshToken != null)
+            var refreshToken = await _accountRepository.GetRefreshTokenByTokenAsync(refreshTokenString);
+            if (refreshToken == null || refreshToken.AccountId != accountId)
             {
-                refreshToken.IsAvailable = false;
-                await _accountRepository.UpdateRefreshTokenAsync(refreshToken);
+                return new AuthResponse
+                {
+                    Success = false,
+                    Message = "Refresh token does not exist."
+                };
             }
+
+            refreshToken.IsAvailable = false;
+            await _accountRepository.UpdateRefreshTokenAsync(refreshToken);
+
+            var remainingActiveTokens = await _accountRepository.GetActiveRefreshTokensByAccountIdAsync(accountId);
+
+            user.IsOnline = remainingActiveTokens.Any() ? "Online" : "Offline";
+            await _userManager.UpdateAsync(user);
 
             return new AuthResponse
             {
                 Success = true,
-                Message = "Đăng xuất thành công."
+                Message = "Logout successful."
             };
         }
 
@@ -359,7 +365,7 @@ namespace Application.Services
                 new Claim("AccountId", user.Id.ToString()),
                 new Claim("Username", user.UserName ?? string.Empty),
                 new Claim("Avatar", avatarUrl),
-                new Claim("HasCompletedOnboarding", user.HasCompletedOnboarding.ToString().ToLower()),
+                new Claim("HasCompletedOnboarding", user.HasCompletedOnboarding.ToString().ToLower())
             };
 
             foreach (var role in roles)
@@ -388,30 +394,59 @@ namespace Application.Services
 
         public async Task<AuthResponse> RefreshTokenAsync(string refreshTokenString)
         {
-            // 1. Tìm token trong DB thông qua Repository
             var storedToken = await _accountRepository.GetRefreshTokenByTokenAsync(refreshTokenString);
 
             if (storedToken == null)
-                return new AuthResponse { Success = false, Message = "Refresh token không tồn tại." };
+            {
+                return new AuthResponse
+                {
+                    Success = false,
+                    Message = "Refresh token does not exist."
+                };
+            }
 
-            if (!storedToken.IsAvailable == true)
-                return new AuthResponse { Success = false, Message = "Refresh token đã bị vô hiệu hóa." };
+            if (storedToken.IsAvailable != true)
+            {
+                return new AuthResponse
+                {
+                    Success = false,
+                    Message = "Refresh token has been disabled."
+                };
+            }
 
             if (storedToken.ExpiryDate < DateTime.UtcNow)
-                return new AuthResponse { Success = false, Message = "Refresh token đã hết hạn." };
+            {
+                return new AuthResponse
+                {
+                    Success = false,
+                    Message = "Refresh token has expired."
+                };
+            }
 
-            // 2. Lấy thông tin User sở hữu token này
             var user = await _userManager.FindByIdAsync(storedToken.AccountId.ToString());
             if (user == null)
-                return new AuthResponse { Success = false, Message = "Không tìm thấy người dùng." };
+            {
+                return new AuthResponse
+                {
+                    Success = false,
+                    Message = "User not found."
+                };
+            }
 
-            // 3. Tạo Access Token mới và Refresh Token mới (Rotation)
+            if (user.Status != "Active")
+            {
+                return new AuthResponse
+                {
+                    Success = false,
+                    Message = "This account is not active."
+                };
+            }
+
             var newAccessToken = await GenerateAccessToken(user);
             var newRefreshTokenString = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
 
-            // 4. Cập nhật lại Token cũ trong DB thành Token mới
             storedToken.Token = newRefreshTokenString;
-            storedToken.ExpiryDate = DateTime.UtcNow.AddDays(7);
+            storedToken.ExpiryDate = DateTime.UtcNow.AddDays(GetRefreshTokenExpiryDays());
             storedToken.CreatedAt = DateTime.UtcNow;
             storedToken.IpAddress = GetClientIpAddress();
             storedToken.DeviceInfo = GetClientDeviceInfo();
@@ -423,7 +458,7 @@ namespace Application.Services
                 Success = true,
                 AccessToken = newAccessToken,
                 RefreshToken = newRefreshTokenString,
-                Message = "Làm mới token thành công."
+                Message = "Token refreshed successfully."
             };
         }
 
@@ -442,19 +477,21 @@ namespace Application.Services
             }
             catch
             {
-                throw new Exception("Google token không hợp lệ");
+                throw new Exception("Invalid Google token.");
             }
 
             if (!payload.EmailVerified)
             {
-                throw new Exception("Email chưa được xác thực bởi Google");
+                throw new Exception("This email has not been verified by Google.");
             }
+
             bool isNewUser = false;
             var user = await _userManager.FindByEmailAsync(payload.Email);
 
             if (user == null)
             {
                 isNewUser = true;
+
                 user = new Account
                 {
                     UserName = $"{payload.Email.Split('@')[0]}_{Guid.NewGuid():N}".Substring(0, 20),
@@ -466,26 +503,25 @@ namespace Application.Services
                     CountFollower = 0,
                     CountFollowing = 0,
                     EmailConfirmed = true,
-                    SecurityStamp = Guid.NewGuid().ToString(),
+                    SecurityStamp = Guid.NewGuid().ToString()
                 };
 
                 if (!string.IsNullOrEmpty(payload.Picture))
                 {
-                    if (!string.IsNullOrEmpty(payload.Picture))
+                    user.Avatars.Add(new Image
                     {
-                        user.Avatars.Add(new Image
-                        {
-                            ImageUrl = payload.Picture,
-                            CreatedAt = DateTime.UtcNow
-                        });
-                    }
+                        ImageUrl = payload.Picture,
+                        CreatedAt = DateTime.UtcNow
+                    });
                 }
+
                 var createResult = await _userManager.CreateAsync(user);
                 if (!createResult.Succeeded)
                 {
                     var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
                     throw new Exception(errors);
                 }
+
                 await _userManager.AddToRoleAsync(user, "User");
 
                 await _walletRepository.AddAsync(new Wallet
@@ -500,7 +536,7 @@ namespace Application.Services
                 await _wardrobeRepository.CreateWardrobe(new Domain.Entities.Wardrobe
                 {
                     AccountId = user.Id,
-                    Name = $"Tủ đồ của {user.UserName}",
+                    Name = $"{user.UserName}'s wardrobe",
                     CreatedAt = DateTime.UtcNow
                 });
 
@@ -509,38 +545,25 @@ namespace Application.Services
 
             user.IsOnline = "Online";
             await _userManager.UpdateAsync(user);
+
             var accessToken = await GenerateAccessToken(user);
             var refreshTokenString = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64));
 
             var deviceInfo = GetClientDeviceInfo();
             var ipAddress = GetClientIpAddress();
 
-            var existingToken = await _accountRepository.GetRefreshTokenByAccountIdAsync(user.Id);
+            await LimitActiveDevicesAsync(user.Id);
 
-            if (existingToken != null)
+            await _accountRepository.AddRefreshTokenAsync(new RefreshToken
             {
-                existingToken.Token = refreshTokenString;
-                existingToken.ExpiryDate = DateTime.UtcNow.AddDays(7);
-                existingToken.CreatedAt = DateTime.UtcNow;
-                existingToken.DeviceInfo = deviceInfo;
-                existingToken.IpAddress = ipAddress;
-                existingToken.IsAvailable = true;
-
-                await _accountRepository.UpdateRefreshTokenAsync(existingToken);
-            }
-            else
-            {
-                await _accountRepository.AddRefreshTokenAsync(new RefreshToken
-                {
-                    Token = refreshTokenString,
-                    AccountId = user.Id,
-                    ExpiryDate = DateTime.UtcNow.AddDays(7),
-                    CreatedAt = DateTime.UtcNow,
-                    IsAvailable = true,
-                    DeviceInfo = deviceInfo,
-                    IpAddress = ipAddress
-                });
-            }
+                Token = refreshTokenString,
+                AccountId = user.Id,
+                ExpiryDate = DateTime.UtcNow.AddDays(GetRefreshTokenExpiryDays()),
+                CreatedAt = DateTime.UtcNow,
+                IsAvailable = true,
+                DeviceInfo = deviceInfo,
+                IpAddress = ipAddress
+            });
 
             return new AuthResponse
             {
@@ -551,6 +574,29 @@ namespace Application.Services
                 IsNewUser = isNewUser,
                 HasCompletedOnboarding = user.HasCompletedOnboarding
             };
+        }
+
+        private async Task LimitActiveDevicesAsync(int accountId)
+        {
+            var maxActiveDevices = GetMaxActiveDevices();
+
+            var activeTokens = await _accountRepository.GetActiveRefreshTokensByAccountIdAsync(accountId);
+
+            if (activeTokens.Count < maxActiveDevices)
+            {
+                return;
+            }
+
+            var tokensToDisable = activeTokens
+                .OrderBy(token => token.CreatedAt)
+                .Take(activeTokens.Count - maxActiveDevices + 1)
+                .ToList();
+
+            foreach (var token in tokensToDisable)
+            {
+                token.IsAvailable = false;
+                await _accountRepository.UpdateRefreshTokenAsync(token);
+            }
         }
 
         public async Task<AuthResponse> ChangePasswordAsync(ChangePasswordRequest request)
@@ -612,8 +658,9 @@ namespace Application.Services
             user.SecurityStamp = Guid.NewGuid().ToString();
             await _userManager.UpdateAsync(user);
 
-            var refreshToken = await _accountRepository.GetRefreshTokenByAccountIdAsync(user.Id);
-            if (refreshToken != null)
+            var refreshTokens = await _accountRepository.GetActiveRefreshTokensByAccountIdAsync(user.Id);
+
+            foreach (var refreshToken in refreshTokens)
             {
                 refreshToken.IsAvailable = false;
                 await _accountRepository.UpdateRefreshTokenAsync(refreshToken);

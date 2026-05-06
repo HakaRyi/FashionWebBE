@@ -126,7 +126,7 @@ namespace Infrastructure.Persistence.Seeders
                 new SystemSetting
                 {
                     SettingKey = "EVENT_MIN_FEE",
-                    SettingValue = "10000",
+                    SettingValue = "5000",
                     DataType = "Decimal",
                     Description = "Minimum event creation fee (VNĐ)"
                 },

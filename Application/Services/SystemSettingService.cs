@@ -71,6 +71,5 @@ namespace Application.Services
         {
             return settings.FirstOrDefault(s => s.SettingKey == key)?.SettingValue ?? defaultValue;
         }
-
     }
 }

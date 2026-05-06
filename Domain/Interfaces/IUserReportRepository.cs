@@ -1,5 +1,5 @@
-﻿using Domain.Contracts.UserReport;
-using Domain.Dto.Common;
+﻿using Domain.Contracts.Common;
+using Domain.Contracts.UserReport;
 using Domain.Entities;
 
 namespace Domain.Interfaces

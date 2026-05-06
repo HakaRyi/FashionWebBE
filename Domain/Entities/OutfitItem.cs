@@ -11,4 +11,5 @@ public partial class OutfitItem
     public virtual Item Item { get; set; } = null!;
 
     public string? Slot { get; set; }
+    public DateTime CreatedAt { get; set; }
 }

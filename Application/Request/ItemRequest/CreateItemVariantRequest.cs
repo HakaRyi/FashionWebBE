@@ -1,13 +1,9 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace Application.Request.ItemReq
+namespace Application.Request.ItemRequest
 {
     public class CreateItemVariantRequest
     {
-        [Required]
-        [MaxLength(100)]
-        public string Sku { get; set; } = null!;
-
         [MaxLength(20)]
         public string? SizeCode { get; set; }
 
