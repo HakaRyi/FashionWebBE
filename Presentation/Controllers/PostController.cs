@@ -1,7 +1,9 @@
 ﻿using Application.Interfaces;
+using Application.Request.PostReq;
 using Application.Response.PostResp;
 using Application.Services.PostImp;
 using Application.Utils;
+using Domain.Contracts.Social.Post;
 using Domain.Dto.Social.Post;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -22,7 +24,7 @@ namespace Presentation.Controllers
             _eventService = eventService;
         }
 
-        [HttpGet("/api/events/{eventId}/posts")]
+        [HttpGet("/api/events/{eventId:int}/posts")]
         public async Task<IActionResult> GetPostsByEvent(int eventId)
         {
             var posts = await _postService.GetPostsByEventIdAsync(eventId);
@@ -44,13 +46,17 @@ namespace Presentation.Controllers
         [Authorize]
         public async Task<IActionResult> UpdatePost(
             int postId,
-            [FromBody] UpdatePostDto request)
+            [FromForm] UpdatePostDto request)
         {
             var userId = User.GetUserId();
 
-            await _postService.UpdatePostAsync(postId, userId, request);
+            var updatedPost = await _postService.UpdatePostAsync(postId, userId, request);
 
-            return NoContent();
+            return Ok(new
+            {
+                message = "Post updated successfully.",
+                data = updatedPost
+            });
         }
 
         [HttpDelete("{postId:int}")]
@@ -61,7 +67,11 @@ namespace Presentation.Controllers
 
             await _postService.DeletePostAsync(postId, userId);
 
-            return NoContent();
+            return Ok(new
+            {
+                message = "Post deleted successfully.",
+                postId
+            });
         }
 
         [HttpPatch("{postId:int}/hide")]
@@ -95,7 +105,7 @@ namespace Presentation.Controllers
             var post = await _postService.GetPostDetailAsync(postId, userId);
 
             if (post == null)
-                return NotFound();
+                return NotFound(new { message = "Post not found." });
 
             return Ok(post);
         }
@@ -175,6 +185,7 @@ namespace Presentation.Controllers
         public async Task<IActionResult> JoinEventWithPost([FromForm] CreatePostDto request)
         {
             var accountId = User.GetUserId();
+
             try
             {
                 var result = await _eventService.JoinEventByPostAsync(accountId, request);
@@ -196,7 +207,9 @@ namespace Presentation.Controllers
             }
 
             int? userId = null;
+
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
             if (int.TryParse(userIdClaim, out int parsedId))
             {
                 userId = parsedId;

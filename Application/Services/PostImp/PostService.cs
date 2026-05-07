@@ -115,75 +115,119 @@ namespace Application.Services.PostImp
             return MapToResponse(post);
         }
 
-        public async Task UpdatePostAsync(int postId, int accountId, UpdatePostDto dto)
+        public async Task<PostResponse> UpdatePostAsync(int postId, int accountId, UpdatePostDto dto)
         {
+            if (dto == null)
+                throw new ArgumentNullException(nameof(dto));
+
             var post = await _postRepo.GetByIdAsync(postId)
-                ?? throw new Exception("Post not found");
+                ?? throw new KeyNotFoundException("Post not found.");
 
             if (post.AccountId != accountId)
-                throw new UnauthorizedAccessException();
+                throw new UnauthorizedAccessException("You are not the owner of this post.");
 
-            if (post.Status == PostStatus.Verifying)
-                throw new Exception("Post is being verified and cannot be updated.");
+            if (post.Status == PostStatus.Deleted)
+                throw new InvalidOperationException("Deleted post cannot be updated.");
 
-            if (post.Status == PostStatus.PendingAdmin)
-                throw new Exception("Post is pending admin review and cannot be updated.");
+            if (post.Status == PostStatus.Banned)
+                throw new InvalidOperationException("Banned post cannot be updated.");
 
-            var changed = false;
+            var hasTextChange = false;
+            var hasImageChange = dto.Images != null && dto.Images.Any();
 
-            if (dto.Title != null && post.Title != dto.Title.Trim())
+            var newTitle = dto.Title?.Trim();
+            var newContent = dto.Content?.Trim();
+
+            if (dto.Title != null && post.Title != newTitle)
             {
-                post.Title = dto.Title.Trim();
-                changed = true;
+                post.Title = newTitle;
+                hasTextChange = true;
             }
 
-            if (dto.Content != null && post.Content != dto.Content.Trim())
+            if (dto.Content != null && post.Content != newContent)
             {
-                post.Content = dto.Content.Trim();
-                changed = true;
+                post.Content = newContent;
+                hasTextChange = true;
             }
 
-            if (!changed)
-                throw new Exception("No changes detected.");
+            if (!hasTextChange && !hasImageChange)
+                throw new InvalidOperationException("No changes detected.");
 
+            if (hasImageChange)
+            {
+                if (dto.Images!.Count > MAX_IMAGES)
+                    throw new InvalidOperationException("Maximum 5 images allowed.");
+
+                var oldImages = post.Images?.ToList() ?? new List<Image>();
+
+                var uploadTasks = dto.Images.Select(image => _storage.UploadImageAsync(image));
+                var newImageUrls = (await Task.WhenAll(uploadTasks)).ToList();
+
+                var newImages = newImageUrls.Select(url => new Image
+                {
+                    PostId = post.PostId,
+                    ImageUrl = url,
+                    OwnerType = "Post",
+                    CreatedAt = DateTime.UtcNow
+                }).ToList();
+
+                if (oldImages.Any())
+                {
+                    _imageRepo.DeleteRange(oldImages);
+                }
+
+                await _imageRepo.AddRangeAsync(newImages);
+
+                post.Images = newImages;
+
+                foreach (var oldImage in oldImages)
+                {
+                    await _storage.DeleteImageAsync(oldImage.ImageUrl);
+                }
+            }
+
+            post.Status = PostStatus.Published;
+            post.Visibility = PostVisibility.Visible;
             post.UpdatedAt = DateTime.UtcNow;
-            post.Status = PostStatus.Verifying;
 
             _postRepo.Update(post);
             await _uow.SaveChangesAsync();
 
-            var images = await _imageRepo.GetPostImagesAsync(postId);
-            if (images == null || !images.Any())
-                throw new Exception("Post must contain at least one image for moderation.");
+            var updatedPost = await _postRepo.GetByIdAsync(postId)
+                ?? throw new KeyNotFoundException("Post not found after update.");
 
-            await SendModeration(post.PostId, images.Select(i => i.ImageUrl).ToList());
+            return MapToResponse(updatedPost);
         }
 
         public async Task DeletePostAsync(int postId, int accountId)
         {
             var post = await _postRepo.GetByIdAsync(postId)
-                ?? throw new Exception("Post not found");
+                ?? throw new KeyNotFoundException("Post not found.");
 
             if (post.AccountId != accountId)
-                throw new UnauthorizedAccessException();
+                throw new UnauthorizedAccessException("You are not the owner of this post.");
 
-            var images = await _imageRepo.GetPostImagesAsync(postId);
+            if (post.Status == PostStatus.Deleted)
+                return;
 
-            foreach (var img in images)
-            {
-                await _storage.DeleteImageAsync(img.ImageUrl);
-            }
+            if (post.Status == PostStatus.Banned)
+                throw new InvalidOperationException("Banned post cannot be deleted by user.");
 
-            _imageRepo.DeleteRange(images);
-            _postRepo.Delete(post);
+            post.Status = PostStatus.Deleted;
+            post.Visibility = PostVisibility.Hidden;
+            post.UpdatedAt = DateTime.UtcNow;
 
-            var account = await _userManager.FindByIdAsync(accountId.ToString());
-            account.CountPost -= 1;
+            _postRepo.Update(post);
+
+            var account = await _userManager.FindByIdAsync(accountId.ToString())
+                ?? throw new KeyNotFoundException("Account not found.");
+
+            account.CountPost = Math.Max(account.CountPost - 1, 0);
 
             await _userManager.UpdateAsync(account);
             await _uow.SaveChangesAsync();
-            await _cacheService.RemoveDataAsync($"my_profile_{accountId}");
 
+            await _cacheService.RemoveDataAsync($"my_profile_{accountId}");
         }
 
         public async Task<string> AdminCheckTheStatusPost(CheckPostRequest request, int id)
@@ -698,18 +742,32 @@ namespace Application.Services.PostImp
 
         public async Task SetPostDeleteStatus(int postId)
         {
-            var post = await _postRepo.GetByIdAsync(postId);
+            var post = await _postRepo.GetByIdAsync(postId)
+                ?? throw new KeyNotFoundException("Post not found.");
+
+            if (post.Status == PostStatus.Deleted)
+                return;
+
             post.Status = PostStatus.Deleted;
+            post.Visibility = PostVisibility.Hidden;
             post.UpdatedAt = DateTime.UtcNow;
+
             _postRepo.Update(post);
             await _uow.SaveChangesAsync();
         }
 
         public async Task SetPostBannedStatus(int postId)
         {
-            var post = await _postRepo.GetByIdAsync(postId);
+            var post = await _postRepo.GetByIdAsync(postId)
+                ?? throw new KeyNotFoundException("Post not found.");
+
+            if (post.Status == PostStatus.Banned)
+                return;
+
             post.Status = PostStatus.Banned;
+            post.Visibility = PostVisibility.Hidden;
             post.UpdatedAt = DateTime.UtcNow;
+
             _postRepo.Update(post);
             await _uow.SaveChangesAsync();
         }

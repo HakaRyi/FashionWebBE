@@ -176,7 +176,9 @@ namespace Infrastructure.Repositories
         {
             var query = _db.Posts
                 .AsNoTracking()
-                .Where(p => p.AccountId == ownerId);
+                .Where(p =>
+                    p.AccountId == ownerId &&
+                    p.Status == PostStatus.Published);
 
             var total = await query.CountAsync();
 
@@ -232,19 +234,15 @@ namespace Infrastructure.Repositories
 
                     IsOwner = true,
 
-                    CanEdit = p.Status != PostStatus.Verifying
-                           && p.Status != PostStatus.PendingAdmin,
+                    CanEdit = true,
 
                     CanDelete = true,
 
-                    CanHide = p.Status == PostStatus.Published
-                           && p.Visibility == PostVisibility.Visible,
+                    CanHide = p.Visibility == PostVisibility.Visible,
 
-                    CanUnhide = p.Status == PostStatus.Published
-                             && p.Visibility == PostVisibility.Hidden,
+                    CanUnhide = p.Visibility == PostVisibility.Hidden,
 
-                    IsPubliclyVisible = p.Status == PostStatus.Published
-                                     && p.Visibility == PostVisibility.Visible
+                    IsPubliclyVisible = p.Visibility == PostVisibility.Visible
                 })
                 .ToListAsync();
 
@@ -448,7 +446,10 @@ namespace Infrastructure.Repositories
                 .Include(p => p.ExpertRatings)
                 .Include(p => p.Event)
                 .Include(p => p.Scoreboard)
-                .Where(p => p.EventId == eventId && p.Status == "Published")
+                .Where(p =>
+                    p.EventId == eventId &&
+                    p.Status == PostStatus.Published &&
+                    p.Visibility == PostVisibility.Visible)
                 .ToListAsync();
         }
 
@@ -460,14 +461,19 @@ namespace Infrastructure.Repositories
                 .Include(p => p.Event)
                 .Include(p => p.ExpertRatings)
                     .ThenInclude(r => r.CriterionRatings)
-                    .Where(p => p.EventId == eventId && p.Status == "Published")
+                .Where(p =>
+                    p.EventId == eventId &&
+                    p.Status == PostStatus.Published)
                 .ToListAsync();
         }
 
         public async Task<double> GetMaxRawCommunityScoreAsync(int eventId, double pointPerLike, double pointPerShare)
         {
             var maxRawScore = await _db.Posts
-                .Where(p => p.EventId == eventId && p.Status != "Deleted")
+                .Where(p =>
+                    p.EventId == eventId &&
+                    p.Status != PostStatus.Deleted &&
+                    p.Status != PostStatus.Banned)
                 .MaxAsync(p => (double?)((p.LikeCount ?? 0) * pointPerLike + (p.ShareCount ?? 0) * pointPerShare)) ?? 0;
 
             return maxRawScore;
@@ -498,21 +504,31 @@ namespace Infrastructure.Repositories
 
         public async Task<(List<Post> Posts, List<Account> Users)> SearchRawDataAsync(string keyword, int limit)
         {
-            var searchLower = keyword.ToLower();
+            var searchLower = keyword.Trim().ToLower();
 
             var users = await _db.Users
                 .Include(u => u.ExpertProfile)
                 .Include(u => u.Avatars)
-                .Where(u => u.UserName!.ToLower().Contains(searchLower) ||
-                            (u.ExpertProfile != null && u.ExpertProfile.ExpertiseField!.ToLower().Contains(searchLower)))
+                .Where(u =>
+                    u.UserName!.ToLower().Contains(searchLower) ||
+                    (
+                        u.ExpertProfile != null &&
+                        u.ExpertProfile.ExpertiseField != null &&
+                        u.ExpertProfile.ExpertiseField.ToLower().Contains(searchLower)
+                    ))
                 .Take(limit)
                 .ToListAsync();
 
             var posts = await _db.Posts
                 .Include(p => p.Account).ThenInclude(a => a.Avatars)
                 .Include(p => p.Images)
-                .Where(p => (p.Title!.ToLower().Contains(searchLower) || p.Content!.ToLower().Contains(searchLower)) &&
-                            p.Status == PostStatus.Published && p.Visibility == PostVisibility.Visible)
+                .Where(p =>
+                    p.Status == PostStatus.Published &&
+                    p.Visibility == PostVisibility.Visible &&
+                    (
+                        (p.Title != null && p.Title.ToLower().Contains(searchLower)) ||
+                        (p.Content != null && p.Content.ToLower().Contains(searchLower))
+                    ))
                 .OrderByDescending(p => p.CreatedAt)
                 .Take(limit)
                 .ToListAsync();
