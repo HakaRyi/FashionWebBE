@@ -80,6 +80,11 @@ namespace Application.Services.EventServices
             if (wallet == null || wallet.Balance < totalToLock)
                 throw new Exception($"Insufficient wallet balance. You need {totalToLock:N0} VNĐ (including creation fee).");
 
+            await CheckSpendingLimitAsync(
+                wallet,
+                totalToLock,
+                "event creation cost");
+
             await _unitOfWork.BeginTransactionAsync();
             try
             {
@@ -123,6 +128,15 @@ namespace Application.Services.EventServices
 
                 await CreatePrizesAsync(eventData.EventId, dto.Prizes);
                 await SetupExpertPanelAsync(eventData.EventId, creatorId, dto.InvitedExpertIds, isDraft: true);
+
+                wallet = await _walletRepo.GetByAccountIdAsync(creatorId);
+                if (wallet == null || wallet.Balance < totalToLock)
+                    throw new Exception($"Insufficient wallet balance. You need {totalToLock:N0} VNĐ (including creation fee).");
+
+                await CheckSpendingLimitAsync(
+                    wallet,
+                    totalToLock,
+                    "event creation cost");
 
                 wallet.Balance -= totalToLock;
                 wallet.LockedBalance += totalToLock;
@@ -578,6 +592,46 @@ namespace Application.Services.EventServices
                 }));
             }
             await _eventExpertRepo.AddRangeAsync(expertPanel);
+        }
+
+        private async Task CheckSpendingLimitAsync(
+            Wallet wallet,
+            decimal debitAmount,
+            string actionName)
+        {
+            if (wallet == null)
+                throw new Exception("Wallet not found.");
+
+            if (debitAmount <= 0)
+                throw new Exception("Invalid spending amount.");
+
+            if (!wallet.MonthlySpendingLimit.HasValue ||
+                wallet.MonthlySpendingLimit.Value <= 0)
+            {
+                return;
+            }
+
+            if (!wallet.IsHardSpendingLimit)
+                return;
+
+            var now = DateTime.UtcNow;
+
+            decimal spentThisMonth = await _transactionRepo.GetMonthlyDebitTotalAsync(
+                wallet.WalletId,
+                now.Month,
+                now.Year);
+
+            decimal projectedSpent = spentThisMonth + debitAmount;
+            decimal limitAmount = wallet.MonthlySpendingLimit.Value;
+
+            if (projectedSpent > limitAmount)
+            {
+                throw new Exception(
+                    $"You have exceeded your monthly spending limit. " +
+                    $"Spent this month: {spentThisMonth:N0} VND, " +
+                    $"{actionName}: {debitAmount:N0} VND, " +
+                    $"limit: {limitAmount:N0} VND.");
+            }
         }
     }
 }

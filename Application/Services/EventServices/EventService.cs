@@ -109,6 +109,11 @@ namespace Application.Services.EventServices
                     if (userWallet == null || userWallet.Balance < ev.EntryFee)
                         throw new Exception($"Insufficient wallet balance. Participation fee applies: {ev.EntryFee:N0} VNĐ.");
 
+                    await CheckSpendingLimitAsync(
+                        userWallet,
+                        ev.EntryFee,
+                        "event entry fee");
+
                     var creatorWallet = await _walletRepo.GetByAccountIdAsync(ev.CreatorId);
                     if (creatorWallet == null) throw new Exception("Organizer's wallet not found.");
 
@@ -791,5 +796,45 @@ namespace Application.Services.EventServices
             };
         }
         #endregion
+
+        private async Task CheckSpendingLimitAsync(
+            Wallet wallet,
+            decimal debitAmount,
+            string actionName)
+        {
+            if (wallet == null)
+                throw new Exception("Wallet not found.");
+
+            if (debitAmount <= 0)
+                throw new Exception("Invalid spending amount.");
+
+            if (!wallet.MonthlySpendingLimit.HasValue ||
+                wallet.MonthlySpendingLimit.Value <= 0)
+            {
+                return;
+            }
+
+            if (!wallet.IsHardSpendingLimit)
+                return;
+
+            var now = DateTime.UtcNow;
+
+            decimal spentThisMonth = await _transactionRepo.GetMonthlyDebitTotalAsync(
+                wallet.WalletId,
+                now.Month,
+                now.Year);
+
+            decimal projectedSpent = spentThisMonth + debitAmount;
+            decimal limitAmount = wallet.MonthlySpendingLimit.Value;
+
+            if (projectedSpent > limitAmount)
+            {
+                throw new Exception(
+                    $"You have exceeded your monthly spending limit. " +
+                    $"Spent this month: {spentThisMonth:N0} VND, " +
+                    $"{actionName}: {debitAmount:N0} VND, " +
+                    $"limit: {limitAmount:N0} VND.");
+            }
+        }
     }
 }

@@ -171,6 +171,8 @@ namespace Application.Services.Items
             if (availableBalance < _smartRecommendPrice)
                 throw new InvalidOperationException("Insufficient wallet balance for smart recommendation.");
 
+            await CheckSpendingLimitAsync(wallet, _smartRecommendPrice);
+
             string userContext = await BuildUserContextAsync(request);
 
             string taskInstruction = $@"
@@ -238,6 +240,7 @@ Convert the user request into structured fashion search metadata.";
                 return new List<ItemResponseDto>();
 
             await _unitOfWork.BeginTransactionAsync();
+
             try
             {
                 wallet = await _walletRepository.GetByAccountIdAsync(currentAccountId)
@@ -246,6 +249,8 @@ Convert the user request into structured fashion search metadata.";
                 availableBalance = wallet.Balance - wallet.LockedBalance;
                 if (availableBalance < _smartRecommendPrice)
                     throw new InvalidOperationException("Insufficient balance.");
+
+                await CheckSpendingLimitAsync(wallet, _smartRecommendPrice);
 
                 decimal balanceBefore = wallet.Balance;
 
@@ -274,7 +279,9 @@ Convert the user request into structured fashion search metadata.";
                 var history = new RecommendationHistory
                 {
                     AccountId = currentAccountId,
-                    ReferenceItemId = (request.ReferenceItemId.HasValue && request.ReferenceItemId.Value > 0) ? request.ReferenceItemId.Value : null,
+                    ReferenceItemId = request.ReferenceItemId.HasValue && request.ReferenceItemId.Value > 0
+                        ? request.ReferenceItemId.Value
+                        : null,
                     Prompt = request.Prompt,
                     CreatedAt = DateTime.UtcNow,
                     RecommendedItems = candidates.Select(c => new RecommendationDetail
@@ -964,5 +971,38 @@ Convert the user request into structured fashion search metadata.";
 
             item.UpdateAt = DateTime.UtcNow;
         }
+
+        private async Task CheckSpendingLimitAsync(Wallet wallet, decimal debitAmount)
+        {
+            if (wallet == null)
+                throw new KeyNotFoundException("Wallet not found.");
+
+            if (debitAmount <= 0)
+                throw new ArgumentException("Invalid spending amount.");
+
+            if (!wallet.MonthlySpendingLimit.HasValue || wallet.MonthlySpendingLimit.Value <= 0)
+                return;
+
+            var now = DateTime.UtcNow;
+
+            decimal spentThisMonth = await _transactionRepository.GetMonthlyDebitTotalAsync(
+                wallet.WalletId,
+                now.Month,
+                now.Year);
+
+            decimal projectedSpent = spentThisMonth + debitAmount;
+            decimal limitAmount = wallet.MonthlySpendingLimit.Value;
+
+            if (wallet.IsHardSpendingLimit && projectedSpent > limitAmount)
+            {
+                throw new InvalidOperationException(
+                    $"You have exceeded your monthly spending limit. " +
+                    $"Spent this month: {spentThisMonth:N0} VND, " +
+                    $"smart recommendation cost: {debitAmount:N0} VND, " +
+                    $"limit: {limitAmount:N0} VND.");
+            }
+        }
+
+
     }
 }
