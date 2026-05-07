@@ -1,9 +1,9 @@
-﻿using Microsoft.AspNetCore.SignalR;
-using Domain.Entities;
-using Application.Request.NotificationReq;
+﻿using Application.Request.NotificationReq;
 using Application.Response.NotificationResp;
 using Application.Utils.SignalR;
+using Domain.Entities;
 using Domain.Interfaces;
+using Microsoft.AspNetCore.SignalR;
 
 namespace Application.Services.NotificationImp
 {
@@ -31,7 +31,9 @@ namespace Application.Services.NotificationImp
                 Type = request.Type,
                 Status = "Unread",
                 CreatedAt = DateTime.UtcNow,
-                RelatedId = int.TryParse(request.RelatedId, out var relatedId) ? relatedId : (int?)null
+                RelatedId = int.TryParse(request.RelatedId, out var relatedId)
+                    ? relatedId
+                    : null
             };
 
             await _repository.CreateAsync(notification);
@@ -65,7 +67,7 @@ namespace Application.Services.NotificationImp
                 Type = n.Type,
                 Status = n.Status,
                 CreatedAt = n.CreatedAt ?? DateTime.UtcNow,
-                RelatedId = n.RelatedId,
+                RelatedId = n.RelatedId
             }).ToList();
         }
 
@@ -78,14 +80,27 @@ namespace Application.Services.NotificationImp
 
         public async Task<bool> MarkAsReadAsync(int notificationId, int userId)
         {
-            var notification = await _repository.GetById(notificationId);
+            var notification = await _repository.GetByIdAsync(notificationId);
 
-            if (notification == null || notification.TargetUserId != userId)
+            if (notification == null)
+            {
                 return false;
+            }
+
+            if (notification.TargetUserId != userId)
+            {
+                return false;
+            }
+
+            if (string.Equals(notification.Status, "Read", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
 
             notification.Status = "Read";
 
-            await _repository.Update(notification);
+            await _repository.UpdateAsync(notification);
+
             return true;
         }
 

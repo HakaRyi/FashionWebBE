@@ -6,9 +6,13 @@ namespace Application.Services.NotificationImp
     public interface INotificationService
     {
         Task SendNotificationAsync(SendNotificationRequest request);
+
         Task<List<NotificationResponse>> GetMyNotificationsAsync(int userId);
+
         Task SendWalletUpdatedAsync(int userId, object payload);
+
         Task<bool> MarkAsReadAsync(int notificationId, int userId);
+
         Task MarkAllAsReadAsync(int userId);
     }
 }
