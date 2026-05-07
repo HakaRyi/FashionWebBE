@@ -219,7 +219,7 @@ builder.Services.AddScoped<IRabbitMQProducer, RabbitMQProducer>();
 //builder.Services.AddHostedService<PostProcessingWorker>();
 builder.Services.AddHostedService<ChatConsumerWorker>();
 builder.Services.AddSingleton<IBackgroundTaskQueue>(ctx => new BackgroundTaskQueue(100));
-builder.Services.AddHostedService<ModelProgessingWorker>();
+builder.Services.AddHostedService<ModelProcessingWorker>();
 
 var quartzConfig = builder.Configuration.GetSection("Quartz");
 

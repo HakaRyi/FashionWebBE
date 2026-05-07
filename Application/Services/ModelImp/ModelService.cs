@@ -34,23 +34,24 @@ namespace Application.Services.ModelImp
 
         public async Task<bool> CreateModelAsync(int accountId, CreateModelRequest request)
         {
-            var imageUrl = await _storageService.UploadImageAsync(request.Image);
-
             var newModel = new Model
             {
                 AccountId = accountId,
-                ImageUrl = imageUrl,
                 Status = "Processing",
                 CreatedAt = DateTime.UtcNow
             };
 
             await _modelRepo.CreateModelAsync(newModel);
+            using var ms = new MemoryStream();
+            await request.Image.CopyToAsync(ms);
 
             await _taskQueue.QueueBackgroundWorkItemAsync(new ModelProcessingJob
             {
                 ModelId = newModel.Id,
                 AccountId = accountId,
-                ImageUrl = imageUrl
+                ImageBytes = ms.ToArray(),
+                FileName = request.Image.FileName,
+                ContentType = request.Image.ContentType
             });
 
             return true;

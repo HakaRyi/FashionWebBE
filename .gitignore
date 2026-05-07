@@ -369,3 +369,5 @@ Presentation/appsettings.json
 Presentation/appsettings.Development.json
 
 appsettings.Development.json
+/Infrastructure/Migrations
+/Fashion_BackEnd_Solution.sln
