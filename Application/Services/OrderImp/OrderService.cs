@@ -239,7 +239,7 @@ namespace Application.Services.OrderImp
                     Amount = order.TotalAmount,
                     ServiceFee = order.ServiceFee,
                     Status = EscrowStatus.Held,
-                    Description = $"Escrow payment for order #{order.OrderId}",
+                    Description = $"Escrow payment for order {order.OrderCode}",
                     CreatedAt = DateTime.UtcNow
                 });
 
@@ -254,7 +254,7 @@ namespace Application.Services.OrderImp
                     Type = TransactionType.Debit,
                     ReferenceType = TransactionReferenceType.OrderPayment,
                     ReferenceId = order.OrderId,
-                    Description = $"Pay for order #{order.OrderId}",
+                    Description = $"Pay for order {order.OrderCode}",
                     CreatedAt = DateTime.UtcNow,
                     Status = TransactionStatus.Success
                 });
@@ -735,7 +735,7 @@ namespace Application.Services.OrderImp
                     Type = TransactionType.Credit,
                     ReferenceType = TransactionReferenceType.OrderRefund,
                     ReferenceId = order.OrderId,
-                    Description = $"Refund for returned order #{order.OrderId}",
+                    Description = $"Refund for returned order {order.OrderCode}",
                     CreatedAt = DateTime.UtcNow,
                     Status = TransactionStatus.Success
                 });
@@ -948,8 +948,8 @@ namespace Application.Services.OrderImp
                 ReferenceType = TransactionReferenceType.OrderPayment,
                 ReferenceId = order.OrderId,
                 Description = isSystemAction
-                    ? $"Auto release payment for order #{order.OrderId}"
-                    : $"Receive payment from order #{order.OrderId}",
+                    ? $"Auto release payment for order {order.OrderCode}"
+                    : $"Receive payment from order {order.OrderCode}",
                 CreatedAt = DateTime.UtcNow,
                 Status = TransactionStatus.Success
             });
@@ -1024,7 +1024,7 @@ namespace Application.Services.OrderImp
                     Type = TransactionType.Credit,
                     ReferenceType = TransactionReferenceType.OrderRefund,
                     ReferenceId = order.OrderId,
-                    Description = $"Refund for order #{order.OrderId}",
+                    Description = $"Refund for order {order.OrderCode}",
                     CreatedAt = DateTime.UtcNow,
                     Status = TransactionStatus.Success
                 });
