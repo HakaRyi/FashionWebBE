@@ -263,12 +263,20 @@ namespace Application.Services
                 };
             }
 
-            if (user.Status != "Active")
+            if (user.Status == "Unverified")
             {
                 return new AuthResponse
                 {
                     Success = false,
                     Message = "This account has not been verified by email."
+                };
+            }
+            if (user.Status == "Banned")
+            {
+                return new AuthResponse
+                {
+                    Success = false,
+                    Message = "This account has been banned."
                 };
             }
 

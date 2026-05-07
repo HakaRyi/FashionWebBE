@@ -53,5 +53,25 @@ namespace Presentation.Controllers
                 message = "Admin da check"
             });
         }
+        [HttpPut("ban-user/{accountId}")]
+        public async Task<IActionResult> Ban([FromRoute] int accountId)
+        {
+            var result = await _dashboardService.AdminBanUser(accountId);
+            return Ok(new
+            {
+                result = result,
+            });
+        }
+        [HttpPut("unban-user/{accountId}")]
+        public async Task<IActionResult> UnBan([FromRoute] int accountId)
+        {
+            var result = await _dashboardService.AdminUnBanUser(accountId);
+            return Ok(new
+            {
+                result = result,
+            });
+        }
+
+
     }
 }

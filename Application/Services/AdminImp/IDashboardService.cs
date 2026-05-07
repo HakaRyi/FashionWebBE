@@ -14,6 +14,8 @@ namespace Application.Services.AdminImp
         Task<PagedNotificationResponse> GetAdminNotifications(int pageIndex, int pageSize);
         Task<PagedAdminEventResponse> GetEvents(int pageIndex, int pageSize);
         Task AdminCheckEvent(int eventId, AdminCheckRequest request);
+        Task<string> AdminBanUser(int accountId);
+        Task<string> AdminUnBanUser(int accountId);
 
     }
 }

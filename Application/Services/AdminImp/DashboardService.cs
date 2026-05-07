@@ -8,6 +8,7 @@ using Application.Response.AdminResp;
 using Application.Response.EventResp;
 using Application.Response.TransactionResp;
 using Domain.Interfaces;
+using Application.Request.AccountReq;
 
 namespace Application.Services.AdminImp
 {
@@ -17,15 +18,22 @@ namespace Application.Services.AdminImp
         private readonly IUnitOfWork _unitOfWork;
         private readonly UserManager<Domain.Entities.Account> _userManager;
         private readonly IEventRepository _eventRepository;
+        private readonly IAccountRepository _accountRepository;
+        private readonly ICurrentUserService _currentUserService;
         public DashboardService(IDashboardRepository dashboardRepository,
             IUnitOfWork unitOfWork,
             UserManager<Domain.Entities.Account> userManager,
-            IEventRepository eventRepository)
+            IEventRepository eventRepository,
+            IAccountRepository accountRepository,
+            ICurrentUserService currentUserService
+            )
         {
             _dashboardRepository = dashboardRepository;
             _unitOfWork = unitOfWork;
             _userManager = userManager;
             _eventRepository = eventRepository;
+            _accountRepository = accountRepository;
+            _currentUserService = currentUserService;
         }
 
         public async Task AdminCheckEvent(int eventId, AdminCheckRequest request)
@@ -36,7 +44,7 @@ namespace Application.Services.AdminImp
             _eventRepository.Update(entity);
             await _unitOfWork.CommitAsync();
         }
-
+        
         public async Task<List<AccountResponse>> Get3NewestUser()
         {
             var users = await _dashboardRepository.Get3NewestUser();
@@ -234,6 +242,38 @@ namespace Application.Services.AdminImp
             }
             return responses;
 
+        }
+        public async Task<string> AdminBanUser(int accountId)
+        {
+            var adminId = _currentUserService.GetRequiredUserId();
+            if(adminId != 1) return "Only admin can ban users";
+            if (adminId == accountId) return "Admin cannot ban themselves";    
+            var account = await _accountRepository.GetAccountById(accountId);
+            if (account == null) return "Not found";
+            if(account.Status == "Banned") return "User is already banned";
+            account.Status = "Banned";
+            var result = await _accountRepository.UpdateAccount(account);
+            if(result != 0)
+            {
+                return "User banned successfully";
+            }
+            return "Failed to ban user";
+        }
+        public async Task<string> AdminUnBanUser(int accountId)
+        {
+            var adminId = _currentUserService.GetRequiredUserId();
+            if (adminId != 1) return "Only admin can unban users";
+            if (adminId == accountId) return "Admin cannot unban themselves";
+            var account = await _accountRepository.GetAccountById(accountId);
+            if (account == null) return "Not found";
+            if (account.Status == "Active") return "User is already active";
+            account.Status = "Active";
+            var result = await _accountRepository.UpdateAccount(account);
+            if (result != 0)
+            {
+                return "User Unbanned successfully";
+            }
+            return "Failed to Unban user";
         }
     }
 }
