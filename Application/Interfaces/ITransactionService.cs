@@ -9,7 +9,12 @@ namespace Application.Interfaces
         Task<TransactionResponse> GetById(int id);
         Task<List<TransactionResponse>> GetTransactions();
         Task<List<TransactionResponse>> GetTransactionsByReferenceAsync(string refType, int refId);
-        Task<List<TransactionResponse>> AdminGetAllTransactionsAsync(string? type = null, string? refType = null, int? refId = null);
+        Task<List<TransactionResponse>> AdminGetAllTransactionsAsync(
+            string? type = null,
+            string? refType = null,
+            int? refId = null,
+            string? search = null,
+            string? searchBy = null);
         Task<List<TransactionResponse>> ExpertGetHistoryAsync();
         Task<List<EscrowResponse>> AdminGetEscrowManagementAsync();
         Task<List<EscrowResponse>> ExpertGetEscrowManagementAsync();
