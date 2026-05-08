@@ -375,23 +375,12 @@ namespace Application.Services.WalletImp
         }
 
         public async Task<SpendingLimitResponseDto> UpdateMySpendingLimitAsync(
-            int accountId,
-            UpdateSpendingLimitRequestDto request)
+    int accountId,
+    UpdateSpendingLimitRequestDto request)
         {
             if (request == null)
             {
                 throw new ArgumentException("The updated data is invalid.");
-            }
-
-            if (request.MonthlySpendingLimit.HasValue && request.MonthlySpendingLimit.Value < 0)
-            {
-                throw new ArgumentException("MonthlySpendingLimit must not be less than 0.");
-            }
-
-            if (request.SpendingWarningThresholdPercent <= 0 ||
-                request.SpendingWarningThresholdPercent > 100)
-            {
-                throw new ArgumentException("SpendingWarningThresholdPercent must be between 1 and 100.");
             }
 
             var wallet = await _walletRepository.GetByAccountIdAsync(accountId);
@@ -400,15 +389,69 @@ namespace Application.Services.WalletImp
                 throw new KeyNotFoundException("Wallet not found.");
             }
 
-            wallet.MonthlySpendingLimit = request.MonthlySpendingLimit;
+            var now = DateTime.UtcNow;
+
+            /*
+             * If MonthlySpendingLimit is null, it means the user wants to remove
+             * the spending limit. After removing it, hard limit should be disabled.
+             */
+            if (!request.MonthlySpendingLimit.HasValue)
+            {
+                wallet.MonthlySpendingLimit = null;
+                wallet.IsHardSpendingLimit = false;
+                wallet.SpendingWarningThresholdPercent = 100;
+                wallet.UpdatedAt = now;
+
+                _walletRepository.Update(wallet);
+                await _unitOfWork.SaveChangesAsync();
+
+                return await GetMySpendingLimitAsync(accountId, now.Month, now.Year);
+            }
+
+            var monthlyLimit = request.MonthlySpendingLimit.Value;
+
+            if (monthlyLimit <= 0)
+            {
+                throw new ArgumentException("Monthly spending limit must be greater than 0.");
+            }
+
+            if (monthlyLimit < 10000)
+            {
+                throw new ArgumentException("Monthly spending limit must be at least 10,000 VND.");
+            }
+
+            if (monthlyLimit > 1000000000)
+            {
+                throw new ArgumentException("Monthly spending limit cannot exceed 1,000,000,000 VND.");
+            }
+
+            if (request.SpendingWarningThresholdPercent <= 0 ||
+                request.SpendingWarningThresholdPercent > 100)
+            {
+                throw new ArgumentException("Spending warning threshold percent must be between 1 and 100.");
+            }
+
+            var spentThisMonth = await _transactionRepository.Query()
+                .Where(x => x.Wallet.AccountId == accountId
+                         && x.CreatedAt.Month == now.Month
+                         && x.CreatedAt.Year == now.Year
+                         && x.Status == TransactionStatus.Success
+                         && x.Type == TransactionType.Debit)
+                .SumAsync(x => (decimal?)x.Amount) ?? 0;
+
+            if (monthlyLimit < spentThisMonth)
+            {
+                throw new ArgumentException("Monthly spending limit cannot be lower than the amount already spent this month.");
+            }
+
+            wallet.MonthlySpendingLimit = monthlyLimit;
             wallet.IsHardSpendingLimit = request.IsHardSpendingLimit;
             wallet.SpendingWarningThresholdPercent = request.SpendingWarningThresholdPercent;
-            wallet.UpdatedAt = DateTime.UtcNow;
+            wallet.UpdatedAt = now;
 
             _walletRepository.Update(wallet);
             await _unitOfWork.SaveChangesAsync();
 
-            var now = DateTime.UtcNow;
             return await GetMySpendingLimitAsync(accountId, now.Month, now.Year);
         }
 
