@@ -59,6 +59,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddHttpContextAccessor();
+builder.Services.AddMemoryCache();
 
 #endregion
 
@@ -81,12 +82,16 @@ builder.Services.AddInfrastructureServices(builder.Configuration);
 #region REPOSITORIES
 
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<ICommentRepository, CommentRepository>();
 builder.Services.AddScoped<ICommentReactionRepository, CommentReactionRepository>();
+builder.Services.AddScoped<ICollectionRepository, CollectionRepository>();
+builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
 builder.Services.AddScoped<IEscrowSessionRepository, EscrowSessionRepository>();
 builder.Services.AddScoped<IEventRepository, EventRepository>();
+builder.Services.AddScoped<IEventCriterionRepository, EventCriterionRepository>();
 builder.Services.AddScoped<IEventExpertRepository, EventExpertRepository>();
 builder.Services.AddScoped<IEventWinnerRepository, EventWinnerRepository>();
 builder.Services.AddScoped<IExpertProfileRepository, ExpertProfileRepository>();
@@ -96,99 +101,84 @@ builder.Services.AddScoped<IFollowRepository, FollowRepository>();
 builder.Services.AddScoped<IGroupRepository, GroupRepository>();
 builder.Services.AddScoped<IImageRepository, ImageRepository>();
 builder.Services.AddScoped<IItemRepository, ItemRepository>();
+builder.Services.AddScoped<IItemSaveRepository, ItemSaveRepository>();
+builder.Services.AddScoped<IItemVariantRepository, ItemVariantRepository>();
 builder.Services.AddScoped<IModelRepository, ModelRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<IOrderRepository, OrderRepository>();
 builder.Services.AddScoped<IOutfitRepository, OutfitRepository>();
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+builder.Services.AddScoped<IPhysicalProfileRepository, PhysicalProfileRepository>();
 builder.Services.AddScoped<IPhotoRepository, PhotoRepository>();
 builder.Services.AddScoped<IPinMessageRepository, PinMessageRepository>();
 builder.Services.AddScoped<IPostRepository, PostRepository>();
 builder.Services.AddScoped<IPostSaveRepository, PostSaveRepository>();
 builder.Services.AddScoped<IPrizeEventRepository, PrizeEventRepository>();
 builder.Services.AddScoped<IReactionRepository, ReactionRepository>();
+builder.Services.AddScoped<IRecommendationHistoryRepository, RecommendationHistoryRepository>();
+builder.Services.AddScoped<IRefundRequestRepository, RefundRequestRepository>();
+builder.Services.AddScoped<IReputationHistoryRepository, ReputationHistoryRepository>();
 builder.Services.AddScoped<IScoreboardRepository, ScoreboardRepository>();
+builder.Services.AddScoped<ISearchHistoryRepository, SearchHistoryRepository>();
 builder.Services.AddScoped<ISocialRepository, SocialRepository>();
+builder.Services.AddScoped<ISystemSettingRepository, SystemSettingRepository>();
 builder.Services.AddScoped<ITransactionRepository, TransactionRepository>();
 builder.Services.AddScoped<ITryOnHistoryRepository, TryOnHistoryRepository>();
+builder.Services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>();
 builder.Services.AddScoped<Domain.Interfaces.IUserReportRepository, Infrastructure.Repositories.UserReportRepository>();
 builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<IWardrobeRepository, WardrobeRepository>();
-builder.Services.AddScoped<IOrderRepository, OrderRepository>();
-builder.Services.AddScoped<IChatRepository, ChatRepository>();
-builder.Services.AddScoped<IGroupRepository, GroupRepository>();
-builder.Services.AddScoped<IPinMessageRepository, PinMessageRepository>();
-builder.Services.AddScoped<IPhotoRepository, PhotoRepository>();
-builder.Services.AddScoped<IDashboardRepository, DashboardRepository>();
-builder.Services.AddScoped<IPrizeEventRepository, PrizeEventRepository>();
-builder.Services.AddScoped<IEscrowSessionRepository, EscrowSessionRepository>();
-builder.Services.AddScoped<IEventExpertRepository, EventExpertRepository>();
-builder.Services.AddScoped<IExpertRatingRepository, ExpertRatingRepository>();
-builder.Services.AddScoped<IReputationHistoryRepository, ReputationHistoryRepository>();
-builder.Services.AddScoped<IScoreboardRepository, ScoreboardRepository>();
-builder.Services.AddScoped<IEventWinnerRepository, EventWinnerRepository>();
-builder.Services.AddScoped<ISystemSettingRepository, SystemSettingRepository>();
-builder.Services.AddScoped<ISearchHistoryRepository, SearchHistoryRepository>();
-builder.Services.AddScoped<IItemSaveRepository, ItemSaveRepository>();
-builder.Services.AddScoped<IEventCriterionRepository, EventCriterionRepository>();
-builder.Services.AddScoped<IRecommendationHistoryRepository, RecommendationHistoryRepository>();
-builder.Services.AddScoped<IPhysicalProfileRepository, PhysicalProfileRepository>();
-builder.Services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>();
-builder.Services.AddScoped<IItemVariantRepository, ItemVariantRepository>();
-builder.Services.AddScoped<ICollectionRepository, CollectionRepository>();
 
 #endregion
 
 #region SERVICES
-builder.Services.AddMemoryCache();
-builder.Services.AddScoped<IChatService, ChatService>();
-builder.Services.AddScoped<IGroupService, GroupService>();
-builder.Services.AddScoped<IAuthService, AuthService>();
+
 builder.Services.AddScoped<IAccountService, AccountService>();
-builder.Services.AddScoped<IFollowService, FollowService>();
-builder.Services.AddScoped<IWardrobeService, WardrobeService>();
-builder.Services.AddScoped<IItemService, ItemService>();
-builder.Services.AddScoped<IExpertService, ExpertService>();
-builder.Services.AddScoped<IGeminiService, GeminiService>();
-builder.Services.AddScoped<IAIDetectionService, AIDetectionService>();
-builder.Services.AddScoped<IExpertRequestService, ExpertRequestService>();
-builder.Services.AddScoped<IEventService, EventService>();
-builder.Services.AddScoped<IOutfitService, OutfitService>();
-builder.Services.AddScoped<IModelService, ModelService>();
-builder.Services.AddScoped<IPaymentService, PaymentService>();
-builder.Services.AddScoped<IWalletService, WalletService>();
-builder.Services.AddScoped<ITransactionService, TransactionService>();
-builder.Services.AddScoped<IUserReportService, UserReportService>();
-builder.Services.AddScoped<ISocialService, SocialService>();
-builder.Services.AddScoped<IEventExpertService, EventExpertService>();
-builder.Services.AddScoped<IEventAwardingService, EventAwardingService>();
-builder.Services.AddScoped<IExpertRatingService, ExpertRatingService>();
-builder.Services.AddScoped<IEventCreationService, EventCreationService>();
-builder.Services.AddScoped<IImageService, ImageService>();
-builder.Services.AddScoped<IPostService, PostService>();
-builder.Services.AddScoped<IPostSaveService, PostSaveService>();
-builder.Services.AddScoped<ITryOnHistoryService, TryOnHistoryService>();
-builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 builder.Services.AddScoped<IAiService, AiService>();
-builder.Services.AddScoped<IDashboardService, DashboardService>();
-builder.Services.AddScoped<INotificationService, NotificationService>();
-builder.Services.AddScoped<IChatService, ChatService>();
-builder.Services.AddScoped<IGroupService, GroupService>();
-builder.Services.AddScoped<IExpenseService, ExpenseService>();
-builder.Services.AddScoped<IOrderService, OrderService>();
-builder.Services.AddScoped<ISearchService, SearchService>();
-builder.Services.AddScoped<IVnPayGatewayService, VnPayGatewayService>();
-builder.Services.AddScoped<IZaloPayGatewayService, ZaloPayGatewayService>();
-builder.Services.AddScoped<ITopUpPaymentProcessor, TopUpPaymentProcessor>();
-builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
-builder.Services.AddScoped<IItemSaveService, ItemSaveService>();
-builder.Services.AddScoped<IRefundRequestRepository, RefundRequestRepository>();
-builder.Services.AddScoped<IRecommendationService,RecommendationService>();
-builder.Services.AddScoped<IReputationHistoryService, ReputationHistoryService>();
-builder.Services.AddScoped<IUserProfileService, UserProfileService>();
-builder.Services.AddScoped<IFileService, GoogleDriveService>();
-builder.Services.AddScoped<IChatShareService, ChatShareService>();
+builder.Services.AddScoped<IAIDetectionService, AIDetectionService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICacheService, MemoryCacheService>();
+builder.Services.AddScoped<IChatService, ChatService>();
+builder.Services.AddScoped<IChatShareService, ChatShareService>();
 builder.Services.AddScoped<ICollectionService, CollectionService>();
+builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
+builder.Services.AddScoped<IDashboardService, DashboardService>();
+builder.Services.AddScoped<IEventAwardingService, EventAwardingService>();
+builder.Services.AddScoped<IEventCreationService, EventCreationService>();
+builder.Services.AddScoped<IEventExpertService, EventExpertService>();
+builder.Services.AddScoped<IEventService, EventService>();
+builder.Services.AddScoped<IExpenseService, ExpenseService>();
+builder.Services.AddScoped<IExpertRatingService, ExpertRatingService>();
+builder.Services.AddScoped<IExpertRequestService, ExpertRequestService>();
+builder.Services.AddScoped<IExpertService, ExpertService>();
+builder.Services.AddScoped<IFileService, GoogleDriveService>();
+builder.Services.AddScoped<IFollowService, FollowService>();
+builder.Services.AddScoped<IGeminiService, GeminiService>();
+builder.Services.AddScoped<IGroupService, GroupService>();
+builder.Services.AddScoped<IImageService, ImageService>();
+builder.Services.AddScoped<IItemSaveService, ItemSaveService>();
+builder.Services.AddScoped<IItemService, ItemService>();
+builder.Services.AddScoped<IModelService, ModelService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IOutfitService, OutfitService>();
+builder.Services.AddScoped<IPaymentService, PaymentService>();
+builder.Services.AddScoped<IPostSaveService, PostSaveService>();
+builder.Services.AddScoped<IPostService, PostService>();
+builder.Services.AddScoped<IRecommendationService, RecommendationService>();
+builder.Services.AddScoped<IReputationHistoryService, ReputationHistoryService>();
+builder.Services.AddScoped<ISearchService, SearchService>();
+builder.Services.AddScoped<ISocialService, SocialService>();
+builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
+builder.Services.AddScoped<ITopUpPaymentProcessor, TopUpPaymentProcessor>();
+builder.Services.AddScoped<ITryOnHistoryService, TryOnHistoryService>();
+builder.Services.AddScoped<ITransactionService, TransactionService>();
+builder.Services.AddScoped<IUserProfileService, UserProfileService>();
+builder.Services.AddScoped<IUserReportService, UserReportService>();
+builder.Services.AddScoped<IVnPayGatewayService, VnPayGatewayService>();
+builder.Services.AddScoped<IWalletService, WalletService>();
+builder.Services.AddScoped<IWardrobeService, WardrobeService>();
+builder.Services.AddScoped<IZaloPayGatewayService, ZaloPayGatewayService>();
 
 #endregion
 
@@ -203,23 +193,22 @@ builder.Services.AddHttpClient<IAIDetectionService, AIDetectionService>(client =
 
 builder.Services.AddHttpClient<ITryOnService, TryOnService>();
 
-//builder.Services.AddScoped<IFileService>(sp =>
-//{
-//    var env = sp.GetRequiredService<IWebHostEnvironment>();
-//    return new LocalFileService(env.WebRootPath);
-//});
-
 builder.Services.AddScoped<EmailService>();
 
 #endregion
 
-#region BACKGROUND
+#region BACKGROUND SERVICES
 
 builder.Services.AddScoped<IRabbitMQProducer, RabbitMQProducer>();
-//builder.Services.AddHostedService<PostProcessingWorker>();
+
 builder.Services.AddHostedService<ChatConsumerWorker>();
-builder.Services.AddSingleton<IBackgroundTaskQueue>(ctx => new BackgroundTaskQueue(100));
+
+builder.Services.AddSingleton<IBackgroundTaskQueue>(_ => new BackgroundTaskQueue(100));
 builder.Services.AddHostedService<ModelProcessingWorker>();
+
+#endregion
+
+#region QUARTZ
 
 var quartzConfig = builder.Configuration.GetSection("Quartz");
 
@@ -228,35 +217,37 @@ builder.Services.AddQuartz(q =>
     q.SchedulerId = quartzConfig["SchedulerId"] ?? "AUTO";
     q.SchedulerName = quartzConfig["SchedulerName"] ?? "FashionShop-Scheduler";
 
-    q.UsePersistentStore(s =>
+    q.UsePersistentStore(store =>
     {
-        s.UsePostgres(postgres =>
+        store.UsePostgres(postgres =>
         {
-            postgres.ConnectionString = builder.Configuration.GetConnectionString("QuartzDb")
-                ?? throw new InvalidOperationException("ConnectionString 'QuartzDb' không tìm thấy!");
+            postgres.ConnectionString =
+                builder.Configuration.GetConnectionString("QuartzDb")
+                ?? throw new InvalidOperationException("ConnectionString 'QuartzDb' was not found.");
         });
 
-        s.UseNewtonsoftJsonSerializer();
-        s.UseClustering();
+        store.UseNewtonsoftJsonSerializer();
+        store.UseClustering();
     });
 
     var autoReleaseOrderJobKey = new JobKey("AutoReleaseDeliveredOrdersJob");
 
-    q.AddJob<AutoReleaseDeliveredOrdersJob>(opts =>
-        opts.WithIdentity(autoReleaseOrderJobKey)
+    q.AddJob<AutoReleaseDeliveredOrdersJob>(options =>
+        options.WithIdentity(autoReleaseOrderJobKey)
             .StoreDurably());
 
-    q.AddTrigger(opts => opts
+    q.AddTrigger(options => options
         .ForJob(autoReleaseOrderJobKey)
         .WithIdentity("AutoReleaseDeliveredOrdersJob-trigger")
-        .WithSimpleSchedule(x => x
+        .WithSimpleSchedule(schedule => schedule
             .WithIntervalInHours(1)
             .RepeatForever()));
 });
 
-builder.Services.AddQuartzHostedService(opt =>
+builder.Services.AddQuartzHostedService(options =>
 {
-    opt.WaitForJobsToComplete = bool.Parse(quartzConfig["WaitForJobsToComplete"] ?? "true");
+    options.WaitForJobsToComplete =
+        bool.Parse(quartzConfig["WaitForJobsToComplete"] ?? "true");
 });
 
 #endregion
@@ -278,7 +269,9 @@ builder.Services.AddSingleton<IUserIdProvider, CustomUserIdProvider>();
 #region JWT AUTHENTICATION
 
 var jwtSettings = builder.Configuration.GetSection("Jwt");
-var secretKey = Encoding.UTF8.GetBytes(jwtSettings["SecretKey"]!);
+var secretKey = Encoding.UTF8.GetBytes(
+    jwtSettings["SecretKey"]
+    ?? throw new InvalidOperationException("JWT SecretKey was not found."));
 
 builder.Services.AddAuthentication(options =>
 {
@@ -308,9 +301,10 @@ builder.Services.AddAuthentication(options =>
             var accessToken = context.Request.Query["access_token"];
             var path = context.HttpContext.Request.Path;
 
-            if (!string.IsNullOrEmpty(accessToken) &&
+            if (!string.IsNullOrWhiteSpace(accessToken) &&
                 (path.StartsWithSegments("/notificationHub") ||
-                 path.StartsWithSegments("/chatHub")))
+                 path.StartsWithSegments("/chatHub") ||
+                 path.StartsWithSegments("/orderHub")))
             {
                 context.Token = accessToken;
             }
@@ -324,25 +318,25 @@ builder.Services.AddAuthentication(options =>
 
 #region SWAGGER
 
-builder.Services.AddSwaggerGen(c =>
+builder.Services.AddSwaggerGen(options =>
 {
-    c.SwaggerDoc("v1", new OpenApiInfo
+    options.SwaggerDoc("v1", new OpenApiInfo
     {
         Title = "Fashion Project API",
         Version = "v1"
     });
 
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         In = ParameterLocation.Header,
-        Description = "Enter JWT token",
+        Description = "Enter JWT token.",
         Name = "Authorization",
         Type = SecuritySchemeType.Http,
         Scheme = "Bearer",
         BearerFormat = "JWT"
     });
 
-    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
             new OpenApiSecurityScheme
@@ -357,7 +351,7 @@ builder.Services.AddSwaggerGen(c =>
         }
     });
 
-    c.CustomSchemaIds(type => type.FullName);
+    options.CustomSchemaIds(type => type.FullName);
 });
 
 #endregion
@@ -371,7 +365,8 @@ builder.Services.AddCors(options =>
         policy.WithOrigins(
                 "http://localhost:5173",
                 "http://localhost:5174",
-                "http://localhost:5175"
+                "http://localhost:5175",
+                "https://wapofashion.vercel.app"
             )
             .AllowAnyMethod()
             .AllowAnyHeader()
@@ -383,23 +378,27 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
+#region DATABASE SEEDING
+
 if (app.Environment.IsDevelopment())
 {
     await app.Services.SeedDatabase();
 }
+
+#endregion
 
 #region MIDDLEWARE
 
 app.UseSwagger();
 app.UseSwaggerUI();
 
-app.UseCors("AllowAll");
-
 app.UseMiddleware<ExceptionMiddleware>();
+
+app.UseCors("AllowAll");
 
 app.Use(async (context, next) =>
 {
-    context.Response.Headers.Add("ngrok-skip-browser-warning", "true");
+    context.Response.Headers["ngrok-skip-browser-warning"] = "true";
     await next();
 });
 
@@ -411,12 +410,13 @@ app.UseAuthorization();
 app.MapHub<NotificationHub>("/notificationHub");
 app.MapHub<ChatHub>("/chatHub");
 app.MapHub<OrderHub>("/orderHub");
-app.MapControllers();
 
-#endregion
+app.MapControllers();
 
 app.MapQuartzEndpoints();
 
 app.MapGet("/health", () => Results.Ok("healthy"));
+
+#endregion
 
 app.Run();
