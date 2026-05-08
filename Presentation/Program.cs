@@ -391,7 +391,8 @@ builder.Services.AddCors(options =>
                 "http://localhost:5174",
                 "http://localhost:5175",
                 "https://wapofashion.vercel.app",
-                "https://wapo.io.vn"
+                "https://wapo.io.vn",
+                "https://waposhipper.vercel.app/"
             )
             .AllowAnyMethod()
             .AllowAnyHeader()
