@@ -212,6 +212,12 @@ builder.Services.AddHostedService<ModelProcessingWorker>();
 
 var quartzConfig = builder.Configuration.GetSection("Quartz");
 
+builder.Services.Configure<QuartzOptions>(options =>
+{
+    options.Scheduling.IgnoreDuplicates = true;
+    options.Scheduling.OverWriteExistingData = true;
+});
+
 builder.Services.AddQuartz(q =>
 {
     q.SchedulerId = quartzConfig["SchedulerId"] ?? "AUTO";
@@ -234,11 +240,13 @@ builder.Services.AddQuartz(q =>
 
     q.AddJob<AutoReleaseDeliveredOrdersJob>(options =>
         options.WithIdentity(autoReleaseOrderJobKey)
+            .WithDescription("Automatically completes delivered orders after 3 days and releases escrow payment to the seller.")
             .StoreDurably());
 
     q.AddTrigger(options => options
         .ForJob(autoReleaseOrderJobKey)
         .WithIdentity("AutoReleaseDeliveredOrdersJob-trigger")
+        .WithDescription("Runs every 1 hour to find delivered orders that are ready to be auto-completed.")
         .WithSimpleSchedule(schedule => schedule
             .WithIntervalInHours(1)
             .RepeatForever()));
@@ -248,11 +256,13 @@ builder.Services.AddQuartz(q =>
 
     q.AddJob<AutoCancelPendingPaymentOrdersJob>(options =>
         options.WithIdentity(autoCancelPendingPaymentJobKey)
+            .WithDescription("Automatically cancels pending payment orders after 30 minutes and releases reserved stock.")
             .StoreDurably());
 
     q.AddTrigger(options => options
         .ForJob(autoCancelPendingPaymentJobKey)
         .WithIdentity("AutoCancelPendingPaymentOrdersJob-trigger")
+        .WithDescription("Runs every 5 minutes to cancel unpaid orders that have stayed in pending payment for more than 30 minutes.")
         .WithSimpleSchedule(schedule => schedule
             .WithIntervalInMinutes(5)
             .RepeatForever()));
