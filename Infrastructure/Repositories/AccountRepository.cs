@@ -98,5 +98,14 @@ namespace Infrastructure.Repositories
                 .OrderBy(token => token.CreatedAt)
                 .ToListAsync();
         }
+
+        public async Task<string> GetCurrentAvatarUrlAsync(int accountId)
+        {
+            return await _db.Images
+                .Where(img => img.AccountAvatarId == accountId)
+                .OrderByDescending(img => img.CreatedAt)
+                .Select(img => img.ImageUrl)
+                .FirstOrDefaultAsync() ?? "";
+        }
     }
 }

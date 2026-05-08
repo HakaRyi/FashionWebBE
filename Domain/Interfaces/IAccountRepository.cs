@@ -15,5 +15,6 @@ namespace Domain.Interfaces
         Task<int> UpdateAccount(Account account);
         Task<RefreshToken?> GetRefreshTokenByTokenAsync(string token);
         Task<Account?> GetFullAccountDetailsAsync(int accountId);
+        Task<string> GetCurrentAvatarUrlAsync(int accountId);
     }
 }
