@@ -152,10 +152,13 @@ namespace Application.Services
             }
             catch (Exception ex)
             {
+                Console.WriteLine("Email sending failed:");
+                Console.WriteLine(ex.ToString());
+
                 return new AuthResponse
                 {
                     Success = true,
-                    Message = $"Registration was successful, but email sending failed: {ex.Message}"
+                    Message = $"Registration was successful, but email sending failed: {ex.InnerException?.Message ?? ex.Message}"
                 };
             }
 
