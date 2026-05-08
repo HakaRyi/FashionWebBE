@@ -150,12 +150,12 @@ namespace Application.Services
             {
                 await _emailService.SendVerificationEmail(request.Email, verificationCode);
             }
-            catch (Exception)
+            catch (Exception ex)
             {
                 return new AuthResponse
                 {
                     Success = true,
-                    Message = "Registration was successful, but the verification email could not be sent. Please request a new verification email later."
+                    Message = $"Registration was successful, but email sending failed: {ex.Message}"
                 };
             }
 
