@@ -10,7 +10,7 @@ namespace Application.Services.OrderImp
     {
         Task<OrderResponse> CreateOrderAsync(int sellerId, int buyerId, CreateOrderRequest request);
         Task<OrderResponse> PayOrderWithWalletAsync(int orderId, int buyerId);
-
+        Task<OrderResponse> AutoCancelPendingPaymentOrderAsync(int orderId);
         Task<Order?> GetOrderByIdAsync(int orderId);
         Task<OrderResponse?> GetOrderByIdAsync(int orderId, int currentUserId);
         Task<OrderResponse> GetOrderDetailByIdAsync(int orderId);

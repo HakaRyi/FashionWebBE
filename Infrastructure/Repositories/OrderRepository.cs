@@ -15,6 +15,17 @@ namespace Infrastructure.Repositories
             _context = context;
         }
 
+        public async Task<List<Order>> GetPendingPaymentOrdersBeforeAsync(DateTime deadline)
+        {
+            return await _context.Orders
+                .Include(o => o.OrderDetails)
+                .Where(o =>
+                    o.Status == OrderStatus.PendingPayment &&
+                    o.CreatedAt <= deadline)
+                .OrderBy(o => o.CreatedAt)
+                .ToListAsync();
+        }
+
         public async Task<Order> CreateAsync(Order order)
         {
             await _context.Orders.AddAsync(order);

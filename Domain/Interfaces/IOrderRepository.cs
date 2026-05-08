@@ -20,7 +20,7 @@ namespace Domain.Interfaces
         Task<List<Order>> GetCompletedOrdersAsync();
         Task<List<Order>> GetCancelledOrdersAsync();
         Task<List<Order>> GetShippingOrdersAsync();
-
+        Task<List<Order>> GetPendingPaymentOrdersBeforeAsync(DateTime deadline);
         Task<bool> ExistsPendingOrderByBuyerAsync(int buyerId, int itemVariantId);
         Task<(List<Order> Orders, int TotalCount)> GetOrdersByBuyerIdFilteredAsync(
             int buyerId,

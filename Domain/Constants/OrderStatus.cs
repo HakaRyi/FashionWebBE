@@ -3,7 +3,6 @@
     public static class OrderStatus
     {
         public const string PendingPayment = "PENDING_PAYMENT";
-        public const string Confirmed = "CONFIRMED";
         public const string Processing = "PROCESSING";
         public const string Shipping = "SHIPPING";
         public const string Delivered = "DELIVERED";
@@ -15,7 +14,6 @@
         public static readonly HashSet<string> All = new(StringComparer.OrdinalIgnoreCase)
         {
             PendingPayment,
-            Confirmed,
             Processing,
             Shipping,
             Delivered,

@@ -764,6 +764,9 @@ namespace Application.Services.OrderImp
             var order = await _orderRepo.GetByIdAsync(orderId)
                 ?? throw new KeyNotFoundException("Order not found.");
 
+            if (order.Status != OrderStatus.Delivered)
+                throw new InvalidOperationException("Only delivered orders can be auto completed.");
+
             await _unitOfWork.BeginTransactionAsync();
 
             try
@@ -790,6 +793,56 @@ namespace Application.Services.OrderImp
 
             await NotifyOrder(response);
             await NotifyOrderEventAsync(response, NotificationType.OrderCompleted, response.BuyerId);
+
+            return response;
+        }
+
+        public async Task<OrderResponse> AutoCancelPendingPaymentOrderAsync(int orderId)
+        {
+            var order = await _orderRepo.GetByIdAsync(orderId)
+                ?? throw new KeyNotFoundException("Order not found.");
+
+            if (order.Status != OrderStatus.PendingPayment)
+                throw new InvalidOperationException("Only pending payment orders can be auto cancelled.");
+
+            await _unitOfWork.BeginTransactionAsync();
+
+            try
+            {
+                foreach (var detail in order.OrderDetails)
+                {
+                    if (!detail.ItemVariantId.HasValue)
+                        continue;
+
+                    var variant = await _variantRepo.GetByIdForUpdateAsync(detail.ItemVariantId.Value);
+                    if (variant != null)
+                    {
+                        _variantRepo.ReleaseReservedStock(variant, detail.Quantity);
+                    }
+                }
+
+                order.Status = OrderStatus.Cancelled;
+                order.CancelledAt = DateTime.UtcNow;
+                order.UpdatedAt = DateTime.UtcNow;
+                order.CancelReason = "Order was automatically cancelled because payment was not completed within 30 minutes.";
+
+                _orderRepo.Update(order);
+
+                await _unitOfWork.CommitAsync();
+            }
+            catch
+            {
+                await _unitOfWork.RollbackAsync();
+                throw;
+            }
+
+            var updatedOrder = await _orderRepo.GetByIdAsync(orderId)
+                ?? throw new KeyNotFoundException("Order not found after auto cancel.");
+
+            var response = MapToResponse(updatedOrder);
+
+            await NotifyOrder(response);
+            await NotifyOrderEventAsync(response, NotificationType.OrderCancelled, response.BuyerId);
 
             return response;
         }
@@ -981,11 +1034,18 @@ namespace Application.Services.OrderImp
 
             if (order.Status == OrderStatus.Processing)
             {
-                if (order.BuyerId != currentUserId && order.SellerId != currentUserId)
-                    throw new UnauthorizedAccessException("You are not allowed to cancel this order.");
+                if (order.BuyerId != currentUserId)
+                    throw new UnauthorizedAccessException("Only the buyer can cancel a paid order before shipping.");
 
                 var buyerWallet = await _walletRepo.GetByAccountIdAsync(order.BuyerId)
                     ?? throw new KeyNotFoundException("Buyer wallet not found.");
+
+                var escrow = order.EscrowSession ?? await _escrowRepo.GetByOrderIdAsync(order.OrderId);
+                if (escrow == null)
+                    throw new KeyNotFoundException("Escrow session not found.");
+
+                if (escrow.Status != EscrowStatus.Held)
+                    throw new InvalidOperationException("Escrow is not in a valid held state.");
 
                 decimal buyerBefore = buyerWallet.Balance;
 
@@ -993,13 +1053,9 @@ namespace Application.Services.OrderImp
                 buyerWallet.UpdatedAt = DateTime.UtcNow;
                 _walletRepo.Update(buyerWallet);
 
-                var escrow = order.EscrowSession ?? await _escrowRepo.GetByOrderIdAsync(order.OrderId);
-                if (escrow != null)
-                {
-                    escrow.Status = EscrowStatus.Refunded;
-                    escrow.ResolvedAt = DateTime.UtcNow;
-                    _escrowRepo.Update(escrow);
-                }
+                escrow.Status = EscrowStatus.Refunded;
+                escrow.ResolvedAt = DateTime.UtcNow;
+                _escrowRepo.Update(escrow);
 
                 foreach (var detail in order.OrderDetails)
                 {

@@ -242,6 +242,20 @@ builder.Services.AddQuartz(q =>
         .WithSimpleSchedule(schedule => schedule
             .WithIntervalInHours(1)
             .RepeatForever()));
+
+
+    var autoCancelPendingPaymentJobKey = new JobKey("AutoCancelPendingPaymentOrdersJob");
+
+    q.AddJob<AutoCancelPendingPaymentOrdersJob>(options =>
+        options.WithIdentity(autoCancelPendingPaymentJobKey)
+            .StoreDurably());
+
+    q.AddTrigger(options => options
+        .ForJob(autoCancelPendingPaymentJobKey)
+        .WithIdentity("AutoCancelPendingPaymentOrdersJob-trigger")
+        .WithSimpleSchedule(schedule => schedule
+            .WithIntervalInMinutes(5)
+            .RepeatForever()));
 });
 
 builder.Services.AddQuartzHostedService(options =>
