@@ -31,8 +31,10 @@ namespace Infrastructure.Repositories
         public async Task<List<Follow>> GetFollowersByIdAsync(int userId)
         {
             return await fashionDbContext.Follows
+                .AsNoTracking()
                 .Where(f => f.UserId == userId)
-                .Include(f => f.Follower).ThenInclude(f => f.Avatars)
+                .Include(f => f.Follower)
+                    .ThenInclude(account => account.Avatars)
                 .Include(f => f.User)
                 .OrderBy(f => f.CreatedAt)
                 .ToListAsync();
@@ -41,11 +43,13 @@ namespace Infrastructure.Repositories
         public async Task<List<Follow>> GetFollowingsByIdAsync(int userId)
         {
             return await fashionDbContext.Follows
-                 .Where(f => f.FollowerId == userId)
-                 .Include(f => f.Follower).ThenInclude(f => f.Avatars)
-                 .Include(f => f.User)
-                 .OrderBy(f => f.CreatedAt)
-                 .ToListAsync();
+                .AsNoTracking()
+                .Where(f => f.FollowerId == userId)
+                .Include(f => f.User)
+                    .ThenInclude(account => account.Avatars)
+                .Include(f => f.Follower)
+                .OrderBy(f => f.CreatedAt)
+                .ToListAsync();
         }
 
         public async Task<int> UnfollowUserAsync(int userId, int followerId)
