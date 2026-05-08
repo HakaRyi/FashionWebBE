@@ -365,7 +365,7 @@ namespace Application.Services
         public async Task<string> GenerateAccessToken(Account user)
         {
             var roles = await _userManager.GetRolesAsync(user);
-            var avatarUrl = user.Avatars?.FirstOrDefault()?.ImageUrl ?? "";
+            var avatarUrl = await _accountRepository.GetCurrentAvatarUrlAsync(user.Id);
 
             var claims = new List<Claim>
             {
