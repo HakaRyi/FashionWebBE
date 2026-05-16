@@ -19,6 +19,7 @@ namespace Application.Services
         private readonly ICurrentUserService _currentUserService;
         private readonly IUnitOfWork _unitOfWork;
 
+
         public TransactionService(
             ITransactionRepository transactionRepository,
             IEscrowSessionRepository escrowRepository,
@@ -37,15 +38,8 @@ namespace Application.Services
 
         public async Task AdminRequestFixLeakAsync(int escrowSessionId, string reason)
         {
-            var escrow = await _escrowRepository.GetByIdAsync(
-                escrowSessionId,
-                e => e.Event!
-            );
-
-            if (escrow == null)
-            {
-                throw new Exception("No Escrow session found.");
-            }
+            var escrow = await _escrowRepository.GetByIdAsync(escrowSessionId, e => e.Event!);
+            if (escrow == null) throw new Exception("No Escrow session found.");
 
             escrow.Status = "PendingFix";
             escrow.Description = $"Admin Request Fix: {reason}";
@@ -55,7 +49,7 @@ namespace Application.Services
 
             await _notificationService.SendNotificationAsync(new SendNotificationRequest
             {
-                SenderId = 1,
+                SenderId = 1, // System ID
                 TargetUserId = escrow.SenderId,
                 Title = "Request to Approve Cash Shortage Handling",
                 Content = $"The transaction at the event '{escrow.Event?.Title}' is awaiting your approval for Admin to handle the technical issue.",
@@ -64,14 +58,11 @@ namespace Application.Services
             });
         }
 
+        // HÀM 2: Expert duyệt yêu cầu của Admin
         public async Task ExpertApproveFixAsync(int escrowSessionId)
         {
             var escrow = await _escrowRepository.GetByIdAsync(escrowSessionId);
-
-            if (escrow == null)
-            {
-                throw new Exception("No holding session found.");
-            }
+            if (escrow == null) throw new Exception("No holding session found");
 
             escrow.Status = "ExpertApproved";
 
@@ -81,30 +72,22 @@ namespace Application.Services
             await _notificationService.SendNotificationAsync(new SendNotificationRequest
             {
                 SenderId = escrow.SenderId,
-                Title = "Expert approved",
+                Title = "Expert đã phê duyệt",
                 Content = $"Stuck transaction #{escrowSessionId} has been approved by the Expert for Admin processing.",
                 Type = "AdminTaskNotify"
             });
         }
 
+        // HÀM 3: Admin thực hiện cập nhật tiền sau khi đã có Expert duyệt
         public async Task AdminExecuteUpdateWalletAsync(int escrowSessionId)
         {
             var escrow = await _escrowRepository.GetByIdAsync(escrowSessionId);
-
             if (escrow == null || escrow.Status != "ExpertApproved")
-            {
                 throw new Exception("The transaction has not been approved by the Expert or is invalid.");
-            }
 
             if (escrow.ReceiverId.HasValue)
             {
                 var wallet = await _walletRepository.GetByAccountIdAsync(escrow.ReceiverId.Value);
-
-                if (wallet == null)
-                {
-                    throw new Exception("Receiver wallet not found.");
-                }
-
                 decimal oldBalance = wallet.Balance;
                 wallet.Balance += escrow.FinalAmount;
 
@@ -117,7 +100,7 @@ namespace Application.Services
                     Type = "Credit",
                     ReferenceType = "EventFix",
                     ReferenceId = escrow.EventId,
-                    TransactionCode = "FIX_" + Guid.NewGuid().ToString("N")[..8].ToUpper(),
+                    TransactionCode = "FIX_" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper(),
                     Description = "Admin handles cash shortage after Expert approval.",
                     Status = "Success",
                     CreatedAt = DateTime.Now
@@ -126,6 +109,7 @@ namespace Application.Services
                 await _transactionRepository.AddAsync(transaction);
                 _walletRepository.Update(wallet);
                 await _unitOfWork.SaveChangesAsync();
+
             }
 
             escrow.Status = "Completed";
@@ -135,10 +119,10 @@ namespace Application.Services
             await _unitOfWork.SaveChangesAsync();
         }
 
+        // HÀM 4: Get thông tin bảng Escrow cho Admin quản lý
         public async Task<List<EscrowResponse>> AdminGetEscrowManagementAsync()
         {
             var escrows = await _escrowRepository.Query()
-                .AsNoTracking()
                 .Include(e => e.Sender)
                 .Include(e => e.Event)
                 .Include(e => e.Order)
@@ -183,114 +167,55 @@ namespace Application.Services
         public async Task<List<EscrowResponse>> ExpertGetEscrowManagementAsync()
         {
             var currentUserId = _currentUserService.GetUserId();
-
-            if (currentUserId == null)
-            {
-                throw new Exception("User not authenticated.");
-            }
+            if (currentUserId == null) throw new Exception("User not authenticated.");
 
             var escrows = await _escrowRepository.GetEscrowsByUserIdAsync(currentUserId.Value);
 
             return escrows.Adapt<List<EscrowResponse>>();
         }
 
+        // HÀM 5: Get all giao dịch cho Expert (kèm ReferenceId)
         public async Task<List<TransactionResponse>> ExpertGetHistoryAsync()
         {
             var currentUserId = _currentUserService.GetUserId();
 
-            if (currentUserId == null)
-            {
-                throw new Exception("User not authenticated.");
-            }
+            if (currentUserId == null) throw new Exception("User not authenticated.");
 
             var wallet = await _walletRepository.GetByAccountIdAsync(currentUserId.Value);
 
-            if (wallet == null)
-            {
-                throw new Exception("No wallet found for the current user.");
-            }
+            if (wallet == null) throw new Exception("No wallet found for the current user.");
 
             var transactions = await _transactionRepository.GetByWalletIdAsync(wallet.WalletId);
-
-            return await MapToResponsesAsync(transactions);
+            return transactions.Adapt<List<TransactionResponse>>();
         }
 
-        public async Task<List<TransactionResponse>> GetTransactionsByReferenceAsync(
-            string refType,
-            int refId)
+        // HÀM 6: Get chi tiết giao dịch theo ReferenceId (EventId) để kiểm soát
+        public async Task<List<TransactionResponse>> GetTransactionsByReferenceAsync(string refType, int refId)
         {
             var transactions = await _transactionRepository.GetByReferenceAsync(refType, refId);
-
-            return await MapToResponsesAsync(transactions);
+            return transactions.Adapt<List<TransactionResponse>>();
         }
 
-        public async Task<List<TransactionResponse>> AdminGetAllTransactionsAsync(
-            string? type = null,
-            string? refType = null,
-            int? refId = null,
-            string? search = null,
-            string? searchBy = null)
+        // HÀM ADMIN: Get All giao dịch với filter linh hoạt
+        public async Task<List<TransactionResponse>> AdminGetAllTransactionsAsync(string? type = null, string? refType = null, int? refId = null)
         {
-            var transactions = await _transactionRepository.GetTransactionsAsync(
-                type,
-                refType,
-                refId,
-                search,
-                searchBy,
-                t => t.Wallet!.Account!
-            );
-
-            return await MapToResponsesAsync(transactions);
+            var transactions = await _transactionRepository.GetTransactionsAsync(type, refType, refId,
+            t => t.Wallet!.Account!);
+            return transactions.Adapt<List<TransactionResponse>>();
         }
 
         public async Task<TransactionResponse?> GetById(int id)
         {
-            var transaction = await _transactionRepository.GetByIdAsync(id);
+            var t = await _transactionRepository.GetByIdAsync(id);
+            if (t == null) return null;
 
-            if (transaction == null)
-            {
-                return null;
-            }
-
-            var responses = await MapToResponsesAsync(new List<Transaction> { transaction });
-
-            return responses.FirstOrDefault();
+            return MapToResponse(t);
         }
 
         public async Task<List<TransactionResponse>> GetTransactions()
         {
-            var transactions = await _transactionRepository.GetTransactionsAsync(
-                includes: t => t.Wallet!.Account!
-            );
-
-            return await MapToResponsesAsync(transactions);
-        }
-
-        private async Task<List<TransactionResponse>> MapToResponsesAsync(
-            IEnumerable<Transaction> transactions)
-        {
-            var transactionList = transactions.ToList();
-
-            var orderIds = transactionList
-                .Where(IsOrderTransaction)
-                .Where(t => t.ReferenceId.HasValue)
-                .Select(t => t.ReferenceId!.Value)
-                .Distinct()
-                .ToList();
-
-            var eventIds = transactionList
-                .Where(IsEventTransaction)
-                .Where(t => t.ReferenceId.HasValue)
-                .Select(t => t.ReferenceId!.Value)
-                .Distinct()
-                .ToList();
-
-            var orderMap = await _transactionRepository.GetOrderCodeMapByOrderIdsAsync(orderIds);
-            var eventMap = await _transactionRepository.GetEventNameMapByEventIdsAsync(eventIds);
-
-            return transactionList
-                .Select(t => MapToResponse(t, orderMap, eventMap))
-                .ToList();
+            var transactions = await _transactionRepository.GetTransactionsAsync();
+            return transactions.Select(t => MapToResponse(t)).ToList();
         }
 
         public async Task<FeatureIntelligenceResponse> GetFeatureIntelligenceDashboardAsync()
@@ -422,64 +347,22 @@ namespace Application.Services
 
         private TransactionResponse MapToResponse(Transaction t)
         {
-            int? orderId = null;
-            string? orderCode = null;
-
-            int? eventId = null;
-            string? eventName = null;
-
-            if (IsOrderTransaction(transaction) && transaction.ReferenceId.HasValue)
-            {
-                orderId = transaction.ReferenceId.Value;
-                orderMap.TryGetValue(orderId.Value, out orderCode);
-            }
-
-            if (IsEventTransaction(transaction) && transaction.ReferenceId.HasValue)
-            {
-                eventId = transaction.ReferenceId.Value;
-                eventMap.TryGetValue(eventId.Value, out eventName);
-            }
-
             return new TransactionResponse
             {
-                TransactionId = transaction.TransactionId,
-                TransactionCode = transaction.TransactionCode,
-
-                WalletId = transaction.WalletId,
-                UserName = transaction.Wallet?.Account?.UserName ?? "Unknown",
-
-                PaymentId = transaction.PaymentId,
-
-                Amount = transaction.Amount,
-                BalanceBefore = transaction.BalanceBefore,
-                BalanceAfter = transaction.BalanceAfter,
-
-                Type = transaction.Type,
-                ReferenceType = transaction.ReferenceType,
-                ReferenceId = transaction.ReferenceId,
-
-                OrderId = orderId,
-                OrderCode = orderCode,
-
-                EventId = eventId,
-                EventName = eventName,
-
-                Description = transaction.Description,
-                CreatedAt = transaction.CreatedAt,
-                Status = transaction.Status
+                TransactionId = t.TransactionId,
+                WalletId = t.WalletId,
+                UserName = t.Wallet?.Account?.UserName ?? "Unknown",
+                PaymentId = t.PaymentId,
+                Amount = t.Amount,
+                BalanceBefore = t.BalanceBefore,
+                BalanceAfter = t.BalanceAfter,
+                Type = t.Type,
+                ReferenceType = t.ReferenceType,
+                ReferenceId = t.ReferenceId,
+                Description = t.Description,
+                CreatedAt = t.CreatedAt,
+                Status = t.Status
             };
-        }
-
-        private static bool IsOrderTransaction(Transaction transaction)
-        {
-            return transaction.ReferenceType == "OrderPayment" ||
-                   transaction.ReferenceType == "OrderRefund";
-        }
-
-        private static bool IsEventTransaction(Transaction transaction)
-        {
-            return transaction.ReferenceType == "Event" ||
-                   transaction.ReferenceType == "EventFix";
         }
     }
 }
