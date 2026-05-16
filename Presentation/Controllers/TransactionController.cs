@@ -1,4 +1,5 @@
 ﻿using Application.Interfaces;
+using Application.Response.TransactionResp;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Presentation.Controllers
@@ -129,5 +130,49 @@ namespace Presentation.Controllers
 
             return Ok(result);
         }
+
+        [HttpGet("feature-intelligence-dashboard")]
+        [ProducesResponseType(typeof(FeatureIntelligenceResponse), 200)]
+        [ProducesResponseType(500)]
+        public async Task<IActionResult> GetFeatureIntelligenceDashboard()
+        {
+            try
+            {
+                var result = await _transactionService.GetFeatureIntelligenceDashboardAsync();
+
+                if (result == null)
+                {
+                    return NotFound(new { message = "Không thể khởi tạo hoặc tìm thấy dữ liệu thống kê." });
+                }
+
+                return Ok(result);
+            }
+            catch (System.Exception ex)
+            {
+                // Thay bằng LogError của ILogger nếu dự án của bạn có setup log định dạng
+                return StatusCode(500, new
+                {
+                    message = "Đã xảy ra lỗi hệ thống khi xử lý dữ liệu Dashboard.",
+                    details = ex.Message
+                });
+            }
+        }
+        // POST api/<TransactionController>
+        //[HttpPost]
+        //public void Post([FromBody] string value)
+        //{
+        //}
+
+        //// PUT api/<TransactionController>/5
+        //[HttpPut("{id}")]
+        //public void Put(int id, [FromBody] string value)
+        //{
+        //}
+
+        //// DELETE api/<TransactionController>/5
+        //[HttpDelete("{id}")]
+        //public void Delete(int id)
+        //{
+        //}
     }
 }

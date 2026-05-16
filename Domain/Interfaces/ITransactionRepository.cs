@@ -24,11 +24,7 @@ namespace Domain.Interfaces
         Task<decimal> GetMonthlyDebitTotalAsync(int walletId, int month, int year);
 
         Task<List<Transaction>> GetByReferenceAsync(string refType, int refId);
-
-        Task<Dictionary<int, string?>> GetOrderCodeMapByOrderIdsAsync(List<int> orderIds);
-
-        Task<Dictionary<int, string?>> GetEventNameMapByEventIdsAsync(List<int> eventIds);
-
+        Task<List<Transaction>> GetTransactionsForDashboardAsync(DateTime startDate, DateTime endDate);
         Task AddAsync(Transaction transaction);
 
         IQueryable<Transaction> Query();

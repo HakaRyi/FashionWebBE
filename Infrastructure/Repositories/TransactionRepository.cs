@@ -176,36 +176,15 @@ namespace Infrastructure.Repositories
                 .ToListAsync();
         }
 
-        public async Task<Dictionary<int, string?>> GetOrderCodeMapByOrderIdsAsync(List<int> orderIds)
+        public async Task<List<Transaction>> GetTransactionsForDashboardAsync(DateTime startDate, DateTime endDate)
         {
-            if (orderIds == null || orderIds.Count == 0)
-            {
-                return new Dictionary<int, string?>();
-            }
-
-            return await _db.Orders
+            return await _db.Transactions
                 .AsNoTracking()
-                .Where(o => orderIds.Contains(o.OrderId))
-                .ToDictionaryAsync(
-                    o => o.OrderId,
-                    o => o.OrderCode
-                );
-        }
-
-        public async Task<Dictionary<int, string?>> GetEventNameMapByEventIdsAsync(List<int> eventIds)
-        {
-            if (eventIds == null || eventIds.Count == 0)
-            {
-                return new Dictionary<int, string?>();
-            }
-
-            return await _db.Events
-                .AsNoTracking()
-                .Where(e => eventIds.Contains(e.EventId))
-                .ToDictionaryAsync(
-                    e => e.EventId,
-                    e => e.Title
-                );
+                .Include(t => t.Wallet)
+                    .ThenInclude(w => w.Account)
+                .Where(t => t.Status == "Success" && t.CreatedAt >= startDate && t.CreatedAt <= endDate)
+                .OrderByDescending(t => t.CreatedAt)
+                .ToListAsync();
         }
 
         public async Task AddAsync(Transaction transaction)
