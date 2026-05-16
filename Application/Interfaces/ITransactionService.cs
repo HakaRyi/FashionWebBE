@@ -16,5 +16,6 @@ namespace Application.Interfaces
         Task AdminRequestFixLeakAsync(int escrowSessionId, string reason);
         Task ExpertApproveFixAsync(int escrowSessionId);
         Task AdminExecuteUpdateWalletAsync(int escrowSessionId);
+        Task<FeatureIntelligenceResponse> GetFeatureIntelligenceDashboardAsync();
     }
 }

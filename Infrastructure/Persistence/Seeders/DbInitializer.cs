@@ -143,6 +143,13 @@ namespace Infrastructure.Persistence.Seeders
                     SettingValue = "24",
                     DataType = "Number",
                     Description = "The maximum number of hours allowed for starting an event earlier than scheduled."
+                },
+                new SystemSetting
+                {
+                    SettingKey = "ORDER_SERVICE_FEE",
+                    SettingValue = "15000",
+                    DataType = "Decimal",
+                    Description = "Fixed platform service fee applied per order (VNĐ)"
                 }
             };
 

@@ -17,7 +17,6 @@ namespace Application.Services.OrderImp
 {
     public class OrderService : IOrderService
     {
-        private const decimal ServiceFee = 15000m;
 
         private readonly IOrderRepository _orderRepo;
         private readonly IItemVariantRepository _variantRepo;
@@ -29,6 +28,7 @@ namespace Application.Services.OrderImp
         private readonly IRefundRequestRepository _refundRepo;
         private readonly ICloudStorageService _cloudStorageService;
         private readonly INotificationService _notificationService;
+        private readonly ISystemSettingRepository _settingRepo;
 
         public OrderService(
             IOrderRepository orderRepo,
@@ -40,7 +40,8 @@ namespace Application.Services.OrderImp
             IUnitOfWork unitOfWork,
             IRefundRequestRepository refundRepo,
             ICloudStorageService cloudStorageService,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            ISystemSettingRepository settingRepo)
         {
             _orderRepo = orderRepo;
             _variantRepo = variantRepo;
@@ -52,7 +53,11 @@ namespace Application.Services.OrderImp
             _refundRepo = refundRepo;
             _cloudStorageService = cloudStorageService;
             _notificationService = notificationService;
+            _settingRepo = settingRepo;
         }
+
+        private async Task<decimal> GetServiceFeeAsync()
+        => await _settingRepo.GetDecimalValueAsync("ORDER_SERVICE_FEE", 15000m);
 
         public async Task<OrderResponse> CreateOrderAsync(int sellerId, int buyerId, CreateOrderRequest request)
         {
@@ -70,6 +75,8 @@ namespace Application.Services.OrderImp
 
             if (request.Details.Any(d => d.Quantity <= 0))
                 throw new ArgumentException("Product quantity must be greater than 0.");
+
+            decimal serviceFee = await GetServiceFeeAsync();
 
             await _unitOfWork.BeginTransactionAsync();
 
@@ -147,8 +154,8 @@ namespace Application.Services.OrderImp
                     SellerId = detectedSellerId ?? sellerId,
                     OrderCode = GenerateOrderCode(),
                     SubTotal = subTotal,
-                    ServiceFee = ServiceFee,
-                    TotalAmount = subTotal + ServiceFee,
+                    ServiceFee = serviceFee,
+                    TotalAmount = subTotal + serviceFee,
                     Status = OrderStatus.PendingPayment,
                     Note = request.Note,
                     ShippingAddress = request.ShippingAddress,
@@ -630,6 +637,7 @@ namespace Application.Services.OrderImp
             if (order.Status != OrderStatus.Refunding)
                 throw new InvalidOperationException("Order is not in refunding status.");
 
+
             await _unitOfWork.BeginTransactionAsync();
 
             try
@@ -898,9 +906,9 @@ namespace Application.Services.OrderImp
         }
 
         private async Task CompleteOrderAndReleaseEscrowAsync(
-            Order order,
-            int actorId,
-            bool isSystemAction = false)
+        Order order,
+        int actorId,
+        bool isSystemAction = false)
         {
             if (!isSystemAction && order.BuyerId != actorId)
                 throw new UnauthorizedAccessException("Only the buyer can complete this order.");
@@ -908,8 +916,12 @@ namespace Application.Services.OrderImp
             if (order.Status != OrderStatus.Delivered)
                 throw new InvalidOperationException("Only delivered orders can be completed.");
 
+            // 1. Lấy thông tin ví của các bên liên quan
             var sellerWallet = await _walletRepo.GetByAccountIdAsync(order.SellerId)
                 ?? throw new KeyNotFoundException("Seller wallet not found.");
+
+            var adminWallet = await _walletRepo.GetByAccountIdAsync(1) // Admin AccountId = 1
+                ?? throw new KeyNotFoundException("Admin wallet not found.");
 
             var escrow = order.EscrowSession ?? await _escrowRepo.GetByOrderIdAsync(order.OrderId);
             if (escrow == null)
@@ -918,24 +930,40 @@ namespace Application.Services.OrderImp
             if (escrow.Status != EscrowStatus.Held)
                 throw new InvalidOperationException("Escrow is not in a valid held state.");
 
+            // 2. Tính toán dòng tiền
             decimal sellerBefore = sellerWallet.Balance;
             decimal sellerReceiveAmount = order.TotalAmount - order.ServiceFee;
+
+            decimal adminBefore = adminWallet.Balance;
+            decimal adminServiceFee = order.ServiceFee;
 
             if (sellerReceiveAmount <= 0)
                 throw new InvalidOperationException("Invalid seller payout amount.");
 
+            // 3. Cập nhật số dư ví Seller
             sellerWallet.Balance += sellerReceiveAmount;
             sellerWallet.UpdatedAt = DateTime.UtcNow;
             _walletRepo.Update(sellerWallet);
 
+            // 4. Cập nhật số dư ví Admin (Thu phí hệ thống)
+            if (adminServiceFee > 0)
+            {
+                adminWallet.Balance += adminServiceFee;
+                adminWallet.UpdatedAt = DateTime.UtcNow;
+                _walletRepo.Update(adminWallet);
+            }
+
+            // 5. Cập nhật trạng thái của Escrow
             escrow.Status = EscrowStatus.Released;
             escrow.ResolvedAt = DateTime.UtcNow;
             _escrowRepo.Update(escrow);
 
+            // 6. Cập nhật trạng thái của Đơn hàng
             order.Status = OrderStatus.Completed;
             order.CompletedAt ??= DateTime.UtcNow;
             order.UpdatedAt = DateTime.UtcNow;
 
+            // 7. Lưu Transaction cho Seller
             await _transactionRepo.AddAsync(new Transaction
             {
                 WalletId = sellerWallet.WalletId,
@@ -953,15 +981,36 @@ namespace Application.Services.OrderImp
                 CreatedAt = DateTime.UtcNow,
                 Status = TransactionStatus.Success
             });
+
+            // 8. Lưu Transaction thu phí dịch vụ cho Admin (Id = 1)
+            if (adminServiceFee > 0)
+            {
+                await _transactionRepo.AddAsync(new Transaction
+                {
+                    WalletId = adminWallet.WalletId,
+                    PaymentId = null,
+                    TransactionCode = GenerateTransactionCode("TAX"),
+                    Amount = adminServiceFee,
+                    BalanceBefore = adminBefore,
+                    BalanceAfter = adminWallet.Balance,
+                    Type = TransactionType.Credit,
+                    ReferenceType = TransactionReferenceType.OrderPayment,
+                    ReferenceId = order.OrderId,
+                    Description = $"Service fee collected from order #{order.OrderId}",
+                    CreatedAt = DateTime.UtcNow,
+                    Status = TransactionStatus.Success
+                });
+            }
         }
 
         private async Task HandleCancelAsync(Order order, int currentUserId)
         {
+            if (order.BuyerId != currentUserId && order.SellerId != currentUserId)
+                throw new UnauthorizedAccessException("You are not allowed to cancel this order.");
+
+            // TRƯỜNG HỢP 1: Hủy khi đơn chưa thanh toán
             if (order.Status == OrderStatus.PendingPayment)
             {
-                if (order.BuyerId != currentUserId && order.SellerId != currentUserId)
-                    throw new UnauthorizedAccessException("You are not allowed to cancel this order.");
-
                 foreach (var detail in order.OrderDetails)
                 {
                     if (!detail.ItemVariantId.HasValue)
@@ -979,16 +1028,15 @@ namespace Application.Services.OrderImp
                 return;
             }
 
+            // TRƯỜNG HỢP 2: Hủy khi đơn đã thanh toán & đang xử lý (Processing)
             if (order.Status == OrderStatus.Processing)
             {
-                if (order.BuyerId != currentUserId && order.SellerId != currentUserId)
-                    throw new UnauthorizedAccessException("You are not allowed to cancel this order.");
-
                 var buyerWallet = await _walletRepo.GetByAccountIdAsync(order.BuyerId)
                     ?? throw new KeyNotFoundException("Buyer wallet not found.");
 
                 decimal buyerBefore = buyerWallet.Balance;
 
+                // Hoàn tiền gốc + phí dịch vụ về lại cho người mua
                 buyerWallet.Balance += order.TotalAmount;
                 buyerWallet.UpdatedAt = DateTime.UtcNow;
                 _walletRepo.Update(buyerWallet);
@@ -1013,6 +1061,7 @@ namespace Application.Services.OrderImp
                     }
                 }
 
+                // Lưu Transaction hoàn tiền cho Buyer
                 await _transactionRepo.AddAsync(new Transaction
                 {
                     WalletId = buyerWallet.WalletId,

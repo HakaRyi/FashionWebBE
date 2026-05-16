@@ -87,6 +87,17 @@ namespace Infrastructure.Repositories
                 .ToListAsync();
         }
 
+        public async Task<List<Transaction>> GetTransactionsForDashboardAsync(DateTime startDate, DateTime endDate)
+        {
+            return await _db.Transactions
+                .AsNoTracking()
+                .Include(t => t.Wallet)
+                    .ThenInclude(w => w.Account)
+                .Where(t => t.Status == "Success" && t.CreatedAt >= startDate && t.CreatedAt <= endDate)
+                .OrderByDescending(t => t.CreatedAt)
+                .ToListAsync();
+        }
+
         public async Task AddAsync(Transaction transaction)
         {
             await _db.Transactions.AddAsync(transaction);

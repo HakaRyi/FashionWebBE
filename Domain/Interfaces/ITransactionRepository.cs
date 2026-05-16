@@ -12,6 +12,7 @@ namespace Domain.Interfaces
         Task<IEnumerable<Transaction>> GetByWalletIdAsync(int walletId);
         Task<decimal> GetMonthlyDebitTotalAsync(int walletId, int month, int year);
         Task<List<Transaction>> GetByReferenceAsync(string refType, int refId);
+        Task<List<Transaction>> GetTransactionsForDashboardAsync(DateTime startDate, DateTime endDate);
         Task AddAsync(Transaction transaction);
         IQueryable<Transaction> Query();
     }
