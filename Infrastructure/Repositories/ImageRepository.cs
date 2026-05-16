@@ -1,0 +1,80 @@
+﻿using Microsoft.EntityFrameworkCore;
+using Infrastructure.Persistence;
+using Domain.Entities;
+using Domain.Interfaces;
+
+namespace Infrastructure.Repositories
+{
+    public class ImageRepository : IImageRepository
+    {
+        private readonly FashionDbContext _db;
+
+        public ImageRepository(FashionDbContext db)
+        {
+            _db = db;
+        }
+
+        public async Task<Image?> GetByIdAsync(int id)
+        {
+            return await _db.Images
+                .AsNoTracking()
+                .FirstOrDefaultAsync(i => i.ImageId == id);
+        }
+
+        public async Task<Image?> GetNewestAvatarAsync(int userId)
+        {
+            return await _db.Images
+                .AsNoTracking()
+                .Where(i => i.AccountAvatarId == userId)
+                .OrderByDescending(i => i.CreatedAt)
+                .FirstOrDefaultAsync();
+        }
+
+        public async Task<List<Image>> GetAllMyAvatarAsync(int userId)
+        {
+            return await _db.Images
+                .AsNoTracking()
+                .Where(i => i.AccountAvatarId == userId)
+                .OrderByDescending(i => i.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<List<Image>> GetPostImagesAsync(int postId)
+        {
+            return await _db.Images
+                .AsNoTracking()
+                .Where(i => i.PostId == postId)
+                .OrderBy(i => i.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<List<Image>> GetItemImagesAsync(int itemId)
+        {
+            return await _db.Images
+                .AsNoTracking()
+                .Where(i => i.ItemId == itemId)
+                .OrderBy(i => i.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task AddAsync(Image image)
+        {
+            await _db.Images.AddAsync(image);
+        }
+
+        public async Task AddRangeAsync(List<Image> images)
+        {
+            await _db.Images.AddRangeAsync(images);
+        }
+
+        public void Delete(Image image)
+        {
+            _db.Images.Remove(image);
+        }
+
+        public void DeleteRange(List<Image> images)
+        {
+            _db.Images.RemoveRange(images);
+        }
+    }
+}
