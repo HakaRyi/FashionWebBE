@@ -1,5 +1,6 @@
 ﻿using Application.Interfaces;
 using Application.Response.TransactionResp;
+using Application.Services;
 using Microsoft.AspNetCore.Mvc;
 
 // For more information on enabling Web API for empty projects, visit https://go.microsoft.com/fwlink/?LinkID=397860
@@ -11,9 +12,11 @@ namespace Presentation.Controllers
     public class TransactionController : ControllerBase
     {
         private readonly ITransactionService _transactionService;
-        public TransactionController(ITransactionService transactionService)
+        private readonly IWhaleService _whaleService;
+        public TransactionController(ITransactionService transactionService, IWhaleService whaleService)
         {
             _transactionService = transactionService;
+            _whaleService = whaleService;
         }
         // GET: api/<TransactionController>
         [HttpGet]
@@ -134,12 +137,14 @@ namespace Presentation.Controllers
 
         [HttpGet("feature-intelligence-dashboard")]
         [ProducesResponseType(typeof(FeatureIntelligenceResponse), 200)]
+        [ProducesResponseType(404)]
         [ProducesResponseType(500)]
-        public async Task<IActionResult> GetFeatureIntelligenceDashboard()
+        public async Task<IActionResult> GetFeatureIntelligenceDashboard([FromQuery] DateTime? startDate = null, [FromQuery] DateTime? endDate = null)
         {
             try
             {
-                var result = await _transactionService.GetFeatureIntelligenceDashboardAsync();
+                // Truyền các tham số ngày chọn từ Query String xuống Service
+                var result = await _transactionService.GetFeatureIntelligenceDashboardAsync(startDate, endDate);
 
                 if (result == null)
                 {
@@ -148,14 +153,105 @@ namespace Presentation.Controllers
 
                 return Ok(result);
             }
-            catch (System.Exception ex)
+            catch (Exception ex)
             {
-                // Thay bằng LogError của ILogger nếu dự án của bạn có setup log định dạng
+                // Gợi ý: Nên inject ILogger vào Controller để log lỗi chi tiết thay vì chỉ dùng Console
+                // _logger.LogError(ex, "Đã xảy ra lỗi khi lấy dữ liệu Feature Intelligence Dashboard.");
+
                 return StatusCode(500, new
                 {
                     message = "Đã xảy ra lỗi hệ thống khi xử lý dữ liệu Dashboard.",
                     details = ex.Message
                 });
+            }
+        }
+
+        [HttpGet("whales")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(List<WhaleDashboardDto>))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        public async Task<ActionResult<List<WhaleDashboardDto>>> GetTopWhales(
+            [FromQuery] DateTime? fromDate,
+            [FromQuery] DateTime? toDate,
+            [FromQuery] string? viewMode,
+            [FromQuery] string? searchQuery = null)
+        {
+            // 1. Thiết lập dải ngày mặc định nếu Frontend không truyền lên (Mặc định lấy 30 ngày gần nhất)
+            var end = toDate ?? DateTime.Now;
+            var start = fromDate ?? end.AddDays(-29);
+
+            // 2. Validate dải ngày hợp lệ
+            if (start > end)
+            {
+                return BadRequest(new { Message = "Ngày bắt đầu (fromDate) không thể lớn hơn ngày kết thúc (toDate)." });
+            }
+
+            // 3. Gọi Service xử lý toàn bộ logic nghiệp vụ (Tính toán LTV, Khấu trừ Refund, Chia phân đoạn Trend)
+            var result = await _whaleService.GetTopWhalesAsync(start, end, viewMode, searchQuery);
+
+            return Ok(result);
+        }
+
+        [HttpGet("whale/{id}")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(WhaleHistoryDto))]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<ActionResult<WhaleHistoryDto>> GetWhaleHistory(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                return BadRequest(new { Message = "The ID cannot be left blank." });
+            }
+
+            // Sàng lọc dữ liệu: Nếu bắt đầu bằng "W-" hoặc "w-" thì cắt bỏ, nếu không thì giữ nguyên để ép kiểu số
+            string cleanId = id.Trim();
+            if (cleanId.StartsWith("W-", StringComparison.OrdinalIgnoreCase))
+            {
+                cleanId = cleanId.Substring(2); // Cắt bỏ 2 ký tự đầu
+            }
+
+            // Ép kiểu sang int, nếu thất bại chứng tỏ chuỗi truyền lên chứa ký tự lạ (Ví dụ: "W-abc" hoặc "xyz")
+            if (!int.TryParse(cleanId, out int walletId))
+            {
+                return BadRequest(new { Message = $"The identifier '{id}' is invalid. The system only accepts pure numbers (e.g., 12) or the 'W-12' structure." });
+            }
+
+            // 2. Gọi Service xử lý dữ liệu thô với ID dạng int chuẩn
+            var historyDto = await _whaleService.GetWhaleHistoryAsync(walletId);
+
+            if (historyDto == null)
+            {
+                return NotFound(new { Message = $"No data or transaction history was found for customer ID: {id}." });
+            }
+
+            return Ok(historyDto);
+        }
+
+        [HttpGet("shops")]
+        public async Task<IActionResult> GetDashboardData([FromQuery] DateTime? fromDate, [FromQuery] DateTime? toDate)
+        {
+            try
+            {
+                // Nếu FE không truyền ngày, mặc định lấy trong vòng 30 ngày qua
+                DateTime finalFromDate = fromDate ?? DateTime.Now.AddDays(-30);
+                DateTime finalToDate = toDate ?? DateTime.Now;
+
+                if (finalFromDate > finalToDate)
+                {
+                    return BadRequest(new { message = "Ngày bắt đầu không được lớn hơn ngày kết thúc." });
+                }
+
+                // --- CÁCH 1: TÍNH TOÁN THỜI GIAN KỲ TRƯỚC ---
+                var duration = finalToDate - finalFromDate;
+                // Lùi ngày bắt đầu về trước một khoảng thời gian tương đương duration để lấy dữ liệu đối chiếu
+                DateTime previousFromDate = finalFromDate.Subtract(duration);
+
+                // Truyền thêm ngày bắt đầu của kỳ trước vào Service
+                var data = await _transactionService.GetRankingManagementDashboardAsync(previousFromDate, finalFromDate, finalToDate);
+                return Ok(data);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
         }
         // POST api/<TransactionController>

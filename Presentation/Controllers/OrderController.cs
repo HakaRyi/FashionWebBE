@@ -1,5 +1,6 @@
 ﻿using Application.Interfaces;
 using Application.Request.OrderReq;
+using Application.Response.OrderResp;
 using Application.Services.OrderImp;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -13,13 +14,16 @@ namespace API.Controllers
     {
         private readonly IOrderService _orderService;
         private readonly ICurrentUserService _currentUser;
+        private readonly IOrderAdminService _orderAdminService;
 
         public OrderController(
             IOrderService orderService,
-            ICurrentUserService currentUser)
+            ICurrentUserService currentUser,
+            IOrderAdminService orderAdminService)
         {
             _orderService = orderService;
             _currentUser = currentUser;
+            _orderAdminService = orderAdminService;
         }
 
         [HttpPost("{sellerId:int}")]
@@ -188,6 +192,59 @@ namespace API.Controllers
                 request);
 
             return Ok(result);
+        }
+
+        [HttpGet("/api/admin/orders/all")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(OrderAdminListPagedResponse))]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetAllOrders(
+            [FromQuery] int pageNumber = 1,
+            [FromQuery] int pageSize = 10,
+            [FromQuery] string? status = null)
+        {
+            try
+            {
+                var result = await _orderAdminService.GetAllOrdersAsync(pageNumber, pageSize, status);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                // Trả về lỗi hệ thống kèm thông điệp chi tiết
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Lấy chi tiết dòng tiền, lịch sử trạng thái và sản phẩm của một đơn hàng cụ thể
+        /// </summary>
+        /// <param name="orderCode">Mã đối soát đơn hàng (Ví dụ: ORD-123 hoặc mã code tùy chỉnh)</param>
+        /// <returns>Dữ liệu chi tiết toàn bộ đơn hàng</returns>
+        [HttpGet("/api/admin/orders/{orderCode}")]
+        [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(OrderAdminDetailResponse))]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<IActionResult> GetOrderDetail(string orderCode)
+        {
+            if (string.IsNullOrWhiteSpace(orderCode))
+            {
+                return BadRequest(new { message = "Mã đơn hàng không được để trống." });
+            }
+
+            try
+            {
+                var result = await _orderAdminService.GetOrderDetailForAdminAsync(orderCode);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                // Nếu Service ném ra Exception không tìm thấy dữ liệu
+                if (ex.Message.Contains("Không tìm thấy đơn hàng"))
+                {
+                    return NotFound(new { message = ex.Message });
+                }
+
+                return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
+            }
         }
     }
 }

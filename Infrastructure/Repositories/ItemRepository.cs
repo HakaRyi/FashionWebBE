@@ -452,6 +452,22 @@ namespace Infrastructure.Repositories
                         v.StockQuantity > v.ReservedQuantity));
         }
 
+        public async Task<List<Item>> GetAdminIntelRawDataAsync(DateTime? startDate, DateTime? endDate)
+        {
+            var query = _context.Items
+                .AsNoTracking()
+                .Include(i => i.ItemVariants) // Lấy để tính toán PersonalUnits (Stock) nếu cần
+                .Where(i => i.Status != ItemStatus.Deleted);
+
+            if (startDate.HasValue)
+                query = query.Where(i => i.CreatedAt >= startDate.Value);
+
+            if (endDate.HasValue)
+                query = query.Where(i => i.CreatedAt <= endDate.Value);
+
+            return await query.OrderBy(i => i.CreatedAt).ToListAsync();
+        }
+
         public async Task AddAsync(Item item)
         {
             item.CreatedAt = DateTime.UtcNow;

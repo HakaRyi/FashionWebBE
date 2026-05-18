@@ -67,8 +67,10 @@ namespace Application.Services.AI
                     }
                 };
 
-                var url = $"[https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=](https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=){_apiKey}";
+                //var url = $"[https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=](https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=){_apiKey}";
                 //var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={_apiKey}";
+                var url = $"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={_apiKey}";
+
                 var response = await _httpClient.PostAsJsonAsync(url, requestBody);
 
                 if (!response.IsSuccessStatusCode)

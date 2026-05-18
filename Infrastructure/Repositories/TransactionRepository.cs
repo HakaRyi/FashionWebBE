@@ -98,6 +98,39 @@ namespace Infrastructure.Repositories
                 .ToListAsync();
         }
 
+        public async Task<List<Transaction>> GetAllTransactionsByOrderIdAsync(int orderId)
+        {
+            return await _db.Set<Transaction>()
+                .Include(t => t.Wallet)
+                    .ThenInclude(w => w.Account)
+                .Where(t => t.ReferenceId == orderId
+                       && (t.ReferenceType == "OrderPayment" || t.ReferenceType == "OrderRefund")
+                       && t.Status == "Success")
+                .OrderBy(t => t.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<List<Transaction>> GetAllTransactionsAsync(DateTime fromDate, DateTime toDate)
+        {
+            return await _db.Transactions
+                .AsNoTracking()
+                .Include(t => t.Wallet)
+                    .ThenInclude(w => w.Account)
+                .Where(t => t.CreatedAt >= fromDate && t.CreatedAt <= toDate)
+                .ToListAsync();
+        }
+
+        public async Task<List<Transaction>> GetTransactionsByWalletIdAsync(int walletId)
+        {
+            return await _db.Transactions
+                .AsNoTracking()
+                .Include(t => t.Wallet)
+                    .ThenInclude(w => w.Account)
+                .Where(t => t.WalletId == walletId)
+                .OrderByDescending(t => t.CreatedAt)
+                .ToListAsync();
+        }
+
         public async Task AddAsync(Transaction transaction)
         {
             await _db.Transactions.AddAsync(transaction);

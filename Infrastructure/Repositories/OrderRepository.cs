@@ -261,5 +261,70 @@ namespace Infrastructure.Repositories
 
             return (orders, totalCount);
         }
+
+        public async Task<(List<Order> Orders, int TotalCount)> GetPagedOrdersForAdminAsync(int pageNumber, int pageSize, string? status)
+        {
+            var query = _context.Set<Order>()
+                .Include(o => o.Buyer)
+                .Include(o => o.Seller)
+                .AsNoTracking();
+
+            if (!string.IsNullOrEmpty(status))
+            {
+                query = query.Where(o => o.Status.ToLower() == status.ToLower());
+            }
+
+            int totalCount = await query.CountAsync();
+
+            var orders = await query
+                .OrderByDescending(o => o.CreatedAt)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (orders, totalCount);
+        }
+
+        public async Task<Order?> GetOrderWithDetailsByCodeAsync(string orderCode)
+        {
+            // 1. Tách và phân tích chuỗi orderCode ngay trên bộ nhớ C#
+            int? parsedOrderId = null;
+
+            // Nếu Admin truyền vào format "ORD-123", ta bóc tách lấy con số 123
+            if (!string.IsNullOrEmpty(orderCode) && orderCode.StartsWith("ORD-", StringComparison.OrdinalIgnoreCase))
+            {
+                string idPart = orderCode.Substring(4); // Lấy phần chuỗi sau "ORD-"
+                if (int.TryParse(idPart, out int id))
+                {
+                    parsedOrderId = id;
+                }
+            }
+            // Nếu Admin truyền thẳng số "123" vào ô tìm kiếm
+            else if (int.TryParse(orderCode, out int id))
+            {
+                parsedOrderId = id;
+            }
+
+            // 2. Thực hiện Query xuống Database bằng các kiểu dữ liệu nguyên bản (Ngăn lỗi Translation)
+            return await _context.Set<Order>()
+                .Include(o => o.Buyer)
+                .Include(o => o.Seller)
+                .Include(o => o.OrderDetails)
+                    .ThenInclude(d => d.Item)
+                    .ThenInclude(i => i.Images)
+                .Include(o => o.OrderDetails)
+                    .ThenInclude(d => d.ItemVariant)
+                .FirstOrDefaultAsync(o => o.OrderCode == orderCode || (parsedOrderId.HasValue && o.OrderId == parsedOrderId.Value));
+        }
+
+        public async Task<List<Order>> GetOrdersWithDetailsAsync(DateTime startDate, DateTime endDate)
+        {
+            return await _context.Orders
+                .AsNoTracking()
+                .Include(o => o.OrderDetails)
+                    .ThenInclude(od => od.Item)
+                .Where(o => o.CreatedAt >= startDate && o.CreatedAt <= endDate)
+                .ToListAsync();
+        }
     }
 }

@@ -189,6 +189,9 @@ builder.Services.AddScoped<IFileService, GoogleDriveService>();
 builder.Services.AddScoped<IChatShareService, ChatShareService>();
 builder.Services.AddScoped<ICacheService, MemoryCacheService>();
 builder.Services.AddScoped<ICollectionService, CollectionService>();
+builder.Services.AddScoped<IOrderAdminService, OrderAdminService>();
+builder.Services.AddScoped<IWhaleService, WhaleService>();
+builder.Services.AddScoped<IItemAnalysisService, ItemAnalysisService>();
 
 #endregion
 
