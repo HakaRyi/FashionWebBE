@@ -7,6 +7,7 @@ using Domain.Entities;
 using Domain.Interfaces;
 using Mapster;
 using Microsoft.EntityFrameworkCore;
+using System.Globalization;
 
 namespace Application.Services
 {
@@ -218,19 +219,37 @@ namespace Application.Services
             return transactions.Select(t => MapToResponse(t)).ToList();
         }
 
-        public async Task<FeatureIntelligenceResponse> GetFeatureIntelligenceDashboardAsync()
+        public async Task<FeatureIntelligenceResponse> GetFeatureIntelligenceDashboardAsync(DateTime? customStartDate = null, DateTime? customEndDate = null)
         {
             var response = new FeatureIntelligenceResponse();
 
-            // Thiết lập mốc thời gian lọc (Mặc định quét dữ liệu 30 ngày gần nhất)
-            var endDate = DateTime.Now;
-            var startDate = endDate.AddDays(-30);
+            // 1. XỬ LÝ ĐIỀU KIỆN THỜI GIAN MẶC ĐỊNH KHÔNG NHẬP
+            // Nếu không nhập, endDate mặc định là Hiện tại, startDate mặc định là 30 ngày trước
+            var endDate = customEndDate ?? DateTime.Now;
+            var startDate = customStartDate ?? endDate.AddDays(-30);
 
-            // 1. Lấy danh sách giao dịch thô đã thành công từ Repository
-            var rawTransactions = await _transactionRepository.GetTransactionsForDashboardAsync(startDate, endDate);
+            // Tính toán độ dài khoảng thời gian đã chọn (ví dụ: 30 ngày, 7 ngày, 15 ngày...)
+            var totalDaysSelected = (endDate - startDate).TotalDays;
+            if (totalDaysSelected <= 0)
+            {
+                totalDaysSelected = 30; // Tránh lỗi chia cho 0 hoặc khoảng thời gian âm
+                startDate = endDate.AddDays(-30);
+            }
 
-            // 2. LOGIC SECTION 1: NHẬT KÝ GIAO DỊCH LIVE (Top 5 giao dịch mới nhất)
-            response.LiveTransactions = rawTransactions
+            // Kỳ trước (Previous Period) có cùng độ dài (X ngày) và nằm ngay trước kỳ này để so sánh Trend chính xác
+            var preStartDate = startDate.AddDays(-totalDaysSelected);
+
+            // 2. LẤY TOÀN BỘ DANH SÁCH GIAO DỊCH TRONG CẢ 2 KỲ (Kỳ trước + Kỳ này)
+            var allTransactions = await _transactionRepository.GetTransactionsForDashboardAsync(preStartDate, endDate);
+
+            // Phân tách dữ liệu thành 2 kỳ phục vụ tính toán xu hướng (Trends)
+            var currentTx = allTransactions.Where(t => t.CreatedAt >= startDate && t.CreatedAt <= endDate).ToList();
+            var previousTx = allTransactions.Where(t => t.CreatedAt >= preStartDate && t.CreatedAt < startDate).ToList();
+
+            // 3. LOGIC SECTION 1: NHẬT KÝ GIAO DỊCH LIVE (Top 5 giao dịch mới nhất thuộc kỳ hiện tại)
+            response.LiveTransactions = currentTx
+                .Where(t => t.Wallet?.Account?.UserName != "admin")
+                .OrderByDescending(t => t.CreatedAt)
                 .Take(5)
                 .Select(t => new LiveTransactionDto
                 {
@@ -242,107 +261,247 @@ namespace Application.Services
                 })
                 .ToList();
 
-            // 3. LOGIC SECTION 2: DOANH THU THEO TÍNH NĂNG HỆ THỐNG (Revenue by Feature)
-            // Lọc các ReferenceType đóng vai trò trực tiếp tạo ra nguồn tiền dòng thu Hybrid
-            var revenueTransactions = rawTransactions
-                .Where(t => t.ReferenceType == "TryOn" ||
-                            t.ReferenceType == "AIRecommendation" ||
-                            t.ReferenceType == "System_Fee_Revenue" ||
-                            (t.ReferenceType == "OrderPayment" && t.Type == "Credit"))
-                .ToList();
+            // Helper Hàm nhóm và tính doanh thu theo các tính năng thực tế từ DB
+            List<FeatureRevenueDto> CalculateRevenueByFeature(List<Transaction> txList)
+            {
+                var revenueTx = txList.Where(t =>
+                    (t.ReferenceType == "TryOn" && t.Type == "Debit") ||
+                    (t.ReferenceType == "AIRecommendation" && t.Type == "Debit") ||
+                    (t.Type == "System_Fee_Revenue") ||
+                    (t.ReferenceType == "OrderPayment" && t.Type == "Credit")
+                ).ToList();
 
-            response.FeatureRevenue = revenueTransactions
-                .GroupBy(t => t.ReferenceType)
-                .Select(g => {
-                    var totalRev = g.Sum(x => Math.Abs(x.Amount));
-                    string featureName = "Other Services";
-                    decimal estimatedCost = 0;
+                return revenueTx
+                    .GroupBy(t => t.ReferenceType == "Event" || t.Type == "System_Fee_Revenue" ? "System_Fee_Revenue" : t.ReferenceType)
+                    .Select(g => {
+                        string featureName = g.Key switch
+                        {
+                            "OrderPayment" => "E-Commerce Marketplace",
+                            "System_Fee_Revenue" => "Event Hosting Fees",
+                            "TryOn" => "AI Try-On Fitting Room",
+                            "AIRecommendation" => "Smart Outfit AI Assistant",
+                            _ => "Other Services"
+                        };
 
-                    switch (g.Key)
-                    {
-                        case "OrderPayment":
-                            featureName = "E-Commerce Marketplace";
-                            estimatedCost = totalRev * 0.05m; // Chi phí hạ tầng thanh toán/vận hành (5%)
-                            break;
-                        case "System_Fee_Revenue":
-                            featureName = "Event Hosting Fees";
-                            estimatedCost = totalRev * 0.10m; // Phí nhân sự duyệt Event (10%)
-                            break;
-                        case "TryOn":
-                            featureName = "AI Try-On Fitting Room";
-                            estimatedCost = totalRev * 0.25m; // Chi phí GPU máy chủ AI cao (25%)
-                            break;
-                        case "AIRecommendation":
-                            featureName = "Smart Outfit AI Assistant";
-                            estimatedCost = totalRev * 0.08m; // Phí token API LLM (8%)
-                            break;
-                    }
+                        return new FeatureRevenueDto
+                        {
+                            Feature = featureName,
+                            Revenue = g.Sum(x => Math.Abs(x.Amount)),
+                            Cost = 0, // Hiện tại chưa có chi phí vận hành
+                            Users = g.Select(x => x.WalletId).Distinct().Count(),
+                            Growth = 0 // Sẽ cập nhật ở bước sau
+                        };
+                    }).ToList();
+            }
 
-                    return new FeatureRevenueDto
-                    {
-                        Feature = featureName,
-                        Revenue = totalRev,
-                        Cost = Math.Round(estimatedCost, 2),
-                        Users = g.Select(x => x.WalletId).Distinct().Count(),
-                        Growth = g.Key == "OrderPayment" ? 14.5m : g.Key == "System_Fee_Revenue" ? 22.8m : 11.2m
-                    };
-                })
-                .ToList();
+            // Tính toán doanh thu chi tiết kỳ này và kỳ trước
+            var currentFeatures = CalculateRevenueByFeature(currentTx);
+            var previousFeatures = CalculateRevenueByFeature(previousTx);
 
-            // 4. LOGIC SECTION 3: TÍNH TOÁN KPI CARD TỔNG QUAN
-            var totalRevenue = response.FeatureRevenue.Sum(f => f.Revenue);
-            var totalCost = response.FeatureRevenue.Sum(f => f.Cost);
-            var activeUsersCount = rawTransactions.Select(t => t.WalletId).Distinct().Count();
-            decimal margin = totalRevenue > 0 ? ((totalRevenue - totalCost) / totalRevenue) * 100 : 0;
+            // Tính toán phần trăm tăng trưởng (Growth) cho từng Feature
+            foreach (var cur in currentFeatures)
+            {
+                var prev = previousFeatures.FirstOrDefault(p => p.Feature == cur.Feature);
+                if (prev != null && prev.Revenue > 0)
+                {
+                    cur.Growth = Math.Round(((cur.Revenue - prev.Revenue) / prev.Revenue) * 100, 1);
+                }
+                else
+                {
+                    cur.Growth = prev == null ? 100 : 0;
+                }
+            }
+            response.FeatureRevenue = currentFeatures;
+
+            // 4. LOGIC SECTION 2: TÍNH TOÁN KPI CARD TỔNG QUAN & XU HƯỚNG (TRENDS)
+            var totalRevenueCur = currentFeatures.Sum(f => f.Revenue);
+            var totalCostCur = currentFeatures.Sum(f => f.Cost); // Bằng 0
+            var activeUsersCur = currentTx.Select(t => t.WalletId).Distinct().Count();
+            decimal marginCur = totalRevenueCur > 0 ? ((totalRevenueCur - totalCostCur) / totalRevenueCur) * 100 : 0;
+
+            var totalRevenuePrev = previousFeatures.Sum(f => f.Revenue);
+            var totalCostPrev = previousFeatures.Sum(f => f.Cost);
+            var activeUsersPrev = previousTx.Select(t => t.WalletId).Distinct().Count();
+            decimal marginPrev = totalRevenuePrev > 0 ? ((totalRevenuePrev - totalCostPrev) / totalRevenuePrev) * 100 : 0;
+
+            // Hàm format chuỗi hiển thị trend
+            string FormatTrend(decimal current, decimal previous)
+            {
+                if (previous == 0) return current > 0 ? "+100%" : "0%";
+                var pct = ((current - previous) / previous) * 100;
+                return pct >= 0 ? $"+{pct:F1}%" : $"{pct:F1}%";
+            }
 
             response.Kpis = new KpiDashboard
             {
-                GrossFeatureRevenue = totalRevenue,
-                InfrastructureCost = totalCost,
-                ActiveFeatureUsers = activeUsersCount,
-                NetProfitMargin = Math.Round(margin, 1),
+                GrossFeatureRevenue = totalRevenueCur,
+                InfrastructureCost = totalCostCur,
+                ActiveFeatureUsers = activeUsersCur,
+                NetProfitMargin = Math.Round(marginCur, 1),
                 Trends = new Dictionary<string, string>
-                {
-                    { "grossRevenue", "+16.2%" },
-                    { "infrastructureCost", "+4.1%" },
-                    { "activeUsers", "+9.5%" },
-                    { "netProfitMargin", "+1.1%" }
-                }
+        {
+            { "grossRevenue", FormatTrend(totalRevenueCur, totalRevenuePrev) },
+            { "infrastructureCost", FormatTrend(totalCostCur, totalCostPrev) },
+            { "activeUsers", FormatTrend((decimal)activeUsersCur, (decimal)activeUsersPrev) },
+            { "netProfitMargin", (marginCur - marginPrev) >= 0 ? $"+{(marginCur - marginPrev):F1}%" : $"{(marginCur - marginPrev):F1}%" }
+        }
             };
 
-            // 5. LOGIC SECTION 4: VẬN TỐC TIÊU THỤ THEO KHUNG GIỜ (Credit Velocity) trong ngày hôm nay
-            var todayTransactions = rawTransactions
-                .Where(t => t.CreatedAt.Date == DateTime.Today)
-                .ToList();
-
+            // 5. LOGIC SECTION 3: VẬN TỐC TIÊU THỤ THEO KHUNG GIỜ (Tính gộp cho toàn bộ khoảng thời gian được chọn)
+            // Thay vì chỉ lấy transactions của 1 ngày duy nhất (todayTransactions), ta lấy toàn bộ trong kỳ hiện tại (currentTx)
             var hourlyBlocks = new List<(string Label, int StartHour, int EndHour)>
-            {
-                ("00:00", 0, 3), ("04:00", 4, 7), ("08:00", 8, 11),
-                ("12:00", 12, 15), ("16:00", 16, 19), ("20:00", 20, 23)
-            };
+{
+            ("00:00", 0, 3), ("04:00", 4, 7), ("08:00", 8, 11),
+            ("12:00", 12, 15), ("16:00", 16, 19), ("20:00", 20, 23)
+};
 
             response.CreditVelocity = new List<CreditVelocityDto>();
 
             foreach (var block in hourlyBlocks)
             {
-                var txInBlock = todayTransactions
+                // Lấy transactions rơi vào khung giờ này, không phân biệt ngày nào trong kỳ
+                var txInBlock = currentTx
                     .Where(t => t.CreatedAt.Hour >= block.StartHour && t.CreatedAt.Hour <= block.EndHour)
                     .ToList();
+
+                // Lọc các giao dịch tiêu tốn tiền dịch vụ AI/Platform (Loại trừ các giao dịch Credit nhận tiền)
+                var apiTransactions = txInBlock.Where(t =>
+                    (t.ReferenceType == "TryOn" && t.Type == "Debit") ||
+                    (t.ReferenceType == "AIRecommendation" && t.Type == "Debit") ||
+                    (t.ReferenceType == "OrderPayment" && t.Type == "Debit") ||
+                    (t.Type == "System_Fee_Revenue") // Thu phí hệ thống
+                );
 
                 response.CreditVelocity.Add(new CreditVelocityDto
                 {
                     Time = block.Label,
-                    // ApiCalls: Đếm mọi hành động tương tác thanh toán/sử dụng dịch vụ của user
-                    ApiCalls = txInBlock.Count(t => t.ReferenceType == "TryOn" ||
-                                                   t.ReferenceType == "AIRecommendation" ||
-                                                   t.ReferenceType == "OrderPayment" ||
-                                                   t.ReferenceType == "System_Fee_Revenue"),
-                    // Spend: Tổng lượng nạp tiền thực qua cổng TopUp VNPAY để lấy dòng tiền chảy vào hệ thống
+
+                    // Tính tổng tiền VND tiêu thụ tính năng phát sinh trong khung giờ này
+                    ApiCalls = (int)apiTransactions.Sum(t => Math.Abs(t.Amount)),
+
+                    // Tính tổng tiền VND nạp mới qua dòng TopUp trong khung giờ này
                     Spend = txInBlock.Where(t => t.ReferenceType == "TopUp").Sum(t => Math.Abs(t.Amount))
                 });
             }
 
             return response;
+        }
+
+        public async Task<RankingDashboardResponse> GetRankingManagementDashboardAsync(DateTime previousFromDate, DateTime fromDate, DateTime toDate)
+        {
+            // 1. Quét DB mở rộng từ ngày bắt đầu kỳ trước cho đến ngày kết thúc kỳ này
+            var transactions = await _transactionRepository.GetAllTransactionsAsync(previousFromDate, toDate);
+
+            // Lọc các giao dịch thành công đem lại doanh thu cho Shop (Áp dụng cho toàn bộ tập dữ liệu lấy về)
+            var allOrderPayments = transactions
+                .Where(t => t.Status == "Success"
+                         && t.ReferenceType == "OrderPayment"
+                         && t.Type == "Credit"
+                         && t.WalletId != 1)
+                .ToList();
+
+            // Tách tập dữ liệu thuộc Kỳ Hiện Tại (Dùng để tính Revenue, Share, Chart và các chỉ số hiển thị)
+            var currentOrderPayments = allOrderPayments
+                .Where(t => t.CreatedAt >= fromDate && t.CreatedAt <= toDate)
+                .ToList();
+
+            decimal totalMarketRevenue = currentOrderPayments.Sum(t => t.Amount);
+
+            // Group danh sách theo các Shop dựa trên data của KỲ HIỆN TẠI để hiển thị bảng xếp hạng công bằng
+            var shopGroups = currentOrderPayments.GroupBy(t => t.WalletId).ToList();
+            var shopList = new List<ShopRankingDto>();
+
+            // 2. Chia khoảng thời gian kỳ hiện tại thành 6 cột mốc để vẽ biểu đồ
+            var totalDays = (toDate - fromDate).TotalDays;
+            var intervalDays = totalDays / 6;
+            var timeIntervals = Enumerable.Range(0, 6)
+                .Select(i => fromDate.AddDays(i * intervalDays))
+                .ToList();
+
+            foreach (var group in shopGroups)
+            {
+                var firstTx = group.First();
+                // Lấy tên User hiển thị
+                string shopName = !string.IsNullOrEmpty(firstTx.Wallet?.Account?.UserName)
+                    ? firstTx.Wallet.Account.UserName
+                    : $"Apex {firstTx.WalletId}";
+
+                // Doanh thu và số đơn hàng của kỳ HIỆN TẠI
+                decimal totalRevenue = group.Sum(t => t.Amount);
+                int totalOrders = group.Select(t => t.ReferenceId).Distinct().Count();
+
+                // --- LOGIC TĂNG TRƯỞNG (GROWTH) THEO CÁCH 1 ---
+                // Tìm doanh thu của chính Shop này trong KỲ TRƯỚC (từ previousFromDate đến trước fromDate)
+                decimal previousRevenue = allOrderPayments
+                    .Where(t => t.WalletId == group.Key && t.CreatedAt >= previousFromDate && t.CreatedAt < fromDate)
+                    .Sum(t => t.Amount);
+
+                decimal growth = 0;
+                if (previousRevenue > 0)
+                {
+                    growth = ((totalRevenue - previousRevenue) / previousRevenue) * 100;
+                }
+                else if (previousRevenue == 0 && totalRevenue > 0)
+                {
+                    growth = 100; // Kỳ trước không có doanh thu, kỳ này phát sinh -> Đạt mốc tăng trưởng ấn tượng 100%
+                }
+
+                // Tính xu hướng cho từng phân đoạn thời gian kỳ hiện tại (0 -> 100)
+                var shopMonthlyData = timeIntervals.Select((time, index) => {
+                    var nextTime = index == 5 ? toDate : timeIntervals[index + 1];
+                    return group.Where(t => t.CreatedAt >= time && t.CreatedAt < nextTime).Sum(t => t.Amount);
+                }).ToList();
+
+                decimal maxShopVal = shopMonthlyData.Max();
+                var trendIndexes = shopMonthlyData.Select(v => maxShopVal > 0 ? (int)((v / maxShopVal) * 100) : 0).ToList();
+
+                // Phân hạng phân khúc dựa theo doanh thu trong kỳ hiện tại
+                string status = "Stable";
+                if (totalRevenue > 20000) status = "Elite";
+                else if (growth > 15) status = "Rising";
+                else if (totalOrders == 0) status = "Under Review";
+
+                shopList.Add(new ShopRankingDto
+                {
+                    Id = group.Key,
+                    Name = shopName,
+                    Revenue = totalRevenue,
+                    Orders = totalOrders,
+                    Share = totalMarketRevenue > 0 ? Math.Round((totalRevenue / totalMarketRevenue) * 100, 1) : 0,
+                    Growth = Math.Round(growth, 1),
+                    Status = status,
+                    MonthlyTrend = trendIndexes
+                });
+            }
+
+            // Kiểm tra xem có shop nào kỳ trước có doanh thu nhưng kỳ này KHÔNG có đơn (không nằm trong shopGroups) 
+            // Nếu muốn bổ sung các shop tụt hạng về doanh thu = 0 (Growth = -100%) bạn có thể tối ưu thêm tại đây.
+
+            shopList = shopList.OrderByDescending(s => s.Revenue).ToList();
+
+            // 3. Tính toán Global Trend (Chỉ số chung của toàn sàn trong các phân đoạn thuộc kỳ hiện tại)
+            var globalData = timeIntervals.Select((time, index) => {
+                var nextTime = index == 5 ? toDate : timeIntervals[index + 1];
+                return currentOrderPayments.Where(t => t.CreatedAt >= time && t.CreatedAt < nextTime).Sum(t => t.Amount);
+            }).ToList();
+
+            decimal maxGlobal = globalData.Max();
+            var globalTrendIndexes = globalData.Select(v => maxGlobal > 0 ? (int)((v / maxGlobal) * 100) : 0).ToList();
+
+            // 4. Tính toán các Tile tổng quan (Chỉ tính dựa trên kỳ hiện tại đang chọn)
+            int activeNodes = currentOrderPayments.Select(t => t.WalletId).Distinct().Count();
+            string leaderboardAlpha = shopList.FirstOrDefault()?.Name ?? "No Sales";
+            decimal avgTicketSize = currentOrderPayments.Any() ? currentOrderPayments.Average(t => t.Amount) : 0;
+
+            return new RankingDashboardResponse
+            {
+                ActiveNodes = activeNodes,
+                MarketReach = 100,
+                LeaderboardAlpha = leaderboardAlpha,
+                AvgTicketSize = Math.Round(avgTicketSize, 2),
+                GlobalTrend = globalTrendIndexes.Count > 0 ? globalTrendIndexes : new List<int> { 0, 0, 0, 0, 0, 0 },
+                Shops = shopList
+            };
         }
 
         private TransactionResponse MapToResponse(Transaction t)

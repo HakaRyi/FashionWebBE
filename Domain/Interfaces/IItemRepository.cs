@@ -33,7 +33,7 @@ namespace Domain.Interfaces
 
         Task<List<Item>> GetPublicSellableItemsAsync(int page, int pageSize);
         Task<int> CountPublicSellableItemsAsync();
-
+        Task<List<Item>> GetAdminIntelRawDataAsync(DateTime? startDate, DateTime? endDate);
         Task AddAsync(Item item);
         void Update(Item item);
         void Delete(Item item);

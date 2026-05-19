@@ -1,7 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Infrastructure.Persistence;
-using Domain.Entities;
+﻿using Domain.Entities;
 using Domain.Interfaces;
+using Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Polly;
 
 namespace Infrastructure.Repositories
 {
@@ -42,6 +43,12 @@ namespace Infrastructure.Repositories
         public IQueryable<Payment> Query()
         {
             return _db.Payments.AsQueryable();
+        }
+
+        public async Task<Payment?> GetPaymentByOrderCodeAsync(string orderCode)
+        {
+            return await _db.Set<Payment>()
+                .FirstOrDefaultAsync(p => p.OrderCode == orderCode);
         }
     }
 }

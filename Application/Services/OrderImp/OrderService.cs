@@ -625,18 +625,17 @@ namespace Application.Services.OrderImp
 
         public async Task<OrderResponse> RejectRefundAsync(int orderId, string adminNote)
         {
-            var order = await _orderRepo.GetByIdAsync(orderId)
-                ?? throw new KeyNotFoundException("Order not found.");
-
             var refundRequest = await _refundRepo.GetByOrderIdAsync(orderId)
                 ?? throw new KeyNotFoundException("Refund request not found.");
 
             if (refundRequest.Status != "PENDING")
                 throw new InvalidOperationException("Refund request already processed.");
 
+            var order = await _orderRepo.GetByIdAsync(orderId)
+                ?? throw new KeyNotFoundException("Order not found.");
+
             if (order.Status != OrderStatus.Refunding)
                 throw new InvalidOperationException("Order is not in refunding status.");
-
 
             await _unitOfWork.BeginTransactionAsync();
 
@@ -648,13 +647,14 @@ namespace Application.Services.OrderImp
                 _refundRepo.Update(refundRequest);
 
                 order.Status = OrderStatus.Delivered;
+                _orderRepo.Update(order);
 
                 await CompleteOrderAndReleaseEscrowAsync(
                     order,
                     order.BuyerId,
                     isSystemAction: true);
 
-                _orderRepo.Update(order);
+                await _unitOfWork.SaveChangesAsync();
 
                 await _unitOfWork.CommitAsync();
             }
@@ -670,6 +670,8 @@ namespace Application.Services.OrderImp
             var response = MapToResponse(updatedOrder);
 
             await NotifyOrder(response);
+
+            await NotifyOrderEventAsync(response, NotificationType.RefundRejected, response.BuyerId);
             await NotifyOrderEventAsync(response, NotificationType.RefundRejected, response.SellerId);
 
             return response;
@@ -704,6 +706,7 @@ namespace Application.Services.OrderImp
             {
                 decimal buyerBefore = buyerWallet.Balance;
 
+                // 1: Hoàn trả tiền ký quỹ về ví Buyer
                 buyerWallet.Balance += order.TotalAmount;
                 buyerWallet.UpdatedAt = DateTime.UtcNow;
                 _walletRepo.Update(buyerWallet);
@@ -712,18 +715,25 @@ namespace Application.Services.OrderImp
                 escrow.ResolvedAt = DateTime.UtcNow;
                 _escrowRepo.Update(escrow);
 
+                // 2: Xử lý trả hàng về kho cho Seller an toàn
                 foreach (var detail in order.OrderDetails)
                 {
                     if (!detail.ItemVariantId.HasValue)
                         continue;
 
+                    // Lock bản ghi đề phòng xung đột đồng thời (Race Condition)
                     var variant = await _variantRepo.GetByIdForUpdateAsync(detail.ItemVariantId.Value);
                     if (variant != null)
                     {
-                        _variantRepo.Restock(variant, detail.Quantity);
+                        // CHỈ cộng kho nếu Seller chưa xóa / chưa archive sản phẩm trên sàn
+                        if (variant.Status != ItemVariantStatus.Deleted && variant.Status != ItemVariantStatus.Archived)
+                        {
+                            _variantRepo.Restock(variant, detail.Quantity);
+                        }
                     }
                 }
 
+                // 3: Cập nhật trạng thái các thực thể hệ thống
                 refundRequest.Status = "APPROVED";
                 refundRequest.ProcessedAt = DateTime.UtcNow;
                 _refundRepo.Update(refundRequest);
@@ -732,6 +742,7 @@ namespace Application.Services.OrderImp
                 order.UpdatedAt = DateTime.UtcNow;
                 _orderRepo.Update(order);
 
+                // 4: Ghi nhận lịch sử giao dịch (Transaction Logs) cho Buyer
                 await _transactionRepo.AddAsync(new Transaction
                 {
                     WalletId = buyerWallet.WalletId,
@@ -748,6 +759,7 @@ namespace Application.Services.OrderImp
                     Status = TransactionStatus.Success
                 });
 
+                await _unitOfWork.SaveChangesAsync();
                 await _unitOfWork.CommitAsync();
             }
             catch
