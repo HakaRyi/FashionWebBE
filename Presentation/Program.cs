@@ -128,6 +128,7 @@ builder.Services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>(
 builder.Services.AddScoped<Domain.Interfaces.IUserReportRepository, Infrastructure.Repositories.UserReportRepository>();
 builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<IWardrobeRepository, WardrobeRepository>();
+builder.Services.AddScoped<IAdminSocialDashboardRepository, AdminSocialDashboardRepository>();
 
 #endregion
 
@@ -179,6 +180,7 @@ builder.Services.AddScoped<IVnPayGatewayService, VnPayGatewayService>();
 builder.Services.AddScoped<IWalletService, WalletService>();
 builder.Services.AddScoped<IWardrobeService, WardrobeService>();
 builder.Services.AddScoped<IZaloPayGatewayService, ZaloPayGatewayService>();
+builder.Services.AddScoped<IAdminSocialDashboardService, AdminSocialDashboardService>();
 
 #endregion
 

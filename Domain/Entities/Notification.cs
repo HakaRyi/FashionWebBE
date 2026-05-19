@@ -11,6 +11,18 @@ public partial class Notification
     [Column("target_user_id")]
     public int? TargetUserId { get; set; }
 
+    public int? PostId { get; set; }
+
+    public int? CommentId { get; set; }
+
+    public bool IsRead { get; set; }
+
+    public DateTime? ReadAt { get; set; }
+
+    public int Count { get; set; } = 1;
+
+    public string? AggregationKey { get; set; }
+
     public string? Title { get; set; }
 
     public string? Content { get; set; }
@@ -26,4 +38,10 @@ public partial class Notification
     public DateTime? CreatedAt { get; set; }
 
     public virtual Account Sender { get; set; } = null!;
+
+    public virtual Account? TargetUser { get; set; }
+
+    public virtual Post? Post { get; set; }
+
+    public virtual Comment? Comment { get; set; }
 }
