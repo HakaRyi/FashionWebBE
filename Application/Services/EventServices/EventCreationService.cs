@@ -5,6 +5,7 @@ using Application.Request.NotificationReq;
 using Application.Request.PrizeReq;
 using Application.Services.NotificationImp;
 using Application.Utils;
+using Domain.Constants;
 using Domain.Entities;
 using Domain.Interfaces;
 using Mapster;
@@ -78,7 +79,7 @@ namespace Application.Services.EventServices
 
             var wallet = await _walletRepo.GetByAccountIdAsync(creatorId);
             if (wallet == null || wallet.Balance < totalToLock)
-                throw new Exception($"Insufficient wallet balance. You need {totalToLock:N0} VNĐ (including creation fee).");
+                throw new Exception($"Insufficient wallet balance. You need {totalToLock:N0} VNĐ.");
 
             await _unitOfWork.BeginTransactionAsync();
             try
@@ -124,9 +125,27 @@ namespace Application.Services.EventServices
                 await CreatePrizesAsync(eventData.EventId, dto.Prizes);
                 await SetupExpertPanelAsync(eventData.EventId, creatorId, dto.InvitedExpertIds, isDraft: true);
 
+                decimal balanceBefore = wallet.Balance;
+
                 wallet.Balance -= totalToLock;
                 wallet.LockedBalance += totalToLock;
+                wallet.UpdatedAt = DateTime.UtcNow;
                 _walletRepo.Update(wallet);
+
+                await _transactionRepo.AddAsync(new Transaction
+                {
+                    TransactionCode = $"HOLD_{eventData.EventId}_{Guid.NewGuid().ToString()[..8].ToUpper()}",
+                    WalletId = wallet.WalletId,
+                    Amount = -totalToLock,
+                    BalanceBefore = balanceBefore,
+                    BalanceAfter = wallet.Balance,
+                    Type = "Event_Funds_Locked",
+                    ReferenceId = eventData.EventId,
+                    ReferenceType = "Event",
+                    Status = "Success",
+                    Description = $"Freeze money (Prize + Fee) in wallet for event setup: {eventData.Title}",
+                    CreatedAt = DateTime.UtcNow
+                });
 
                 await _unitOfWork.SaveChangesAsync();
                 await _unitOfWork.CommitAsync();
@@ -190,98 +209,109 @@ namespace Application.Services.EventServices
             }
         }
 
-        private async Task CollectSystemFeeAsync(Wallet expertWallet, Event ev)
+        private async Task CollectSystemFeeAsync(Wallet creatorWallet, Event ev)
         {
+            if (ev.AppliedFee < 0) return;
+
             int adminAccountId = await _settingRepo.GetIntValueAsync("SystemAdminAccountId", 1);
             var adminWallet = await _walletRepo.GetByAccountIdAsync(adminAccountId);
-
             if (adminWallet == null) throw new Exception("System wallet not found.");
-            if (ev.AppliedFee <= 0) return; // Không có phí thì không cần chạy tiếp
 
-            // --- 1. XỬ LÝ VÍ EXPERT (NGƯỜI TẠO) ---
-            decimal expertBefore = expertWallet.LockedBalance;
-            expertWallet.LockedBalance -= ev.AppliedFee;
+            // --- 1. XỬ LÝ VÍ CREATOR (NGƯỜI TẠO SỰ KIỆN) ---
+            // Tính toán số dư tổng thực tế của Creator trước khi trừ phí hệ thống
+            decimal creatorTotalBefore = creatorWallet.Balance + creatorWallet.LockedBalance;
 
-            // Log giao dịch chi trả phí cho Expert
+            // Thu phí hệ thống từ khoản tiền đang bị khóa phục vụ cho Event này
+            creatorWallet.LockedBalance -= ev.AppliedFee;
+            creatorWallet.UpdatedAt = DateTime.UtcNow;
+
+            decimal creatorTotalAfter = creatorWallet.Balance + creatorWallet.LockedBalance;
+
+            // Log giao dịch chi trả phí cho Creator (Lưu chuẩn số dư tổng hệ thống)
             await _transactionRepo.AddAsync(new Transaction
             {
-                TransactionCode = $"PAY_FEE_{ev.EventId}_{DateTime.Now.Ticks}",
-                WalletId = expertWallet.WalletId,
-                Amount = -ev.AppliedFee, // Số tiền âm (chi ra)
-                BalanceBefore = expertBefore,
-                BalanceAfter = expertWallet.LockedBalance,
+                TransactionCode = $"PAY_FEE_{ev.EventId}_{DateTime.UtcNow.Ticks}",
+                WalletId = creatorWallet.WalletId,
+                Amount = -ev.AppliedFee,
+                BalanceBefore = creatorTotalBefore,
+                BalanceAfter = creatorTotalAfter,
                 Type = "System_Fee_Payment",
                 ReferenceId = ev.EventId,
                 ReferenceType = "Event",
                 Status = "Success",
-                Description = $"Pay the system fee for the event: {ev.Title}",
+                Description = $"Pay the system creation fee for the event: {ev.Title}",
                 CreatedAt = DateTime.UtcNow
             });
 
             // --- 2. XỬ LÝ VÍ ADMIN (HỆ THỐNG) ---
             decimal adminBefore = adminWallet.Balance;
             adminWallet.Balance += ev.AppliedFee;
+            adminWallet.UpdatedAt = DateTime.UtcNow;
 
             // Log giao dịch doanh thu cho Admin
             await _transactionRepo.AddAsync(new Transaction
             {
-                TransactionCode = $"REV_FEE_{ev.EventId}_{DateTime.Now.Ticks}",
+                TransactionCode = $"REV_FEE_{ev.EventId}_{DateTime.UtcNow.Ticks}",
                 WalletId = adminWallet.WalletId,
-                Amount = ev.AppliedFee, // Số tiền dương (thu vào)
+                Amount = ev.AppliedFee,
                 BalanceBefore = adminBefore,
                 BalanceAfter = adminWallet.Balance,
                 Type = "System_Fee_Revenue",
                 ReferenceId = ev.EventId,
                 ReferenceType = "Event",
                 Status = "Success",
-                Description = $"Collect system fees from events: {ev.EventId}",
+                Description = $"Collect system fees from event ID: {ev.EventId}",
                 CreatedAt = DateTime.UtcNow
             });
 
-            // Cập nhật trạng thái ví vào DB
-            _walletRepo.Update(expertWallet);
+            // Đồng bộ ví Admin ngay, còn ví Creator sẽ update chung ở hàm tiếp theo
             _walletRepo.Update(adminWallet);
         }
 
-        private async Task ProcessEscrowFromLockedAsync(Event ev, int expertId, decimal amount, Wallet wallet)
+        private async Task ProcessEscrowFromLockedAsync(Event ev, int creatorId, decimal amount, Wallet wallet)
         {
-            // 1. Lấy số dư trước khi thay đổi để log giao dịch
-            decimal beforeLocked = wallet.LockedBalance;
+            if (amount <= 0) return;
 
-            // 2. Trừ từ tiền đã khóa (Tiền thưởng sự kiện)
+            // Tính toán số dư tổng thực tế của Creator trước khi trích quỹ giải thưởng vào Escrow
+            decimal mainBalanceBefore = wallet.Balance + wallet.LockedBalance;
+
+            // 1. Trừ từ tiền đã khóa của Creator
             wallet.LockedBalance -= amount;
-            _walletRepo.Update(wallet);
+            wallet.UpdatedAt = DateTime.UtcNow;
 
-            // 3. Tạo phiên ký quỹ (Escrow) để giữ tiền thưởng
+            // Tính toán số dư tổng thực tế sau khi trích tiền giải thưởng đi
+            decimal mainBalanceAfter = wallet.Balance + wallet.LockedBalance;
+
+            // 2. Tạo phiên ký quỹ giải thưởng (Dùng chung bảng EscrowSession)
             await _escrowRepo.AddAsync(new EscrowSession
             {
                 EventId = ev.EventId,
-                SenderId = expertId,
+                SenderId = creatorId,
+                ReceiverId = null,
                 Amount = amount,
-                Status = "Held",
+                ServiceFee = 0,
+                Status = EscrowStatus.Held,
+                Description = $"PRIZE_POOL: Total prize money for event '{ev.Title}'",
                 CreatedAt = DateTime.UtcNow
             });
 
-            // 4. Log giao dịch chuyển tiền vào hệ thống ký quỹ
+            // 3. Log giao dịch chuyển tiền giải thưởng vào hệ thống ký quỹ
             await _transactionRepo.AddAsync(new Transaction
             {
-                // FIX LỖI: Thêm mã giao dịch duy nhất
-                TransactionCode = $"ESCROW_HOLD_{ev.EventId}_{DateTime.Now.Ticks}",
-
+                TransactionCode = $"ESCROW_PRIZE_HOLD_{ev.EventId}_{DateTime.UtcNow.Ticks}",
                 WalletId = wallet.WalletId,
-                Amount = -amount, // Số tiền âm vì đang chuyển ra khỏi ví (vào Escrow)
-
-                // Bổ sung thông tin đối soát số dư
-                BalanceBefore = beforeLocked,
-                BalanceAfter = wallet.LockedBalance,
-
-                Type = "Escrow_Hold",
+                Amount = -amount,
+                BalanceBefore = mainBalanceBefore,
+                BalanceAfter = mainBalanceAfter,
+                Type = "Escrow_Prize_Hold",
                 ReferenceId = ev.EventId,
                 ReferenceType = "Event",
                 Status = "Success",
-                Description = $"Deposit prize money for the event: {ev.Title}",
+                Description = $"Transferred locked balance to Escrow Prize Pool for event: {ev.Title}",
                 CreatedAt = DateTime.UtcNow
             });
+
+            _walletRepo.Update(wallet);
         }
 
         public async Task ManualStartEventAsync(int eventId)
@@ -339,6 +369,15 @@ namespace Application.Services.EventServices
                 var wallet = await _walletRepo.GetByAccountIdAsync(ev.CreatorId);
                 var prizesData = await _prizeRepo.GetByEventIdAsync(eventId);
                 decimal totalPrizeAmount = prizesData.Sum(p => p.RewardAmount);
+
+                decimal totalRequiredFromLocked = ev.AppliedFee + totalPrizeAmount;
+
+                if (wallet == null || wallet.LockedBalance < totalRequiredFromLocked)
+                {
+                    throw new Exception($"The organizer's locked balance is insufficient to start the event. " +
+                                        $"Required: {totalRequiredFromLocked:N0} VNĐ (Fee: {ev.AppliedFee:N0} VNĐ, Prizes: {totalPrizeAmount:N0} VNĐ), " +
+                                        $"Available Locked: {wallet?.LockedBalance ?? 0:N0} VNĐ.");
+                }
 
                 // 1. Thu phí hệ thống & Chuyển tiền vào Escrow (Ký quỹ)
                 await CollectSystemFeeAsync(wallet, ev);
@@ -401,55 +440,74 @@ namespace Application.Services.EventServices
 
             if (ev == null) throw new Exception("Sự kiện không tồn tại.");
 
-            // 1. Kiểm tra quyền sở hữu
             if (ev.CreatorId != currentUserId)
                 throw new Exception("Bạn không có quyền hủy sự kiện này.");
 
-            // 2. Kiểm tra trạng thái cho phép hủy
-            // Chỉ được hủy khi đang chờ duyệt (Pending_Review) hoặc đang mời chuyên gia (Inviting)
-            // Một khi đã Active (đang diễn ra), không được phép hủy ngang để bảo vệ thí sinh.
             var allowedStatuses = new[] { "Pending_Review", "Inviting" };
             if (!allowedStatuses.Contains(ev.Status))
                 throw new Exception($"Không thể hủy sự kiện ở trạng thái {ev.Status}.");
 
             string oldStatus = ev.Status;
 
+            // Lấy danh sách giải thưởng để tính toán chính xác số tiền cần hoàn trả lại
+            var prizesData = await _prizeRepo.GetByEventIdAsync(eventId);
+            decimal totalPrizeAmount = prizesData.Sum(p => p.RewardAmount);
+
+            // Tổng số tiền đang bị khóa trong ví lúc tạo = Tiền giải thưởng + Phí hệ thống cố định áp dụng
+            decimal totalToRefund = totalPrizeAmount + ev.AppliedFee;
+
             await _unitOfWork.BeginTransactionAsync();
             try
             {
                 var wallet = await _walletRepo.GetByAccountIdAsync(ev.CreatorId);
-                var prizesData = await _prizeRepo.GetByEventIdAsync(eventId);
-                decimal totalPrizeAmount = prizesData.Sum(p => p.RewardAmount);
-                decimal totalToRefund = totalPrizeAmount + ev.AppliedFee;
+                if (wallet == null) throw new Exception("Không tìm thấy ví của nhà tổ chức.");
 
-                // 3. Thực hiện hoàn tiền (Refund)
+                // KIỂM TRA ĐỒNG BỘ: Phòng trường hợp hy hữu số dư khóa bị hụt
+                if (wallet.LockedBalance < totalToRefund)
+                    throw new Exception("Số dư đóng băng của ví không đủ để thực hiện hoàn tác.");
+
                 decimal beforeBalance = wallet.Balance;
-                decimal beforeLocked = wallet.LockedBalance;
 
-                wallet.LockedBalance -= totalToRefund;
+                // 1. Thực hiện trả tiền từ LockedBalance về Balance khả dụng
                 wallet.Balance += totalToRefund;
+                wallet.LockedBalance -= totalToRefund; // QUAN TRỌNG: Phải trừ đi khoản đóng băng
+                wallet.UpdatedAt = DateTime.UtcNow;
                 _walletRepo.Update(wallet);
 
-                // 4. Ghi Log giao dịch hoàn tiền
+                // 2. Kiểm tra xem có bản ghi Escrow nào lỡ tạo sớm hay không (Bọc an toàn)
+                var allEscrows = await _escrowRepo.GetTotalEscrowsByEventIdAsync(eventId);
+                var prizeEscrow = allEscrows?.FirstOrDefault(e => e.Status == EscrowStatus.Held
+                                                          && e.Description != null
+                                                          && e.Description.StartsWith("PRIZE_POOL"));
+                if (prizeEscrow != null)
+                {
+                    prizeEscrow.Status = EscrowStatus.Refunded;
+                    prizeEscrow.ResolvedAt = DateTime.UtcNow;
+                    prizeEscrow.Description = $"Refunded to creator due to event cancellation.";
+                    _escrowRepo.Update(prizeEscrow);
+                }
+
+                // 3. Ghi Log giao dịch hoàn tiền ví cho Creator
                 await _transactionRepo.AddAsync(new Transaction
                 {
-                    TransactionCode = $"REFUND_{eventId}_{DateTime.Now.Ticks}",
+                    TransactionCode = $"REFUND_{eventId}_{Guid.NewGuid().ToString()[..8].ToUpper()}",
                     WalletId = wallet.WalletId,
                     Amount = totalToRefund,
-                    BalanceBefore = beforeBalance, // Log theo ví chính
+                    BalanceBefore = beforeBalance,
                     BalanceAfter = wallet.Balance,
                     Type = "Event_Cancel_Refund",
                     ReferenceId = eventId,
                     ReferenceType = "Event",
                     Status = "Success",
-                    Description = $"Event cancellation refund: {ev.Title}",
+                    Description = $"Event cancellation refund for prize pool ({totalPrizeAmount:N0} VNĐ) and fee ({ev.AppliedFee:N0} VNĐ): {ev.Title}",
                     CreatedAt = DateTime.UtcNow
                 });
 
-                // 5. Cập nhật trạng thái sự kiện và chuyên gia
+                // 4. Cập nhật trạng thái sự kiện
                 ev.Status = "Cancelled_By_Creator";
                 _eventRepo.Update(ev);
 
+                // 5. Cập nhật trạng thái các Chuyên gia (Experts) đã mời
                 var experts = await _eventExpertRepo.GetByEventIdAsync(eventId);
                 foreach (var exp in experts)
                 {
@@ -473,7 +531,7 @@ namespace Application.Services.EventServices
                     }
                 }
 
-                // 6. Hủy bỏ Background Job kích hoạt tự động (nếu có)
+                // 6. Xóa Scheduler Job kích hoạt tự động nếu có
                 var scheduler = await _schedulerFactory.GetScheduler();
                 var jobKey = new JobKey($"Job_Activate_{ev.EventId}", "EventGroup");
                 if (await scheduler.CheckExists(jobKey))

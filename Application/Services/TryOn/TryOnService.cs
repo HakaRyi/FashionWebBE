@@ -59,9 +59,9 @@ namespace Application.Services.TryOn
         }
 
         public async Task<Stream> ProcessTryOnAsync(
-            IFormFile modelImage,
-            IFormFile clothImage,
-            int? category)
+     IFormFile modelImage,
+     IFormFile clothImage,
+     int? category)
         {
             if (modelImage == null || modelImage.Length == 0)
                 throw new ArgumentException("The model image is invalid.");
@@ -101,35 +101,14 @@ namespace Application.Services.TryOn
                 wallet = await _walletRepository.GetByAccountIdAsync(userId)
                     ?? throw new KeyNotFoundException("Wallet not found.");
 
+                var adminWallet = await _walletRepository.GetByIdAsync(1)
+                    ?? throw new KeyNotFoundException("System Wallet (WalletId = 1) not found.");
+
                 availableBalance = wallet.Balance - wallet.LockedBalance;
                 if (availableBalance < _tryOnPrice)
                     throw new InvalidOperationException("Insufficient balance.");
 
                 await CheckSpendingLimitAsync(wallet, _tryOnPrice);
-
-                decimal balanceBefore = wallet.Balance;
-
-                wallet.Balance -= _tryOnPrice;
-                wallet.UpdatedAt = DateTime.UtcNow;
-                _walletRepository.Update(wallet);
-
-                var transaction = new Transaction
-                {
-                    WalletId = wallet.WalletId,
-                    PaymentId = null,
-                    TransactionCode = GenerateTransactionCode(),
-                    Amount = _tryOnPrice,
-                    BalanceBefore = balanceBefore,
-                    BalanceAfter = wallet.Balance,
-                    Type = TransactionType.Debit,
-                    ReferenceType = TransactionReferenceType.TryOn,
-                    ReferenceId = null,
-                    Description = "AI try-on payment.",
-                    CreatedAt = DateTime.UtcNow,
-                    Status = TransactionStatus.Success
-                };
-
-                await _transactionRepository.AddAsync(transaction);
 
                 var history = new TryOnHistory
                 {
@@ -138,8 +117,55 @@ namespace Application.Services.TryOn
                     Status = "Success",
                     CreatedAt = DateTime.UtcNow
                 };
-
                 await _tryOnHistoryRepository.AddAsync(history);
+                await _unitOfWork.SaveChangesAsync();
+
+                var commonTxCode = GenerateTransactionCode();
+                var currentTime = DateTime.UtcNow;
+
+                decimal userBalanceBefore = wallet.Balance;
+                wallet.Balance -= _tryOnPrice;
+                wallet.UpdatedAt = currentTime;
+                _walletRepository.Update(wallet);
+
+                var userTransaction = new Transaction
+                {
+                    WalletId = wallet.WalletId,
+                    PaymentId = null,
+                    TransactionCode = commonTxCode,
+                    Amount = _tryOnPrice,
+                    BalanceBefore = userBalanceBefore,
+                    BalanceAfter = wallet.Balance,
+                    Type = TransactionType.Debit,
+                    ReferenceType = TransactionReferenceType.TryOn,
+                    ReferenceId = history.TryOnId,
+                    Description = $"AI try-on payment.",
+                    CreatedAt = currentTime,
+                    Status = TransactionStatus.Success
+                };
+                await _transactionRepository.AddAsync(userTransaction);
+
+                decimal adminBalanceBefore = adminWallet.Balance;
+                adminWallet.Balance += _tryOnPrice;
+                adminWallet.UpdatedAt = currentTime;
+                _walletRepository.Update(adminWallet);
+
+                var adminTransaction = new Transaction
+                {
+                    WalletId = adminWallet.WalletId,
+                    PaymentId = null,
+                    TransactionCode = commonTxCode,
+                    Amount = _tryOnPrice,
+                    BalanceBefore = adminBalanceBefore,
+                    BalanceAfter = adminWallet.Balance,
+                    Type = "Credit",
+                    ReferenceType = TransactionReferenceType.TryOn,
+                    ReferenceId = history.TryOnId,
+                    Description = $"The system collects fees for the AI ​​Try-On service from User ID #{userId}.",
+                    CreatedAt = currentTime,
+                    Status = TransactionStatus.Success
+                };
+                await _transactionRepository.AddAsync(adminTransaction);
 
                 await _unitOfWork.CommitAsync();
 

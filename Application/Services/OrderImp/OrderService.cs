@@ -196,19 +196,13 @@ namespace Application.Services.OrderImp
             if (order.Status != OrderStatus.PendingPayment)
                 throw new InvalidOperationException("Only pending payment orders can be paid.");
 
-            var buyerWallet = await _walletRepo.GetByAccountIdAsync(buyerId)
-                ?? throw new KeyNotFoundException("Buyer wallet not found.");
-
-            if (buyerWallet.Balance < order.TotalAmount)
-                throw new InvalidOperationException("Insufficient balance. Please top up your wallet and try again.");
-
-            await CheckSpendingLimitAsync(buyerWallet, order.TotalAmount);
-
+            // Bắt đầu Transaction sớm để bao bọc toàn bộ quá trình Đọc-Khóa-Viết
             await _unitOfWork.BeginTransactionAsync();
 
             try
             {
-                buyerWallet = await _walletRepo.GetByAccountIdAsync(buyerId)
+                // SỬ DỤNG GetByIdForUpdateAsync ĐỂ KHÓA DÒNG (PESSIMISTIC LOCKING)
+                var buyerWallet = await _walletRepo.GetByAccountIdForUpdateAsync(buyerId)
                     ?? throw new KeyNotFoundException("Buyer wallet not found.");
 
                 if (buyerWallet.Balance < order.TotalAmount)
@@ -218,6 +212,7 @@ namespace Application.Services.OrderImp
 
                 decimal buyerBefore = buyerWallet.Balance;
 
+                // Khấu trừ số dư tài khoản
                 buyerWallet.Balance -= order.TotalAmount;
                 buyerWallet.UpdatedAt = DateTime.UtcNow;
                 _walletRepo.Update(buyerWallet);
@@ -246,14 +241,13 @@ namespace Application.Services.OrderImp
                     Amount = order.TotalAmount,
                     ServiceFee = order.ServiceFee,
                     Status = EscrowStatus.Held,
-                    Description = $"Escrow payment for order #{order.OrderId}",
+                    Description = $"Escrow held for order #{order.OrderId}. Total: {order.TotalAmount:N0} (Fee: {order.ServiceFee:N0})",
                     CreatedAt = DateTime.UtcNow
                 });
 
                 await _transactionRepo.AddAsync(new Transaction
                 {
                     WalletId = buyerWallet.WalletId,
-                    PaymentId = null,
                     TransactionCode = GenerateTransactionCode("TRX"),
                     Amount = order.TotalAmount,
                     BalanceBefore = buyerBefore,
@@ -261,28 +255,25 @@ namespace Application.Services.OrderImp
                     Type = TransactionType.Debit,
                     ReferenceType = TransactionReferenceType.OrderPayment,
                     ReferenceId = order.OrderId,
-                    Description = $"Pay for order #{order.OrderId}",
+                    Description = $"Payment for order #{order.OrderId}",
                     CreatedAt = DateTime.UtcNow,
                     Status = TransactionStatus.Success
                 });
 
                 await _unitOfWork.CommitAsync();
+
+                // Tối ưu: Map trực tiếp từ đối tượng trạng thái hiện tại thay vì ép DB chạy câu lệnh SELECT lại
+                var response = MapToResponse(order);
+                await NotifyOrder(response);
+                await NotifyOrderEventAsync(response, NotificationType.OrderPaid, buyerId);
+
+                return response;
             }
             catch
             {
                 await _unitOfWork.RollbackAsync();
                 throw;
             }
-
-            var updatedOrder = await _orderRepo.GetByIdAsync(order.OrderId)
-                ?? throw new KeyNotFoundException("Order not found after payment.");
-
-            var response = MapToResponse(updatedOrder);
-
-            await NotifyOrder(response);
-            await NotifyOrderEventAsync(response, NotificationType.OrderPaid, buyerId);
-
-            return response;
         }
 
         public async Task<Order?> GetOrderByIdAsync(int orderId)
@@ -377,10 +368,7 @@ namespace Application.Services.OrderImp
                         throw new InvalidOperationException("Delivered status must be updated by shipper flow.");
 
                     case OrderStatus.Completed:
-                        await CompleteOrderAndReleaseEscrowAsync(
-                            order,
-                            currentUserId,
-                            isSystemAction: false);
+                        await CompleteOrderAndReleaseEscrowAsync(order, currentUserId, isSystemAction: false);
                         break;
 
                     case OrderStatus.Cancelled:
@@ -394,6 +382,7 @@ namespace Application.Services.OrderImp
                 order.UpdatedAt = DateTime.UtcNow;
                 _orderRepo.Update(order);
 
+                await _unitOfWork.SaveChangesAsync();
                 await _unitOfWork.CommitAsync();
             }
             catch
@@ -691,9 +680,6 @@ namespace Application.Services.OrderImp
             if (order.Status != OrderStatus.Refunding)
                 throw new InvalidOperationException("Order is not in refunding status.");
 
-            var buyerWallet = await _walletRepo.GetByAccountIdAsync(order.BuyerId)
-                ?? throw new KeyNotFoundException("Buyer wallet not found.");
-
             var escrow = await _escrowRepo.GetByOrderIdAsync(orderId)
                 ?? throw new KeyNotFoundException("Escrow session not found.");
 
@@ -704,36 +690,35 @@ namespace Application.Services.OrderImp
 
             try
             {
+                // Khóa dòng dữ liệu ví tránh xung đột khi cộng tiền
+                var buyerWallet = await _walletRepo.GetByAccountIdForUpdateAsync(order.BuyerId)
+                    ?? throw new KeyNotFoundException("Buyer wallet not found.");
+
                 decimal buyerBefore = buyerWallet.Balance;
 
-                // 1: Hoàn trả tiền ký quỹ về ví Buyer
+                // Hoàn tiền cho Buyer lấy trực tiếp từ quỹ Escrow đang đóng băng
                 buyerWallet.Balance += order.TotalAmount;
                 buyerWallet.UpdatedAt = DateTime.UtcNow;
                 _walletRepo.Update(buyerWallet);
 
+                // Cập nhật nhật ký kết toán Escrow chuẩn: Kết xuất toàn bộ tiền về 0
                 escrow.Status = EscrowStatus.Refunded;
                 escrow.ResolvedAt = DateTime.UtcNow;
+                escrow.Description = $"Refund Approved: {order.TotalAmount:N0} returned to Buyer. Escrow closed.";
                 _escrowRepo.Update(escrow);
 
-                // 2: Xử lý trả hàng về kho cho Seller an toàn
+                // Trả lại tồn kho hàng hóa
                 foreach (var detail in order.OrderDetails)
                 {
-                    if (!detail.ItemVariantId.HasValue)
-                        continue;
+                    if (!detail.ItemVariantId.HasValue) continue;
 
-                    // Lock bản ghi đề phòng xung đột đồng thời (Race Condition)
                     var variant = await _variantRepo.GetByIdForUpdateAsync(detail.ItemVariantId.Value);
-                    if (variant != null)
+                    if (variant != null && variant.Status != ItemVariantStatus.Deleted && variant.Status != ItemVariantStatus.Archived)
                     {
-                        // CHỈ cộng kho nếu Seller chưa xóa / chưa archive sản phẩm trên sàn
-                        if (variant.Status != ItemVariantStatus.Deleted && variant.Status != ItemVariantStatus.Archived)
-                        {
-                            _variantRepo.Restock(variant, detail.Quantity);
-                        }
+                        _variantRepo.Restock(variant, detail.Quantity);
                     }
                 }
 
-                // 3: Cập nhật trạng thái các thực thể hệ thống
                 refundRequest.Status = "APPROVED";
                 refundRequest.ProcessedAt = DateTime.UtcNow;
                 _refundRepo.Update(refundRequest);
@@ -742,11 +727,9 @@ namespace Application.Services.OrderImp
                 order.UpdatedAt = DateTime.UtcNow;
                 _orderRepo.Update(order);
 
-                // 4: Ghi nhận lịch sử giao dịch (Transaction Logs) cho Buyer
                 await _transactionRepo.AddAsync(new Transaction
                 {
                     WalletId = buyerWallet.WalletId,
-                    PaymentId = null,
                     TransactionCode = GenerateTransactionCode("REF"),
                     Amount = order.TotalAmount,
                     BalanceBefore = buyerBefore,
@@ -754,29 +737,25 @@ namespace Application.Services.OrderImp
                     Type = TransactionType.Credit,
                     ReferenceType = TransactionReferenceType.OrderRefund,
                     ReferenceId = order.OrderId,
-                    Description = $"Refund for returned order #{order.OrderId}",
+                    Description = $"Refund approved for order #{order.OrderId}. Total amount returned.",
                     CreatedAt = DateTime.UtcNow,
                     Status = TransactionStatus.Success
                 });
 
                 await _unitOfWork.SaveChangesAsync();
                 await _unitOfWork.CommitAsync();
+
+                var response = MapToResponse(order);
+                await NotifyOrder(response);
+                await NotifyOrderEventAsync(response, NotificationType.RefundApproved, response.SellerId);
+
+                return response;
             }
             catch
             {
                 await _unitOfWork.RollbackAsync();
                 throw;
             }
-
-            var updatedOrder = await _orderRepo.GetByIdAsync(orderId)
-                ?? throw new KeyNotFoundException("Order not found after refund approval.");
-
-            var response = MapToResponse(updatedOrder);
-
-            await NotifyOrder(response);
-            await NotifyOrderEventAsync(response, NotificationType.RefundApproved, response.SellerId);
-
-            return response;
         }
 
         public async Task<OrderResponse> AutoCompleteDeliveredOrderAsync(int orderId)
@@ -1017,21 +996,21 @@ namespace Application.Services.OrderImp
 
         private async Task HandleCancelAsync(Order order, int currentUserId)
         {
-            if (order.BuyerId != currentUserId && order.SellerId != currentUserId)
-                throw new UnauthorizedAccessException("You are not allowed to cancel this order.");
-
             // TRƯỜNG HỢP 1: Hủy khi đơn chưa thanh toán
             if (order.Status == OrderStatus.PendingPayment)
             {
-                foreach (var detail in order.OrderDetails)
+                if (order.OrderDetails != null)
                 {
-                    if (!detail.ItemVariantId.HasValue)
-                        continue;
-
-                    var variant = await _variantRepo.GetByIdForUpdateAsync(detail.ItemVariantId.Value);
-                    if (variant != null)
+                    foreach (var detail in order.OrderDetails)
                     {
-                        _variantRepo.ReleaseReservedStock(variant, detail.Quantity);
+                        if (!detail.ItemVariantId.HasValue) continue;
+
+                        // Khóa dòng biến thể hàng hóa để tránh race condition khi hoàn kho
+                        var variant = await _variantRepo.GetByIdForUpdateAsync(detail.ItemVariantId.Value);
+                        if (variant != null)
+                        {
+                            _variantRepo.ReleaseReservedStock(variant, detail.Quantity);
+                        }
                     }
                 }
 
@@ -1043,49 +1022,56 @@ namespace Application.Services.OrderImp
             // TRƯỜNG HỢP 2: Hủy khi đơn đã thanh toán & đang xử lý (Processing)
             if (order.Status == OrderStatus.Processing)
             {
-                var buyerWallet = await _walletRepo.GetByAccountIdAsync(order.BuyerId)
+                var buyerWallet = await _walletRepo.GetByAccountIdForUpdateAsync(order.BuyerId)
                     ?? throw new KeyNotFoundException("Buyer wallet not found.");
 
                 decimal buyerBefore = buyerWallet.Balance;
 
-                // Hoàn tiền gốc + phí dịch vụ về lại cho người mua
+                // Hoàn tiền về ví
                 buyerWallet.Balance += order.TotalAmount;
                 buyerWallet.UpdatedAt = DateTime.UtcNow;
                 _walletRepo.Update(buyerWallet);
 
+                // Xử lý cổng Escrow đóng băng tiền kì trước
                 var escrow = order.EscrowSession ?? await _escrowRepo.GetByOrderIdAsync(order.OrderId);
                 if (escrow != null)
                 {
+                    if (escrow.Status != EscrowStatus.Held)
+                        throw new InvalidOperationException("Escrow session is not in a valid state to refund.");
+
                     escrow.Status = EscrowStatus.Refunded;
                     escrow.ResolvedAt = DateTime.UtcNow;
+                    escrow.Description = $"Order Cancelled: Money released back to buyer. ActorId: {currentUserId}";
                     _escrowRepo.Update(escrow);
                 }
 
-                foreach (var detail in order.OrderDetails)
+                // Hoàn trả lại số lượng tồn kho thực tế
+                if (order.OrderDetails != null)
                 {
-                    if (!detail.ItemVariantId.HasValue)
-                        continue;
-
-                    var variant = await _variantRepo.GetByIdForUpdateAsync(detail.ItemVariantId.Value);
-                    if (variant != null)
+                    foreach (var detail in order.OrderDetails)
                     {
-                        _variantRepo.Restock(variant, detail.Quantity);
+                        if (!detail.ItemVariantId.HasValue) continue;
+
+                        var variant = await _variantRepo.GetByIdForUpdateAsync(detail.ItemVariantId.Value);
+                        if (variant != null)
+                        {
+                            _variantRepo.Restock(variant, detail.Quantity);
+                        }
                     }
                 }
 
-                // Lưu Transaction hoàn tiền cho Buyer
+                // Tạo bản ghi biến động số dư tài chính
                 await _transactionRepo.AddAsync(new Transaction
                 {
                     WalletId = buyerWallet.WalletId,
-                    PaymentId = null,
-                    TransactionCode = GenerateTransactionCode("TRX"),
+                    TransactionCode = GenerateTransactionCode("REF"),
                     Amount = order.TotalAmount,
                     BalanceBefore = buyerBefore,
                     BalanceAfter = buyerWallet.Balance,
                     Type = TransactionType.Credit,
                     ReferenceType = TransactionReferenceType.OrderRefund,
                     ReferenceId = order.OrderId,
-                    Description = $"Refund for order #{order.OrderId}",
+                    Description = $"Refund due to order #{order.OrderId} cancellation before shipping.",
                     CreatedAt = DateTime.UtcNow,
                     Status = TransactionStatus.Success
                 });

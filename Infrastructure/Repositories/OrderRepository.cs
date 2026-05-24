@@ -262,7 +262,7 @@ namespace Infrastructure.Repositories
             return (orders, totalCount);
         }
 
-        public async Task<(List<Order> Orders, int TotalCount)> GetPagedOrdersForAdminAsync(int pageNumber, int pageSize, string? status)
+        public async Task<(List<Order> Orders, int TotalCount)> GetPagedOrdersForAdminAsync(int pageNumber, int pageSize, string? status, string? search)
         {
             var query = _context.Set<Order>()
                 .Include(o => o.Buyer)
@@ -272,6 +272,17 @@ namespace Infrastructure.Repositories
             if (!string.IsNullOrEmpty(status))
             {
                 query = query.Where(o => o.Status.ToLower() == status.ToLower());
+            }
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                string searchLower = search.ToLower();
+                query = query.Where(o =>
+                    (o.OrderCode != null && o.OrderCode.ToLower().Contains(searchLower)) ||
+                    (o.ReceiverName != null && o.ReceiverName.ToLower().Contains(searchLower)) ||
+                    (o.Buyer != null && o.Buyer.UserName != null && o.Buyer.UserName.ToLower().Contains(searchLower)) ||
+                    (o.Seller != null && o.Seller.UserName != null && o.Seller.UserName.ToLower().Contains(searchLower))
+                );
             }
 
             int totalCount = await query.CountAsync();

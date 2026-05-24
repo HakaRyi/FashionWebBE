@@ -114,6 +114,7 @@
 
         // Thông tin tài chính & Cấu hình
         public decimal AppliedFee { get; set; }
+        public decimal EntryFee { get; set; }
         public decimal TotalPrizePool { get; set; }
         public int MinExperts { get; set; }
         public int CurrentAcceptedExperts { get; set; }

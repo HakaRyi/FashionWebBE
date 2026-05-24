@@ -1,4 +1,4 @@
-using Application.Interfaces;
+﻿using Application.Interfaces;
 using Application.Request.ItemReq;
 using Application.Request.ItemRequest;
 using Application.Response.ItemResp;
@@ -174,13 +174,13 @@ namespace Application.Services.Items
             string userContext = await BuildUserContextAsync(request);
 
             string taskInstruction = $@"
-### ROLE: Expert Fashion Stylist
+                ### ROLE: Expert Fashion Stylist
 
-### USER CONTEXT:
-{userContext}
+                ### USER CONTEXT:
+                {userContext}
 
-### USER INPUT:
-'{request.Prompt}'";
+                ### USER INPUT:
+                '{request.Prompt}'";
 
             var scopeRequestForRepo = request.Adapt<SmartRecommendationDto>();
 
@@ -192,18 +192,18 @@ namespace Application.Services.Items
                 {
                     taskInstruction += $@"
 
-### REFERENCE ITEM:
-The user already owns or wears this item:
-- Category: {referenceItem.Category}
-- Color: {referenceItem.MainColor}
-- Style: {referenceItem.Style}
-- Material: {referenceItem.Material}
+                        ### REFERENCE ITEM:
+                        The user already owns or wears this item:
+                        - Category: {referenceItem.Category}
+                        - Color: {referenceItem.MainColor}
+                        - Style: {referenceItem.Style}
+                        - Material: {referenceItem.Material}
 
-### TASK:
-1. Recommend one complementary fashion item that creates a good outfit with the reference item.
-2. Consider the user context when choosing the style, color, material, and category.
-3. Do not output metadata for the reference item.
-4. Output metadata only for the new recommended item.";
+                        ### TASK:
+                        1. Recommend one complementary fashion item that creates a good outfit with the reference item.
+                        2. Consider the user context when choosing the style, color, material, and category.
+                        3. Do not output metadata for the reference item.
+                        4. Output metadata only for the new recommended item.";
 
                     scopeRequestForRepo.ReferenceCategory = referenceItem.Category;
                 }
@@ -212,16 +212,16 @@ The user already owns or wears this item:
             {
                 taskInstruction += @"
 
-### TASK:
-Convert the user request into structured fashion search metadata.";
+                ### TASK:
+                Convert the user request into structured fashion search metadata.";
             }
 
             taskInstruction += @"
 
-### CONSTRAINT:
-- Do NOT include the reference item in the output.
-- Be specific about material, style, category, and color.
-- Output only the structured metadata string for searching.";
+            ### CONSTRAINT:
+            - Do NOT include the reference item in the output.
+            - Be specific about material, style, category, and color.
+            - Output only the structured metadata string for searching.";
 
             var intent = await _geminiService.AnalyzePromptAsync(taskInstruction);
             Vector queryVector = await _aiService.GetTextEmbeddingAsync(intent.CleanPrompt);
@@ -243,40 +243,22 @@ Convert the user request into structured fashion search metadata.";
                 wallet = await _walletRepository.GetByAccountIdAsync(currentAccountId)
                     ?? throw new KeyNotFoundException("Wallet not found.");
 
+                var adminWallet = await _walletRepository.GetByIdAsync(1)
+                ?? throw new KeyNotFoundException("System Wallet (WalletId = 1) not found.");
+
                 availableBalance = wallet.Balance - wallet.LockedBalance;
                 if (availableBalance < _smartRecommendPrice)
                     throw new InvalidOperationException("Insufficient balance.");
 
-                decimal balanceBefore = wallet.Balance;
-
-                wallet.Balance -= _smartRecommendPrice;
-                wallet.UpdatedAt = DateTime.UtcNow;
-                _walletRepository.Update(wallet);
-
-                var transaction = new Transaction
-                {
-                    WalletId = wallet.WalletId,
-                    PaymentId = null,
-                    TransactionCode = $"RECOM-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}",
-                    Amount = _smartRecommendPrice,
-                    BalanceBefore = balanceBefore,
-                    BalanceAfter = wallet.Balance,
-                    Type = TransactionType.Debit,
-                    ReferenceType = TransactionReferenceType.AIRecommendation,
-                    ReferenceId = null,
-                    Description = "Smart outfit recommendation payment",
-                    CreatedAt = DateTime.UtcNow,
-                    Status = TransactionStatus.Success
-                };
-
-                await _transactionRepository.AddAsync(transaction);
+                var currentTime = DateTime.UtcNow;
+                var commonTxCode = $"RECOM-{currentTime:yyyyMMddHHmmssfff}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
 
                 var history = new RecommendationHistory
                 {
                     AccountId = currentAccountId,
                     ReferenceItemId = (request.ReferenceItemId.HasValue && request.ReferenceItemId.Value > 0) ? request.ReferenceItemId.Value : null,
                     Prompt = request.Prompt,
-                    CreatedAt = DateTime.UtcNow,
+                    CreatedAt = currentTime,
                     RecommendedItems = candidates.Select(c => new RecommendationDetail
                     {
                         ItemId = c.ItemId
@@ -284,6 +266,55 @@ Convert the user request into structured fashion search metadata.";
                 };
 
                 await _recommendationHistoryRepository.AddAsync(history);
+                await _unitOfWork.SaveChangesAsync();
+
+                int referenceId = history.Id;
+
+                decimal userBalanceBefore = wallet.Balance;
+                wallet.Balance -= _smartRecommendPrice;
+                wallet.UpdatedAt = currentTime;
+                _walletRepository.Update(wallet);
+
+                var userTransaction = new Transaction
+                {
+                    WalletId = wallet.WalletId,
+                    PaymentId = null,
+                    TransactionCode = commonTxCode,
+                    Amount = _smartRecommendPrice,
+                    BalanceBefore = userBalanceBefore,
+                    BalanceAfter = wallet.Balance,
+                    Type = TransactionType.Debit,
+                    ReferenceType = TransactionReferenceType.AIRecommendation,
+                    ReferenceId = referenceId,
+                    Description = "Smart outfit recommendation payment.",
+                    CreatedAt = currentTime,
+                    Status = TransactionStatus.Success
+                };
+                await _transactionRepository.AddAsync(userTransaction);
+
+                decimal adminBalanceBefore = adminWallet.Balance;
+                adminWallet.Balance += _smartRecommendPrice;
+                adminWallet.UpdatedAt = currentTime;
+                _walletRepository.Update(adminWallet);
+
+                var adminTransaction = new Transaction
+                {
+                    WalletId = adminWallet.WalletId,
+                    PaymentId = null,
+                    TransactionCode = commonTxCode,
+                    Amount = _smartRecommendPrice,
+                    BalanceBefore = adminBalanceBefore,
+                    BalanceAfter = adminWallet.Balance,
+                    Type = "Credit",
+                    ReferenceType = TransactionReferenceType.AIRecommendation,
+                    ReferenceId = referenceId,
+                    Description = $"The AI ​​Smart Recommendation service fee collection system uses User ID #{currentAccountId}.",
+                    CreatedAt = currentTime,
+                    Status = TransactionStatus.Success
+                };
+
+                await _transactionRepository.AddAsync(adminTransaction);
+
                 await _unitOfWork.CommitAsync();
 
                 return candidates.Adapt<List<ItemResponseDto>>();

@@ -25,13 +25,13 @@ namespace Application.Services.OrderImp
             _transactionRepository = transactionRepository;
         }
 
-        public async Task<OrderAdminListPagedResponse> GetAllOrdersAsync(int pageNumber, int pageSize, string? status = null)
+        public async Task<OrderAdminListPagedResponse> GetAllOrdersAsync(int pageNumber, int pageSize, string? status = null, string? search = null)
         {
             pageNumber = pageNumber < 1 ? 1 : pageNumber;
             pageSize = pageSize < 1 ? 10 : pageSize;
 
-            // Gọi xuống tầng Repository để lấy dữ liệu thô
-            var (orders, totalCount) = await _orderRepository.GetPagedOrdersForAdminAsync(pageNumber, pageSize, status);
+            // Gọi xuống tầng Repository và truyền thêm biến search
+            var (orders, totalCount) = await _orderRepository.GetPagedOrdersForAdminAsync(pageNumber, pageSize, status, search);
 
             // Mapping sang DTO tại tầng Service
             var orderResponses = orders.Select(o => new OrderAdminResponse

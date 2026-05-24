@@ -53,6 +53,20 @@ namespace Infrastructure.Repositories
                 .ToListAsync();
         }
 
+        public async Task<Wallet?> GetByAccountIdForUpdateAsync(int accountId)
+        {
+            var wallet = await _context.Wallets
+                .FromSqlInterpolated($"SELECT * FROM public.\"Wallet\" WHERE \"account_id\" = {accountId} FOR UPDATE")
+                .FirstOrDefaultAsync();
+
+            if (wallet != null)
+            {
+                await _context.Entry(wallet).Reference(x => x.Account).LoadAsync();
+            }
+
+            return wallet;
+        }
+
         public async Task AddAsync(Wallet wallet)
         {
             await _context.Wallets.AddAsync(wallet);

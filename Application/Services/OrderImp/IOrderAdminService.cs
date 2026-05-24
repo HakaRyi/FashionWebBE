@@ -9,7 +9,7 @@ namespace Application.Services.OrderImp
 {
     public interface IOrderAdminService
     {
-        Task<OrderAdminListPagedResponse> GetAllOrdersAsync(int pageNumber, int pageSize, string? status = null);
+        Task<OrderAdminListPagedResponse> GetAllOrdersAsync(int pageNumber, int pageSize, string? status = null, string? search = null);
         Task<OrderAdminDetailResponse> GetOrderDetailForAdminAsync(string orderCode);
     }
 }
