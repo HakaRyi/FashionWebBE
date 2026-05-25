@@ -93,5 +93,5 @@ public partial class Account : IdentityUser<int>
 
     public virtual ICollection<Collection> Collections { get; set; } = new List<Collection>();
 
-    //public virtual ICollection<PostMention> Mentions { get; set; } = new List<PostMention>();
+    public virtual ICollection<PostMention> PostMentions { get; set; } = new List<PostMention>();
 }

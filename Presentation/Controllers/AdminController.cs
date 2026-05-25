@@ -1,7 +1,5 @@
-﻿using Application.Interfaces;
-using Application.Request.AdminReq;
+﻿using Application.Request.AdminReq;
 using Application.Services.AdminImp;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Presentation.Controllers;
@@ -25,8 +23,6 @@ public class AdminController : ControllerBase
         _adminDashboardService = adminDashboardService;
     }
 
-    #region OLD DASHBOARD
-
     [HttpGet("dashboard-information")]
     public async Task<IActionResult> GetAdminDashboard(
         [FromQuery] DashboardRequest request,
@@ -36,6 +32,26 @@ public class AdminController : ControllerBase
             .GetDashboardInformation(request);
 
         return Ok(data);
+    }
+
+    [HttpGet("social-dashboard/users")]
+    public async Task<IActionResult> GetUserDashboard(
+        CancellationToken cancellationToken)
+    {
+        var result = await _adminDashboardService
+            .GetUserDashboardAsync();
+
+        return Ok(result);
+    }
+
+    [HttpGet("social-dashboard/posts")]
+    public async Task<IActionResult> GetPostDashboard(
+    CancellationToken cancellationToken)
+    {
+        var result = await _adminDashboardService
+            .GetPostDashboardAsync();
+
+        return Ok(result);
     }
 
     [HttpGet("transactions")]
@@ -83,67 +99,6 @@ public class AdminController : ControllerBase
         return Ok(result);
     }
 
-    #endregion
-
-    #region SOCIAL DASHBOARD
-
-    [HttpGet("dashboard/overview")]
-    public async Task<IActionResult> GetOverview(
-        CancellationToken cancellationToken)
-    {
-        var result = await _adminDashboardService
-            .GetOverviewAsync(cancellationToken);
-
-        return Ok(result);
-    }
-
-    [HttpGet("dashboard/charts")]
-    public async Task<IActionResult> GetCharts(
-        [FromQuery] DateTime? startDate,
-        [FromQuery] DateTime? endDate,
-        CancellationToken cancellationToken)
-    {
-        var fromDate =
-            startDate?.Date ??
-            DateTime.UtcNow.AddDays(-30);
-
-        var toDate =
-            endDate?.Date ??
-            DateTime.UtcNow;
-
-        var result = await _adminDashboardService
-            .GetChartsAsync(
-                fromDate,
-                toDate,
-                cancellationToken);
-
-        return Ok(result);
-    }
-
-    [HttpGet("dashboard/analytics")]
-    public async Task<IActionResult> GetAnalytics(
-        CancellationToken cancellationToken)
-    {
-        var result = await _adminDashboardService
-            .GetAnalyticsAsync(cancellationToken);
-
-        return Ok(result);
-    }
-
-    [HttpGet("dashboard/recent")]
-    public async Task<IActionResult> GetRecent(
-        CancellationToken cancellationToken)
-    {
-        var result = await _adminDashboardService
-            .GetRecentAsync(cancellationToken);
-
-        return Ok(result);
-    }
-
-    #endregion
-
-    #region USER MANAGEMENT
-
     [HttpPut("users/{accountId}/ban")]
     public async Task<IActionResult> BanUser(
         [FromRoute] int accountId,
@@ -172,10 +127,6 @@ public class AdminController : ControllerBase
         });
     }
 
-    #endregion
-
-    #region EVENT MANAGEMENT
-
     [HttpPut("events/{eventId}/check")]
     public async Task<IActionResult> CheckEvent(
         [FromRoute] int eventId,
@@ -190,6 +141,4 @@ public class AdminController : ControllerBase
             Message = "Admin checked event successfully."
         });
     }
-
-    #endregion
 }

@@ -33,5 +33,6 @@ namespace Domain.Interfaces
         Task<(List<Post> Posts, List<Account> Users)> SearchRawDataAsync(string keyword, int limit);
         Task<List<int>> GetLikedPostIdsAsync(int viewerId, List<int> postIds);
         Task<bool> AnyAsync(Expression<Func<Post, bool>> predicate);
+        Task<List<Post>> GetRecentPostsAsync(int days);
     }
 }

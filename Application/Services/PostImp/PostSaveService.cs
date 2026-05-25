@@ -50,7 +50,6 @@ namespace Application.Services.PostImp
             }
             catch (DbUpdateException)
             {
-                // trường hợp race condition nhưng DB đã chặn bằng unique index
                 return false;
             }
         }

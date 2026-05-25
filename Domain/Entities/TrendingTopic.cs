@@ -4,7 +4,7 @@
     {
         public int Id { get; set; }
 
-        public string Keyword { get; set; } = string.Empty;
+        public int HashtagId { get; set; }
 
         public double Score { get; set; }
 
@@ -13,5 +13,7 @@
         public int TotalEngagement { get; set; }
 
         public DateTime CalculatedAt { get; set; } = DateTime.UtcNow;
+
+        public Hashtag Hashtag { get; set; } = null!;
     }
 }

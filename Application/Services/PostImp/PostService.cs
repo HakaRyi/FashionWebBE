@@ -57,7 +57,6 @@ namespace Application.Services.PostImp
             _cacheService = cacheService;
         }
 
-
         public async Task<PostResponse> CreatePostAsync(int accountId, CreatePostDto dto)
         {
             ValidateCreatePost(dto?.Content, dto?.Images);

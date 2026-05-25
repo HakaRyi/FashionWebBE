@@ -1,5 +1,4 @@
-﻿using Application.Interfaces;
-using Domain.Contracts.Admin;
+﻿using Domain.Contracts.Admin;
 using Domain.Interfaces;
 
 namespace Application.Services.AdminImp;
@@ -7,65 +6,23 @@ namespace Application.Services.AdminImp;
 public class AdminSocialDashboardService
     : IAdminSocialDashboardService
 {
-    private readonly IAdminSocialDashboardRepository
-        _dashboardRepository;
+    private readonly IAdminUserDashboardRepository _dashboardRepository;
+    private readonly IAdminPostDashboardRepository _postDashboardRepository;
 
     public AdminSocialDashboardService(
-        IAdminSocialDashboardRepository dashboardRepository)
+        IAdminUserDashboardRepository dashboardRepository, IAdminPostDashboardRepository postDashboardRepository)
     {
         _dashboardRepository = dashboardRepository;
+        _postDashboardRepository = postDashboardRepository;
     }
 
-    #region OVERVIEW
-
-    public async Task<SocialDashboardOverviewResponse>
-        GetOverviewAsync(
-            CancellationToken cancellationToken = default)
+    public async Task<AdminUserDashboardDto> GetUserDashboardAsync()
     {
-        return await _dashboardRepository
-            .GetOverviewAsync(cancellationToken);
+        return await _dashboardRepository.GetUserDashboardAsync();
     }
 
-    #endregion
-
-    #region CHARTS
-
-    public async Task<DashboardChartsResponse>
-        GetChartsAsync(
-            DateTime startDate,
-            DateTime endDate,
-            CancellationToken cancellationToken = default)
+    public async Task<AdminPostDashboardDto> GetPostDashboardAsync()
     {
-        return await _dashboardRepository
-            .GetChartsAsync(
-                startDate,
-                endDate,
-                cancellationToken);
+        return await _postDashboardRepository.GetPostDashboardAsync();
     }
-
-    #endregion
-
-    #region ANALYTICS
-
-    public async Task<DashboardAnalyticsResponse>
-        GetAnalyticsAsync(
-            CancellationToken cancellationToken = default)
-    {
-        return await _dashboardRepository
-            .GetAnalyticsAsync(cancellationToken);
-    }
-
-    #endregion
-
-    #region RECENT
-
-    public async Task<DashboardRecentResponse>
-        GetRecentAsync(
-            CancellationToken cancellationToken = default)
-    {
-        return await _dashboardRepository
-            .GetRecentAsync(cancellationToken);
-    }
-
-    #endregion
 }

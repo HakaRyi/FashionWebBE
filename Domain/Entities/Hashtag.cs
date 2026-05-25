@@ -11,5 +11,7 @@
         public DateTime CreatedAt { get; set; }
 
         public ICollection<PostHashtag> PostHashtags { get; set; } = new List<PostHashtag>();
+
+        public ICollection<TrendingTopic> TrendingTopics { get; set; } = new List<TrendingTopic>();
     }
 }

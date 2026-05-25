@@ -30,10 +30,6 @@ namespace Domain.Entities
 
         public int? ShareCount { get; set; }
 
-        public int? ViewCount { get; set; }
-
-        public string? SearchVector { get; set; }
-
         public virtual Account Account { get; set; } = null!;
 
         public virtual ICollection<Comment> Comments { get; set; } = new List<Comment>();
@@ -54,8 +50,8 @@ namespace Domain.Entities
 
         public virtual ICollection<ExpertRating> ExpertRatings { get; set; } = new List<ExpertRating>();
 
-        //public virtual ICollection<PostHashtag> PostHashtags { get; set; } = new List<PostHashtag>();
+        public virtual ICollection<PostHashtag> PostHashtags { get; set; } = new List<PostHashtag>();
 
-        //public virtual ICollection<PostMention> Mentions { get; set; } = new List<PostMention>();
+        public virtual ICollection<PostMention> PostMentions { get; set; } = new List<PostMention>();
     }
 }

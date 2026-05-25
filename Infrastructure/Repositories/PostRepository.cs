@@ -548,5 +548,27 @@ namespace Infrastructure.Repositories
         {
             return await _db.Posts.AnyAsync(predicate);
         }
+
+        public async Task<List<Post>> GetRecentPostsAsync(int days)
+        {
+            var fromDate = DateTime.UtcNow.AddDays(-days);
+
+            return await _db.Posts
+                .AsNoTracking()
+                .Where(p =>
+                    p.CreatedAt != null &&
+                    p.CreatedAt >= fromDate &&
+                    p.Status == PostStatus.Published &&
+                    p.Visibility == PostVisibility.Visible)
+                .Select(p => new Post
+                {
+                    PostId = p.PostId,
+                    LikeCount = p.LikeCount,
+                    CommentCount = p.CommentCount,
+                    ShareCount = p.ShareCount,
+                    CreatedAt = p.CreatedAt
+                })
+                .ToListAsync();
+        }
     }
 }
