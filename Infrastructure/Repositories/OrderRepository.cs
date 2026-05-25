@@ -331,6 +331,7 @@ namespace Infrastructure.Repositories
             return await _context.Set<Order>()
                 .Include(o => o.Buyer)
                 .Include(o => o.Seller)
+                .Include(o => o.RefundRequest)
                 .Include(o => o.OrderDetails)
                     .ThenInclude(d => d.Item)
                     .ThenInclude(i => i.Images)

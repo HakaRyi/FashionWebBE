@@ -950,9 +950,9 @@ namespace Application.Services.OrderImp
         }
 
         private async Task CompleteOrderAndReleaseEscrowAsync(
-        Order order,
-        int actorId,
-        bool isSystemAction = false)
+            Order order,
+            int actorId,
+            bool isSystemAction = false)
         {
             if (!isSystemAction && order.BuyerId != actorId)
                 throw new UnauthorizedAccessException("Only the buyer can complete this order.");
@@ -1093,7 +1093,6 @@ namespace Application.Services.OrderImp
                 _walletRepo.Update(buyerWallet);
 
                 // Xử lý cổng Escrow đóng băng tiền kì trước
-                var escrow = order.EscrowSession ?? await _escrowRepo.GetByOrderIdAsync(order.OrderId);
                 if (escrow != null)
                 {
                     if (escrow.Status != EscrowStatus.Held)
