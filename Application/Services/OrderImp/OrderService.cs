@@ -17,7 +17,6 @@ namespace Application.Services.OrderImp
 {
     public class OrderService : IOrderService
     {
-        private const decimal ServiceFee = 15000m;
 
         private readonly IOrderRepository _orderRepo;
         private readonly IItemVariantRepository _variantRepo;
@@ -29,6 +28,7 @@ namespace Application.Services.OrderImp
         private readonly IRefundRequestRepository _refundRepo;
         private readonly ICloudStorageService _cloudStorageService;
         private readonly INotificationService _notificationService;
+        private readonly ISystemSettingRepository _settingRepo;
 
         public OrderService(
             IOrderRepository orderRepo,
@@ -40,7 +40,8 @@ namespace Application.Services.OrderImp
             IUnitOfWork unitOfWork,
             IRefundRequestRepository refundRepo,
             ICloudStorageService cloudStorageService,
-            INotificationService notificationService)
+            INotificationService notificationService,
+            ISystemSettingRepository settingRepo)
         {
             _orderRepo = orderRepo;
             _variantRepo = variantRepo;
@@ -52,7 +53,11 @@ namespace Application.Services.OrderImp
             _refundRepo = refundRepo;
             _cloudStorageService = cloudStorageService;
             _notificationService = notificationService;
+            _settingRepo = settingRepo;
         }
+
+        private async Task<decimal> GetServiceFeeAsync()
+        => await _settingRepo.GetDecimalValueAsync("ORDER_SERVICE_FEE", 15000m);
 
         public async Task<OrderResponse> CreateOrderAsync(int sellerId, int buyerId, CreateOrderRequest request)
         {
@@ -70,6 +75,8 @@ namespace Application.Services.OrderImp
 
             if (request.Details.Any(d => d.Quantity <= 0))
                 throw new ArgumentException("Product quantity must be greater than 0.");
+
+            decimal serviceFee = await GetServiceFeeAsync();
 
             await _unitOfWork.BeginTransactionAsync();
 
@@ -147,8 +154,8 @@ namespace Application.Services.OrderImp
                     SellerId = detectedSellerId ?? sellerId,
                     OrderCode = GenerateOrderCode(),
                     SubTotal = subTotal,
-                    ServiceFee = ServiceFee,
-                    TotalAmount = subTotal + ServiceFee,
+                    ServiceFee = serviceFee,
+                    TotalAmount = subTotal + serviceFee,
                     Status = OrderStatus.PendingPayment,
                     Note = request.Note,
                     ShippingAddress = request.ShippingAddress,
@@ -239,7 +246,7 @@ namespace Application.Services.OrderImp
                     Amount = order.TotalAmount,
                     ServiceFee = order.ServiceFee,
                     Status = EscrowStatus.Held,
-                    Description = $"Escrow payment for order {order.OrderCode}",
+                    Description = $"Escrow payment for order #{order.OrderId}",
                     CreatedAt = DateTime.UtcNow
                 });
 
@@ -254,7 +261,7 @@ namespace Application.Services.OrderImp
                     Type = TransactionType.Debit,
                     ReferenceType = TransactionReferenceType.OrderPayment,
                     ReferenceId = order.OrderId,
-                    Description = $"Pay for order {order.OrderCode}",
+                    Description = $"Pay for order #{order.OrderId}",
                     CreatedAt = DateTime.UtcNow,
                     Status = TransactionStatus.Success
                 });
@@ -618,14 +625,14 @@ namespace Application.Services.OrderImp
 
         public async Task<OrderResponse> RejectRefundAsync(int orderId, string adminNote)
         {
-            var order = await _orderRepo.GetByIdAsync(orderId)
-                ?? throw new KeyNotFoundException("Order not found.");
-
             var refundRequest = await _refundRepo.GetByOrderIdAsync(orderId)
                 ?? throw new KeyNotFoundException("Refund request not found.");
 
             if (refundRequest.Status != "PENDING")
                 throw new InvalidOperationException("Refund request already processed.");
+
+            var order = await _orderRepo.GetByIdAsync(orderId)
+                ?? throw new KeyNotFoundException("Order not found.");
 
             if (order.Status != OrderStatus.Refunding)
                 throw new InvalidOperationException("Order is not in refunding status.");
@@ -640,13 +647,14 @@ namespace Application.Services.OrderImp
                 _refundRepo.Update(refundRequest);
 
                 order.Status = OrderStatus.Delivered;
+                _orderRepo.Update(order);
 
                 await CompleteOrderAndReleaseEscrowAsync(
                     order,
                     order.BuyerId,
                     isSystemAction: true);
 
-                _orderRepo.Update(order);
+                await _unitOfWork.SaveChangesAsync();
 
                 await _unitOfWork.CommitAsync();
             }
@@ -662,6 +670,8 @@ namespace Application.Services.OrderImp
             var response = MapToResponse(updatedOrder);
 
             await NotifyOrder(response);
+
+            await NotifyOrderEventAsync(response, NotificationType.RefundRejected, response.BuyerId);
             await NotifyOrderEventAsync(response, NotificationType.RefundRejected, response.SellerId);
 
             return response;
@@ -696,6 +706,7 @@ namespace Application.Services.OrderImp
             {
                 decimal buyerBefore = buyerWallet.Balance;
 
+                // 1: Hoàn trả tiền ký quỹ về ví Buyer
                 buyerWallet.Balance += order.TotalAmount;
                 buyerWallet.UpdatedAt = DateTime.UtcNow;
                 _walletRepo.Update(buyerWallet);
@@ -704,18 +715,25 @@ namespace Application.Services.OrderImp
                 escrow.ResolvedAt = DateTime.UtcNow;
                 _escrowRepo.Update(escrow);
 
+                // 2: Xử lý trả hàng về kho cho Seller an toàn
                 foreach (var detail in order.OrderDetails)
                 {
                     if (!detail.ItemVariantId.HasValue)
                         continue;
 
+                    // Lock bản ghi đề phòng xung đột đồng thời (Race Condition)
                     var variant = await _variantRepo.GetByIdForUpdateAsync(detail.ItemVariantId.Value);
                     if (variant != null)
                     {
-                        _variantRepo.Restock(variant, detail.Quantity);
+                        // CHỈ cộng kho nếu Seller chưa xóa / chưa archive sản phẩm trên sàn
+                        if (variant.Status != ItemVariantStatus.Deleted && variant.Status != ItemVariantStatus.Archived)
+                        {
+                            _variantRepo.Restock(variant, detail.Quantity);
+                        }
                     }
                 }
 
+                // 3: Cập nhật trạng thái các thực thể hệ thống
                 refundRequest.Status = "APPROVED";
                 refundRequest.ProcessedAt = DateTime.UtcNow;
                 _refundRepo.Update(refundRequest);
@@ -724,6 +742,7 @@ namespace Application.Services.OrderImp
                 order.UpdatedAt = DateTime.UtcNow;
                 _orderRepo.Update(order);
 
+                // 4: Ghi nhận lịch sử giao dịch (Transaction Logs) cho Buyer
                 await _transactionRepo.AddAsync(new Transaction
                 {
                     WalletId = buyerWallet.WalletId,
@@ -735,11 +754,12 @@ namespace Application.Services.OrderImp
                     Type = TransactionType.Credit,
                     ReferenceType = TransactionReferenceType.OrderRefund,
                     ReferenceId = order.OrderId,
-                    Description = $"Refund for returned order {order.OrderCode}",
+                    Description = $"Refund for returned order #{order.OrderId}",
                     CreatedAt = DateTime.UtcNow,
                     Status = TransactionStatus.Success
                 });
 
+                await _unitOfWork.SaveChangesAsync();
                 await _unitOfWork.CommitAsync();
             }
             catch
@@ -763,9 +783,6 @@ namespace Application.Services.OrderImp
         {
             var order = await _orderRepo.GetByIdAsync(orderId)
                 ?? throw new KeyNotFoundException("Order not found.");
-
-            if (order.Status != OrderStatus.Delivered)
-                throw new InvalidOperationException("Only delivered orders can be auto completed.");
 
             await _unitOfWork.BeginTransactionAsync();
 
@@ -793,56 +810,6 @@ namespace Application.Services.OrderImp
 
             await NotifyOrder(response);
             await NotifyOrderEventAsync(response, NotificationType.OrderCompleted, response.BuyerId);
-
-            return response;
-        }
-
-        public async Task<OrderResponse> AutoCancelPendingPaymentOrderAsync(int orderId)
-        {
-            var order = await _orderRepo.GetByIdAsync(orderId)
-                ?? throw new KeyNotFoundException("Order not found.");
-
-            if (order.Status != OrderStatus.PendingPayment)
-                throw new InvalidOperationException("Only pending payment orders can be auto cancelled.");
-
-            await _unitOfWork.BeginTransactionAsync();
-
-            try
-            {
-                foreach (var detail in order.OrderDetails)
-                {
-                    if (!detail.ItemVariantId.HasValue)
-                        continue;
-
-                    var variant = await _variantRepo.GetByIdForUpdateAsync(detail.ItemVariantId.Value);
-                    if (variant != null)
-                    {
-                        _variantRepo.ReleaseReservedStock(variant, detail.Quantity);
-                    }
-                }
-
-                order.Status = OrderStatus.Cancelled;
-                order.CancelledAt = DateTime.UtcNow;
-                order.UpdatedAt = DateTime.UtcNow;
-                order.CancelReason = "Order was automatically cancelled because payment was not completed within 30 minutes.";
-
-                _orderRepo.Update(order);
-
-                await _unitOfWork.CommitAsync();
-            }
-            catch
-            {
-                await _unitOfWork.RollbackAsync();
-                throw;
-            }
-
-            var updatedOrder = await _orderRepo.GetByIdAsync(orderId)
-                ?? throw new KeyNotFoundException("Order not found after auto cancel.");
-
-            var response = MapToResponse(updatedOrder);
-
-            await NotifyOrder(response);
-            await NotifyOrderEventAsync(response, NotificationType.OrderCancelled, response.BuyerId);
 
             return response;
         }
@@ -951,9 +918,9 @@ namespace Application.Services.OrderImp
         }
 
         private async Task CompleteOrderAndReleaseEscrowAsync(
-            Order order,
-            int actorId,
-            bool isSystemAction = false)
+        Order order,
+        int actorId,
+        bool isSystemAction = false)
         {
             if (!isSystemAction && order.BuyerId != actorId)
                 throw new UnauthorizedAccessException("Only the buyer can complete this order.");
@@ -961,8 +928,12 @@ namespace Application.Services.OrderImp
             if (order.Status != OrderStatus.Delivered)
                 throw new InvalidOperationException("Only delivered orders can be completed.");
 
+            // 1. Lấy thông tin ví của các bên liên quan
             var sellerWallet = await _walletRepo.GetByAccountIdAsync(order.SellerId)
                 ?? throw new KeyNotFoundException("Seller wallet not found.");
+
+            var adminWallet = await _walletRepo.GetByAccountIdAsync(1) // Admin AccountId = 1
+                ?? throw new KeyNotFoundException("Admin wallet not found.");
 
             var escrow = order.EscrowSession ?? await _escrowRepo.GetByOrderIdAsync(order.OrderId);
             if (escrow == null)
@@ -971,24 +942,40 @@ namespace Application.Services.OrderImp
             if (escrow.Status != EscrowStatus.Held)
                 throw new InvalidOperationException("Escrow is not in a valid held state.");
 
+            // 2. Tính toán dòng tiền
             decimal sellerBefore = sellerWallet.Balance;
             decimal sellerReceiveAmount = order.TotalAmount - order.ServiceFee;
+
+            decimal adminBefore = adminWallet.Balance;
+            decimal adminServiceFee = order.ServiceFee;
 
             if (sellerReceiveAmount <= 0)
                 throw new InvalidOperationException("Invalid seller payout amount.");
 
+            // 3. Cập nhật số dư ví Seller
             sellerWallet.Balance += sellerReceiveAmount;
             sellerWallet.UpdatedAt = DateTime.UtcNow;
             _walletRepo.Update(sellerWallet);
 
+            // 4. Cập nhật số dư ví Admin (Thu phí hệ thống)
+            if (adminServiceFee > 0)
+            {
+                adminWallet.Balance += adminServiceFee;
+                adminWallet.UpdatedAt = DateTime.UtcNow;
+                _walletRepo.Update(adminWallet);
+            }
+
+            // 5. Cập nhật trạng thái của Escrow
             escrow.Status = EscrowStatus.Released;
             escrow.ResolvedAt = DateTime.UtcNow;
             _escrowRepo.Update(escrow);
 
+            // 6. Cập nhật trạng thái của Đơn hàng
             order.Status = OrderStatus.Completed;
             order.CompletedAt ??= DateTime.UtcNow;
             order.UpdatedAt = DateTime.UtcNow;
 
+            // 7. Lưu Transaction cho Seller
             await _transactionRepo.AddAsync(new Transaction
             {
                 WalletId = sellerWallet.WalletId,
@@ -1001,20 +988,41 @@ namespace Application.Services.OrderImp
                 ReferenceType = TransactionReferenceType.OrderPayment,
                 ReferenceId = order.OrderId,
                 Description = isSystemAction
-                    ? $"Auto release payment for order {order.OrderCode}"
-                    : $"Receive payment from order {order.OrderCode}",
+                    ? $"Auto release payment for order #{order.OrderId}"
+                    : $"Receive payment from order #{order.OrderId}",
                 CreatedAt = DateTime.UtcNow,
                 Status = TransactionStatus.Success
             });
+
+            // 8. Lưu Transaction thu phí dịch vụ cho Admin (Id = 1)
+            if (adminServiceFee > 0)
+            {
+                await _transactionRepo.AddAsync(new Transaction
+                {
+                    WalletId = adminWallet.WalletId,
+                    PaymentId = null,
+                    TransactionCode = GenerateTransactionCode("TAX"),
+                    Amount = adminServiceFee,
+                    BalanceBefore = adminBefore,
+                    BalanceAfter = adminWallet.Balance,
+                    Type = TransactionType.Credit,
+                    ReferenceType = TransactionReferenceType.OrderPayment,
+                    ReferenceId = order.OrderId,
+                    Description = $"Service fee collected from order #{order.OrderId}",
+                    CreatedAt = DateTime.UtcNow,
+                    Status = TransactionStatus.Success
+                });
+            }
         }
 
         private async Task HandleCancelAsync(Order order, int currentUserId)
         {
+            if (order.BuyerId != currentUserId && order.SellerId != currentUserId)
+                throw new UnauthorizedAccessException("You are not allowed to cancel this order.");
+
+            // TRƯỜNG HỢP 1: Hủy khi đơn chưa thanh toán
             if (order.Status == OrderStatus.PendingPayment)
             {
-                if (order.BuyerId != currentUserId && order.SellerId != currentUserId)
-                    throw new UnauthorizedAccessException("You are not allowed to cancel this order.");
-
                 foreach (var detail in order.OrderDetails)
                 {
                     if (!detail.ItemVariantId.HasValue)
@@ -1032,30 +1040,26 @@ namespace Application.Services.OrderImp
                 return;
             }
 
+            // TRƯỜNG HỢP 2: Hủy khi đơn đã thanh toán & đang xử lý (Processing)
             if (order.Status == OrderStatus.Processing)
             {
-                if (order.BuyerId != currentUserId)
-                    throw new UnauthorizedAccessException("Only the buyer can cancel a paid order before shipping.");
-
                 var buyerWallet = await _walletRepo.GetByAccountIdAsync(order.BuyerId)
                     ?? throw new KeyNotFoundException("Buyer wallet not found.");
 
-                var escrow = order.EscrowSession ?? await _escrowRepo.GetByOrderIdAsync(order.OrderId);
-                if (escrow == null)
-                    throw new KeyNotFoundException("Escrow session not found.");
-
-                if (escrow.Status != EscrowStatus.Held)
-                    throw new InvalidOperationException("Escrow is not in a valid held state.");
-
                 decimal buyerBefore = buyerWallet.Balance;
 
+                // Hoàn tiền gốc + phí dịch vụ về lại cho người mua
                 buyerWallet.Balance += order.TotalAmount;
                 buyerWallet.UpdatedAt = DateTime.UtcNow;
                 _walletRepo.Update(buyerWallet);
 
-                escrow.Status = EscrowStatus.Refunded;
-                escrow.ResolvedAt = DateTime.UtcNow;
-                _escrowRepo.Update(escrow);
+                var escrow = order.EscrowSession ?? await _escrowRepo.GetByOrderIdAsync(order.OrderId);
+                if (escrow != null)
+                {
+                    escrow.Status = EscrowStatus.Refunded;
+                    escrow.ResolvedAt = DateTime.UtcNow;
+                    _escrowRepo.Update(escrow);
+                }
 
                 foreach (var detail in order.OrderDetails)
                 {
@@ -1069,6 +1073,7 @@ namespace Application.Services.OrderImp
                     }
                 }
 
+                // Lưu Transaction hoàn tiền cho Buyer
                 await _transactionRepo.AddAsync(new Transaction
                 {
                     WalletId = buyerWallet.WalletId,
@@ -1080,7 +1085,7 @@ namespace Application.Services.OrderImp
                     Type = TransactionType.Credit,
                     ReferenceType = TransactionReferenceType.OrderRefund,
                     ReferenceId = order.OrderId,
-                    Description = $"Refund for order {order.OrderCode}",
+                    Description = $"Refund for order #{order.OrderId}",
                     CreatedAt = DateTime.UtcNow,
                     Status = TransactionStatus.Success
                 });

@@ -9,13 +9,7 @@ namespace Domain.Interfaces
 
         Task<Transaction?> GetByIdWithWalletAsync(int transactionId);
 
-        Task<List<Transaction>> GetTransactionsAsync(
-            string? type = null,
-            string? refType = null,
-            int? refId = null,
-            string? search = null,
-            string? searchBy = null,
-            params Expression<Func<Transaction, object>>[] includes);
+        Task<List<Transaction>> GetTransactionsAsync(string? type = null, string? refType = null, int? refId = null, params Expression<Func<Transaction, object>>[] includes);
 
         Task<List<Transaction>> GetHistoryByWalletIdAsync(int walletId);
 
@@ -24,10 +18,10 @@ namespace Domain.Interfaces
         Task<decimal> GetMonthlyDebitTotalAsync(int walletId, int month, int year);
 
         Task<List<Transaction>> GetByReferenceAsync(string refType, int refId);
-
-        Task<Dictionary<int, string?>> GetOrderCodeMapByOrderIdsAsync(List<int> orderIds);
-
-        Task<Dictionary<int, string?>> GetEventNameMapByEventIdsAsync(List<int> eventIds);
+        Task<List<Transaction>> GetTransactionsForDashboardAsync(DateTime startDate, DateTime endDate);
+        Task<List<Transaction>> GetAllTransactionsByOrderIdAsync(int orderId);
+        Task<List<Transaction>> GetAllTransactionsAsync(DateTime fromDate, DateTime toDate);
+        Task<List<Transaction>> GetTransactionsByWalletIdAsync(int walletId);
 
         Task AddAsync(Transaction transaction);
 

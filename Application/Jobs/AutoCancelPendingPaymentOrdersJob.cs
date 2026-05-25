@@ -26,61 +26,66 @@ namespace Application.Jobs
             _logger = logger;
         }
 
-        public async Task Execute(IJobExecutionContext context)
+        public Task Execute(IJobExecutionContext context)
         {
-            _logger.LogInformation(
-                ">>> [QUARTZ] Start auto cancelling pending payment orders at {Time}",
-                DateTime.UtcNow);
-
-            using var scope = _scopeFactory.CreateScope();
-
-            var orderRepository = scope.ServiceProvider.GetRequiredService<IOrderRepository>();
-            var orderService = scope.ServiceProvider.GetRequiredService<IOrderService>();
-
-            try
-            {
-                var deadline = DateTime.UtcNow.AddMinutes(-AutoCancelAfterMinutes);
-                var orders = await orderRepository.GetPendingPaymentOrdersBeforeAsync(deadline);
-
-                _logger.LogInformation(
-                    ">>> [QUARTZ] Found {Count} pending payment orders ready to cancel.",
-                    orders.Count);
-
-                foreach (var order in orders)
-                {
-                    try
-                    {
-                        await orderService.AutoCancelPendingPaymentOrderAsync(order.OrderId);
-
-                        _logger.LogInformation(
-                            ">>> [QUARTZ] Auto cancelled pending payment order ID: {OrderId}",
-                            order.OrderId);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(
-                            ex,
-                            ">>> [QUARTZ] Failed to auto cancel pending payment order ID: {OrderId}. Message: {Message}",
-                            order.OrderId,
-                            ex.Message);
-                    }
-                }
-
-                _logger.LogInformation(
-                    ">>> [QUARTZ] Auto cancel pending payment orders job completed.");
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(
-                    ex,
-                    ">>> [QUARTZ] Auto cancel pending payment orders job failed. Message: {Message}",
-                    ex.Message);
-
-                throw new JobExecutionException(
-                    msg: "Auto cancel pending payment orders job failed.",
-                    cause: ex,
-                    refireImmediately: false);
-            }
+            throw new NotImplementedException();
         }
+
+        //public async Task Execute(IJobExecutionContext context)
+        //{
+        //    _logger.LogInformation(
+        //        ">>> [QUARTZ] Start auto cancelling pending payment orders at {Time}",
+        //        DateTime.UtcNow);
+
+        //    using var scope = _scopeFactory.CreateScope();
+
+        //    var orderRepository = scope.ServiceProvider.GetRequiredService<IOrderRepository>();
+        //    var orderService = scope.ServiceProvider.GetRequiredService<IOrderService>();
+
+        //    try
+        //    {
+        //        var deadline = DateTime.UtcNow.AddMinutes(-AutoCancelAfterMinutes);
+        //        var orders = await orderRepository.GetPendingPaymentOrdersBeforeAsync(deadline);
+
+        //        _logger.LogInformation(
+        //            ">>> [QUARTZ] Found {Count} pending payment orders ready to cancel.",
+        //            orders.Count);
+
+        //        foreach (var order in orders)
+        //        {
+        //            try
+        //            {
+        //                await orderService.AutoCancelPendingPaymentOrderAsync(order.OrderId);
+
+        //                _logger.LogInformation(
+        //                    ">>> [QUARTZ] Auto cancelled pending payment order ID: {OrderId}",
+        //                    order.OrderId);
+        //            }
+        //            catch (Exception ex)
+        //            {
+        //                _logger.LogError(
+        //                    ex,
+        //                    ">>> [QUARTZ] Failed to auto cancel pending payment order ID: {OrderId}. Message: {Message}",
+        //                    order.OrderId,
+        //                    ex.Message);
+        //            }
+        //        }
+
+        //        _logger.LogInformation(
+        //            ">>> [QUARTZ] Auto cancel pending payment orders job completed.");
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(
+        //            ex,
+        //            ">>> [QUARTZ] Auto cancel pending payment orders job failed. Message: {Message}",
+        //            ex.Message);
+
+        //        throw new JobExecutionException(
+        //            msg: "Auto cancel pending payment orders job failed.",
+        //            cause: ex,
+        //            refireImmediately: false);
+        //    }
+        //}
     }
 }

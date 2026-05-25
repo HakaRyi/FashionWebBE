@@ -179,6 +179,10 @@ builder.Services.AddScoped<IVnPayGatewayService, VnPayGatewayService>();
 builder.Services.AddScoped<IWalletService, WalletService>();
 builder.Services.AddScoped<IWardrobeService, WardrobeService>();
 builder.Services.AddScoped<IZaloPayGatewayService, ZaloPayGatewayService>();
+builder.Services.AddScoped<IOrderAdminService, OrderAdminService>();
+builder.Services.AddScoped<IWhaleService, WhaleService>();
+builder.Services.AddScoped<IItemAnalysisService, ItemAnalysisService>();
+
 
 #endregion
 
