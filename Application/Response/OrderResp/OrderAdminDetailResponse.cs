@@ -11,7 +11,13 @@ namespace Application.Response.OrderResp
         public string Id { get; set; } = null!; // Hiển thị OrderCode hoặc ORD-Id
         public string TransactionId { get; set; } = null!;
         public string PlacedAt { get; set; } = null!;
-        public int CurrentStatus { get; set; } // Số bước (0, 1, 2, 3) cho Stepper
+        public int CurrentStatus { get; set; }
+        public bool HasRefundRequest { get; set; }
+        public string? RefundRequestStatus { get; set; }
+        public string? RefundReason { get; set; }
+        public string? RefundAdminNote { get; set; }
+        public DateTime? RefundRequestedAt { get; set; }
+        public DateTime? RefundProcessedAt { get; set; }
 
         public BuyerDto Buyer { get; set; } = new BuyerDto();
         public SellerDto Seller { get; set; } = new SellerDto();

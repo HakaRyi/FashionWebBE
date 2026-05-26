@@ -23,6 +23,7 @@ namespace Domain.Interfaces
         Task<(List<Order> Orders, int TotalCount)> GetPagedOrdersForAdminAsync(int pageNumber, int pageSize, string? status, string? search);
         Task<Order?> GetOrderWithDetailsByCodeAsync(string orderCode);
         Task<List<Order>> GetOrdersWithDetailsAsync(DateTime startDate, DateTime endDate);
+        Task<List<Order>> GetPendingPaymentOrdersBeforeAsync(DateTime deadline);
         Task<bool> ExistsPendingOrderByBuyerAsync(int buyerId, int itemVariantId);
         Task<(List<Order> Orders, int TotalCount)> GetOrdersByBuyerIdFilteredAsync(
             int buyerId,

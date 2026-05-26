@@ -520,6 +520,7 @@ namespace Infrastructure.Persistence.Seeders
             // =========================================================
             var postList = new List<Post>();
             var postImageList = new List<Image>();
+            var postHashtagList = new List<PostHashtag>();
 
             for (int i = 0; i < 6; i++)
             {
@@ -537,6 +538,7 @@ namespace Infrastructure.Persistence.Seeders
                     CommentCount = i,
                     ShareCount = i % 2
                 };
+
                 postList.Add(p);
             }
 
@@ -560,6 +562,7 @@ namespace Infrastructure.Persistence.Seeders
                         CommentCount = j,
                         ShareCount = j % 3
                     };
+
                     postList.Add(p);
                 }
             }
@@ -567,6 +570,64 @@ namespace Infrastructure.Persistence.Seeders
             await posts.AddRangeAsync(postList);
             await context.SaveChangesAsync();
 
+            var hashtags = context.Set<Hashtag>();
+            var hashtagRandom = new Random();
+
+            // =========================================================
+            // 8. Seed hashtags
+            // =========================================================
+            var hashtagList = new List<Hashtag>
+            {
+                new() { Name = "football", CreatedAt = now },
+                new() { Name = "basketball", CreatedAt = now },
+                new() { Name = "gym", CreatedAt = now },
+                new() { Name = "fitness", CreatedAt = now },
+                new() { Name = "running", CreatedAt = now },
+                new() { Name = "workout", CreatedAt = now },
+                new() { Name = "sportslife", CreatedAt = now },
+                new() { Name = "health", CreatedAt = now },
+                new() { Name = "training", CreatedAt = now },
+                new() { Name = "bodybuilding", CreatedAt = now },
+                new() { Name = "soccer", CreatedAt = now },
+                new() { Name = "cycling", CreatedAt = now }
+            };
+
+            await hashtags.AddRangeAsync(hashtagList);
+            await context.SaveChangesAsync();
+
+
+            // =========================================================
+            // 9. Seed post hashtags
+            // =========================================================
+            foreach (var post in postList)
+            {
+                // mỗi post random 2 -> 5 hashtag
+                int hashtagCount = hashtagRandom.Next(2, 6);
+
+                var selectedHashtags = hashtagList
+                    .OrderBy(_ => Guid.NewGuid())
+                    .Take(hashtagCount)
+                    .ToList();
+
+                foreach (var hashtag in selectedHashtags)
+                {
+                    postHashtagList.Add(new PostHashtag
+                    {
+                        PostId = post.PostId,
+                        HashtagId = hashtag.HashtagId
+                    });
+
+                    hashtag.UsageCount++;
+                }
+            }
+
+            await context.Set<PostHashtag>().AddRangeAsync(postHashtagList);
+            await context.SaveChangesAsync();
+
+
+            // =========================================================
+            // 10. Seed images
+            // =========================================================
             foreach (var post in postList.Where(x => x.Status == PostStatus.Published))
             {
                 postImageList.Add(new Image

@@ -109,13 +109,13 @@ namespace Application.Services.EventServices
                         throw new Exception($"Insufficient wallet balance. Participation fee applies: {ev.EntryFee:N0} VNĐ.");
 
 
-                    await CheckSpendingLimitAsync(
-                        userWallet,
-                        ev.EntryFee,
-                        "event entry fee");
+                    //await CheckSpendingLimitAsync(
+                    //    userWallet,
+                    //    ev.EntryFee,
+                    //    "event entry fee");
 
-                    var creatorWallet = await _walletRepo.GetByAccountIdAsync(ev.CreatorId);
-                    if (creatorWallet == null) throw new Exception("Organizer's wallet not found.");
+                    //var creatorWallet = await _walletRepo.GetByAccountIdAsync(ev.CreatorId);
+                    //if (creatorWallet == null) throw new Exception("Organizer's wallet not found.");
 
                     decimal userBalanceBefore = userWallet.Balance;
                     userWallet.Balance -= ev.EntryFee;

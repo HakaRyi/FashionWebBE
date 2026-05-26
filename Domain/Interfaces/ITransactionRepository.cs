@@ -6,25 +6,18 @@ namespace Domain.Interfaces
     public interface ITransactionRepository
     {
         Task<Transaction?> GetByIdAsync(int transactionId);
-
         Task<Transaction?> GetByIdWithWalletAsync(int transactionId);
 
         Task<List<Transaction>> GetTransactionsAsync(string? type = null, string? refType = null, int? refId = null, params Expression<Func<Transaction, object>>[] includes);
-
         Task<List<Transaction>> GetHistoryByWalletIdAsync(int walletId);
-
         Task<IEnumerable<Transaction>> GetByWalletIdAsync(int walletId);
-
         Task<decimal> GetMonthlyDebitTotalAsync(int walletId, int month, int year);
-
         Task<List<Transaction>> GetByReferenceAsync(string refType, int refId);
         Task<List<Transaction>> GetTransactionsForDashboardAsync(DateTime startDate, DateTime endDate);
         Task<List<Transaction>> GetAllTransactionsByOrderIdAsync(int orderId);
         Task<List<Transaction>> GetAllTransactionsAsync(DateTime fromDate, DateTime toDate);
         Task<List<Transaction>> GetTransactionsByWalletIdAsync(int walletId);
-
         Task AddAsync(Transaction transaction);
-
         IQueryable<Transaction> Query();
     }
 }

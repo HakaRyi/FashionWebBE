@@ -126,6 +126,16 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
     public virtual DbSet<CollectionItem> CollectionItems { get; set; }
 
+    public virtual DbSet<PostHashtag> PostHashtags { get; set; }
+
+    public virtual DbSet<PostMention> PostMentions { get; set; }
+
+    public virtual DbSet<TrendingTopic> TrendingTopics { get; set; }
+
+    public virtual DbSet<PostTrend> PostTrends { get; set; }
+
+    public virtual DbSet<Hashtag> Hashtags { get; set; }
+
     public static string GetConnectionString(string connectionStringName)
     {
         var config = new ConfigurationBuilder()
@@ -1751,6 +1761,186 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                   .WithMany(p => p.Posts)
                   .HasForeignKey(d => d.EventId)
                   .HasConstraintName("post_event_id_fkey");
+        });
+
+        modelBuilder.Entity<PostHashtag>(entity =>
+        {
+            entity.ToTable("PostHashtag", "public");
+
+            entity.HasKey(e => new { e.PostId, e.HashtagId })
+                  .HasName("post_hashtag_pkey");
+
+            entity.Property(e => e.PostId)
+                  .HasColumnName("post_id");
+
+            entity.Property(e => e.HashtagId)
+                  .HasColumnName("hashtag_id");
+
+            entity.HasIndex(e => e.HashtagId)
+                  .HasDatabaseName("ix_post_hashtag_hashtag_id");
+
+            entity.HasOne(d => d.Post)
+                  .WithMany(p => p.PostHashtags)
+                  .HasForeignKey(d => d.PostId)
+                  .OnDelete(DeleteBehavior.Cascade)
+                  .HasConstraintName("post_hashtag_post_id_fkey");
+
+            entity.HasOne(d => d.Hashtag)
+                  .WithMany(p => p.PostHashtags)
+                  .HasForeignKey(d => d.HashtagId)
+                  .OnDelete(DeleteBehavior.Cascade)
+                  .HasConstraintName("post_hashtag_hashtag_id_fkey");
+        });
+
+        modelBuilder.Entity<PostMention>(entity =>
+        {
+            entity.HasKey(e => e.Id)
+                  .HasName("post_mention_pkey");
+
+            entity.ToTable("PostMention", "public");
+
+            entity.Property(e => e.Id)
+                  .HasColumnName("id");
+
+            entity.Property(e => e.PostId)
+                  .HasColumnName("post_id");
+
+            entity.Property(e => e.MentionedUserId)
+                  .HasColumnName("mentioned_user_id");
+
+            entity.Property(e => e.CreatedAt)
+                  .HasColumnType("timestamp without time zone")
+                  .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                  .HasColumnName("created_at");
+
+            entity.HasIndex(e => e.PostId)
+                  .HasDatabaseName("ix_post_mention_post_id");
+
+            entity.HasIndex(e => e.MentionedUserId)
+                  .HasDatabaseName("ix_post_mention_mentioned_user_id");
+
+            entity.HasIndex(e => new { e.MentionedUserId, e.CreatedAt })
+                  .HasDatabaseName("ix_post_mention_user_created");
+
+            entity.HasOne(d => d.Post)
+                  .WithMany(p => p.PostMentions)
+                  .HasForeignKey(d => d.PostId)
+                  .OnDelete(DeleteBehavior.Cascade)
+                  .HasConstraintName("post_mention_post_id_fkey");
+
+            entity.HasOne(d => d.MentionedUser)
+                  .WithMany(p => p.PostMentions)
+                  .HasForeignKey(d => d.MentionedUserId)
+                  .OnDelete(DeleteBehavior.Cascade)
+                  .HasConstraintName("post_mention_user_id_fkey");
+        });
+
+        modelBuilder.Entity<TrendingTopic>(entity =>
+        {
+            entity.ToTable("TrendingTopic", "public");
+
+            entity.HasKey(e => e.Id)
+                  .HasName("trending_topic_pkey");
+
+            entity.Property(e => e.Id)
+                  .HasColumnName("id");
+
+            entity.Property(e => e.HashtagId)
+                  .HasColumnName("hashtag_id");
+
+            entity.Property(e => e.Score)
+                  .HasColumnName("score")
+                  .HasDefaultValue(0);
+
+            entity.Property(e => e.TotalPosts)
+                  .HasColumnName("total_posts")
+                  .HasDefaultValue(0);
+
+            entity.Property(e => e.TotalEngagement)
+                  .HasColumnName("total_engagement")
+                  .HasDefaultValue(0);
+
+            entity.Property(e => e.CalculatedAt)
+                  .HasColumnType("timestamp without time zone")
+                  .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                  .HasColumnName("calculated_at");
+
+            entity.HasIndex(e => e.Score)
+                  .HasDatabaseName("ix_trending_topic_score");
+
+            entity.HasIndex(e => e.HashtagId)
+                  .HasDatabaseName("ix_trending_topic_hashtag_id");
+
+            entity.HasOne(d => d.Hashtag)
+                  .WithMany(p => p.TrendingTopics)
+                  .HasForeignKey(d => d.HashtagId)
+                  .OnDelete(DeleteBehavior.Cascade)
+                  .HasConstraintName("trending_topic_hashtag_id_fkey");
+        });
+
+        modelBuilder.Entity<Hashtag>(entity =>
+        {
+            entity.ToTable("Hashtag", "public");
+
+            entity.HasKey(e => e.HashtagId)
+                  .HasName("hashtag_pkey");
+
+            entity.Property(e => e.HashtagId)
+                  .HasColumnName("hashtag_id");
+
+            entity.Property(e => e.Name)
+                  .HasMaxLength(100)
+                  .HasColumnName("name");
+
+            entity.Property(e => e.UsageCount)
+                  .HasDefaultValue(0)
+                  .HasColumnName("usage_count");
+
+            entity.Property(e => e.CreatedAt)
+                  .HasColumnType("timestamp without time zone")
+                  .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                  .HasColumnName("created_at");
+
+            entity.HasIndex(e => e.Name)
+                  .IsUnique()
+                  .HasDatabaseName("ux_hashtag_name");
+        });
+
+        modelBuilder.Entity<PostTrend>(entity =>
+        {
+            entity.ToTable("PostTrend", "public");
+
+            entity.HasKey(e => e.PostId)
+                  .HasName("post_trend_pkey");
+
+            entity.Property(e => e.PostId)
+                  .HasColumnName("post_id");
+
+            entity.Property(e => e.Score)
+                  .HasColumnName("score")
+                  .HasDefaultValue(0);
+
+            entity.Property(e => e.EngagementScore)
+                  .HasColumnName("engagement_score")
+                  .HasDefaultValue(0);
+
+            entity.Property(e => e.TimeDecay)
+                  .HasColumnName("time_decay")
+                  .HasDefaultValue(1);
+
+            entity.Property(e => e.CalculatedAt)
+                  .HasColumnType("timestamp without time zone")
+                  .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                  .HasColumnName("calculated_at");
+
+            entity.HasIndex(e => e.Score)
+                  .HasDatabaseName("ix_post_trend_score");
+
+            entity.HasOne(d => d.Post)
+                  .WithOne()
+                  .HasForeignKey<PostTrend>(d => d.PostId)
+                  .OnDelete(DeleteBehavior.Cascade)
+                  .HasConstraintName("post_trend_post_id_fkey");
         });
 
         modelBuilder.Entity<PostSave>(entity =>

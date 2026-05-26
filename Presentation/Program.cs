@@ -128,6 +128,11 @@ builder.Services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>(
 builder.Services.AddScoped<Domain.Interfaces.IUserReportRepository, Infrastructure.Repositories.UserReportRepository>();
 builder.Services.AddScoped<IWalletRepository, WalletRepository>();
 builder.Services.AddScoped<IWardrobeRepository, WardrobeRepository>();
+builder.Services.AddScoped<IAdminUserDashboardRepository, AdminUserDashboardRepository>();
+builder.Services.AddScoped<IAdminPostDashboardRepository, AdminPostDashboardRepository>();
+builder.Services.AddScoped<IPostTrendRepository, PostTrendRepository>();
+builder.Services.AddScoped<ITrendingTopicRepository, TrendingTopicRepository>();
+builder.Services.AddScoped<IHashtagRepository, HashtagRepository>();
 
 #endregion
 
@@ -174,6 +179,13 @@ builder.Services.AddScoped<ITopUpPaymentProcessor, TopUpPaymentProcessor>();
 builder.Services.AddScoped<ITryOnHistoryService, TryOnHistoryService>();
 builder.Services.AddScoped<ITransactionService, TransactionService>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
+builder.Services.AddScoped<IFileService, GoogleDriveService>();
+builder.Services.AddScoped<IChatShareService, ChatShareService>();
+builder.Services.AddScoped<ICacheService, MemoryCacheService>();
+builder.Services.AddScoped<ICollectionService, CollectionService>();
+builder.Services.AddScoped<IOrderAdminService, OrderAdminService>();
+builder.Services.AddScoped<IWhaleService, WhaleService>();
+builder.Services.AddScoped<IItemAnalysisService, ItemAnalysisService>();
 builder.Services.AddScoped<IUserReportService, UserReportService>();
 builder.Services.AddScoped<IVnPayGatewayService, VnPayGatewayService>();
 builder.Services.AddScoped<IWalletService, WalletService>();
@@ -182,6 +194,11 @@ builder.Services.AddScoped<IZaloPayGatewayService, ZaloPayGatewayService>();
 builder.Services.AddScoped<IOrderAdminService, OrderAdminService>();
 builder.Services.AddScoped<IWhaleService, WhaleService>();
 builder.Services.AddScoped<IItemAnalysisService, ItemAnalysisService>();
+
+builder.Services.AddScoped<IAdminSocialDashboardService, AdminSocialDashboardService>();
+builder.Services.AddScoped<IPostTrendService, PostTrendService>();
+builder.Services.AddScoped<ITrendingTopicRepository, TrendingTopicRepository>();
+builder.Services.AddScoped<ITrendingTopicService, TrendingTopicService>();
 
 
 #endregion
@@ -269,6 +286,41 @@ builder.Services.AddQuartz(q =>
         .WithDescription("Runs every 5 minutes to cancel unpaid orders that have stayed in pending payment for more than 30 minutes.")
         .WithSimpleSchedule(schedule => schedule
             .WithIntervalInMinutes(5)
+            .RepeatForever()));
+
+    var recomputePostTrendJobKey = new JobKey("RecomputePostTrendJob");
+
+    q.AddJob<RecomputePostTrendJob>(options =>
+        options.WithIdentity(recomputePostTrendJobKey)
+            .WithDescription("Recompute trending posts every 1 hour.")
+            .StoreDurably());
+
+    q.AddTrigger(options => options
+        .ForJob(recomputePostTrendJobKey)
+        .WithIdentity("RecomputePostTrendJob-trigger")
+        .WithDescription("Runs every 1 hour to recompute post trends.")
+        .WithSimpleSchedule(schedule => schedule
+            .WithIntervalInHours(1)
+            //.WithIntervalInMinutes(5)
+            .RepeatForever()));
+
+    var recomputeTrendingTopicJobKey =
+    new JobKey("RecomputeTrendingTopicJob");
+
+    q.AddJob<RecomputeTrendingTopicJob>(options =>
+        options.WithIdentity(recomputeTrendingTopicJobKey)
+            .WithDescription(
+                "Recompute trending hashtags/topics every 1 hour.")
+            .StoreDurably());
+
+    q.AddTrigger(options => options
+        .ForJob(recomputeTrendingTopicJobKey)
+        .WithIdentity("RecomputeTrendingTopicJob-trigger")
+        .WithDescription(
+            "Runs every 1 hour to recompute trending hashtags/topics.")
+        .WithSimpleSchedule(schedule => schedule
+            .WithIntervalInHours(1)
+            //.WithIntervalInMinutes(5)
             .RepeatForever()));
 });
 
@@ -395,7 +447,8 @@ builder.Services.AddCors(options =>
                 "http://localhost:5174",
                 "http://localhost:5175",
                 "https://wapofashion.vercel.app",
-                "https://wapo.io.vn"
+                "https://wapo.io.vn",
+                "https://waposhipper.vercel.app"
             )
             .AllowAnyMethod()
             .AllowAnyHeader()

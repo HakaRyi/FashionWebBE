@@ -42,12 +42,16 @@ namespace Domain.Entities
 
         public virtual Scoreboard? Scoreboard { get; set; }
 
-        public ICollection<PostSave> Saves { get; set; } = new List<PostSave>();
+        public virtual ICollection<PostSave> Saves { get; set; } = new List<PostSave>();
 
         public virtual ICollection<Reaction> Reactions { get; set; } = new List<Reaction>();
 
         public virtual ICollection<UserReport> UserReports { get; set; } = new List<UserReport>();
 
         public virtual ICollection<ExpertRating> ExpertRatings { get; set; } = new List<ExpertRating>();
+
+        public virtual ICollection<PostHashtag> PostHashtags { get; set; } = new List<PostHashtag>();
+
+        public virtual ICollection<PostMention> PostMentions { get; set; } = new List<PostMention>();
     }
 }

@@ -16,6 +16,5 @@ namespace Application.Services.AdminImp
         Task AdminCheckEvent(int eventId, AdminCheckRequest request);
         Task<string> AdminBanUser(int accountId);
         Task<string> AdminUnBanUser(int accountId);
-
     }
 }

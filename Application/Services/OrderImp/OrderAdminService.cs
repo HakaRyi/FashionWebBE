@@ -1,4 +1,5 @@
 ﻿using Application.Response.OrderResp;
+using Domain.Constants;
 using Domain.Interfaces;
 using Google.Apis.Drive.v3.Data;
 using System;
@@ -84,18 +85,25 @@ namespace Application.Services.OrderImp
             else if (order.CancelledAt.HasValue)
                 historyList.Add(new HistoryDto { Status = $"Order Cancelled (Reason: {order.CancelReason ?? "N/A"})", Time = order.CancelledAt.Value.ToString("MMM dd, HH:mm") });
 
-            // 4. Map chỉ số Stepper cho UI
-            int currentStatusStep = 0;
-            switch (order.Status.ToLower())
+            // 4. Map Stepper UI
+            int currentStatusStep = order.Status.ToUpperInvariant() switch
             {
-                case "pendingpayment": currentStatusStep = 0; break;
-                case "processing":
-                case "paid": currentStatusStep = 1; break;
-                case "shipped":
-                case "delivering": currentStatusStep = 2; break;
-                case "completed":
-                case "delivered": currentStatusStep = 3; break;
-            }
+                OrderStatus.PendingPayment => 0,
+
+                OrderStatus.Processing => 1,
+
+                OrderStatus.Shipping => 2,
+
+                OrderStatus.Delivered => 3,
+                OrderStatus.Completed => 4,
+
+                OrderStatus.Cancelled => -1,
+
+                OrderStatus.Refunding => 5,
+                OrderStatus.Refunded => 6,
+
+                _ => 0
+            };
 
             // 5. Kiểm toán tài chính biến động số dư
             // 5. Kiểm toán tài chính biến động số dư (Dữ liệu đã đầy đủ quan hệ Wallet -> Account)
@@ -208,10 +216,14 @@ namespace Application.Services.OrderImp
                 Payment = new PaymentDto
                 {
                     Method = payment?.Provider ?? "Wallet/Credit Card",
-                    Status = payment?.Status ?? (order.PaidAt.HasValue
-                    ? "Success"
-                    : (string.Equals(order.Status, "cancelled", StringComparison.OrdinalIgnoreCase) ? "Expired" : "Pending")),
-                                Gateway = payment?.Provider == "Stripe" ? "Stripe API v3" : "Internal Wallet System"
+                    Status = payment?.Status ?? (
+                        order.PaidAt.HasValue
+                            ? "Success"
+                            : order.Status.Equals(OrderStatus.Cancelled, StringComparison.OrdinalIgnoreCase)
+                                ? "Expired"
+                                : "Pending"
+                    ),
+                    Gateway = payment?.Provider == "Stripe" ? "Stripe API v3" : "Internal Wallet System"
                 },
                 Ledger = new LedgerDto
                 {
@@ -223,6 +235,19 @@ namespace Application.Services.OrderImp
                     Total = order.TotalAmount
                 },
                 FinancialAudit = auditDto,
+
+                HasRefundRequest = order.RefundRequest != null,
+
+                RefundRequestStatus = order.RefundRequest?.Status,
+
+                RefundReason = order.RefundRequest?.Reason,
+
+                RefundAdminNote = order.RefundRequest?.AdminNote,
+
+                RefundRequestedAt = order.RefundRequest?.CreatedAt,
+
+                RefundProcessedAt = order.RefundRequest?.ProcessedAt,
+
                 Items = order.OrderDetails.Select(d =>
                 {
                     string displayItemName = d.ItemNameSnapshot;
@@ -249,13 +274,24 @@ namespace Application.Services.OrderImp
                         }
                     }
 
-                    var statusItem = order.Status.ToLower() switch
+                    var statusItem = order.Status.ToUpperInvariant() switch
                     {
-                        "completed" or "delivered" => "Delivered",
-                        "shipped" or "delivering" => "Shipped",
-                        "cancelled" => "Cancelled",
-                        "processing" or "paid" => "Processing",
-                        _ => "PendingPayment"
+                        OrderStatus.Completed => "Completed",
+                        OrderStatus.Delivered => "Delivered",
+
+                        OrderStatus.Shipping => "Shipping",
+
+                        OrderStatus.Cancelled => "Cancelled",
+
+                        OrderStatus.Processing => "Processing",
+
+                        OrderStatus.PendingPayment => "Pending Payment",
+
+                        OrderStatus.Refunding => "Refunding",
+
+                        OrderStatus.Refunded => "Refunded",
+
+                        _ => "Unknown"
                     };
 
                     return new ItemDto

@@ -130,14 +130,18 @@ namespace Application.Services.EventServices
                 await CreatePrizesAsync(eventData.EventId, dto.Prizes);
                 await SetupExpertPanelAsync(eventData.EventId, creatorId, dto.InvitedExpertIds, isDraft: true);
 
-                wallet = await _walletRepo.GetByAccountIdAsync(creatorId);
-                if (wallet == null || wallet.Balance < totalToLock)
-                    throw new Exception($"Insufficient wallet balance. You need {totalToLock:N0} VNĐ (including creation fee).");
 
-                await CheckSpendingLimitAsync(
-                    wallet,
-                    totalToLock,
-                    "event creation cost");
+                //wallet = await _walletRepo.GetByAccountIdAsync(creatorId);
+                //if (wallet == null || wallet.Balance < totalToLock)
+                //    throw new Exception($"Insufficient wallet balance. You need {totalToLock:N0} VNĐ (including creation fee).");
+
+                //await CheckSpendingLimitAsync(
+                //    wallet,
+                //    totalToLock,
+                //    "event creation cost");
+
+                //decimal balanceBefore = wallet.Balance;
+
 
                 decimal balanceBefore = wallet.Balance;
 

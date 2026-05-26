@@ -254,31 +254,35 @@ namespace Application.Services.Items
                     throw new InvalidOperationException("Insufficient balance.");
 
 
-                await CheckSpendingLimitAsync(wallet, _smartRecommendPrice);
+                //await CheckSpendingLimitAsync(wallet, _smartRecommendPrice);
 
-                decimal balanceBefore = wallet.Balance;
+                //decimal balanceBefore = wallet.Balance;
 
-                wallet.Balance -= _smartRecommendPrice;
-                wallet.UpdatedAt = DateTime.UtcNow;
-                _walletRepository.Update(wallet);
+                //wallet.Balance -= _smartRecommendPrice;
+                //wallet.UpdatedAt = DateTime.UtcNow;
+                //_walletRepository.Update(wallet);
 
-                var transaction = new Transaction
-                {
-                    WalletId = wallet.WalletId,
-                    PaymentId = null,
-                    TransactionCode = $"RECOM-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}",
-                    Amount = _smartRecommendPrice,
-                    BalanceBefore = balanceBefore,
-                    BalanceAfter = wallet.Balance,
-                    Type = TransactionType.Debit,
-                    ReferenceType = TransactionReferenceType.AIRecommendation,
-                    ReferenceId = null,
-                    Description = "Smart outfit recommendation payment",
-                    CreatedAt = DateTime.UtcNow,
-                    Status = TransactionStatus.Success
-                };
+                //var transaction = new Transaction
+                //{
+                //    WalletId = wallet.WalletId,
+                //    PaymentId = null,
+                //    TransactionCode = $"RECOM-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}",
+                //    Amount = _smartRecommendPrice,
+                //    BalanceBefore = balanceBefore,
+                //    BalanceAfter = wallet.Balance,
+                //    Type = TransactionType.Debit,
+                //    ReferenceType = TransactionReferenceType.AIRecommendation,
+                //    ReferenceId = null,
+                //    Description = "Smart outfit recommendation payment",
+                //    CreatedAt = DateTime.UtcNow,
+                //    Status = TransactionStatus.Success
+                //};
 
-                await _transactionRepository.AddAsync(transaction);
+                //await _transactionRepository.AddAsync(transaction);
+
+                //var currentTime = DateTime.UtcNow;
+                //var commonTxCode = $"RECOM-{currentTime:yyyyMMddHHmmssfff}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
+
 
                 var currentTime = DateTime.UtcNow;
                 var commonTxCode = $"RECOM-{currentTime:yyyyMMddHHmmssfff}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
@@ -287,9 +291,7 @@ namespace Application.Services.Items
                 var history = new RecommendationHistory
                 {
                     AccountId = currentAccountId,
-                    ReferenceItemId = request.ReferenceItemId.HasValue && request.ReferenceItemId.Value > 0
-                        ? request.ReferenceItemId.Value
-                        : null,
+                    ReferenceItemId = (request.ReferenceItemId.HasValue && request.ReferenceItemId.Value > 0) ? request.ReferenceItemId.Value : null,
                     Prompt = request.Prompt,
                     CreatedAt = currentTime,
                     RecommendedItems = candidates.Select(c => new RecommendationDetail
