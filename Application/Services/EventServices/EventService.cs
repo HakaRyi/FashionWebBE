@@ -32,6 +32,8 @@ namespace Application.Services.EventServices
         private readonly IImageRepository _imageRepo;
         private readonly UserManager<Account> _userManager;
         private readonly ICloudStorageService _storage;
+        private readonly IEscrowSessionRepository _escrowRepo;
+
 
         private const int MAX_IMAGES = 5;
 
@@ -47,7 +49,8 @@ namespace Application.Services.EventServices
             ICurrentUserService currentUserService,
             UserManager<Account> userManager,
             IImageRepository imageRepo,
-            ICloudStorageService storage)
+            ICloudStorageService storage,
+            IEscrowSessionRepository escrowRepo)
         {
             _eventRepo = eventRepo;
             _walletRepo = walletRepo;
@@ -61,6 +64,7 @@ namespace Application.Services.EventServices
             _userManager = userManager;
             _imageRepo = imageRepo;
             _storage = storage;
+            _escrowRepo = escrowRepo;
         }
 
         #region User Join Event
@@ -69,7 +73,6 @@ namespace Application.Services.EventServices
             if (!dto.EventId.HasValue) throw new Exception("Missing EventId to participate in the event.");
 
             var ev = await _eventRepo.GetByIdAsync(dto.EventId.Value);
-
             if (ev == null) throw new Exception("The event does not exist.");
 
             if (ev.CreatorId == accountId)
@@ -78,7 +81,6 @@ namespace Application.Services.EventServices
             }
 
             var eventExpert = await _eventExpertRepo.GetByEventAndExpertAsync(ev.EventId, accountId);
-
             if (eventExpert != null && eventExpert.Status == "Accepted")
             {
                 throw new Exception("You are a confirmed judge for this event and cannot participate as a contestant.");
@@ -94,13 +96,10 @@ namespace Application.Services.EventServices
             }
 
             var imageUrls = dto.Images != null ? await UploadImages(dto.Images.ToList()) : new List<string>();
-
             var account = await _userManager.FindByIdAsync(accountId.ToString());
-
             if (account == null) throw new Exception("User not found.");
 
             await _unitOfWork.BeginTransactionAsync();
-
             try
             {
                 if (ev.EntryFee > 0)
@@ -108,6 +107,7 @@ namespace Application.Services.EventServices
                     var userWallet = await _walletRepo.GetByAccountIdAsync(accountId);
                     if (userWallet == null || userWallet.Balance < ev.EntryFee)
                         throw new Exception($"Insufficient wallet balance. Participation fee applies: {ev.EntryFee:N0} VNĐ.");
+
 
                     await CheckSpendingLimitAsync(
                         userWallet,
@@ -119,13 +119,21 @@ namespace Application.Services.EventServices
 
                     decimal userBalanceBefore = userWallet.Balance;
                     userWallet.Balance -= ev.EntryFee;
+                    userWallet.UpdatedAt = DateTime.UtcNow;
                     _walletRepo.Update(userWallet);
 
-                    decimal creatorLockedBefore = creatorWallet.LockedBalance;
-                    creatorWallet.LockedBalance += ev.EntryFee;
-                    _walletRepo.Update(creatorWallet);
+                    await _escrowRepo.AddAsync(new EscrowSession
+                    {
+                        EventId = ev.EventId,
+                        SenderId = accountId,
+                        ReceiverId = ev.CreatorId,
+                        Amount = ev.EntryFee,
+                        ServiceFee = 0,
+                        Status = EscrowStatus.Held,
+                        Description = $"ENTRY_FEE: User '{account.UserName}' registered for event '{ev.Title}'",
+                        CreatedAt = DateTime.UtcNow
+                    });
 
-                    // 3. Ghi log giao dịch (Loại: Tham gia sự kiện - Chờ xử lý)
                     await _transactionRepo.AddAsync(new Transaction
                     {
                         TransactionCode = $"JOIN_PAY_{ev.EventId}_{accountId}_{DateTime.UtcNow.Ticks}",
@@ -140,26 +148,9 @@ namespace Application.Services.EventServices
                         ReferenceType = "Event",
                         CreatedAt = DateTime.UtcNow
                     });
-
-                    await _transactionRepo.AddAsync(new Transaction
-                    {
-                        TransactionCode = $"JOIN_REVENUE_LOCKED_{ev.EventId}_{accountId}_{DateTime.UtcNow.Ticks}",
-                        WalletId = creatorWallet.WalletId,
-                        Amount = ev.EntryFee,
-                        BalanceBefore = creatorLockedBefore,
-                        BalanceAfter = creatorWallet.LockedBalance,
-                        Type = "Event_Revenue_Locked",
-                        Status = "Success",
-                        Description = $"Holding entry fee for event '{ev.Title}' from user '{account.UserName}'.",
-                        ReferenceId = ev.EventId,
-                        ReferenceType = "Event",
-                        CreatedAt = DateTime.UtcNow
-                    });
                 }
 
-                // --- LOGIC TẠO POST ---
                 var now = DateTime.UtcNow;
-
                 var post = new Post
                 {
                     AccountId = accountId,
@@ -682,6 +673,7 @@ namespace Application.Services.EventServices
                 CreatorName = e.Creator?.UserName,
                 CreatorEmail = e.Creator?.Email,
                 AppliedFee = e.AppliedFee,
+                EntryFee = e.EntryFee,
                 TotalPrizePool = e.PrizeEvents?.Sum(p => p.RewardAmount) ?? 0,
                 MinExperts = e.MinExpertsToStart,
                 CurrentAcceptedExperts = e.EventExperts?.Count(ee => ee.Status == "Accepted") ?? 0,

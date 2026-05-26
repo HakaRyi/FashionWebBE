@@ -200,16 +200,16 @@ namespace API.Controllers
         public async Task<IActionResult> GetAllOrders(
             [FromQuery] int pageNumber = 1,
             [FromQuery] int pageSize = 10,
-            [FromQuery] string? status = null)
+            [FromQuery] string? status = null,
+            [FromQuery] string? search = null)
         {
             try
             {
-                var result = await _orderAdminService.GetAllOrdersAsync(pageNumber, pageSize, status);
+                var result = await _orderAdminService.GetAllOrdersAsync(pageNumber, pageSize, status, search);
                 return Ok(result);
             }
             catch (Exception ex)
             {
-                // Trả về lỗi hệ thống kèm thông điệp chi tiết
                 return StatusCode(StatusCodes.Status500InternalServerError, new { message = ex.Message });
             }
         }

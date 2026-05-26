@@ -8,6 +8,7 @@ namespace Domain.Interfaces
         Task<Wallet?> GetByAccountIdAsync(int accountId);
         Task<IEnumerable<Transaction>> GetTransactionHistoryAsync(int walletId);
         Task<IEnumerable<Transaction>> GetWalletTransactionsAsync(int walletId, List<string> Types);
+        Task<Wallet?> GetByAccountIdForUpdateAsync(int accountId);
         Task AddAsync(Wallet wallet);
         void Update(Wallet wallet); 
         IQueryable<Wallet> Query();

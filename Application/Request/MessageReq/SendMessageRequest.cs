@@ -8,5 +8,6 @@ namespace Application.Request.MessageReq
         public List<IFormFile>? photo { get; set; }
         public int? replyToId { get; set; }
         public bool isRecalled { get; set; } = false;
+        public string? tempId { get; set; }
     }
 }

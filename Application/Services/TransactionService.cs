@@ -7,6 +7,7 @@ using Domain.Entities;
 using Domain.Interfaces;
 using Mapster;
 using Microsoft.EntityFrameworkCore;
+using Polly;
 using System.Globalization;
 
 namespace Application.Services
@@ -198,11 +199,336 @@ namespace Application.Services
         }
 
         // HÀM ADMIN: Get All giao dịch với filter linh hoạt
-        public async Task<List<TransactionResponse>> AdminGetAllTransactionsAsync(string? type = null, string? refType = null, int? refId = null)
+        public async Task<List<TransactionResponseV2>> AdminGetAllTransactionsAsync(
+    string? type = null,
+    string? refType = null,
+    int? refId = null)
         {
-            var transactions = await _transactionRepository.GetTransactionsAsync(type, refType, refId,
-            t => t.Wallet!.Account!);
-            return transactions.Adapt<List<TransactionResponse>>();
+            // 1. Nạp giao dịch và Include rõ ràng từ cấp Wallet đến Account để không bị null dữ liệu liên kết
+            var transactions = await _transactionRepository.GetTransactionsAsync(
+                type,
+                refType,
+                refId,
+                t => t.Wallet,
+                t => t.Wallet!.Account!
+            );
+            var adminWalletCurBalance = await _walletRepository.GetByIdAsync(1);
+
+            // 2. Thu thập các ID quy chiếu để tối ưu hóa truy vấn Batch
+            var eventIds = transactions.Where(t => t.ReferenceType == "Event" && t.ReferenceId.HasValue).Select(t => t.ReferenceId!.Value).Distinct().ToList();
+            var orderIds = transactions.Where(t => t.ReferenceType == "OrderPayment" || t.ReferenceType == "OrderRefund").Where(t => t.ReferenceId.HasValue).Select(t => t.ReferenceId!.Value).Distinct().ToList();
+            var tryOnIds = transactions.Where(t => t.ReferenceType == "TryOn" && t.ReferenceId.HasValue).Select(t => t.ReferenceId!.Value).Distinct().ToList();
+            var aiRecomIds = transactions.Where(t => (t.ReferenceType == "AIRecommendation" || t.ReferenceType == "AI_Recommendation") && t.ReferenceId.HasValue).Select(t => t.ReferenceId!.Value).Distinct().ToList();
+            var allRefIds = eventIds.Concat(orderIds).Concat(tryOnIds).Concat(aiRecomIds).Distinct().ToList();
+
+            // 3. Lấy danh sách các Escrow Sessions liên quan (Repo đã nạp kèm cả Sender, Receiver, Event, Order)
+            var relevantEscrows = await _escrowRepository.GetEscrowsByBatchIdsAsync(eventIds, orderIds);
+            var systemTransactions = await _transactionRepository.GetTransactionsAsync(type: null, refType: null, refId: null);
+            var matchedSystemTxList = systemTransactions.Where(st => st.WalletId == 1 && st.ReferenceId.HasValue && allRefIds.Contains(st.ReferenceId.Value)).ToList();
+
+            // Khởi tạo bộ theo dõi số dư lũy tiến riêng biệt cho từng EscrowSessionId
+            var escrowStateCounters = relevantEscrows.ToDictionary(
+                e => e.EscrowSessionId,
+                e => new
+                {
+                    PrizeBalance = 0m,
+                    RevenueBalance = 0m,
+                    OrderBalance = e.OrderId.HasValue ? e.Amount : 0m
+                }
+            );
+
+            // Sắp xếp xuôi theo thời gian (Tuyến tính) để cộng dồn số dư lũy tiến chính xác
+            var chronologicalTransactions = transactions.OrderBy(t => t.CreatedAt).ToList();
+            var computedResponsesMap = new Dictionary<int, TransactionResponseV2>();
+
+            // 4. Duyệt tuyến tính dòng tiền
+            foreach (var t in chronologicalTransactions)
+            {
+                var res = new TransactionResponseV2
+                {
+                    TransactionId = t.TransactionId,
+                    TransactionCode = t.TransactionCode,
+                    Amount = t.Amount,
+                    BalanceBefore = t.BalanceBefore,
+                    BalanceAfter = t.BalanceAfter,
+                    Type = t.Type,
+                    Description = t.Description,
+                    CreatedAt = t.CreatedAt,
+                    Status = t.Status,
+                    WalletId = t.WalletId,
+                    UserName = t.WalletId == 1 ? "System (Total Fund)" : (t.Wallet?.Account?.UserName ?? "N/A"),
+                    ReferenceType = t.ReferenceType,
+                    ReferenceId = t.ReferenceId,
+                    PaymentId = t.PaymentId
+                };
+
+                EscrowSession? matchedEscrow = null;
+
+                string typeLower = t.Type?.ToLower() ?? "";
+                string codeLower = t.TransactionCode?.ToLower() ?? "";
+                string descLower = t.Description?.ToLower() ?? "";
+
+                // Biến đại diện cho luồng xử lý logic cuối cùng của switch-case
+                string logicType = t.Type;
+
+                // --- 1. PHÂN BỔ MATCHED ESCROW CHO LUỒNG EVENT HOẶC ORDER ---
+                if (t.ReferenceType == "Event" && t.ReferenceId.HasValue)
+                {
+                    var eventEscrows = relevantEscrows.Where(e => e.EventId == t.ReferenceId.Value).ToList();
+                    var prizePoolEscrow = eventEscrows.FirstOrDefault(e => e.Event != null && e.SenderId == e.Event.CreatorId);
+
+                    if (typeLower == "credit" || typeLower == "debit")
+                    {
+                        if (codeLower.Contains("ref") || descLower.Contains("refund") || descLower.Contains("hoàn tiền"))
+                            logicType = "Event_Refund";
+                        else if (codeLower.Contains("pay") || descLower.Contains("fee") || descLower.Contains("lệ phí"))
+                            logicType = "Event_Entry_Fee_Paid";
+                        else if (codeLower.Contains("rel") || descLower.Contains("release") || descLower.Contains("giải ngân"))
+                            logicType = "Event_Revenue_Released";
+                        else if (codeLower.Contains("prz") || descLower.Contains("prize") || descLower.Contains("thưởng"))
+                            logicType = "Prize_Reward";
+                    }
+
+                    switch (logicType)
+                    {
+                        case "Event_Entry_Fee_Paid":
+                            var currentUserId = t.Wallet?.AccountId;
+                            matchedEscrow = eventEscrows.FirstOrDefault(e => e.SenderId == currentUserId && e.EscrowSessionId != prizePoolEscrow?.EscrowSessionId);
+                            if (matchedEscrow == null)
+                            {
+                                matchedEscrow = eventEscrows.FirstOrDefault(e => e.EscrowSessionId != prizePoolEscrow?.EscrowSessionId);
+                            }
+                            break;
+
+                        case "Event_Revenue_Released":
+                            matchedEscrow = eventEscrows.FirstOrDefault(e => e.EscrowSessionId != prizePoolEscrow?.EscrowSessionId);
+                            break;
+
+                        case "Escrow_Prize_Hold":
+                        case "Prize_Reward":
+                        case "Event_Refund":
+                            matchedEscrow = prizePoolEscrow;
+                            break;
+
+                        default:
+                            if (t.Type != "System_Fee_Payment" && t.Type != "System_Fee_Revenue")
+                            {
+                                matchedEscrow = prizePoolEscrow ?? eventEscrows.FirstOrDefault();
+                            }
+                            break;
+                    }
+                }
+                else if ((t.ReferenceType == "OrderPayment" || t.ReferenceType == "OrderRefund") && t.ReferenceId.HasValue)
+                {
+                    // Tìm kiếm phiên Escrow khớp với mã đơn hàng
+                    matchedEscrow = relevantEscrows.FirstOrDefault(e => e.OrderId == t.ReferenceId);
+
+                    // Chuẩn hóa logicType cho Đơn hàng trong trường hợp DB chỉ lưu "Credit" / "Debit"
+                    if (t.ReferenceType == "OrderRefund" || codeLower.StartsWith("ref-") || descLower.Contains("refund") || descLower.Contains("hoàn tiền"))
+                    {
+                        logicType = "OrderRefund";
+                    }
+                    else
+                    {
+                        logicType = "OrderPayment";
+                    }
+                }
+                else
+                {
+                    matchedEscrow = null;
+                }
+
+                // --- 2. TÍNH TOÁN BIẾN ĐỘNG SỐ DƯ QUỸ (ESCROW CALCULATIONS) ---
+                if (matchedEscrow != null)
+                {
+                    int sessionId = matchedEscrow.EscrowSessionId;
+                    string action = "None";
+                    decimal amountChanged = 0m;
+
+                    var currentState = escrowStateCounters.ContainsKey(sessionId)
+                        ? escrowStateCounters[sessionId]
+                        : new { PrizeBalance = 0m, RevenueBalance = 0m, OrderBalance = matchedEscrow.Amount };
+
+                    decimal escrowBefore = 0m;
+                    decimal escrowAfter = 0m;
+
+                    decimal newPrizeBalance = currentState.PrizeBalance;
+                    decimal newRevenueBalance = currentState.RevenueBalance;
+                    decimal newOrderBalance = currentState.OrderBalance;
+
+                    switch (logicType)
+                    {
+                        // ====== LUỒNG TIỀN VÉ EVENT (ENTRY FEE) ======
+                        case "Event_Entry_Fee_Paid":
+                            action = "Entry_Fee_Held";
+                            amountChanged = Math.Abs(t.Amount);
+                            escrowBefore = currentState.RevenueBalance;
+                            escrowAfter = escrowBefore + amountChanged;
+                            newRevenueBalance = escrowAfter;
+                            break;
+
+                        case "Event_Revenue_Released":
+                            action = "Revenue_Released";
+                            amountChanged = -Math.Abs(t.Amount);
+                            escrowBefore = currentState.RevenueBalance;
+                            escrowAfter = escrowBefore + amountChanged;
+                            newRevenueBalance = escrowAfter;
+                            break;
+
+                        // ====== LUỒNG QUỸ GIẢI THƯỞNG EVENT ======
+                        case "Escrow_Hold":
+                        case "Escrow_Prize_Hold":
+                        case "Prize_Reward":
+
+                            if (t.Amount < 0)
+                            {
+                                action = "Deposit_Held";
+                                amountChanged = Math.Abs(t.Amount);
+                                escrowBefore = currentState.PrizeBalance;
+                                escrowAfter = escrowBefore + amountChanged;
+                            }
+                            else
+                            {
+                                action = "Prize_Released";
+                                amountChanged = -Math.Abs(t.Amount);
+                                escrowBefore = currentState.PrizeBalance;
+                                escrowAfter = escrowBefore + amountChanged;
+                            }
+                            newPrizeBalance = escrowAfter;
+                            break;
+
+                        case "Event_Refund":
+                            action = "Refund_Released";
+                            amountChanged = -Math.Abs(t.Amount);
+                            escrowBefore = currentState.PrizeBalance;
+                            escrowAfter = escrowBefore + amountChanged;
+                            newPrizeBalance = escrowAfter;
+                            break;
+
+                        // ====== LUỒNG ĐƠN HÀNG THƯƠNG MẠI (ORDER LOGIC) ======
+                        case "OrderPayment":
+                            // 1. LUỒNG GIẢI NGÂN (TIỀN CHẠY RA KHỎI QUỸ)
+                            if (t.Amount > 0)
+                            {
+                                action = "Deposit_Released";
+                                decimal releaseAmount = Math.Abs(t.Amount);
+
+                                escrowBefore = currentState.OrderBalance > 0m ? currentState.OrderBalance : matchedEscrow.Amount;
+
+                                amountChanged = -releaseAmount;
+
+                                escrowAfter = escrowBefore - releaseAmount;
+                                if (escrowAfter < 0) escrowAfter = 0m;
+
+                                newOrderBalance = escrowAfter;
+                            }
+
+                            else
+                            {
+                                action = "Deposit_Held";
+                                amountChanged = Math.Abs(t.Amount);
+                                escrowBefore = 0m;
+                                escrowAfter = amountChanged;
+                                newOrderBalance = escrowAfter;
+                            }
+                            break;
+
+                        case "OrderRefund":
+                            action = "Refund_Released";
+                            amountChanged = -Math.Abs(t.Amount); // Ví dụ: -30000
+
+                            // Lấy trực tiếp số dư ký quỹ ban đầu từ bộ đếm (đã gán mặc định bằng matchedEscrow.Amount)
+                            escrowBefore = currentState.OrderBalance > 0m ? currentState.OrderBalance : matchedEscrow.Amount;
+                            escrowAfter = escrowBefore + amountChanged; // 30000 + (-30000) = 0
+                            newOrderBalance = escrowAfter;
+                            break;
+
+                        default:
+                            action = "None";
+                            amountChanged = 0m;
+                            escrowBefore = currentState.PrizeBalance;
+                            escrowAfter = currentState.PrizeBalance;
+                            break;
+                    }
+
+                    // Cập nhật lại bộ theo dõi số dư lũy tiến cho vòng lặp tiếp theo
+                    escrowStateCounters[sessionId] = new { PrizeBalance = newPrizeBalance, RevenueBalance = newRevenueBalance, OrderBalance = newOrderBalance };
+
+                    // Gán dữ liệu vào DTO Response
+                    res.EscrowDetail = new EscrowBriefResponse
+                    {
+                        EscrowSessionId = sessionId,
+                        Status = matchedEscrow.Status,
+                        OriginalAmount = matchedEscrow.Amount,
+                        SystemServiceFee = matchedEscrow.ServiceFee,
+                        FinalPayoutAmount = matchedEscrow.FinalAmount,
+                        EscrowAction = action,
+                        EscrowAmountChanged = amountChanged,
+                        EscrowBefore = escrowBefore,
+                        EscrowAfter = escrowAfter,
+
+                        SenderName = matchedEscrow.Sender?.UserName ?? (logicType == "Escrow_Prize_Hold" ? res.UserName : matchedEscrow.SenderId.ToString()),
+                        ReceiverName = matchedEscrow.Receiver?.UserName ?? (logicType == "Prize_Reward" ? res.UserName : (matchedEscrow.ReceiverId?.ToString() ?? "System")),
+                        LinkedTargetName = matchedEscrow.Event?.Title ?? (matchedEscrow.Order != null ? $"Order #{matchedEscrow.OrderId}" : "N/A")
+                    };
+                }
+
+                // --- B. XỬ LÝ ĐỐI SOÁT VÍ ADMIN SƠ CẤP ---
+                if (t.WalletId != 1)
+                    {
+                        Transaction? realSystemTx = matchedSystemTxList.FirstOrDefault(st =>
+                            st.ReferenceType == t.ReferenceType && st.ReferenceId == t.ReferenceId &&
+                            (t.Type == "System_Fee_Payment" ? st.Type == "System_Fee_Revenue" : st.Type == t.Type)
+                        );
+
+                        if (realSystemTx == null) realSystemTx = matchedSystemTxList.FirstOrDefault(st => st.ReferenceType == t.ReferenceType && st.ReferenceId == t.ReferenceId);
+
+                        if (realSystemTx != null)
+                        {
+                            res.SystemWalletSnapshot = new SystemWalletSnapshotResponse { PlatformAmountChanged = realSystemTx.Amount, PlatformBalanceAfter = realSystemTx.BalanceAfter, DataMode = "Real" };
+                        }
+                        else if (t.Type == "Debit" || t.ReferenceType == "TryOn" || t.ReferenceType == "AIRecommendation" || t.ReferenceType == "AI_Recommendation")
+                        {
+                            res.SystemWalletSnapshot = new SystemWalletSnapshotResponse { PlatformAmountChanged = Math.Abs(t.Amount), PlatformBalanceAfter = adminWalletCurBalance?.Balance ?? 0, DataMode = "Fallback" };
+                            if (string.IsNullOrEmpty(res.Description) || !res.Description.StartsWith("[")) res.Description = $"[Interpolation Reconciliation] {res.Description}";
+                        }
+                        else res.SystemWalletSnapshot = null;
+                    }
+
+                    // --- C. XỬ LÝ ĐỐI SOÁT NGƯỜI GỬI/NHẬN CHO VÍ ADMIN (WALLET ID == 1) ---
+                    else if (t.WalletId == 1)
+                    {
+                        // Quét tìm bản ghi của User có giá trị tiền nghịch đảo âm-dương (-10k vs +10k), khớp cấu trúc tham chiếu và mốc thời gian trùng khớp
+                        var userCounterpartTx = chronologicalTransactions.FirstOrDefault(ut =>
+                            ut.WalletId != 1 &&
+                            ut.ReferenceType == t.ReferenceType &&
+                            ut.ReferenceId == t.ReferenceId &&
+                            ut.Amount == -t.Amount &&
+                            Math.Abs((ut.CreatedAt - t.CreatedAt).TotalSeconds) < 2 // Sai số tạo bản ghi lệch vài phần trăm giây trong DB
+                        );
+
+                        if (userCounterpartTx != null)
+                        {
+                            // Tìm ra đích danh thông tin tài khoản người dùng tương tác với hệ thống
+                            res.CounterpartyUserId = userCounterpartTx.Wallet?.AccountId;
+                            res.CounterpartyName = userCounterpartTx.Wallet?.Account?.UserName ?? "User";
+                        }
+                        else
+                        {
+                            // Fallback dự phòng nếu không tìm thấy giao dịch dòng tiền đối ứng trực tiếp
+                            res.CounterpartyUserId = null;
+                            res.CounterpartyName = "External Source / Network";
+                        }
+                    }
+
+                    computedResponsesMap[t.TransactionId] = res;
+            }
+
+                // 5. TRẢ VỀ: Trả dữ liệu map theo đúng thứ tự sắp xếp gốc của thực thể `transactions` từ Database
+                return transactions
+                    .Select(t => computedResponsesMap.ContainsKey(t.TransactionId) ? computedResponsesMap[t.TransactionId] : null!)
+                    .Where(res => res != null)
+                    .ToList();
         }
 
         public async Task<TransactionResponse?> GetById(int id)
@@ -215,7 +541,17 @@ namespace Application.Services
 
         public async Task<List<TransactionResponse>> GetTransactions()
         {
-            var transactions = await _transactionRepository.GetTransactionsAsync();
+            //var transactions = await _transactionRepository.GetTransactionsAsync();
+            string? type = null;
+            string? refType = null;
+            int? refId = null;
+            var transactions = await _transactionRepository.GetTransactionsAsync(
+               type,
+               refType,
+               refId,
+               t => t.Wallet,
+               t => t.Wallet!.Account!
+           );
             return transactions.Select(t => MapToResponse(t)).ToList();
         }
 

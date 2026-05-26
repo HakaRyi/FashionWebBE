@@ -1,6 +1,7 @@
 ﻿using Application.Interfaces;
 using Application.Services.NotificationImp;
 using Application.Utils.File;
+using Domain.Constants;
 using Domain.Entities;
 using Domain.Interfaces;
 using Quartz;
@@ -81,44 +82,48 @@ namespace Application.Services.EventServices
             await _unitOfWork.BeginTransactionAsync();
             try
             {
-                // 1. Tính toán điểm cho tất cả bài viết và lấy danh sách đã xếp hạng
                 var rankedPosts = await CalculateAndRankPostsAsync(eventId, ev);
 
-                // 2. Lấy thông tin Escrow
-                var escrow = await _escrowRepo.GetActiveEscrowByEventIdAsync(eventId);
-                if (escrow == null) throw new Exception("No valid deposit was found for this event.");
+                var allEscrows = await _escrowRepo.GetTotalEscrowsByEventIdAsync(eventId);
 
-                // 3. Trao giải cho người thắng (Trả về tổng số tiền đã phát)
+                var prizeEscrow = allEscrows.FirstOrDefault(e => e.Status == EscrowStatus.Held
+                                                              && e.Description != null
+                                                              && e.Description.StartsWith("PRIZE_POOL"));
+
+                if (prizeEscrow == null) throw new Exception("No valid prize pool deposit was found for this event.");
+
+                var feeEscrows = allEscrows.Where(e => e.Status == EscrowStatus.Held
+                                                    && (e.Description == null || !e.Description.StartsWith("PRIZE_POOL")))
+                                           .ToList();
+
+                // 3. Trao giải cho người thắng từ Quỹ giải thưởng
                 decimal totalDistributedAmount = await DistributePrizesAsync(eventId, ev, rankedPosts);
 
-                // 4. Xử lý hoàn tiền ký quỹ (nếu số người thắng ít hơn số giải)
-                await RefundRemainingEscrowAsync(ev, escrow, totalDistributedAmount);
+                // 4. Xử lý hoàn tiền ký quỹ thừa cho Creator
+                await RefundRemainingEscrowAsync(ev, prizeEscrow, totalDistributedAmount);
 
-                // 5. Giải ngân tiền PHÍ THAM GIA (Entry Fee Revenue) cho Creator
-                await ReleaseEventRevenueToCreatorAsync(ev);
+                // 5. GIẢI NGÂN TIỀN PHÍ THAM GIA THỰC TẾ CHO CREATOR
+                await ReleaseEventRevenueToCreatorAsync(ev, feeEscrows);
 
-                // 6. ĐÁNH GIÁ VÀ TRỪ ĐIỂM CHUYÊN GIA
+                // 6. Đánh giá và trừ điểm chuyên gia
                 await EvaluateExpertPerformanceAsync(eventId, ev);
 
                 // 7. Đóng sự kiện và dọn dẹp Quartz Job
                 await CloseEventAndCleanupAsync(ev);
 
-                // CHỐT GIAO DỊCH
+                // CHỐT GIAO DỊCH AN TOÀN
                 await _unitOfWork.CommitAsync();
 
                 try
                 {
                     var scheduler = await _schedulerFactory.GetScheduler();
                     var jobKeyFinalize = new JobKey($"Job_Finalize_{ev.EventId}", "EventAwardGroup");
-
                     if (await scheduler.CheckExists(jobKeyFinalize))
                     {
                         await scheduler.DeleteJob(jobKeyFinalize);
                     }
                 }
-                catch (Exception ex)
-                {
-                }
+                catch (Exception) {  }
             }
             catch (Exception ex)
             {
@@ -269,10 +274,9 @@ namespace Application.Services.EventServices
                 }
             }
 
-            // Tất toán Escrow
-            escrow.Status = "Resolved";
+            escrow.Status = EscrowStatus.Released;
             escrow.ResolvedAt = DateTime.UtcNow;
-            escrow.Description = $"Disbursed {totalDistributedAmount:N0}. Refund {refundAmount:N0}.";
+            escrow.Description = $"Disbursed {totalDistributedAmount:N0} to winners. Refunded {refundAmount:N0} to creator.";
             _escrowRepo.Update(escrow);
 
             await _unitOfWork.SaveChangesAsync();
@@ -408,41 +412,47 @@ namespace Application.Services.EventServices
             }
         }
 
-        private async Task ReleaseEventRevenueToCreatorAsync(Event ev)
+        private async Task ReleaseEventRevenueToCreatorAsync(Event ev, List<EscrowSession> feeEscrows)
         {
-            if (ev.EntryFee <= 0) return;
+            if (ev.EntryFee <= 0 || feeEscrows == null || !feeEscrows.Any()) return;
 
             var creatorWallet = await _walletRepo.GetByAccountIdAsync(ev.CreatorId);
-            if (creatorWallet == null) return;
+            if (creatorWallet == null) throw new Exception("Organizer's wallet not found during revenue release.");
 
-            decimal amountToRelease = creatorWallet.LockedBalance;
+            decimal totalRevenue = feeEscrows.Sum(e => e.Amount);
 
-            if (amountToRelease > 0)
+            if (totalRevenue > 0)
             {
                 decimal balanceBefore = creatorWallet.Balance;
-                decimal lockedBefore = creatorWallet.LockedBalance;
 
-                creatorWallet.Balance += amountToRelease;
-                creatorWallet.LockedBalance = 0;
+                creatorWallet.Balance += totalRevenue;
                 creatorWallet.UpdatedAt = DateTime.UtcNow;
-
                 _walletRepo.Update(creatorWallet);
+
+                foreach (var escrow in feeEscrows)
+                {
+                    escrow.Status = EscrowStatus.Released;
+                    escrow.ResolvedAt = DateTime.UtcNow;
+                    _escrowRepo.Update(escrow);
+                }
 
                 await _transactionRepo.AddAsync(new Transaction
                 {
                     WalletId = creatorWallet.WalletId,
                     TransactionCode = $"REVENUE_RELEASE_{ev.EventId}_{DateTime.UtcNow.Ticks}",
-                    Amount = amountToRelease,
+                    Amount = totalRevenue,
                     BalanceBefore = balanceBefore,
                     BalanceAfter = creatorWallet.Balance,
                     Type = "Event_Revenue_Released",
                     Status = "Success",
-                    Description = $"Receive revenue from event participation fees: {ev.Title}",
+                    Description = $"Received total revenue from {feeEscrows.Count} participant entry fees for event '{ev.Title}'",
                     ReferenceId = ev.EventId,
                     ReferenceType = "Event",
                     CreatedAt = DateTime.UtcNow
                 });
             }
+
+            await _unitOfWork.SaveChangesAsync();
         }
     }
 }

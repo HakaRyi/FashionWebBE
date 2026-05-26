@@ -1,14 +1,15 @@
+using System.Text.RegularExpressions;
 using Application.Interfaces;
-using Microsoft.AspNetCore.SignalR;
-using Microsoft.EntityFrameworkCore;
-using Domain.Entities;
 using Application.RabbitMQ;
 using Application.Request.MessageReq;
 using Application.Response.MessageResp;
 using Application.Response.MessReactResp;
 using Application.Utils;
 using Application.Utils.SignalR;
+using Domain.Entities;
 using Domain.Interfaces;
+using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 
 namespace Application.Services.ChatImp
 {
@@ -60,9 +61,13 @@ namespace Application.Services.ChatImp
             try
             {
                 var message = await _chatrepo.GetMessageById(messageId);
+                int groupId = message.GroupId ?? 0;
                 await _chatrepo.DeleteMessage(message);
                 await _unitOfWork.CommitAsync();
-
+                if (groupId > 0)
+                {
+                    await _hubContext.Clients.Group(groupId.ToString()).SendAsync("MessageDeleted", messageId);
+                }
             }
             catch (Exception ex)
             {
@@ -94,6 +99,9 @@ namespace Application.Services.ChatImp
                     ReactionType = r.Type
                 }).ToList(),
                 ReplyToMessageId = m.ReplyToMessageId,
+                ReplyToSenderName = m.ReplyToMessage?.Account?.UserName,
+                ReplyToContent = m.ReplyToMessage?.IsRecalled == true ? "This message has been recalled." : m.ReplyToMessage?.Content,
+                ReplyToPhotos = m.ReplyToMessage?.Photos.Select(p => p.PhotoUrl).ToList() ?? new List<string>(),
                 IsRecalled = m.IsRecalled,
 
                 SharedPostId = m.SharedPostId,
@@ -175,7 +183,8 @@ namespace Application.Services.ChatImp
                 SenderId = senderId,
                 Content = request.content,
                 ImageUrls = imageUrls,
-                ReplyToId = request.replyToId
+                ReplyToId = request.replyToId,
+                TempId = request.tempId
             };
 
             await _rabbitMQProducer.SendMessage(queueMessage);
@@ -229,6 +238,7 @@ namespace Application.Services.ChatImp
 
             await _chatrepo.EditMessage(message);
             await _unitOfWork.CommitAsync();
+            await _hubContext.Clients.Group(message.GroupId.ToString()).SendAsync("MessageRecalled", messageId);
         }
 
         public async Task AddReaction(int messageId, string type)

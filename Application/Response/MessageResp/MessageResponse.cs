@@ -21,6 +21,10 @@
         public DateTime? SentAt { get; set; }
         public List<MessageReactionResponse>? Reactions { get; set; } = new List<MessageReactionResponse>();
         public int? ReplyToMessageId { get; set; }
+        public string? ReplyToSenderName { get; set; }
+        public string? ReplyToContent { get; set; }
+        public List<string>? ReplyToPhotos { get; set; }
+        public string? TempId { get; set; }
     }
     public class MessageReactionResponse
     {

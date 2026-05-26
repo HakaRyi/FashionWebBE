@@ -26,7 +26,7 @@ namespace Application.Jobs
             _logger = logger;
         }
 
-        public Task Execute(IJobExecutionContext context)
+        public async Task Execute(IJobExecutionContext context)
         {
             throw new NotImplementedException();
         }

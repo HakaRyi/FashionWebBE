@@ -7,5 +7,6 @@
         public string Content { get; set; }
         public List<string> ImageUrls { get; set; }
         public int? ReplyToId { get; set; }
+        public string? TempId { get; set; }
     }
 }

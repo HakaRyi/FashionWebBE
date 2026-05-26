@@ -30,6 +30,15 @@ namespace Presentation.Controllers
         [Authorize]
         public async Task<IActionResult> SendMessage([FromRoute] int groupId, [FromForm] SendMessageRequest request)
         {
+            Console.WriteLine("=== SEND MESSAGE DEBUG ===");
+            Console.WriteLine($"Content: '{request?.content}'");
+            Console.WriteLine($"Content Length: {request?.content?.Length}");
+            Console.WriteLine($"Has Photo: {request?.photo?.Count > 0}");
+            if (request == null)
+            {
+                Console.WriteLine("Request is NULL!");
+                return BadRequest("Request null");
+            }
 
             await _service.SendMessage(groupId, request);
             var user = await accountService.GetAccountByMe();

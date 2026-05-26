@@ -181,6 +181,21 @@ namespace Application.Services.BackgroundServices
             var sender = await repo.GetAccountById(chatData.SenderId);
             var group = await groupRepo.GetGroupById(chatData.GroupId);
 
+            string? replySenderName = null;
+            string? replyContent = null;
+            List<string>? replyPhotos = null;
+
+            if (newMessage.ReplyToMessageId.HasValue)
+            {
+                var replyOriginalMsg = await repo.GetMessageById(newMessage.ReplyToMessageId.Value);
+                if (replyOriginalMsg != null)
+                {
+                    replySenderName = replyOriginalMsg.Account?.UserName;
+                    replyContent = replyOriginalMsg.IsRecalled == true ? "This message has been recalled." : replyOriginalMsg.Content;
+                    replyPhotos = replyOriginalMsg.Photos?.Select(p => p.PhotoUrl).ToList();
+                }
+            }
+
             var messageResponse = new MessageResponse
             {
                 MessageId = newMessage.MessageId,
@@ -194,7 +209,12 @@ namespace Application.Services.BackgroundServices
                 SentAt = newMessage.SentAt,
                 Photos = imageUrls,
                 GroupId = chatData.GroupId,
-                GroupName = group?.Name ?? (group?.IsGroup == false ? "Private Chat" : "Unnamed Group")
+                GroupName = group?.Name ?? (group?.IsGroup == false ? "Private Chat" : "Unnamed Group"),
+                TempId = chatData.TempId,
+                ReplyToMessageId = newMessage.ReplyToMessageId,
+                ReplyToSenderName = replySenderName,
+                ReplyToContent = replyContent,
+                ReplyToPhotos = replyPhotos ?? new List<string>()
             };
 
             await hubContext.Clients
