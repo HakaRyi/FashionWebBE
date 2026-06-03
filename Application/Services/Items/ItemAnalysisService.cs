@@ -1,6 +1,7 @@
 ﻿using Application.Response.ItemResp;
 using Domain.Constants;
 using Domain.Interfaces;
+using Domain.Entities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,7 +16,10 @@ namespace Application.Services.Items
         private readonly IOrderRepository _orderRepository;
         private readonly ITransactionRepository _transactionRepository;
 
-        public ItemAnalysisService(IItemRepository itemRepository, IOrderRepository orderRepository, ITransactionRepository transactionRepository)
+        public ItemAnalysisService(
+            IItemRepository itemRepository,
+            IOrderRepository orderRepository,
+            ITransactionRepository transactionRepository)
         {
             _itemRepository = itemRepository;
             _orderRepository = orderRepository;
@@ -23,18 +27,17 @@ namespace Application.Services.Items
         }
 
         public async Task<FashionIntelligenceResp> GetMarketThroughputAsync(
-    DateTime? startDate,
-    DateTime? endDate,
-    string? filterType = null,
-    string? filterValue = null,
-    string viewMode = "date") // "date" hoặc "month"
+            DateTime? startDate,
+            DateTime? endDate,
+            string? filterType = null,
+            string? filterValue = null,
+            string viewMode = "date")
         {
             // Chuẩn hóa ViewMode
             viewMode = viewMode?.Trim().ToLower() == "month" ? "month" : "date";
 
             // 1. Chuẩn hóa khoảng thời gian mặc định dựa trên ViewMode
             var end = (endDate ?? DateTime.UtcNow).Date;
-            // Nếu xem theo tháng, mặc định lấy 6 tháng gần nhất. Nếu xem theo ngày, lấy 7 ngày gần nhất.
             var start = startDate.HasValue
                 ? startDate.Value.Date
                 : (viewMode == "month" ? end.AddMonths(-5).Date : end.AddDays(-6).Date);
@@ -49,6 +52,17 @@ namespace Application.Services.Items
                             o.Status.Equals(OrderStatus.Completed, StringComparison.OrdinalIgnoreCase) &&
                             o.OrderDetails != null)
                 .ToList();
+
+            // Trích xuất map giữa OrderId và Thời điểm Hoàn thành từ StatusHistories
+            var orderCompletedDates = completedOrders.ToDictionary(
+                o => o.OrderId,
+                o => o.StatusHistories
+                        .Where(h => h.Status.Equals(OrderStatus.Completed, StringComparison.OrdinalIgnoreCase))
+                        .Select(h => h.ChangedAt)
+                        .FirstOrDefault() == default
+                        ? o.CreatedAt
+                        : o.StatusHistories.First(h => h.Status.Equals(OrderStatus.Completed, StringComparison.OrdinalIgnoreCase)).ChangedAt
+            );
 
             // Chuẩn hóa tham số lọc để tìm kiếm chính xác
             string? normType = filterType?.Trim().ToLower();
@@ -90,28 +104,31 @@ namespace Application.Services.Items
                 .ToList();
 
             // -----------------------------------------------------------------
-            // 2. XỬ LÝ TRỤC THỜI GIAN ĐỘNG (HỖ TRỢ DATE & MONTH)
+            // 2. XỬ LÝ TRỤC THỜI GIAN ĐỘNG (ĐÃ SỬA ĐỂ KHÔNG BỊ LỖI KIỂU DỮ LIỆU)
             // -----------------------------------------------------------------
-            // Định nghĩa định dạng Group dữ liệu tùy theo chế độ xem
             string timeFormat = viewMode == "month" ? "yyyy-MM" : "yyyy-MM-dd";
 
-            // [Global] Uploads theo nhóm thời gian
+            // Thêm ?? "" để đảm bảo Key trả về luôn là `string` chứ không phải `string?`
             var globalUploadsByPeriod = rawItems
                 .Where(i => i.CreatedAt.HasValue)
-                .GroupBy(i => i.CreatedAt!.Value.ToString(timeFormat))
+                .GroupBy(i => i.CreatedAt!.Value.ToString(timeFormat) ?? "")
                 .ToDictionary(g => g.Key, g => g.Count());
 
-            // [Global] Sales theo nhóm thời gian
             var globalSalesByPeriod = completedOrders
-                .GroupBy(o => (o.CompletedAt ?? o.CreatedAt).ToString(timeFormat))
+                .GroupBy(o => {
+                    var completionDate = orderCompletedDates.TryGetValue(o.OrderId, out var dt) ? dt : o.CreatedAt;
+                    return completionDate.ToString(timeFormat) ?? "";
+                })
                 .ToDictionary(
                     g => g.Key,
                     g => g.SelectMany(o => o.OrderDetails).Where(od => od != null).Sum(od => od.Quantity)
                 );
 
-            // [Specific] Sales của sản phẩm được lọc theo nhóm thời gian
             var specificSalesByPeriod = filteredOrderDetails
-                .GroupBy(x => (x.Order.CompletedAt ?? x.Order.CreatedAt).ToString(timeFormat))
+                .GroupBy(x => {
+                    var completionDate = orderCompletedDates.TryGetValue(x.Order.OrderId, out var dt) ? dt : x.Order.CreatedAt;
+                    return completionDate.ToString(timeFormat) ?? "";
+                })
                 .ToDictionary(g => g.Key, g => g.Sum(x => x.Detail.Quantity));
 
             var timelineData = new List<AdminMarketTimelineDto>();
@@ -119,7 +136,6 @@ namespace Application.Services.Items
             int divisorFactor = rawItems.Select(i => i.Category).Distinct().Count();
             if (divisorFactor == 0) divisorFactor = 1;
 
-            // Tiến hành dựng dữ liệu Timeline động
             if (viewMode == "date")
             {
                 int totalDays = (end - start).Days + 1;
@@ -132,66 +148,67 @@ namespace Application.Services.Items
                     BuildTimelineRow(lookupKey, label, globalUploadsByPeriod, globalSalesByPeriod, specificSalesByPeriod, divisorFactor, hasFilter, timelineData);
                 }
             }
-            else // Chế độ "month"
+            else
             {
-                // Tính toán số tháng chênh lệch giữa Start và End
                 int totalMonths = ((end.Year - start.Year) * 12) + end.Month - start.Month + 1;
                 for (int i = 0; i < totalMonths; i++)
                 {
                     var targetMonth = start.AddMonths(i);
                     string lookupKey = targetMonth.ToString(timeFormat);
-                    string label = targetMonth.ToString("yyyy/MM"); // Nhãn trục biểu đồ tháng (VD: 2026/05)
+                    string label = targetMonth.ToString("yyyy/MM");
 
                     BuildTimelineRow(lookupKey, label, globalUploadsByPeriod, globalSalesByPeriod, specificSalesByPeriod, divisorFactor, hasFilter, timelineData);
                 }
             }
 
             // -----------------------------------------------------------------
-            // 3. CHI TIẾT PHÂN PHỐI THUỘC TÍNH (Giữ nguyên logic chuẩn hóa)
+            // 3. CHI TIẾT PHÂN PHỐI THUỘC TÍNH
             // -----------------------------------------------------------------
             var attributeData = new List<AttributeDistributionDto>();
+
+            var purchasesByColor = filteredOrderDetails.GroupBy(x => (x.Detail.Item.MainColor ?? "").Trim().ToLower()).ToDictionary(g => g.Key, g => g.Sum(x => x.Detail.Quantity));
+            var purchasesByFabric = filteredOrderDetails.GroupBy(x => (x.Detail.Item.Material ?? "").Trim().ToLower()).ToDictionary(g => g.Key, g => g.Sum(x => x.Detail.Quantity));
+            var purchasesByStyle = filteredOrderDetails.GroupBy(x => (x.Detail.Item.Style ?? "").Trim().ToLower()).ToDictionary(g => g.Key, g => g.Sum(x => x.Detail.Quantity));
+            var purchasesByCategory = filteredOrderDetails.GroupBy(x => (x.Detail.Item.Category ?? "").Trim().ToLower()).ToDictionary(g => g.Key, g => g.Sum(x => x.Detail.Quantity));
+
             var colorGroups = rawItems.GroupBy(i => string.IsNullOrEmpty(i.MainColor) ? "unassigned" : i.MainColor.Trim().ToLower());
             foreach (var g in colorGroups)
             {
-                var purchases = filteredOrderDetails.Where(x => (x.Detail.Item.MainColor ?? "").Trim().ToLower() == g.Key).Sum(x => x.Detail.Quantity);
+                purchasesByColor.TryGetValue(g.Key, out var purchases);
                 attributeData.Add(new AttributeDistributionDto { Type = "Color", Value = g.Key, TotalUploads = g.Count(), TotalPurchases = purchases });
             }
 
             var fabricGroups = rawItems.GroupBy(i => string.IsNullOrEmpty(i.Material) ? "unassigned" : i.Material.Trim().ToLower());
             foreach (var g in fabricGroups)
             {
-                var purchases = filteredOrderDetails.Where(x => (x.Detail.Item.Material ?? "").Trim().ToLower() == g.Key).Sum(x => x.Detail.Quantity);
+                purchasesByFabric.TryGetValue(g.Key, out var purchases);
                 attributeData.Add(new AttributeDistributionDto { Type = "Fabric", Value = g.Key, TotalUploads = g.Count(), TotalPurchases = purchases });
             }
 
             var styleGroups = rawItems.GroupBy(i => string.IsNullOrEmpty(i.Style) ? "unassigned" : i.Style.Trim().ToLower());
             foreach (var g in styleGroups)
             {
-                var purchases = filteredOrderDetails.Where(x => (x.Detail.Item.Style ?? "").Trim().ToLower() == g.Key).Sum(x => x.Detail.Quantity);
+                purchasesByStyle.TryGetValue(g.Key, out var purchases);
                 attributeData.Add(new AttributeDistributionDto { Type = "Style", Value = g.Key, TotalUploads = g.Count(), TotalPurchases = purchases });
             }
 
             var categoryGroups = rawItems.GroupBy(i => string.IsNullOrEmpty(i.Category) ? "unassigned" : i.Category.Trim().ToLower());
             foreach (var g in categoryGroups)
             {
-                var purchases = filteredOrderDetails.Where(x => (x.Detail.Item.Category ?? "").Trim().ToLower() == g.Key).Sum(x => x.Detail.Quantity);
+                purchasesByCategory.TryGetValue(g.Key, out var purchases);
                 attributeData.Add(new AttributeDistributionDto { Type = "Category", Value = g.Key, TotalUploads = g.Count(), TotalPurchases = purchases });
             }
 
             // -----------------------------------------------------------------
-            // 5. THÊM MỚI: XỬ LÝ PIE ATTRIBUTE SHARE (ĐỘNG THEO FILTER TYPE VÀ DATE)
+            // 4. XỬ LÝ PIE ATTRIBUTE SHARE
             // -----------------------------------------------------------------
             var attributeShareData = new List<AttributeShareDto>();
-
-            // Xác định nhóm thuộc tính cần phân tích cho Pie (Mặc định nếu trống là phân tích thị phần Category)
             string targetPieType = !string.IsNullOrEmpty(normType) ? normType : "category";
 
-            // Lấy danh sách các bản ghi thô thuộc loại thuộc tính này
             var targetGroup = attributeData
                 .Where(a => a.Type.Equals(targetPieType, StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
-            // Tính tổng số lượng upload trong nhóm này để làm mẫu số tính %
             int totalGroupUploads = targetGroup.Sum(a => a.TotalUploads);
 
             if (totalGroupUploads > 0)
@@ -201,15 +218,14 @@ namespace Application.Services.Items
                     Name = a.Value,
                     Value = a.TotalUploads,
                     Percentage = Math.Round(((decimal)a.TotalUploads / totalGroupUploads) * 100, 1),
-                    // Đánh dấu nổi bật (Highlight): Nếu trùng với giá trị đang tìm kiếm thì TRUE
                     IsHighlighted = hasFilter && a.Value.Equals(normValue, StringComparison.OrdinalIgnoreCase)
                 })
-                .OrderByDescending(x => x.Value) // Sắp xếp từ lớn đến nhỏ để hiển thị Pie đẹp hơn
+                .OrderByDescending(x => x.Value)
                 .ToList();
             }
 
             // -----------------------------------------------------------------
-            // 4. ĐỒNG BỘ CHỈ SỐ TỔNG HỢP KPI THỊ TRƯỜNG
+            // 5. ĐỒNG BỘ CHỈ SỐ TỔNG HỢP KPI THỊ TRƯỜNG
             // -----------------------------------------------------------------
             int totalUploads = rawItems.Count;
             int totalSales = completedOrders.SelectMany(o => o.OrderDetails).Where(od => od != null).Sum(od => od.Quantity);
@@ -230,7 +246,6 @@ namespace Application.Services.Items
             };
         }
 
-        // Hàm Helper phụ trợ giúp tái sử dụng mã nguồn cho cả 2 vòng lặp (Date/Month) tránh trùng lặp code
         private void BuildTimelineRow(
             string lookupKey,
             string label,
@@ -247,7 +262,7 @@ namespace Application.Services.Items
 
             timelineList.Add(new AdminMarketTimelineDto
             {
-                Date = label, // Gán nhãn tương ứng (MM/dd hoặc yyyy/MM)
+                Date = label,
                 GlobalUploads = uploads,
                 GlobalSales = sales,
                 SpecificValue = hasFilter ? specSales : 0,

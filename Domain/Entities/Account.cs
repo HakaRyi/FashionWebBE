@@ -85,6 +85,8 @@ public partial class Account : IdentityUser<int>
 
     public virtual ICollection<EscrowSession> SentEscrows { get; set; } = new List<EscrowSession>();
 
+    public virtual ICollection<EscrowStatusHistory> EscrowStatusHistories { get; set; } = new List<EscrowStatusHistory>();
+
     public virtual ICollection<EscrowSession> ReceivedEscrows { get; set; } = new List<EscrowSession>();
 
     public virtual ICollection<PhysicalProfile> PhysicalProfiles { get; set; } = new List<PhysicalProfile>();

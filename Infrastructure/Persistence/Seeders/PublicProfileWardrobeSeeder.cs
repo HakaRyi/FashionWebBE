@@ -761,47 +761,178 @@ namespace Infrastructure.Persistence.Seeders
                     UpdatedAt = createdAt
                 };
 
+                order.StatusHistories.Add(new OrderStatusHistory
+                {
+                    Status = OrderStatus.PendingPayment,
+                    ChangedAt = createdAt,
+                    ActorType = "BUYER",
+                    Note = "Order initialized by buyer."
+                });
+
                 if (i <= 7)
                 {
                     order.Status = OrderStatus.Processing;
-                    order.PaidAt = createdAt.AddHours(3);
+
+                    order.StatusHistories.Add(new OrderStatusHistory
+                    {
+                        Status = OrderStatus.Processing,
+                        ChangedAt = createdAt.AddHours(3),
+                        ActorType = "SYSTEM",
+                        Note = "Payment captured. Moving to processing."
+                    });
                 }
                 else if (i <= 10)
                 {
                     order.Status = OrderStatus.Shipping;
-                    order.PaidAt = createdAt.AddHours(4);
+
+                    order.StatusHistories.Add(new OrderStatusHistory
+                    {
+                        Status = OrderStatus.Processing,
+                        ChangedAt = createdAt.AddHours(3),
+                        ActorType = "SYSTEM",
+                        Note = "Payment captured."
+                    });
+                    order.StatusHistories.Add(new OrderStatusHistory
+                    {
+                        Status = OrderStatus.Shipping,
+                        ChangedAt = createdAt.AddHours(4),
+                        ActorType = "SELLER",
+                        Note = "Package handed over to carrier."
+                    });
                 }
                 else if (i <= 12)
                 {
                     order.Status = OrderStatus.Delivered;
-                    order.PaidAt = createdAt.AddHours(4);
-                    order.DeliveredAt = createdAt.AddDays(2);
+
+                    order.StatusHistories.Add(new OrderStatusHistory
+                    {
+                        Status = OrderStatus.Processing,
+                        ChangedAt = createdAt.AddHours(3),
+                        ActorType = "SYSTEM"
+                    });
+                    order.StatusHistories.Add(new OrderStatusHistory
+                    {
+                        Status = OrderStatus.Shipping,
+                        ChangedAt = createdAt.AddHours(4),
+                        ActorType = "SELLER"
+                    });
+                    order.StatusHistories.Add(new OrderStatusHistory
+                    {
+                        Status = OrderStatus.Delivered,
+                        ChangedAt = createdAt.AddDays(2),
+                        ActorType = "SYSTEM",
+                        Note = "Carrier confirmed delivery."
+                    });
                 }
                 else if (i <= 14)
                 {
                     order.Status = OrderStatus.Completed;
-                    order.PaidAt = createdAt.AddHours(5);
-                    order.DeliveredAt = createdAt.AddDays(2);
-                    order.CompletedAt = createdAt.AddDays(3);
+
+                    order.StatusHistories.Add(new OrderStatusHistory
+                    {
+                        Status = OrderStatus.Processing,
+                        ChangedAt = createdAt.AddHours(3),
+                        ActorType = "SYSTEM"
+                    });
+                    order.StatusHistories.Add(new OrderStatusHistory
+                    {
+                        Status = OrderStatus.Shipping,
+                        ChangedAt = createdAt.AddHours(4),
+                        ActorType = "SELLER"
+                    });
+                    order.StatusHistories.Add(new OrderStatusHistory
+                    {
+                        Status = OrderStatus.Delivered,
+                        ChangedAt = createdAt.AddDays(2),
+                        ActorType = "SYSTEM"
+                    });
+                    order.StatusHistories.Add(new OrderStatusHistory
+                    {
+                        Status = OrderStatus.Completed,
+                        ChangedAt = createdAt.AddDays(3),
+                        ActorType = "BUYER",
+                        Note = "Buyer confirmed receipt and satisfaction."
+                    });
                 }
                 else if (i == 15)
                 {
                     order.Status = OrderStatus.Cancelled;
-                    order.CancelledAt = createdAt.AddHours(6);
                     order.CancelReason = "Seed cancelled before payment";
+
+                    order.StatusHistories.Add(new OrderStatusHistory
+                    {
+                        Status = OrderStatus.Cancelled,
+                        ChangedAt = createdAt.AddHours(6),
+                        ActorType = "BUYER",
+                        Note = order.CancelReason
+                    });
                 }
                 else if (i == 16)
                 {
                     order.Status = OrderStatus.Refunded;
-                    order.PaidAt = createdAt.AddHours(2);
-                    order.DeliveredAt = createdAt.AddDays(2);
-                    order.CompletedAt = createdAt.AddDays(3);
+
+                    order.StatusHistories.Add(new OrderStatusHistory
+                    {
+                        Status = OrderStatus.Processing,
+                        ChangedAt = createdAt.AddHours(2),
+                        ActorType = "SYSTEM"
+                    });
+                    order.StatusHistories.Add(new OrderStatusHistory
+                    {
+                        Status = OrderStatus.Shipping,
+                        ChangedAt = createdAt.AddHours(3),
+                        ActorType = "SELLER"
+                    });
+                    order.StatusHistories.Add(new OrderStatusHistory
+                    {
+                        Status = OrderStatus.Delivered,
+                        ChangedAt = createdAt.AddDays(2),
+                        ActorType = "SYSTEM"
+                    });
+                    order.StatusHistories.Add(new OrderStatusHistory
+                    {
+                        Status = OrderStatus.Refunding,
+                        ChangedAt = createdAt.AddDays(3),
+                        ActorType = "BUYER",
+                        Note = "Dispute raised by buyer."
+                    });
+                    order.StatusHistories.Add(new OrderStatusHistory
+                    {
+                        Status = OrderStatus.Refunded,
+                        ChangedAt = createdAt.AddDays(3).AddHours(6),
+                        ActorType = "ADMIN",
+                        Note = "Refund approved by administrator."
+                    });
                 }
                 else
                 {
                     order.Status = OrderStatus.Refunding;
-                    order.PaidAt = createdAt.AddHours(2);
-                    order.DeliveredAt = createdAt.AddDays(2);
+
+                    order.StatusHistories.Add(new OrderStatusHistory
+                    {
+                        Status = OrderStatus.Processing,
+                        ChangedAt = createdAt.AddHours(2),
+                        ActorType = "SYSTEM"
+                    });
+                    order.StatusHistories.Add(new OrderStatusHistory
+                    {
+                        Status = OrderStatus.Shipping,
+                        ChangedAt = createdAt.AddHours(3),
+                        ActorType = "SELLER"
+                    });
+                    order.StatusHistories.Add(new OrderStatusHistory
+                    {
+                        Status = OrderStatus.Delivered,
+                        ChangedAt = createdAt.AddDays(2),
+                        ActorType = "SYSTEM"
+                    });
+                    order.StatusHistories.Add(new OrderStatusHistory
+                    {
+                        Status = OrderStatus.Refunding,
+                        ChangedAt = createdAt.AddDays(2).AddHours(4),
+                        ActorType = "BUYER",
+                        Note = "Item did not match description. Initiating return."
+                    });
                 }
 
                 string size = string.IsNullOrWhiteSpace(pickedVariant.SizeCode) ? "N/A" : pickedVariant.SizeCode;
@@ -826,9 +957,12 @@ namespace Infrastructure.Persistence.Seeders
                 seededOrders.Add(order);
             }
 
-            await orders.AddRangeAsync(seededOrders);
+            await context.Orders.AddRangeAsync(seededOrders);
             await context.SaveChangesAsync();
 
+            // =========================================================
+            // 2. TẠO ESCROW, TRANSACTIONS VÀ REFUND REQUESTS
+            // =========================================================
             var seededEscrows = new List<EscrowSession>();
             var seededTransactions = new List<Transaction>();
             var seededRefundRequests = new List<RefundRequest>();
@@ -846,6 +980,14 @@ namespace Infrastructure.Persistence.Seeders
                     OrderStatus.Refunded or
                     OrderStatus.Refunding;
 
+                // Lấy mốc thời gian thanh toán (Processing) và mốc hoàn thành (Completed/Refunded) từ lịch sử trạng thái
+                var processingHistory = order.StatusHistories.FirstOrDefault(h => h.Status == OrderStatus.Processing);
+                var completedHistory = order.StatusHistories.FirstOrDefault(h => h.Status == OrderStatus.Completed);
+                var refundedHistory = order.StatusHistories.FirstOrDefault(h => h.Status == OrderStatus.Refunded);
+                var refundingHistory = order.StatusHistories.FirstOrDefault(h => h.Status == OrderStatus.Refunding);
+
+                DateTime paymentTime = processingHistory?.ChangedAt ?? order.CreatedAt.AddHours(2);
+
                 if (needsEscrow)
                 {
                     string escrowStatus = EscrowStatus.Held;
@@ -854,7 +996,12 @@ namespace Infrastructure.Persistence.Seeders
                     if (order.Status == OrderStatus.Refunded)
                     {
                         escrowStatus = EscrowStatus.Refunded;
-                        resolvedAt = order.CompletedAt?.AddHours(1) ?? order.CreatedAt.AddDays(3);
+                        resolvedAt = refundedHistory?.ChangedAt;
+                    }
+                    else if (order.Status == OrderStatus.Completed)
+                    {
+                        escrowStatus = "COMPLETED"; // Đồng bộ trạng thái Escrow hoàn tất
+                        resolvedAt = completedHistory?.ChangedAt;
                     }
 
                     seededEscrows.Add(new EscrowSession
@@ -866,21 +1013,11 @@ namespace Infrastructure.Persistence.Seeders
                         ServiceFee = order.ServiceFee,
                         Status = escrowStatus,
                         Description = $"Seed escrow for order #{order.OrderId}",
-                        CreatedAt = order.PaidAt ?? order.CreatedAt.AddHours(2),
+                        CreatedAt = paymentTime,
                         ResolvedAt = resolvedAt
                     });
-                }
 
-                bool hasBuyerPayment = order.Status is
-                    OrderStatus.Processing or
-                    OrderStatus.Shipping or
-                    OrderStatus.Delivered or
-                    OrderStatus.Completed or
-                    OrderStatus.Refunded or
-                    OrderStatus.Refunding;
-
-                if (hasBuyerPayment)
-                {
+                    // --- GIAO DỊCH 1: Người mua thanh toán (Debit) ---
                     decimal buyerBefore = buyerWallet.Balance;
                     decimal buyerAfter = buyerBefore - order.TotalAmount;
 
@@ -896,15 +1033,43 @@ namespace Infrastructure.Persistence.Seeders
                         ReferenceType = TransactionReferenceType.OrderPayment,
                         ReferenceId = order.OrderId,
                         Description = $"Seed payment for order #{order.OrderId}",
-                        CreatedAt = order.PaidAt ?? order.CreatedAt.AddHours(2),
+                        CreatedAt = paymentTime,
                         Status = TransactionStatus.Success
                     });
 
                     buyerWallet.Balance = buyerAfter;
                     buyerWallet.UpdatedAt = now;
-                }       
+                }
 
-                if (order.Status == OrderStatus.Refunded)
+                // --- GIAO DỊCH 2: Giải ngân cho Người Bán khi đơn hàng COMPLETED ---
+                if (order.Status == OrderStatus.Completed && completedHistory != null)
+                {
+                    decimal netAmount = order.TotalAmount - order.ServiceFee; // Trừ phí sàn
+                    decimal sellerBefore = sellerWallet.Balance;
+                    decimal sellerAfter = sellerBefore + netAmount;
+
+                    seededTransactions.Add(new Transaction
+                    {
+                        WalletId = sellerWallet.WalletId,
+                        PaymentId = null,
+                        TransactionCode = $"TRX-EARN-{order.OrderId:0000}",
+                        Amount = netAmount,
+                        BalanceBefore = sellerBefore,
+                        BalanceAfter = sellerAfter,
+                        Type = TransactionType.Credit,
+                        ReferenceType = TransactionReferenceType.OrderPayment,
+                        ReferenceId = order.OrderId,
+                        Description = $"Seed payout for completed order #{order.OrderId}",
+                        CreatedAt = completedHistory.ChangedAt,
+                        Status = TransactionStatus.Success
+                    });
+
+                    sellerWallet.Balance = sellerAfter;
+                    sellerWallet.UpdatedAt = now;
+                }
+
+                // --- GIAO DỊCH 3: Hoàn tiền cho Người Mua khi đơn hàng REFUNDED ---
+                if (order.Status == OrderStatus.Refunded && refundedHistory != null)
                 {
                     decimal buyerBefore = buyerWallet.Balance;
                     decimal buyerAfter = buyerBefore + order.TotalAmount;
@@ -921,7 +1086,7 @@ namespace Infrastructure.Persistence.Seeders
                         ReferenceType = TransactionReferenceType.OrderRefund,
                         ReferenceId = order.OrderId,
                         Description = $"Seed refund for order #{order.OrderId}",
-                        CreatedAt = (order.CompletedAt ?? order.CreatedAt.AddDays(3)).AddHours(6),
+                        CreatedAt = refundedHistory.ChangedAt,
                         Status = TransactionStatus.Success
                     });
 
@@ -936,12 +1101,12 @@ namespace Infrastructure.Persistence.Seeders
                         ProofImage2 = "https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=800",
                         Status = "APPROVED",
                         AdminNote = "Approved by seed process",
-                        CreatedAt = order.CompletedAt ?? order.CreatedAt.AddDays(3),
-                        ProcessedAt = (order.CompletedAt ?? order.CreatedAt.AddDays(3)).AddHours(6)
+                        CreatedAt = refundingHistory?.ChangedAt ?? order.CreatedAt.AddDays(2),
+                        ProcessedAt = refundedHistory.ChangedAt
                     });
                 }
 
-                if (order.Status == OrderStatus.Refunding)
+                if (order.Status == OrderStatus.Refunding && refundingHistory != null)
                 {
                     seededRefundRequests.Add(new RefundRequest
                     {
@@ -950,31 +1115,44 @@ namespace Infrastructure.Persistence.Seeders
                         ProofImage1 = "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=800",
                         ProofImage2 = "https://images.unsplash.com/photo-1496747611176-843222e1e57c?w=800",
                         Status = "PENDING",
-                        CreatedAt = order.DeliveredAt ?? order.CreatedAt.AddDays(2)
+                        CreatedAt = refundingHistory.ChangedAt
                     });
                 }
             }
 
-            await escrows.AddRangeAsync(seededEscrows);
-            await transactions.AddRangeAsync(seededTransactions);
-            await refundRequests.AddRangeAsync(seededRefundRequests);
+            await context.EscrowSessions.AddRangeAsync(seededEscrows);
+            await context.Transactions.AddRangeAsync(seededTransactions);
+            await context.RefundRequests.AddRangeAsync(seededRefundRequests);
             await context.SaveChangesAsync();
 
             // =========================================================
-            // 10. Cập nhật thống kê
+            // 3. CẬP NHẬT THỐNG KÊ TÀI KHOẢN (TỐI ƯU HIỆU NĂNG - TRÁNH N+1)
             // =========================================================
             var allAccounts = new List<Account> { targetAccount };
             allAccounts.AddRange(demoAccounts);
+            var accountIds = allAccounts.Select(a => a.Id).ToList();
+
+            // Gom nhóm đếm số lượng thông qua LINQ GroupBy nhằm tối ưu tốc độ kết nối DB
+            var postCounts = await context.Posts
+                .Where(x => accountIds.Contains(x.AccountId) && x.Status == PostStatus.Published && x.Visibility == PostVisibility.Visible)
+                .GroupBy(x => x.AccountId)
+                .ToDictionaryAsync(g => g.Key, g => g.Count());
+
+            var followerCounts = await context.Follows
+                .Where(x => accountIds.Contains(x.UserId))
+                .GroupBy(x => x.UserId)
+                .ToDictionaryAsync(g => g.Key, g => g.Count());
+
+            var followingCounts = await context.Follows
+                .Where(x => accountIds.Contains(x.FollowerId))
+                .GroupBy(x => x.FollowerId)
+                .ToDictionaryAsync(g => g.Key, g => g.Count());
 
             foreach (var acc in allAccounts)
             {
-                acc.CountPost = await posts.CountAsync(x =>
-                    x.AccountId == acc.Id &&
-                    x.Status == PostStatus.Published &&
-                    x.Visibility == PostVisibility.Visible);
-
-                acc.CountFollower = await follows.CountAsync(x => x.UserId == acc.Id);
-                acc.CountFollowing = await follows.CountAsync(x => x.FollowerId == acc.Id);
+                acc.CountPost = postCounts.TryGetValue(acc.Id, out var pc) ? pc : 0;
+                acc.CountFollower = followerCounts.TryGetValue(acc.Id, out var fc) ? fc : 0;
+                acc.CountFollowing = followingCounts.TryGetValue(acc.Id, out var fing) ? fing : 0;
             }
 
             await context.SaveChangesAsync();

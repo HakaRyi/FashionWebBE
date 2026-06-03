@@ -37,19 +37,13 @@ namespace Domain.Entities
 
         public DateTime? UpdatedAt { get; set; }
 
-        public DateTime? PaidAt { get; set; }
-
-        public DateTime? DeliveredAt { get; set; }
-
-        public DateTime? CompletedAt { get; set; }
-
-        public DateTime? CancelledAt { get; set; }
-
         public virtual Account Buyer { get; set; } = null!;
 
         public virtual Account Seller { get; set; } = null!;
 
         public virtual ICollection<OrderDetail> OrderDetails { get; set; } = new List<OrderDetail>();
+
+        public virtual ICollection<OrderStatusHistory> StatusHistories { get; set; } = new List<OrderStatusHistory>();
 
         public virtual EscrowSession? EscrowSession { get; set; }
 

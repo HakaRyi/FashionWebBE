@@ -29,6 +29,8 @@ namespace Application.Services.OrderImp
         private readonly ICloudStorageService _cloudStorageService;
         private readonly INotificationService _notificationService;
         private readonly ISystemSettingRepository _settingRepo;
+        private readonly IOrderStatusHistoryRepository _orderStatusHistoryRepository;
+        private readonly IEscrowStatusHistoryRepository _escrowStatusHistoryRepository;
 
         public OrderService(
             IOrderRepository orderRepo,
@@ -41,7 +43,9 @@ namespace Application.Services.OrderImp
             IRefundRequestRepository refundRepo,
             ICloudStorageService cloudStorageService,
             INotificationService notificationService,
-            ISystemSettingRepository settingRepo)
+            ISystemSettingRepository settingRepo,
+            IOrderStatusHistoryRepository orderStatusHistoryRepository,
+            IEscrowStatusHistoryRepository escrowStatusHistoryRepository)
         {
             _orderRepo = orderRepo;
             _variantRepo = variantRepo;
@@ -54,10 +58,43 @@ namespace Application.Services.OrderImp
             _cloudStorageService = cloudStorageService;
             _notificationService = notificationService;
             _settingRepo = settingRepo;
+            _orderStatusHistoryRepository = orderStatusHistoryRepository;
+            _escrowStatusHistoryRepository = escrowStatusHistoryRepository;
         }
 
         private async Task<decimal> GetServiceFeeAsync()
         => await _settingRepo.GetDecimalValueAsync("ORDER_SERVICE_FEE", 15000m);
+
+        private async Task SaveStatusHistoryAsync(int orderId, string status, string actorType, int? changedById, string? note = null)
+        {
+            var history = new OrderStatusHistory
+            {
+                OrderId = orderId,
+                Status = status.ToUpperInvariant(),
+                ChangedAt = DateTime.UtcNow,
+                ActorType = actorType,
+                ChangedById = changedById,
+                Note = note
+            };
+            await _orderStatusHistoryRepository.AddAsync(history);
+        }
+
+        private async Task SaveEscrowStatusHistoryAsync(EscrowSession escrowSession, string fromStatus, string toStatus, decimal amountBefore, decimal amountAfter, int? changedById, string? reason)
+        {
+            var escrowHistory = new EscrowStatusHistory
+            {
+                EscrowSession = escrowSession,
+                FromStatus = fromStatus,
+                ToStatus = toStatus,
+                AmountBefore = amountBefore,
+                AmountAfter = amountAfter,
+                ChangedById = changedById,
+                Reason = reason,
+                ChangedAt = DateTime.UtcNow
+            };
+
+            await _escrowStatusHistoryRepository.AddAsync(escrowHistory);
+        }
 
         public async Task<OrderResponse> CreateOrderAsync(int sellerId, int buyerId, CreateOrderRequest request)
         {
@@ -166,6 +203,10 @@ namespace Application.Services.OrderImp
                 };
 
                 await _orderRepo.CreateAsync(order);
+                await _unitOfWork.SaveChangesAsync();
+
+                await SaveStatusHistoryAsync(order.OrderId, OrderStatus.PendingPayment, "Buyer", buyerId, "Order initialized by customer.");
+
                 await _unitOfWork.CommitAsync();
 
                 var createdOrder = await _orderRepo.GetByIdAsync(order.OrderId)
@@ -196,12 +237,10 @@ namespace Application.Services.OrderImp
             if (order.Status != OrderStatus.PendingPayment)
                 throw new InvalidOperationException("Only pending payment orders can be paid.");
 
-            // Bắt đầu Transaction sớm để bao bọc toàn bộ quá trình Đọc-Khóa-Viết
             await _unitOfWork.BeginTransactionAsync();
 
             try
             {
-                // SỬ DỤNG GetByIdForUpdateAsync ĐỂ KHÓA DÒNG (PESSIMISTIC LOCKING)
                 var buyerWallet = await _walletRepo.GetByAccountIdForUpdateAsync(buyerId)
                     ?? throw new KeyNotFoundException("Buyer wallet not found.");
 
@@ -212,7 +251,6 @@ namespace Application.Services.OrderImp
 
                 decimal buyerBefore = buyerWallet.Balance;
 
-                // Khấu trừ số dư tài khoản
                 buyerWallet.Balance -= order.TotalAmount;
                 buyerWallet.UpdatedAt = DateTime.UtcNow;
                 _walletRepo.Update(buyerWallet);
@@ -229,11 +267,12 @@ namespace Application.Services.OrderImp
                 }
 
                 order.Status = OrderStatus.Processing;
-                order.PaidAt = DateTime.UtcNow;
                 order.UpdatedAt = DateTime.UtcNow;
                 _orderRepo.Update(order);
 
-                await _escrowRepo.AddAsync(new EscrowSession
+                await SaveStatusHistoryAsync(order.OrderId, OrderStatus.Processing, "Buyer", buyerId, "Payment successful via Wallet.");
+
+                var escrowSession = new EscrowSession
                 {
                     OrderId = order.OrderId,
                     SenderId = buyerId,
@@ -243,7 +282,18 @@ namespace Application.Services.OrderImp
                     Status = EscrowStatus.Held,
                     Description = $"Escrow held for order #{order.OrderId}. Total: {order.TotalAmount:N0} (Fee: {order.ServiceFee:N0})",
                     CreatedAt = DateTime.UtcNow
-                });
+                };
+                await _escrowRepo.AddAsync(escrowSession);
+
+                await SaveEscrowStatusHistoryAsync(
+                    escrowSession: escrowSession,
+                    fromStatus: "NONE",
+                    toStatus: EscrowStatus.Held,
+                    amountBefore: 0,
+                    amountAfter: order.TotalAmount,
+                    changedById: buyerId,
+                    reason: $"Order #{order.OrderId} paid successfully. System funds put on escrow hold."
+                );
 
                 await _transactionRepo.AddAsync(new Transaction
                 {
@@ -262,7 +312,6 @@ namespace Application.Services.OrderImp
 
                 await _unitOfWork.CommitAsync();
 
-                // Tối ưu: Map trực tiếp từ đối tượng trạng thái hiện tại thay vì ép DB chạy câu lệnh SELECT lại
                 var response = MapToResponse(order);
                 await NotifyOrder(response);
                 await NotifyOrderEventAsync(response, NotificationType.OrderPaid, buyerId);
@@ -290,49 +339,49 @@ namespace Application.Services.OrderImp
             if (order.BuyerId != currentUserId && order.SellerId != currentUserId)
                 throw new UnauthorizedAccessException("You are not allowed to access this order.");
 
-            return MapToResponse(order);
+            return MapToResponse(order, includeHistory: true);
         }
 
         public async Task<List<OrderResponse>> GetSalesOrdersAsync(int sellerId)
         {
             var orders = await _orderRepo.GetOrdersBySellerIdAsync(sellerId);
-            return orders.Select(MapToResponse).ToList();
+            return orders.Select(o => MapToResponse(o, includeHistory: false)).ToList();
         }
 
         public async Task<List<OrderResponse>> GetPurchasesOrdersAsync(int buyerId)
         {
             var orders = await _orderRepo.GetOrdersByBuyerIdAsync(buyerId);
-            return orders.Select(MapToResponse).ToList();
+            return orders.Select(o => MapToResponse(o, includeHistory: false)).ToList();
         }
 
         public async Task<List<OrderResponse>> GetPaidOrdersAsync()
         {
             var orders = await _orderRepo.GetPaidOrdersAsync();
-            return orders.Select(MapToResponse).ToList();
+            return orders.Select(o => MapToResponse(o, includeHistory: false)).ToList();
         }
 
         public async Task<List<OrderResponse>> GetCompletedOrdersAsync()
         {
             var orders = await _orderRepo.GetCompletedOrdersAsync();
-            return orders.Select(MapToResponse).ToList();
+            return orders.Select(o => MapToResponse(o, includeHistory: false)).ToList();
         }
 
         public async Task<List<OrderResponse>> GetDeliveredOrdersAsync()
         {
             var orders = await _orderRepo.GetDeliveredOrdersAsync();
-            return orders.Select(MapToResponse).ToList();
+            return orders.Select(o => MapToResponse(o, includeHistory: false)).ToList();
         }
 
         public async Task<List<OrderResponse>> GetCancelledOrdersAsync()
         {
             var orders = await _orderRepo.GetCancelledOrdersAsync();
-            return orders.Select(MapToResponse).ToList();
+            return orders.Select(o => MapToResponse(o, includeHistory: false)).ToList();
         }
 
         public async Task<List<OrderResponse>> GetShippingOrdersAsync()
         {
             var orders = await _orderRepo.GetShippingOrdersAsync();
-            return orders.Select(MapToResponse).ToList();
+            return orders.Select(o => MapToResponse(o, includeHistory: false)).ToList();
         }
 
         public async Task<OrderResponse> GetOrderDetailByIdAsync(int orderId)
@@ -358,10 +407,14 @@ namespace Application.Services.OrderImp
 
             try
             {
+                string actorType = (currentUserId == order.BuyerId) ? "Buyer" : "Seller";
+                string? noteHistory = null;
+
                 switch (status)
                 {
                     case OrderStatus.Shipping:
                         MarkShipping(order, currentUserId);
+                        noteHistory = "Order handed over to shipping partner.";
                         break;
 
                     case OrderStatus.Delivered:
@@ -369,10 +422,12 @@ namespace Application.Services.OrderImp
 
                     case OrderStatus.Completed:
                         await CompleteOrderAndReleaseEscrowAsync(order, currentUserId, isSystemAction: false);
+                        noteHistory = "Order successfully completed.";
                         break;
 
                     case OrderStatus.Cancelled:
                         await HandleCancelAsync(order, currentUserId);
+                        noteHistory = $"Order cancelled. Reason: {order.CancelReason}";
                         break;
 
                     default:
@@ -381,6 +436,8 @@ namespace Application.Services.OrderImp
 
                 order.UpdatedAt = DateTime.UtcNow;
                 _orderRepo.Update(order);
+
+                await SaveStatusHistoryAsync(order.OrderId, status, actorType, currentUserId, noteHistory);
 
                 await _unitOfWork.SaveChangesAsync();
                 await _unitOfWork.CommitAsync();
@@ -426,6 +483,8 @@ namespace Application.Services.OrderImp
 
             try
             {
+                string? noteHistory = null;
+
                 switch (status)
                 {
                     case OrderStatus.Shipping:
@@ -434,6 +493,7 @@ namespace Application.Services.OrderImp
 
                         order.Status = OrderStatus.Shipping;
                         order.UpdatedAt = DateTime.UtcNow;
+                        noteHistory = "Shipper confirmed item pickup. Transit initiated.";
                         break;
 
                     case OrderStatus.Delivered:
@@ -441,8 +501,8 @@ namespace Application.Services.OrderImp
                             throw new InvalidOperationException("Only shipping orders can be marked as delivered.");
 
                         order.Status = OrderStatus.Delivered;
-                        order.DeliveredAt = DateTime.UtcNow;
                         order.UpdatedAt = DateTime.UtcNow;
+                        noteHistory = "Shipper delivered order to destination address successfully.";
                         break;
 
                     default:
@@ -450,6 +510,9 @@ namespace Application.Services.OrderImp
                 }
 
                 _orderRepo.Update(order);
+
+                await SaveStatusHistoryAsync(order.OrderId, status, "Shipper", null, noteHistory);
+
                 await _unitOfWork.CommitAsync();
             }
             catch
@@ -550,6 +613,14 @@ namespace Application.Services.OrderImp
                 };
 
                 await _refundRepo.AddAsync(refundRequest);
+
+                await SaveStatusHistoryAsync(
+                    order.OrderId,
+                    OrderStatus.Refunding,
+                    "Buyer",
+                    buyerId,
+                    $"Buyer opened a refund request. Reason: {request.Reason.Trim()}");
+
                 await _unitOfWork.CommitAsync();
             }
             catch
@@ -636,7 +707,15 @@ namespace Application.Services.OrderImp
                 _refundRepo.Update(refundRequest);
 
                 order.Status = OrderStatus.Delivered;
+                order.UpdatedAt = DateTime.UtcNow;
                 _orderRepo.Update(order);
+
+                await SaveStatusHistoryAsync(
+                    order.OrderId,
+                    OrderStatus.Delivered,
+                    "System",
+                    null,
+                    $"Admin rejected refund request. Note: {adminNote}. Order restored to Delivered status.");
 
                 await CompleteOrderAndReleaseEscrowAsync(
                     order,
@@ -690,24 +769,32 @@ namespace Application.Services.OrderImp
 
             try
             {
-                // Khóa dòng dữ liệu ví tránh xung đột khi cộng tiền
                 var buyerWallet = await _walletRepo.GetByAccountIdForUpdateAsync(order.BuyerId)
                     ?? throw new KeyNotFoundException("Buyer wallet not found.");
 
                 decimal buyerBefore = buyerWallet.Balance;
 
-                // Hoàn tiền cho Buyer lấy trực tiếp từ quỹ Escrow đang đóng băng
                 buyerWallet.Balance += order.TotalAmount;
                 buyerWallet.UpdatedAt = DateTime.UtcNow;
                 _walletRepo.Update(buyerWallet);
 
-                // Cập nhật nhật ký kết toán Escrow chuẩn: Kết xuất toàn bộ tiền về 0
+                string oldEscrowStatus = escrow.Status;
+                decimal escrowAmountBefore = escrow.Amount;
+
                 escrow.Status = EscrowStatus.Refunded;
                 escrow.ResolvedAt = DateTime.UtcNow;
                 escrow.Description = $"Refund Approved: {order.TotalAmount:N0} returned to Buyer. Escrow closed.";
                 _escrowRepo.Update(escrow);
 
-                // Trả lại tồn kho hàng hóa
+                await SaveEscrowStatusHistoryAsync(
+                    escrowSession: escrow,
+                    fromStatus: oldEscrowStatus,
+                    toStatus: EscrowStatus.Refunded,
+                    amountBefore: escrowAmountBefore,
+                    amountAfter: 0,
+                    changedById: 1,
+                    reason: $"Refund approved for Order #{orderId}. Funds returned to Buyer.");
+
                 foreach (var detail in order.OrderDetails)
                 {
                     if (!detail.ItemVariantId.HasValue) continue;
@@ -726,6 +813,13 @@ namespace Application.Services.OrderImp
                 order.Status = OrderStatus.Refunded;
                 order.UpdatedAt = DateTime.UtcNow;
                 _orderRepo.Update(order);
+
+                await SaveStatusHistoryAsync(
+                    order.OrderId,
+                    OrderStatus.Refunded,
+                    "System",
+                    null,
+                    "Refund request approved by Admin. Funds returned to Buyer wallet. Items restocked.");
 
                 await _transactionRepo.AddAsync(new Transaction
                 {
@@ -775,6 +869,7 @@ namespace Application.Services.OrderImp
                     order.BuyerId,
                     isSystemAction: true);
 
+                order.UpdatedAt = DateTime.UtcNow;
                 _orderRepo.Update(order);
 
                 await _unitOfWork.CommitAsync();
@@ -821,11 +916,17 @@ namespace Application.Services.OrderImp
                 }
 
                 order.Status = OrderStatus.Cancelled;
-                order.CancelledAt = DateTime.UtcNow;
                 order.UpdatedAt = DateTime.UtcNow;
                 order.CancelReason = "Order was automatically cancelled because payment was not completed within 30 minutes.";
 
                 _orderRepo.Update(order);
+
+                await SaveStatusHistoryAsync(
+                    order.OrderId,
+                    OrderStatus.Cancelled,
+                    "System",
+                    null,
+                    "System auto-cancelled order due to payment timeout (30-minute window exceeded).");
 
                 await _unitOfWork.CommitAsync();
             }
@@ -847,30 +948,10 @@ namespace Application.Services.OrderImp
         }
 
         public async Task<PagedResultDto<OrderResponse>> GetMyPurchasesFilteredAsync(
-            int buyerId,
-            OrderFilterRequest request)
+        int buyerId,
+        OrderFilterRequest request)
         {
-            request ??= new OrderFilterRequest();
-
-            int page = request.Page <= 0 ? 1 : request.Page;
-            int pageSize = request.PageSize <= 0 ? 10 : request.PageSize;
-
-            if (pageSize > 50)
-                pageSize = 50;
-
-            string? status = string.IsNullOrWhiteSpace(request.Status)
-                ? null
-                : request.Status.Trim();
-
-            if (!string.IsNullOrWhiteSpace(status) && !OrderStatus.IsValid(status))
-                throw new ArgumentException("Invalid order status.");
-
-            if (request.FromDate.HasValue &&
-                request.ToDate.HasValue &&
-                request.FromDate.Value.Date > request.ToDate.Value.Date)
-            {
-                throw new ArgumentException("From date cannot be later than to date.");
-            }
+            var (page, pageSize, status) = PreProcessAndValidateFilterRequest(request);
 
             var result = await _orderRepo.GetOrdersByBuyerIdFilteredAsync(
                 buyerId,
@@ -884,7 +965,7 @@ namespace Application.Services.OrderImp
 
             return new PagedResultDto<OrderResponse>
             {
-                Items = result.Orders.Select(MapToResponse).ToList(),
+                Items = result.Orders.Select(o => MapToResponse(o, includeHistory: false)).ToList(),
                 Page = page,
                 PageSize = pageSize,
                 TotalCount = result.TotalCount,
@@ -895,6 +976,30 @@ namespace Application.Services.OrderImp
         public async Task<PagedResultDto<OrderResponse>> GetMySalesFilteredAsync(
             int sellerId,
             OrderFilterRequest request)
+        {
+            var (page, pageSize, status) = PreProcessAndValidateFilterRequest(request);
+
+            var result = await _orderRepo.GetOrdersBySellerIdFilteredAsync(
+                sellerId,
+                page,
+                pageSize,
+                status,
+                request.FromDate,
+                request.ToDate,
+                request.BuyerName,
+                request.OrderCode);
+
+            return new PagedResultDto<OrderResponse>
+            {
+                Items = result.Orders.Select(o => MapToResponse(o, includeHistory: false)).ToList(),
+                Page = page,
+                PageSize = pageSize,
+                TotalCount = result.TotalCount,
+                HasMore = page * pageSize < result.TotalCount
+            };
+        }
+
+        private (int Page, int PageSize, string? Status) PreProcessAndValidateFilterRequest(OrderFilterRequest? request)
         {
             request ??= new OrderFilterRequest();
 
@@ -918,24 +1023,7 @@ namespace Application.Services.OrderImp
                 throw new ArgumentException("From date cannot be later than to date.");
             }
 
-            var result = await _orderRepo.GetOrdersBySellerIdFilteredAsync(
-                sellerId,
-                page,
-                pageSize,
-                status,
-                request.FromDate,
-                request.ToDate,
-                request.SellerName,
-                request.OrderCode);
-
-            return new PagedResultDto<OrderResponse>
-            {
-                Items = result.Orders.Select(MapToResponse).ToList(),
-                Page = page,
-                PageSize = pageSize,
-                TotalCount = result.TotalCount,
-                HasMore = page * pageSize < result.TotalCount
-            };
+            return (page, pageSize, status);
         }
 
         private void MarkShipping(Order order, int currentUserId)
@@ -960,11 +1048,10 @@ namespace Application.Services.OrderImp
             if (order.Status != OrderStatus.Delivered)
                 throw new InvalidOperationException("Only delivered orders can be completed.");
 
-            // 1. Lấy thông tin ví của các bên liên quan
-            var sellerWallet = await _walletRepo.GetByAccountIdAsync(order.SellerId)
+            var sellerWallet = await _walletRepo.GetByAccountIdForUpdateAsync(order.SellerId)
                 ?? throw new KeyNotFoundException("Seller wallet not found.");
 
-            var adminWallet = await _walletRepo.GetByAccountIdAsync(1) // Admin AccountId = 1
+            var adminWallet = await _walletRepo.GetByAccountIdForUpdateAsync(1)
                 ?? throw new KeyNotFoundException("Admin wallet not found.");
 
             var escrow = order.EscrowSession ?? await _escrowRepo.GetByOrderIdAsync(order.OrderId);
@@ -974,7 +1061,7 @@ namespace Application.Services.OrderImp
             if (escrow.Status != EscrowStatus.Held)
                 throw new InvalidOperationException("Escrow is not in a valid held state.");
 
-            // 2. Tính toán dòng tiền
+            // 2. Tính toán dòng tiền công khai
             decimal sellerBefore = sellerWallet.Balance;
             decimal sellerReceiveAmount = order.TotalAmount - order.ServiceFee;
 
@@ -997,15 +1084,35 @@ namespace Application.Services.OrderImp
                 _walletRepo.Update(adminWallet);
             }
 
-            // 5. Cập nhật trạng thái của Escrow
+            string oldEscrowStatus = escrow.Status;
+            decimal escrowAmountBefore = escrow.Amount;
+
+            // 5. Cập nhật trạng thái của Escrow kì toán
             escrow.Status = EscrowStatus.Released;
             escrow.ResolvedAt = DateTime.UtcNow;
+            escrow.Description = $"Escrow released. Seller received: {sellerReceiveAmount:N0} VND. Admin fee: {adminServiceFee:N0} VND.";
             _escrowRepo.Update(escrow);
+
+            await SaveEscrowStatusHistoryAsync(
+                escrowSession: escrow,
+                fromStatus: oldEscrowStatus,
+                toStatus: EscrowStatus.Released,
+                amountBefore: escrowAmountBefore,
+                amountAfter: 0,
+                changedById: isSystemAction ? null : actorId,
+                reason: isSystemAction ? "Automated release by system timeout." : "Buyer confirmed delivery. Funds dispersed to Seller and Admin.");
 
             // 6. Cập nhật trạng thái của Đơn hàng
             order.Status = OrderStatus.Completed;
-            order.CompletedAt ??= DateTime.UtcNow;
             order.UpdatedAt = DateTime.UtcNow;
+            _orderRepo.Update(order);
+
+            await SaveStatusHistoryAsync(
+                order.OrderId,
+                OrderStatus.Completed,
+                isSystemAction ? "System" : "Buyer",
+                isSystemAction ? null : actorId,
+                isSystemAction ? "Order automatically completed by system timeout." : "Buyer confirmed successful delivery. Order marked as completed.");
 
             // 7. Lưu Transaction cho Seller
             await _transactionRepo.AddAsync(new Transaction
@@ -1049,7 +1156,7 @@ namespace Application.Services.OrderImp
 
         private async Task HandleCancelAsync(Order order, int currentUserId)
         {
-            // TRƯỜNG HỢP 1: Hủy khi đơn chưa thanh toán
+            // TRƯỜNG HỢP 1: Hủy khi đơn chưa thanh toán (Chỉ giữ chỗ kho hàng)
             if (order.Status == OrderStatus.PendingPayment)
             {
                 if (order.OrderDetails != null)
@@ -1058,7 +1165,6 @@ namespace Application.Services.OrderImp
                     {
                         if (!detail.ItemVariantId.HasValue) continue;
 
-                        // Khóa dòng biến thể hàng hóa để tránh race condition khi hoàn kho
                         var variant = await _variantRepo.GetByIdForUpdateAsync(detail.ItemVariantId.Value);
                         if (variant != null)
                         {
@@ -1068,11 +1174,21 @@ namespace Application.Services.OrderImp
                 }
 
                 order.Status = OrderStatus.Cancelled;
-                order.CancelledAt = DateTime.UtcNow;
+                order.UpdatedAt = DateTime.UtcNow;
+                _orderRepo.Update(order);
+
+                string actorType = (currentUserId == order.BuyerId) ? "Buyer" : (currentUserId == order.SellerId ? "Seller" : "System");
+                await SaveStatusHistoryAsync(
+                    order.OrderId,
+                    OrderStatus.Cancelled,
+                    actorType,
+                    currentUserId,
+                    $"Order cancelled prior to payment completion by {actorType}.");
+
                 return;
             }
 
-            // TRƯỜNG HỢP 2: Hủy khi đơn đã thanh toán & đang xử lý (Processing)
+            // TRƯỜNG HỢP 2: Hủy khi đơn đã thanh toán & đang xử lý (Processing) -> Phải giải ngân quỹ Escrow
             if (order.Status == OrderStatus.Processing)
             {
                 var buyerWallet = await _walletRepo.GetByAccountIdForUpdateAsync(order.BuyerId)
@@ -1087,24 +1203,31 @@ namespace Application.Services.OrderImp
 
                 decimal buyerBefore = buyerWallet.Balance;
 
-                // Hoàn tiền về ví
+                // Hoàn trả tiền về lại ví Buyer
                 buyerWallet.Balance += order.TotalAmount;
                 buyerWallet.UpdatedAt = DateTime.UtcNow;
                 _walletRepo.Update(buyerWallet);
 
-                // Xử lý cổng Escrow đóng băng tiền kì trước
-                if (escrow != null)
-                {
-                    if (escrow.Status != EscrowStatus.Held)
-                        throw new InvalidOperationException("Escrow session is not in a valid state to refund.");
+                string oldEscrowStatus = escrow.Status;
+                decimal escrowAmountBefore = escrow.Amount;
 
-                    escrow.Status = EscrowStatus.Refunded;
-                    escrow.ResolvedAt = DateTime.UtcNow;
-                    escrow.Description = $"Order Cancelled: Money released back to buyer. ActorId: {currentUserId}";
-                    _escrowRepo.Update(escrow);
-                }
+                // Đóng trạng thái ví đóng băng Escrow kỉ trước
+                escrow.Status = EscrowStatus.Refunded;
+                escrow.ResolvedAt = DateTime.UtcNow;
+                escrow.Description = $"Order Cancelled: Money released back to buyer. ActorId: {currentUserId}";
+                _escrowRepo.Update(escrow);
 
-                // Hoàn trả lại số lượng tồn kho thực tế
+                string actor = (currentUserId == order.BuyerId) ? "Buyer" : (currentUserId == order.SellerId ? "Seller" : "System");
+                await SaveEscrowStatusHistoryAsync(
+                    escrowSession: escrow,
+                    fromStatus: oldEscrowStatus,
+                    toStatus: EscrowStatus.Refunded,
+                    amountBefore: escrowAmountBefore,
+                    amountAfter: 0,
+                    changedById: currentUserId == 0 ? 1 : currentUserId,
+                    reason: $"Order cancelled by {actor}. Money released back to Buyer wallet.");
+
+                // Hoàn trả lại số lượng tồn kho thực tế vào hệ thống bán lẻ
                 if (order.OrderDetails != null)
                 {
                     foreach (var detail in order.OrderDetails)
@@ -1119,7 +1242,7 @@ namespace Application.Services.OrderImp
                     }
                 }
 
-                // Tạo bản ghi biến động số dư tài chính
+                // Tạo bản ghi biến động số dư tài chính công khai
                 await _transactionRepo.AddAsync(new Transaction
                 {
                     WalletId = buyerWallet.WalletId,
@@ -1136,11 +1259,20 @@ namespace Application.Services.OrderImp
                 });
 
                 order.Status = OrderStatus.Cancelled;
-                order.CancelledAt = DateTime.UtcNow;
+                order.UpdatedAt = DateTime.UtcNow;
+                _orderRepo.Update(order);
+
+                await SaveStatusHistoryAsync(
+                    order.OrderId,
+                    OrderStatus.Cancelled,
+                    actor,
+                    currentUserId,
+                    $"Order cancelled in processing state by {actor}. Full refund processed to Buyer wallet.");
+
                 return;
             }
 
-            throw new InvalidOperationException("This order can no longer be cancelled.");
+            throw new InvalidOperationException("This order can no longer be cancelled in its current state.");
         }
 
         private async Task CheckSpendingLimitAsync(Wallet wallet, decimal debitAmount)
@@ -1174,9 +1306,9 @@ namespace Application.Services.OrderImp
             }
         }
 
-        private OrderResponse MapToResponse(Order order)
+        private OrderResponse MapToResponse(Order order, bool includeHistory = false)
         {
-            return new OrderResponse
+            var response = new OrderResponse
             {
                 OrderId = order.OrderId,
                 OrderCode = order.OrderCode,
@@ -1195,10 +1327,7 @@ namespace Application.Services.OrderImp
                 ReceiverPhone = order.ReceiverPhone,
                 CreatedAt = order.CreatedAt,
                 UpdatedAt = order.UpdatedAt,
-                PaidAt = order.PaidAt,
-                DeliveredAt = order.DeliveredAt,
-                CompletedAt = order.CompletedAt,
-                CancelledAt = order.CancelledAt,
+
                 OrderDetails = order.OrderDetails.Select(d => new OrderDetailResponse
                 {
                     OrderDetailId = d.OrderDetailId,
@@ -1213,12 +1342,26 @@ namespace Application.Services.OrderImp
                     SkuSnapshot = d.SkuSnapshot,
                     ImageUrl = !string.IsNullOrWhiteSpace(d.ImageUrlSnapshot)
                         ? d.ImageUrlSnapshot
-                        : d.Item?.Images
-                            .OrderBy(i => i.CreatedAt)
-                            .Select(i => i.ImageUrl)
-                            .FirstOrDefault()
+                        : d.Item?.Images.OrderBy(i => i.CreatedAt).Select(i => i.ImageUrl).FirstOrDefault()
                 }).ToList()
             };
+
+            if (includeHistory && order.StatusHistories != null)
+            {
+                response.StatusHistories = order.StatusHistories
+                    .OrderByDescending(h => h.ChangedAt)
+                    .Select(h => new OrderStatusHistoryResponse
+                    {
+                        Id = h.Id,
+                        Status = h.Status,
+                        ChangedAt = h.ChangedAt,
+                        ActorType = h.ActorType,
+                        ChangedById = h.ChangedById,
+                        Note = h.Note
+                    }).ToList();
+            }
+
+            return response;
         }
 
         private static void ValidateRefundImage(IFormFile file)
