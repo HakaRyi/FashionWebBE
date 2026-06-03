@@ -45,7 +45,7 @@ namespace Infrastructure.Repositories
 
         public async Task<Order?> GetByIdAsync(int orderId)
         {
-            return await BuildOrderDetailQuery(isTracking: true)
+            return await BuildOrderDetailQuery(isTracking: true).Include(o => o.StatusHistories)
                 .FirstOrDefaultAsync(o => o.OrderId == orderId);
         }
 
@@ -154,8 +154,7 @@ namespace Infrastructure.Repositories
                 .Include(o => o.EscrowSession)
                 .Where(o =>
                     o.Status == OrderStatus.Delivered &&
-                    o.DeliveredAt != null &&
-                    o.DeliveredAt <= deadline)
+                    o.StatusHistories.Any(h => h.Status == OrderStatus.Delivered && h.ChangedAt <= deadline))
                 .ToListAsync();
         }
 

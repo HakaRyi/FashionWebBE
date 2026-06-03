@@ -133,6 +133,8 @@ builder.Services.AddScoped<IAdminPostDashboardRepository, AdminPostDashboardRepo
 builder.Services.AddScoped<IPostTrendRepository, PostTrendRepository>();
 builder.Services.AddScoped<ITrendingTopicRepository, TrendingTopicRepository>();
 builder.Services.AddScoped<IHashtagRepository, HashtagRepository>();
+builder.Services.AddScoped<IOrderStatusHistoryRepository, OrderStatusHistoryRepository>();
+builder.Services.AddScoped<IEscrowStatusHistoryRepository, EscrowStatusHistoryRepository>();
 
 #endregion
 
@@ -195,6 +197,8 @@ builder.Services.AddScoped<IAdminSocialDashboardService, AdminSocialDashboardSer
 builder.Services.AddScoped<IPostTrendService, PostTrendService>();
 builder.Services.AddScoped<ITrendingTopicRepository, TrendingTopicRepository>();
 builder.Services.AddScoped<ITrendingTopicService, TrendingTopicService>();
+builder.Services.AddScoped<IEscrowStatusHistoryService, EscrowStatusHistoryService>();
+
 
 #endregion
 

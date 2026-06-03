@@ -26,6 +26,8 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
     public virtual DbSet<EscrowSession> EscrowSessions { get; set; }
 
+    public virtual DbSet<EscrowStatusHistory>  EscrowStatusHistories { get; set; }
+
     public virtual DbSet<Event> Events { get; set; }
 
     public virtual DbSet<EventCriterion> EventCriterions { get; set; }
@@ -65,6 +67,8 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
     public virtual DbSet<Order> Orders { get; set; }
 
     public virtual DbSet<OrderDetail> OrderDetails { get; set; }
+
+    public virtual DbSet<OrderStatusHistory> OrderStatusHistories { get; set; }
 
     public virtual DbSet<Outfit> Outfits { get; set; }
 
@@ -293,6 +297,11 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.HasMany(a => a.SentEscrows)
                 .WithOne(e => e.Sender)
                 .HasForeignKey(e => e.SenderId)
+                .OnDelete(DeleteBehavior.ClientSetNull);
+
+            entity.HasMany(a => a.EscrowStatusHistories)
+                .WithOne(e => e.ChangedBy)
+                .HasForeignKey(e => e.ChangedById)
                 .OnDelete(DeleteBehavior.ClientSetNull);
 
             entity.HasMany(a => a.ReceivedEscrows)
@@ -573,6 +582,65 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                   .WithMany()
                   .HasForeignKey(d => d.EventId)
                   .OnDelete(DeleteBehavior.SetNull);
+        });
+
+        modelBuilder.Entity<EscrowStatusHistory>(entity =>
+        {
+            entity.ToTable("Escrow_status_histories", "public");
+
+            entity.HasKey(e => e.EscrowStatusHistoryId);
+
+            entity.Property(e => e.EscrowStatusHistoryId)
+                .HasColumnName("escrow_status_history_id");
+
+            entity.Property(e => e.EscrowSessionId)
+                .HasColumnName("escrow_session_id")
+                .IsRequired();
+
+            entity.Property(e => e.FromStatus)
+                .HasColumnName("from_status")
+                .HasMaxLength(50)
+                .IsRequired();
+
+            entity.Property(e => e.ToStatus)
+                .HasColumnName("to_status")
+                .HasMaxLength(50)
+                .IsRequired();
+
+            entity.Property(e => e.AmountBefore)
+                .HasColumnName("amount_before")
+                .HasColumnType("decimal(18,2)")
+                .IsRequired();
+
+            entity.Property(e => e.AmountAfter)
+                .HasColumnName("amount_after")
+                .HasColumnType("decimal(18,2)")
+                .IsRequired();
+
+            entity.Property(e => e.Reason)
+                .HasColumnName("reason")
+                .HasColumnType("text");
+
+            entity.Property(e => e.ChangedById)
+                .HasColumnName("changed_by_id");
+
+            entity.Property(e => e.ChangedAt)
+                .HasColumnName("changed_at")
+                .HasColumnType("timestamp with time zone")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .IsRequired();
+
+            entity.HasOne(d => d.EscrowSession)
+                .WithMany()
+                .HasForeignKey(d => d.EscrowSessionId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("fk_escrow_status_history_session");
+
+            entity.HasOne(d => d.ChangedBy)
+                .WithMany(p => p.EscrowStatusHistories)
+                .HasForeignKey(d => d.ChangedById)
+                .OnDelete(DeleteBehavior.ClientSetNull)
+                .HasConstraintName("fk_escrow_status_history_account");
         });
 
         modelBuilder.Entity<Event>(entity =>
@@ -1168,6 +1236,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
 
             entity.Property(e => e.Status)
                 .HasDefaultValue(ItemVariantStatus.Active)
+                .HasSentinel(null)
                 .HasColumnName("status");
 
             entity.Property(e => e.CreatedAt)
@@ -1310,12 +1379,15 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
         modelBuilder.Entity<Order>(entity =>
         {
             entity.HasKey(e => e.OrderId).HasName("Order_pkey");
-
             entity.ToTable("Order", "public");
 
             entity.Property(e => e.OrderId).HasColumnName("order_id");
             entity.Property(e => e.BuyerId).HasColumnName("buyer_id");
             entity.Property(e => e.SellerId).HasColumnName("seller_id");
+
+            entity.Property(e => e.OrderCode)
+                .HasMaxLength(50)
+                .HasColumnName("order_code");
 
             entity.Property(e => e.SubTotal)
                 .HasColumnType("decimal(18,2)")
@@ -1339,6 +1411,10 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasMaxLength(500)
                 .HasColumnName("note");
 
+            entity.Property(e => e.CancelReason)
+                .HasMaxLength(255)
+                .HasColumnName("cancel_reason");
+
             entity.Property(e => e.ShippingAddress).HasMaxLength(255).HasColumnName("shipping_address");
             entity.Property(e => e.ReceiverName).HasMaxLength(100).HasColumnName("receiver_name");
             entity.Property(e => e.ReceiverPhone).HasMaxLength(20).HasColumnName("receiver_phone");
@@ -1351,30 +1427,6 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.UpdatedAt)
                 .HasColumnType("timestamp without time zone")
                 .HasColumnName("updated_at");
-
-            entity.Property(e => e.OrderCode)
-                .HasMaxLength(50)
-                .HasColumnName("order_code");
-
-            entity.Property(e => e.CancelReason)
-                .HasMaxLength(255)
-                .HasColumnName("cancel_reason");
-
-            entity.Property(e => e.PaidAt)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("paid_at");
-
-            entity.Property(e => e.DeliveredAt)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("delivered_at");
-
-            entity.Property(e => e.CompletedAt)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("completed_at");
-
-            entity.Property(e => e.CancelledAt)
-                .HasColumnType("timestamp without time zone")
-                .HasColumnName("cancelled_at");
 
             entity.HasOne(d => d.Buyer)
                 .WithMany()
@@ -1393,6 +1445,11 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasForeignKey(p => p.OrderId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            entity.HasMany(d => d.StatusHistories)
+                .WithOne(p => p.Order)
+                .HasForeignKey(p => p.OrderId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("Order_status_histories_order_id_fkey");
         });
 
         modelBuilder.Entity<OrderDetail>(entity =>
@@ -1456,6 +1513,47 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasForeignKey(d => d.ItemVariantId)
                 .OnDelete(DeleteBehavior.Restrict)
                 .HasConstraintName("OrderDetail_item_variant_id_fkey");
+        });
+
+        modelBuilder.Entity<OrderStatusHistory>(entity =>
+        {
+            entity.HasKey(e => e.Id).HasName("OrderStatusHistory_pkey");
+            entity.ToTable("OrderStatusHistory", "public");
+
+            entity.Property(e => e.Id)
+                .ValueGeneratedOnAdd()
+                .HasColumnName("id");
+
+            entity.Property(e => e.OrderId)
+                .HasColumnName("order_id");
+
+            entity.Property(e => e.Status)
+                .HasMaxLength(30)
+                .IsRequired()
+                .HasColumnName("status");
+
+            entity.Property(e => e.ChangedAt)
+                .HasColumnType("timestamp without time zone")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP")
+                .HasColumnName("changed_at");
+
+            entity.Property(e => e.ActorType)
+                .HasMaxLength(50)
+                .IsRequired()
+                .HasColumnName("actor_type");
+
+            entity.Property(e => e.ChangedById)
+                .HasColumnName("changed_by_id");
+
+            entity.Property(e => e.Note)
+                .HasMaxLength(500)
+                .HasColumnName("note");
+
+            entity.HasOne(d => d.Order)
+                .WithMany(p => p.StatusHistories)
+                .HasForeignKey(d => d.OrderId)
+                .OnDelete(DeleteBehavior.Cascade)
+                .HasConstraintName("OrderStatusHistory_order_id_fkey");
         });
 
         modelBuilder.Entity<Outfit>(entity =>

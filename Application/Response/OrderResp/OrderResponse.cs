@@ -30,6 +30,17 @@
         public DateTime? CompletedAt { get; set; }
         public DateTime? CancelledAt { get; set; }
 
+        public List<OrderStatusHistoryResponse> StatusHistories { get; set; } = new();
         public List<OrderDetailResponse> OrderDetails { get; set; } = new();
+    }
+
+    public class OrderStatusHistoryResponse
+    {
+        public int Id { get; set; }
+        public string Status { get; set; } = null!;
+        public DateTime ChangedAt { get; set; }
+        public string ActorType { get; set; } = null!;
+        public int? ChangedById { get; set; }
+        public string? Note { get; set; }
     }
 }

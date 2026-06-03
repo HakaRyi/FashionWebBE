@@ -11,6 +11,11 @@
         public const string Refunding = "REFUNDING";
         public const string Refunded = "REFUNDED";
 
+        public const string ReturnPickedUp = "RETURN_PICKED_UP";
+        public const string ReturnShipping = "RETURN_SHIPPING";
+        public const string ReturnDelivered = "RETURN_DELIVERED";
+        public const string ReturnCompleted = "RETURN_COMPLETED";
+
         public static readonly HashSet<string> All = new(StringComparer.OrdinalIgnoreCase)
         {
             PendingPayment,
@@ -19,8 +24,13 @@
             Delivered,
             Completed,
             Cancelled,
+            
             Refunding,
-            Refunded
+            Refunded,
+            ReturnPickedUp,
+            ReturnShipping,
+            ReturnDelivered,
+            ReturnCompleted
         };
 
         public static bool IsValid(string status)
