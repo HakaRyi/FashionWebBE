@@ -10,6 +10,7 @@
         public const string Cancelled = "CANCELLED";
         public const string Refunding = "REFUNDING";
         public const string Refunded = "REFUNDED";
+        public const string RefundApproved = "REFUND_APPROVED";
 
         public static readonly HashSet<string> All = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -20,7 +21,8 @@
             Completed,
             Cancelled,
             Refunding,
-            Refunded
+            Refunded,
+            RefundApproved
         };
 
         public static bool IsValid(string status)
