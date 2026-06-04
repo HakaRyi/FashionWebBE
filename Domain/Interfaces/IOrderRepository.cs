@@ -16,6 +16,7 @@ namespace Domain.Interfaces
         Task<List<Order>> GetByStatusAsync(string status);
         Task<List<Order>> GetByStatusesAsync(params string[] statuses);
         Task<List<Order>> GetDeliveredOrdersBeforeAsync(DateTime deadline);
+        Task<List<Order>> GetReturnDeliveredOrdersBeforeAsync(DateTime deadline);
         Task<List<Order>> GetPaidOrdersAsync();
         Task<List<Order>> GetCompletedOrdersAsync();
         Task<List<Order>> GetCancelledOrdersAsync();
