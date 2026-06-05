@@ -9,5 +9,6 @@ namespace Application.Request.PostReq
         public List<IFormFile>? Images { get; set; }
         public bool? IsExpertPost { get; set; }
         public bool? IsPublish { get; set; }
+        public List<string> Hashtags { get; set; } = [];
     }
 }

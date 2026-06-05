@@ -53,5 +53,7 @@ namespace Domain.Contracts.Social.Post
         public bool CanUnhide { get; set; }
 
         public bool IsPubliclyVisible { get; set; }
+
+        public List<string> Hashtags { get; set; } = [];
     }
 }

@@ -17,11 +17,20 @@ namespace Presentation.Controllers
     {
         private readonly IPostService _postService;
         private readonly IEventService _eventService;
+        private readonly IHashtagService _hashtagService;
 
-        public PostController(IPostService postService, IEventService eventService)
+        public PostController(IPostService postService, IEventService eventService, IHashtagService hashtagService)
         {
             _postService = postService;
             _eventService = eventService;
+            _hashtagService = hashtagService;
+        }
+
+        [HttpGet("hashtags/suggestions")]
+        public async Task<IActionResult> GetHashtagSuggestions([FromQuery] string? query, [FromQuery] int limit = 8)
+        {
+            var result = await _hashtagService.GetSuggestionsAsync(query, limit);
+            return Ok(result);
         }
 
         [HttpGet("/api/events/{eventId:int}/posts")]

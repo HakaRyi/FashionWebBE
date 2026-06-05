@@ -196,7 +196,7 @@ builder.Services.AddScoped<IZaloPayGatewayService, ZaloPayGatewayService>();
 builder.Services.AddScoped<IOrderAdminService, OrderAdminService>();
 builder.Services.AddScoped<IWhaleService, WhaleService>();
 builder.Services.AddScoped<IItemAnalysisService, ItemAnalysisService>();
-
+builder.Services.AddScoped<IHashtagService, HashtagService>();
 builder.Services.AddScoped<IAdminSocialDashboardService, AdminSocialDashboardService>();
 builder.Services.AddScoped<IPostTrendService, PostTrendService>();
 builder.Services.AddScoped<ITrendingTopicRepository, TrendingTopicRepository>();

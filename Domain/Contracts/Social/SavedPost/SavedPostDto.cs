@@ -22,5 +22,7 @@
 
         public DateTime CreatedAt { get; set; }
         public DateTime SavedAt { get; set; }
+
+        public List<string> Hashtags { get; set; } = [];
     }
 }

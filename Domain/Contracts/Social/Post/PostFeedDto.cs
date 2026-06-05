@@ -42,5 +42,7 @@ namespace Domain.Contracts.Social.Post
         public string? Status { get; set; }
 
         public string Visibility { get; set; } = PostVisibility.Visible;
+
+        public List<string> Hashtags { get; set; } = [];
     }
 }
