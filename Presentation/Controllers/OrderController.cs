@@ -161,6 +161,13 @@ namespace API.Controllers
             return Ok(result);
         }
 
+        [HttpPut("{orderId:int}/refund/confirm")]
+        public async Task<IActionResult> ConfirmRefund(int orderId)
+        {
+            var result = await _orderService.ConfirmReturnedItemAsync(orderId, _currentUser.GetRequiredUserId());
+            return Ok(result);
+        }
+
         [HttpGet("delivered")]
         public async Task<IActionResult> GetDeliveredOrders()
         {

@@ -10,6 +10,7 @@
         public const string Cancelled = "CANCELLED";
         public const string Refunding = "REFUNDING";
         public const string Refunded = "REFUNDED";
+        public const string RefundApproved = "REFUND_APPROVED";
 
         public const string ReturnPickedUp = "RETURN_PICKED_UP";
         public const string ReturnShipping = "RETURN_SHIPPING";
@@ -27,10 +28,7 @@
             
             Refunding,
             Refunded,
-            ReturnPickedUp,
-            ReturnShipping,
-            ReturnDelivered,
-            ReturnCompleted
+            RefundApproved
         };
 
         public static bool IsValid(string status)

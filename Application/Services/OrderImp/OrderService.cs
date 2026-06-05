@@ -769,58 +769,132 @@ namespace Application.Services.OrderImp
 
             try
             {
+                //// Khóa dòng dữ liệu ví tránh xung đột khi cộng tiền
+                //var buyerWallet = await _walletRepo.GetByAccountIdForUpdateAsync(order.BuyerId)
+                //    ?? throw new KeyNotFoundException("Buyer wallet not found.");
+
+                //decimal buyerBefore = buyerWallet.Balance;
+
+                //// Hoàn tiền cho Buyer lấy trực tiếp từ quỹ Escrow đang đóng băng
+                //buyerWallet.Balance += order.TotalAmount;
+                //buyerWallet.UpdatedAt = DateTime.UtcNow;
+                //_walletRepo.Update(buyerWallet);
+
+                //// Cập nhật nhật ký kết toán Escrow chuẩn: Kết xuất toàn bộ tiền về 0
+                //escrow.Status = EscrowStatus.Refunded;
+                //escrow.ResolvedAt = DateTime.UtcNow;
+                //escrow.Description = $"Refund Approved: {order.TotalAmount:N0} returned to Buyer. Escrow closed.";
+                //_escrowRepo.Update(escrow);
+
+                //// Trả lại tồn kho hàng hóa
+                //foreach (var detail in order.OrderDetails)
+                //{
+                //    if (!detail.ItemVariantId.HasValue) continue;
+
+                //    var variant = await _variantRepo.GetByIdForUpdateAsync(detail.ItemVariantId.Value);
+                //    if (variant != null && variant.Status != ItemVariantStatus.Deleted && variant.Status != ItemVariantStatus.Archived)
+                //    {
+                //        _variantRepo.Restock(variant, detail.Quantity);
+                //    }
+                //}
+
+                //refundRequest.Status = "APPROVED";
+                //refundRequest.ProcessedAt = DateTime.UtcNow;
+                //_refundRepo.Update(refundRequest);
+
+                //order.Status = OrderStatus.Refunded;
+                //order.UpdatedAt = DateTime.UtcNow;
+                //_orderRepo.Update(order);
+
+                //await _transactionRepo.AddAsync(new Transaction
+                //{
+                //    WalletId = buyerWallet.WalletId,
+                //    TransactionCode = GenerateTransactionCode("REF"),
+                //    Amount = order.TotalAmount,
+                //    BalanceBefore = buyerBefore,
+                //    BalanceAfter = buyerWallet.Balance,
+                //    Type = TransactionType.Credit,
+                //    ReferenceType = TransactionReferenceType.OrderRefund,
+                //    ReferenceId = order.OrderId,
+                //    Description = $"Refund approved for order #{order.OrderId}. Total amount returned.",
+                //    CreatedAt = DateTime.UtcNow,
+                //    Status = TransactionStatus.Success
+                //});
+
+                //await _unitOfWork.SaveChangesAsync();
+                //await _unitOfWork.CommitAsync();
+
+                //var response = MapToResponse(order);
+                //await NotifyOrder(response);
+                //await NotifyOrderEventAsync(response, NotificationType.RefundApproved, response.SellerId);
+
+                //return response;
+                refundRequest.Status = "APPROVED";
+                refundRequest.ProcessedAt = DateTime.UtcNow;
+                _refundRepo.Update(refundRequest);
+
+                order.Status = OrderStatus.RefundApproved; 
+
+                order.UpdatedAt = DateTime.UtcNow;
+                _orderRepo.Update(order);
+
+                await _unitOfWork.SaveChangesAsync();
+                await _unitOfWork.CommitAsync();
+
+                var response = MapToResponse(order);
+
+                await NotifyOrder(response);
+                await NotifyOrderEventAsync(response, NotificationType.RefundApproved, response.BuyerId);
+                return response;
+            }
+            catch
+            {
+                await _unitOfWork.RollbackAsync();
+                throw;
+            }
+        }
+
+        public async Task<OrderResponse> ConfirmReturnedItemAsync(int orderId, int sellerId)
+        {
+            var order = await _orderRepo.GetByIdAsync(orderId)
+                ?? throw new KeyNotFoundException("Order not found.");
+            if (order.SellerId != sellerId)
+                throw new UnauthorizedAccessException("Only the seller can confirm the returned item.");
+            if (order.Status != OrderStatus.RefundApproved)
+                throw new InvalidOperationException("Order is not in returning status.");
+            var refundRequest = await _refundRepo.GetByOrderIdAsync(orderId)
+                ?? throw new KeyNotFoundException("Refund request not found.");
+            if (refundRequest.Status != "APPROVED")
+                throw new InvalidOperationException("Refund request is not approved yet.");
+            var escrow = await _escrowRepo.GetByOrderIdAsync(orderId)
+                ?? throw new KeyNotFoundException("Escrow session not found.");
+            if (escrow.Status != EscrowStatus.Held)
+                throw new InvalidOperationException("Escrow is not in a valid held state.");
+            await _unitOfWork.BeginTransactionAsync();
+            try
+            {
                 var buyerWallet = await _walletRepo.GetByAccountIdForUpdateAsync(order.BuyerId)
                     ?? throw new KeyNotFoundException("Buyer wallet not found.");
-
                 decimal buyerBefore = buyerWallet.Balance;
-
                 buyerWallet.Balance += order.TotalAmount;
                 buyerWallet.UpdatedAt = DateTime.UtcNow;
                 _walletRepo.Update(buyerWallet);
-
-                string oldEscrowStatus = escrow.Status;
-                decimal escrowAmountBefore = escrow.Amount;
-
                 escrow.Status = EscrowStatus.Refunded;
                 escrow.ResolvedAt = DateTime.UtcNow;
-                escrow.Description = $"Refund Approved: {order.TotalAmount:N0} returned to Buyer. Escrow closed.";
+                escrow.Description = $"Refund Completed: {order.TotalAmount:N0} returned to Buyer. Escrow closed.";
                 _escrowRepo.Update(escrow);
-
-                await SaveEscrowStatusHistoryAsync(
-                    escrowSession: escrow,
-                    fromStatus: oldEscrowStatus,
-                    toStatus: EscrowStatus.Refunded,
-                    amountBefore: escrowAmountBefore,
-                    amountAfter: 0,
-                    changedById: 1,
-                    reason: $"Refund approved for Order #{orderId}. Funds returned to Buyer.");
-
                 foreach (var detail in order.OrderDetails)
                 {
                     if (!detail.ItemVariantId.HasValue) continue;
-
                     var variant = await _variantRepo.GetByIdForUpdateAsync(detail.ItemVariantId.Value);
                     if (variant != null && variant.Status != ItemVariantStatus.Deleted && variant.Status != ItemVariantStatus.Archived)
                     {
                         _variantRepo.Restock(variant, detail.Quantity);
                     }
                 }
-
-                refundRequest.Status = "APPROVED";
-                refundRequest.ProcessedAt = DateTime.UtcNow;
-                _refundRepo.Update(refundRequest);
-
                 order.Status = OrderStatus.Refunded;
                 order.UpdatedAt = DateTime.UtcNow;
                 _orderRepo.Update(order);
-
-                await SaveStatusHistoryAsync(
-                    order.OrderId,
-                    OrderStatus.Refunded,
-                    "System",
-                    null,
-                    "Refund request approved by Admin. Funds returned to Buyer wallet. Items restocked.");
-
                 await _transactionRepo.AddAsync(new Transaction
                 {
                     WalletId = buyerWallet.WalletId,
@@ -831,18 +905,15 @@ namespace Application.Services.OrderImp
                     Type = TransactionType.Credit,
                     ReferenceType = TransactionReferenceType.OrderRefund,
                     ReferenceId = order.OrderId,
-                    Description = $"Refund approved for order #{order.OrderId}. Total amount returned.",
+                    Description = $"Refund completed for order #{order.OrderId}. Total amount returned.",
                     CreatedAt = DateTime.UtcNow,
                     Status = TransactionStatus.Success
                 });
-
                 await _unitOfWork.SaveChangesAsync();
                 await _unitOfWork.CommitAsync();
-
                 var response = MapToResponse(order);
                 await NotifyOrder(response);
-                await NotifyOrderEventAsync(response, NotificationType.RefundApproved, response.SellerId);
-
+                await NotifyOrderEventAsync(response, "OrderRefunded", response.SellerId);
                 return response;
             }
             catch
@@ -1543,7 +1614,7 @@ namespace Application.Services.OrderImp
                         actorId,
                         order.SellerId,
                         "Order refunded",
-                        $"Order {order.OrderCode} has been refunded to the buyer.");
+                        $"Refund request for order {order.OrderCode} has been approved. Please wait for the returned item.");
                     break;
 
                 case NotificationType.RefundRejected:
@@ -1554,6 +1625,16 @@ namespace Application.Services.OrderImp
                         order.BuyerId,
                         "Refund rejected",
                         $"Your refund request for order {order.OrderCode} has been rejected.");
+                    break;
+
+                case "OrderRefunded":
+                    await NotifyOrderUserAsync(
+                        order,
+                        type,
+                        actorId,
+                        order.BuyerId,
+                        "Order refunded",
+                        $"The seller has received the returned item. Order {order.OrderCode} has been refunded to your wallet.");
                     break;
             }
         }
