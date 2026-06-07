@@ -615,5 +615,52 @@ namespace Infrastructure.Repositories
                 })
                 .ToListAsync();
         }
+
+        public async Task<List<PostFeedDto>> GetPostsByHashtagAsync(string tagName, int viewerId, DateTime? cursor, int pageSize)
+        {
+            var normalizedTag = tagName.Trim().ToLower();
+
+            var query = _db.Posts
+                .AsNoTracking()
+                .Where(p => p.Status == PostStatus.Published &&
+                            p.Visibility == PostVisibility.Visible &&
+                            p.PostHashtags.Any(ph => ph.Hashtag.Name.ToLower() == normalizedTag));
+
+            if (cursor.HasValue)
+            {
+                query = query.Where(p => p.CreatedAt < cursor.Value);
+            }
+
+            return await query
+                .OrderByDescending(p => p.CreatedAt)
+                .Take(pageSize)
+                .Select(p => new PostFeedDto
+                {
+                    PostId = p.PostId,
+                    AccountId = p.AccountId,
+                    UserName = p.Account.UserName!,
+                    AvatarUrl = p.Account.Avatars
+                        .OrderByDescending(a => a.CreatedAt)
+                        .Select(a => a.ImageUrl)
+                        .FirstOrDefault(),
+                    IsEvent = p.EventId.HasValue,
+                    EventName = p.EventId.HasValue ? p.Event!.Title : null,
+                    Title = p.Title,
+                    Content = p.Content,
+                    Images = p.Images.OrderBy(i => i.CreatedAt).Select(i => i.ImageUrl).ToList(),
+                    Hashtags = p.PostHashtags.Select(ph => ph.Hashtag.Name).ToList(),
+                    LikeCount = p.LikeCount ?? 0,
+                    CommentCount = p.CommentCount ?? 0,
+                    ShareCount = p.ShareCount ?? 0,
+                    CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
+                    Status = p.Status,
+                    Visibility = p.Visibility,
+                    IsLiked = _db.Reactions.Any(r => r.PostId == p.PostId && r.AccountId == viewerId),
+                    IsSaved = _db.PostSaves.Any(s => s.PostId == p.PostId && s.AccountId == viewerId),
+                    IsExpertPost = p.IsExpertPost ?? false,
+                    IsLikedByExpert = _db.Reactions.Any(r => r.PostId == p.PostId && r.Account.ExpertProfile != null && r.Account.ExpertProfile.Verified == true)
+                })
+                .ToListAsync();
+        }
     }
 }

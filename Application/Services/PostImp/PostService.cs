@@ -910,6 +910,11 @@ namespace Application.Services.PostImp
             };
         }
 
+        public async Task<List<PostFeedDto>> GetPostsByTagAsync(string tagName, int viewerId, DateTime? cursor, int pageSize)
+        {
+            return await _postRepo.GetPostsByHashtagAsync(tagName, viewerId, cursor, pageSize);
+        }
+
         private async Task SyncHashtagsAsync(
             Post post,
             IEnumerable<string>? hashtags)

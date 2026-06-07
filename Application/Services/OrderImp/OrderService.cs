@@ -17,7 +17,6 @@ namespace Application.Services.OrderImp
 {
     public class OrderService : IOrderService
     {
-
         private readonly IOrderRepository _orderRepo;
         private readonly IItemVariantRepository _variantRepo;
         private readonly IHubContext<OrderHub> _hubContext;

@@ -18,12 +18,38 @@ namespace Presentation.Controllers
         private readonly IPostService _postService;
         private readonly IEventService _eventService;
         private readonly IHashtagService _hashtagService;
+        private readonly ITrendingTopicService _trendingTopicService; 
 
-        public PostController(IPostService postService, IEventService eventService, IHashtagService hashtagService)
+        public PostController(
+            IPostService postService,
+            IEventService eventService,
+            IHashtagService hashtagService,
+            ITrendingTopicService trendingTopicService) 
         {
             _postService = postService;
             _eventService = eventService;
             _hashtagService = hashtagService;
+            _trendingTopicService = trendingTopicService;
+        }
+
+        [HttpGet("hashtags/trending")]
+        public async Task<IActionResult> GetTrendingHashtags([FromQuery] int limit = 10)
+        {
+            var result = await _trendingTopicService.GetUserTrendingTopicsAsync(limit);
+            return Ok(result.Items);
+        }
+
+        [HttpGet("hashtags/{tagName}/posts")]
+        public async Task<IActionResult> GetPostsByHashtag(
+            string tagName,
+            [FromQuery] DateTime? cursor,
+            [FromQuery] int pageSize = 10)
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            int viewerId = string.IsNullOrEmpty(userIdClaim) ? 0 : int.Parse(userIdClaim);
+
+            var posts = await _postService.GetPostsByTagAsync(tagName, viewerId, cursor, pageSize);
+            return Ok(posts);
         }
 
         [HttpGet("hashtags/suggestions")]
