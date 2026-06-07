@@ -157,7 +157,7 @@ namespace Application.Services.EventServices
                     {
                         TransactionCode = $"JOIN_PAY_{ev.EventId}_{accountId}_{DateTime.UtcNow.Ticks}",
                         WalletId = userWallet.WalletId,
-                        EscrowSessionId = entryFeeEscrow.EscrowSessionId,
+                        EscrowSession= entryFeeEscrow,
                         Amount = ev.EntryFee,
                         BalanceBefore = userBalanceBefore,
                         BalanceAfter = userWallet.Balance,
