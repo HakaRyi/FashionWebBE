@@ -244,7 +244,7 @@ namespace Application.Services.OrderImp
             };
         }
 
-        #region Helper Methods (Sạch sẽ, dễ bảo trì, tránh lặp logic)
+        #region Helper Methods
 
         private static string MapStatusToDisplayString(string status, string? reasonOrNote)
         {
@@ -256,12 +256,16 @@ namespace Application.Services.OrderImp
                 OrderStatus.Delivered => "Delivered to Customer",
                 OrderStatus.Completed => "Delivered Successfully (Completed)",
                 OrderStatus.Cancelled => $"Order Cancelled (Reason: {reasonOrNote ?? "N/A"})",
-                OrderStatus.Refunding => "Refund Request Under Review",
-                OrderStatus.Refunded => "Amount Refunded Successfully & Return Order Initialized",
+
+                // Refund
+                OrderStatus.Refunding => "Refund Request Under Review by Admin",
+                OrderStatus.ReturnApproved => "Refund Approved. Awaiting Return Shipment from Buyer",
                 OrderStatus.ReturnPickedUp => "Carrier Picked Up Returned Items From Buyer",
-                OrderStatus.ReturnShipping => "Returned Items In Transit to Seller's Warehouse",
-                OrderStatus.ReturnDelivered => "Returned Items Delivered to Seller (Pending Warehouse Inspection)",
-                OrderStatus.ReturnCompleted => "Seller Verified & Stock Ingested (Return Flow Completed)",
+                OrderStatus.ReturnShipping => "Returned Items In Transit to Seller",
+                OrderStatus.ReturnDelivered => "Returned Items Delivered to Seller (Awaiting Confirmation / 24h Auto-Settle)",
+                OrderStatus.Refunded => "Funds Refunded to Buyer Wallet & Items Restocked (Completed)",
+
+                OrderStatus.ReturnCompleted => "Return Flow Finalized", // Giữ lại để tránh lỗi compile nếu DB cũ còn dữ liệu
                 _ => $"Status Updated to: {status}"
             };
         }
@@ -276,12 +280,15 @@ namespace Application.Services.OrderImp
                 OrderStatus.Delivered => "Delivered",
                 OrderStatus.Completed => "Completed",
                 OrderStatus.Cancelled => "Cancelled",
+
                 OrderStatus.Refunding => "Refunding",
-                OrderStatus.Refunded => "Refunded",
+                OrderStatus.ReturnApproved => "Return Approved",
                 OrderStatus.ReturnPickedUp => "Return Picked Up",
                 OrderStatus.ReturnShipping => "Return In Transit",
-                OrderStatus.ReturnDelivered => "Return Delivered to Seller",
-                OrderStatus.ReturnCompleted => "Return Stocked In",
+                OrderStatus.ReturnDelivered => "Return Delivered",
+                OrderStatus.Refunded => "Refunded",
+
+                OrderStatus.ReturnCompleted => "Return Completed",
                 _ => "Unknown"
             };
         }
@@ -296,12 +303,16 @@ namespace Application.Services.OrderImp
                 OrderStatus.Delivered => 3,
                 OrderStatus.Completed => 4,
                 OrderStatus.Cancelled => -1,
+
+                // Refund
                 OrderStatus.Refunding => 5,
-                OrderStatus.Refunded => 6,
+                OrderStatus.ReturnApproved => 6,
                 OrderStatus.ReturnPickedUp => 7,
                 OrderStatus.ReturnShipping => 8,
                 OrderStatus.ReturnDelivered => 9,
-                OrderStatus.ReturnCompleted => 10,
+                OrderStatus.Refunded => 10,
+
+                OrderStatus.ReturnCompleted => 10, // Dự phòng trường hợp DB cũ sử dụng
                 _ => 0
             };
         }

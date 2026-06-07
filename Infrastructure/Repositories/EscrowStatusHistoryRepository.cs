@@ -32,6 +32,13 @@ namespace Infrastructure.Repositories
                 .Include(e => e.ChangedBy)
                 .ToListAsync();
         }
+        public async Task<IEnumerable<EscrowStatusHistory>> GetByEscrowSessionIdsAsync(IEnumerable<int> escrowSessionIds)
+        {
+            return await _context.Set<EscrowStatusHistory>()
+                .Where(h => escrowSessionIds.Contains(h.EscrowSessionId))
+                .OrderBy(h => h.ChangedAt)
+                .ToListAsync();
+        }
 
         public async Task AddAsync(EscrowStatusHistory escrowStatusHistory)
         {

@@ -11,6 +11,7 @@ namespace Domain.Interfaces
     {
         Task<EscrowStatusHistory?> GetByIdAsync(int id);
         Task<IEnumerable<EscrowStatusHistory>> GetByEscrowSessionIdAsync(int escrowSessionId);
+        Task<IEnumerable<EscrowStatusHistory>> GetByEscrowSessionIdsAsync(IEnumerable<int> escrowSessionIds);
         Task AddAsync(EscrowStatusHistory escrowStatusHistory);
         void Update(EscrowStatusHistory escrowStatusHistory);
         void Delete(EscrowStatusHistory escrowStatusHistory);

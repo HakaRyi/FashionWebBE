@@ -3,12 +3,14 @@
     public static class EscrowStatus
     {
         public const string Held = "Held";
+        public const string PartiallyReleased = "PartiallyReleased";
         public const string Released = "Released";
         public const string Refunded = "Refunded";
 
         public static readonly List<string> All = new()
         {
             Held,
+            PartiallyReleased,
             Released,
             Refunded
         };

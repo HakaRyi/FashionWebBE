@@ -21,65 +21,72 @@ namespace Application.Services
 
         public async Task<List<WhaleDashboardDto>> GetTopWhalesAsync(DateTime fromDate, DateTime toDate, string? viewMode, string? searchQuery)
         {
-            // 1. Lấy TOÀN BỘ dữ liệu giao dịch gốc từ Repo
-            var allTransactions = await _transactionRepo.GetAllTransactionsAsync(fromDate, toDate);
+            var endOfToDate = toDate.Date.AddDays(1).AddTicks(-1);
+            var allTransactions = await _transactionRepo.GetAllTransactionsAsync(fromDate, endOfToDate);
 
+            // Lấy tất cả giao dịch hợp lệ của TOÀN SÀN trước (Dùng để tính Average chuẩn không bị ảnh hưởng bởi thanh Search)
+            var validPaymentTxs = allTransactions
+                .Where(t => t.Status == "Success" && t.Wallet?.Account?.UserName != "admin")
+                .ToList();
+
+            // SỬ CHÍ MẠNG BUG 1 & 3: Tính toán trước Trung bình toàn sàn theo từng Slot ra một Dictionary độc lập
+            string intervalType = !string.IsNullOrEmpty(viewMode)
+                ? viewMode.ToLower()
+                : ((toDate - fromDate).TotalDays > 60 ? "monthly" : "daily");
+
+            var timelineSlots = GenerateTimelineSlots(fromDate, toDate, intervalType);
+            var platformAvgPerSlotDict = new Dictionary<string, decimal>();
+
+            foreach (var slot in timelineSlots)
+            {
+                var platformTxInSlot = validPaymentTxs.Where(t => IsTransactionInSlot(t.CreatedAt, slot.Key, intervalType)).ToList();
+                var slotActiveWallets = platformTxInSlot.GroupBy(t => t.WalletId)
+                    .Select(g => {
+                        decimal d = 0; decimal r = 0;
+                        foreach (var t in g)
+                        {
+                            var desc = (t.Description ?? "").ToLower();
+                            if (t.Type == "Debit" || t.Type == "System_Fee_Payment" || desc.Contains("pay for") || desc.Contains("paid entry fee")) d += Math.Abs(t.Amount);
+                            else if (t.Type == "Event_Refund" || t.ReferenceType == "OrderRefund" || desc.Contains("refund")) r += Math.Abs(t.Amount);
+                        }
+                        return new { NetSpent = d - r };
+                    }).Where(x => x.NetSpent > 0).ToList();
+
+                decimal totalAvg = slotActiveWallets.Any() ? slotActiveWallets.Average(w => w.NetSpent) : 0;
+                platformAvgPerSlotDict[slot.Key] = Math.Round(totalAvg, 2);
+            }
+
+            // Bây giờ mới áp dụng searchQuery cho danh sách hiển thị Whale (Không lo lệch đường trung bình sàn nữa)
+            var filteredWhaleTxs = validPaymentTxs;
             if (!string.IsNullOrEmpty(searchQuery))
             {
-                allTransactions = allTransactions
+                filteredWhaleTxs = validPaymentTxs
                     .Where(t => t.Wallet?.Account?.UserName != null &&
                                 t.Wallet.Account.UserName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase))
                     .ToList();
             }
 
-            // 2. LOGIC DỊCH VỤ CẬP NHẬT: Lấy tất cả giao dịch thành công liên quan đến CHI TIÊU hoặc HOÀN TIỀN
-            // Loại trừ tài khoản 'admin' nếu không muốn admin lọt vào top chi tiêu
-            var validPaymentTxs = allTransactions
-                .Where(t => t.Status == "Success" && t.Wallet?.Account?.UserName != "admin")
-                .ToList();
-
-            // 3. Gom nhóm theo từng Khách hàng và tính toán động dựa trên Luồng Tiền Thực Tế
-            var whaleGroups = validPaymentTxs
+            // Gom nhóm khách hàng VIP
+            var whaleGroups = filteredWhaleTxs
                 .GroupBy(t => new { t.WalletId, Name = t.Wallet?.Account?.UserName ?? "Anonymous customer" })
                 .Select(g =>
                 {
-                    // CÁCH TÍNH MỚI: 
-                    // - TIỀN CHI (Debit): Là tất cả giao dịch làm giảm số dư của khách (Amount âm HOẶC Type là Debit/Fee_Payment)
-                    // - TIỀN HOÀN (Refund): Là các giao dịch trả lại tiền (Event_Refund, OrderRefund...) làm tăng số dư khách sau khi đã chi
-
-                    decimal totalDebit = 0;
-                    decimal totalRefund = 0;
-                    int totalOrders = 0;
-
+                    decimal totalDebit = 0; decimal totalRefund = 0; int totalOrders = 0;
                     foreach (var t in g)
                     {
                         var desc = (t.Description ?? "").ToLower();
-
-                        // Trường hợp 1: Các loại giao dịch trừ tiền túi khách hàng (Chi tiêu)
-                        if (t.Type == "Debit" ||
-                            t.Type == "System_Fee_Payment" ||
-                            desc.Contains("pay for") ||
-                            desc.Contains("paid entry fee"))
+                        if (t.Type == "Debit" || t.Type == "System_Fee_Payment" || desc.Contains("pay for") || desc.Contains("paid entry fee"))
                         {
-                            // Lấy trị tuyệt đối để tính tổng chi tiêu gốc
                             totalDebit += Math.Abs(t.Amount);
                             totalOrders++;
                         }
-                        // Trường hợp 2: Các loại giao dịch hoàn tiền về ví của khách
-                        else if (t.Type == "Event_Refund" ||
-                                 t.ReferenceType == "OrderRefund" ||
-                                 desc.Contains("refund"))
+                        else if (t.Type == "Event_Refund" || t.ReferenceType == "OrderRefund" || desc.Contains("refund"))
                         {
                             totalRefund += Math.Abs(t.Amount);
                         }
-                        // Trường hợp 3: Nhận doanh thu sự kiện (Dành cho những người như Elena - Tổ chức event kiếm được tiền)
-                        // Nếu bạn coi Elena kiếm được tiền từ sàn cũng là chỉ số LTV VIP, bạn có thể cộng vào hoặc xử lý riêng.
-                        // Ở đây tạm thời tính dòng tiền thuần chi ra:
                     }
 
-                    // LTV thực tế = Tổng tiền chi - Tổng tiền được hoàn
                     var realTotalSpent = totalDebit - totalRefund;
-
                     return new
                     {
                         g.Key.WalletId,
@@ -89,66 +96,38 @@ namespace Application.Services
                         TxCount = totalOrders
                     };
                 })
-                .Where(w => w.TotalSpent > 0) // Giữ lại những người có phát sinh chi tiêu thực tế
+                .Where(w => w.TotalSpent > 0)
                 .OrderByDescending(g => g.TotalSpent)
                 .ToList();
 
-            // 4. Xử lý chia Phân đoạn thời gian (Giữ nguyên logic slot của bạn)
-            string intervalType = !string.IsNullOrEmpty(viewMode)
-            ? viewMode.ToLower()
-            : ((toDate - fromDate).TotalDays > 60 ? "monthly" : "daily");
-
-            var timelineSlots = GenerateTimelineSlots(fromDate, toDate, intervalType);
-
             var result = new List<WhaleDashboardDto>();
 
-            // 5. Khớp nối dữ liệu Trend cho từng Whale (Cập nhật logic tính PersonalSpent bên trong Slot)
+            // Khớp nối dữ liệu Trend (Chạy mượt mà, siêu tốc)
             foreach (var whale in whaleGroups)
             {
                 int retentionScore = Math.Min(100, whale.TxCount * 5 + 45);
                 var trendData = new List<WhaleTrendDto>();
-                var personalTx = validPaymentTxs.Where(t => t.WalletId == whale.WalletId).ToList();
+                var personalTx = filteredWhaleTxs.Where(t => t.WalletId == whale.WalletId).ToList();
 
                 foreach (var slot in timelineSlots)
                 {
                     var slotPersonalTx = personalTx.Where(t => IsTransactionInSlot(t.CreatedAt, slot.Key, intervalType)).ToList();
 
-                    // Tính toán chi tiêu thực tế trong slot thời gian này tương tự như trên
-                    decimal pDebit = 0;
-                    decimal pRefund = 0;
-
+                    decimal pDebit = 0; decimal pRefund = 0;
                     foreach (var t in slotPersonalTx)
                     {
                         var desc = (t.Description ?? "").ToLower();
-                        if (t.Type == "Debit" || t.Type == "System_Fee_Payment" || desc.Contains("pay for") || desc.Contains("paid entry fee"))
-                            pDebit += Math.Abs(t.Amount);
-                        else if (t.Type == "Event_Refund" || t.ReferenceType == "OrderRefund" || desc.Contains("refund"))
-                            pRefund += Math.Abs(t.Amount);
+                        if (t.Type == "Debit" || t.Type == "System_Fee_Payment" || desc.Contains("pay for") || desc.Contains("paid entry fee")) pDebit += Math.Abs(t.Amount);
+                        else if (t.Type == "Event_Refund" || t.ReferenceType == "OrderRefund" || desc.Contains("refund")) pRefund += Math.Abs(t.Amount);
                     }
 
                     var personalSpent = pDebit - pRefund;
-
-                    // Tính toán trung bình toàn sàn trong slot (Chỉ tính các ví có chi tiêu dương công bằng)
-                    var platformTxInSlot = validPaymentTxs.Where(t => IsTransactionInSlot(t.CreatedAt, slot.Key, intervalType)).ToList();
-                    var slotActiveWallets = platformTxInSlot.GroupBy(t => t.WalletId)
-                        .Select(g => {
-                            decimal d = 0; decimal r = 0;
-                            foreach (var t in g)
-                            {
-                                var desc = (t.Description ?? "").ToLower();
-                                if (t.Type == "Debit" || t.Type == "System_Fee_Payment" || desc.Contains("pay for") || desc.Contains("paid entry fee")) d += Math.Abs(t.Amount);
-                                else if (t.Type == "Event_Refund" || t.ReferenceType == "OrderRefund" || desc.Contains("refund")) r += Math.Abs(t.Amount);
-                            }
-                            return new { NetSpent = d - r };
-                        }).Where(x => x.NetSpent > 0).ToList();
-
-                    decimal totalAvg = slotActiveWallets.Any() ? slotActiveWallets.Average(w => w.NetSpent) : 0;
 
                     trendData.Add(new WhaleTrendDto
                     {
                         Name = slot.Value,
                         Personal = personalSpent > 0 ? personalSpent : 0,
-                        TotalAvg = Math.Round(totalAvg, 2)
+                        TotalAvg = platformAvgPerSlotDict[slot.Key] // Lấy trực tiếp từ Dictionary, mất O(1) để lấy dữ liệu!
                     });
                 }
 

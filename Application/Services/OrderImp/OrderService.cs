@@ -297,6 +297,7 @@ namespace Application.Services.OrderImp
                 await _transactionRepo.AddAsync(new Transaction
                 {
                     WalletId = buyerWallet.WalletId,
+                    EscrowSessionId = escrowSession.EscrowSessionId,
                     TransactionCode = GenerateTransactionCode("TRX"),
                     Amount = order.TotalAmount,
                     BalanceBefore = buyerBefore,
@@ -1020,6 +1021,7 @@ namespace Application.Services.OrderImp
             await _transactionRepo.AddAsync(new Transaction
             {
                 WalletId = buyerWallet.WalletId,
+                EscrowSessionId = escrow.EscrowSessionId,
                 TransactionCode = GenerateTransactionCode("REF"),
                 Amount = order.TotalAmount,
                 BalanceBefore = buyerBefore,
@@ -1300,6 +1302,7 @@ namespace Application.Services.OrderImp
             {
                 WalletId = sellerWallet.WalletId,
                 PaymentId = null,
+                EscrowSessionId = escrow.EscrowSessionId,
                 TransactionCode = GenerateTransactionCode("TRX"),
                 Amount = sellerReceiveAmount,
                 BalanceBefore = sellerBefore,
@@ -1321,6 +1324,7 @@ namespace Application.Services.OrderImp
                 {
                     WalletId = adminWallet.WalletId,
                     PaymentId = null,
+                    EscrowSessionId = escrow.EscrowSessionId,
                     TransactionCode = GenerateTransactionCode("TAX"),
                     Amount = adminServiceFee,
                     BalanceBefore = adminBefore,
@@ -1427,6 +1431,7 @@ namespace Application.Services.OrderImp
                 await _transactionRepo.AddAsync(new Transaction
                 {
                     WalletId = buyerWallet.WalletId,
+                    EscrowSessionId = escrow.EscrowSessionId,
                     TransactionCode = GenerateTransactionCode("REF"),
                     Amount = order.TotalAmount,
                     BalanceBefore = buyerBefore,
