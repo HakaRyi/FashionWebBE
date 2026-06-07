@@ -29,7 +29,7 @@ namespace Domain.Interfaces
         Task<double> GetMaxRawCommunityScoreAsync(int eventId, double pointPerLike, double pointPerShare);
         Task<List<Post>> GetGradedPostsByEventIdAsync(int eventId);
         Task<int> CountAccountPostsAsync(int accountId);
-
+        Task<List<PostFeedDto>> GetPostsByHashtagAsync(string tagName, int viewerId, DateTime? cursor, int pageSize);
         Task<(List<Post> Posts, List<Account> Users)> SearchRawDataAsync(string keyword, int limit);
         Task<List<int>> GetLikedPostIdsAsync(int viewerId, List<int> postIds);
         Task<bool> AnyAsync(Expression<Func<Post, bool>> predicate);

@@ -33,6 +33,7 @@ namespace Application.Services.EventServices
         private readonly UserManager<Account> _userManager;
         private readonly ICloudStorageService _storage;
         private readonly IEscrowSessionRepository _escrowRepo;
+        private readonly IEscrowStatusHistoryRepository _escrowHistoryRepo;
 
 
         private const int MAX_IMAGES = 5;
@@ -50,7 +51,8 @@ namespace Application.Services.EventServices
             UserManager<Account> userManager,
             IImageRepository imageRepo,
             ICloudStorageService storage,
-            IEscrowSessionRepository escrowRepo)
+            IEscrowSessionRepository escrowRepo,
+            IEscrowStatusHistoryRepository escrowHistoryRepo)
         {
             _eventRepo = eventRepo;
             _walletRepo = walletRepo;
@@ -65,6 +67,7 @@ namespace Application.Services.EventServices
             _imageRepo = imageRepo;
             _storage = storage;
             _escrowRepo = escrowRepo;
+            _escrowHistoryRepo = escrowHistoryRepo;
         }
 
         #region User Join Event
@@ -122,7 +125,7 @@ namespace Application.Services.EventServices
                     userWallet.UpdatedAt = DateTime.UtcNow;
                     _walletRepo.Update(userWallet);
 
-                    await _escrowRepo.AddAsync(new EscrowSession
+                    var entryFeeEscrow = new EscrowSession
                     {
                         EventId = ev.EventId,
                         SenderId = accountId,
@@ -132,16 +135,33 @@ namespace Application.Services.EventServices
                         Status = EscrowStatus.Held,
                         Description = $"ENTRY_FEE: User '{account.UserName}' registered for event '{ev.Title}'",
                         CreatedAt = DateTime.UtcNow
-                    });
+                    };
+                    await _escrowRepo.AddAsync(entryFeeEscrow);
+
+                    int actorId = accountId == 0 ? 1 : accountId;
+
+                    var escrowHistory = new EscrowStatusHistory
+                    {
+                        EscrowSession = entryFeeEscrow,
+                        FromStatus = "NONE",
+                        ToStatus = EscrowStatus.Held,
+                        AmountBefore = 0,
+                        AmountAfter = ev.EntryFee,
+                        ChangedById = actorId,
+                        Reason = $"User paid and held entry fee for event '{ev.Title}'",
+                        ChangedAt = DateTime.UtcNow
+                    };
+                    await _escrowHistoryRepo.AddAsync(escrowHistory);
 
                     await _transactionRepo.AddAsync(new Transaction
                     {
                         TransactionCode = $"JOIN_PAY_{ev.EventId}_{accountId}_{DateTime.UtcNow.Ticks}",
                         WalletId = userWallet.WalletId,
-                        Amount = -ev.EntryFee,
+                        EscrowSession= entryFeeEscrow,
+                        Amount = ev.EntryFee,
                         BalanceBefore = userBalanceBefore,
                         BalanceAfter = userWallet.Balance,
-                        Type = "Event_Entry_Fee_Paid",
+                        Type = TransactionType.Debit,
                         Status = "Success",
                         Description = $"Paid entry fee for event: {ev.Title}",
                         ReferenceId = ev.EventId,

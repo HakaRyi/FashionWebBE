@@ -23,5 +23,6 @@
         public virtual Account? Receiver { get; set; }
         public virtual Order? Order { get; set; }
         public virtual Event? Event { get; set; }
+        public virtual ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();
     }
 }

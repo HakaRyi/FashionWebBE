@@ -31,5 +31,6 @@ namespace Application.Services.PostImp
         Task SetPostDeleteStatus(int postId);
         Task SetPostBannedStatus(int postId);
         Task<GlobalSearchResultDto> SearchEverythingAsync(string keyword, int? viewerId);
+        Task<List<PostFeedDto>> GetPostsByTagAsync(string tagName, int viewerId, DateTime? cursor, int pageSize);
     }
 }

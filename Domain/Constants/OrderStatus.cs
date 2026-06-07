@@ -10,6 +10,13 @@
         public const string Cancelled = "CANCELLED";
         public const string Refunding = "REFUNDING";
         public const string Refunded = "REFUNDED";
+        public const string RefundApproved = "REFUND_APPROVED";
+
+        public const string ReturnApproved = "RETURN_APPROVED";
+        public const string ReturnPickedUp = "RETURN_PICKED_UP";
+        public const string ReturnShipping = "RETURN_SHIPPING";
+        public const string ReturnDelivered = "RETURN_DELIVERED";
+        public const string ReturnCompleted = "RETURN_COMPLETED";
 
         public static readonly HashSet<string> All = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -19,8 +26,15 @@
             Delivered,
             Completed,
             Cancelled,
+            ReturnApproved,
             Refunding,
-            Refunded
+            Refunded,
+            RefundApproved,
+            ReturnApproved,
+            ReturnPickedUp,
+            ReturnShipping,
+            ReturnDelivered,
+            ReturnCompleted
         };
 
         public static bool IsValid(string status)

@@ -29,6 +29,7 @@ namespace Application.Services.EventServices
         private readonly ISchedulerFactory _schedulerFactory;
         private readonly ISystemSettingRepository _settingRepo;
         private readonly INotificationService _notificationService;
+        private readonly IEscrowStatusHistoryRepository _escrowHistoryRepo;
 
 
         public EventAwardingService(
@@ -49,7 +50,8 @@ namespace Application.Services.EventServices
             ISystemSettingRepository settingRepo,
             INotificationService notificationService,
             ISchedulerFactory schedulerFactory,
-            ICurrentUserService currentUserService)
+            ICurrentUserService currentUserService,
+            IEscrowStatusHistoryRepository escrowHistoryRepo)
         {
             _eventRepo = eventRepo;
             _walletRepo = walletRepo;
@@ -69,6 +71,7 @@ namespace Application.Services.EventServices
             _imageRepo = imageRepo;
             _schedulerFactory = schedulerFactory;
             _notificationService = notificationService;
+            _escrowHistoryRepo = escrowHistoryRepo;
         }
 
         public async Task FinalizeAndAwardEventAsync(int eventId)
@@ -79,12 +82,25 @@ namespace Application.Services.EventServices
             if (ev.Status != "Active" && ev.Status != "Judging")
                 throw new Exception($"The award cannot be given. Current status: {ev.Status}");
 
+            int currentUserId = _currentUserService.GetUserId() ?? 1;
+
+            if (currentUserId != 1 && ev.CreatorId != currentUserId)
+            {
+                throw new Exception("You do not have the right to finalize this event.");
+            }
+
+            DateTime currentTime = DateTime.UtcNow;
+
             await _unitOfWork.BeginTransactionAsync();
             try
             {
-                var rankedPosts = await CalculateAndRankPostsAsync(eventId, ev);
+                var allPostsIEnumerable = await _postRepo.GetPostsByEventIdAsync(eventId);
+                var allPosts = allPostsIEnumerable.ToList();
 
                 var allEscrows = await _escrowRepo.GetTotalEscrowsByEventIdAsync(eventId);
+
+                // 2. Tính toán điểm số và xếp hạng
+                var rankedPosts = await CalculateAndRankPostsAsync(eventId, ev, allPosts, currentTime);
 
                 var prizeEscrow = allEscrows.FirstOrDefault(e => e.Status == EscrowStatus.Held
                                                               && e.Description != null
@@ -97,21 +113,21 @@ namespace Application.Services.EventServices
                                            .ToList();
 
                 // 3. Trao giải cho người thắng từ Quỹ giải thưởng
-                decimal totalDistributedAmount = await DistributePrizesAsync(eventId, ev, rankedPosts);
+                decimal totalDistributedAmount = await DistributePrizesAsync(eventId, ev, rankedPosts, prizeEscrow, currentUserId, currentTime);
 
                 // 4. Xử lý hoàn tiền ký quỹ thừa cho Creator
-                await RefundRemainingEscrowAsync(ev, prizeEscrow, totalDistributedAmount);
+                await RefundRemainingEscrowAsync(ev, prizeEscrow, totalDistributedAmount, currentUserId, currentTime);
 
                 // 5. GIẢI NGÂN TIỀN PHÍ THAM GIA THỰC TẾ CHO CREATOR
-                await ReleaseEventRevenueToCreatorAsync(ev, feeEscrows);
+                await ReleaseEventRevenueToCreatorAsync(ev, feeEscrows, currentUserId, currentTime);
 
-                // 6. Đánh giá và trừ điểm chuyên gia
-                await EvaluateExpertPerformanceAsync(eventId, ev);
+                // 6. Đánh giá và trừ điểm chuyên gia (Truyền danh sách linh hoạt)
+                await EvaluateExpertPerformanceAsync(eventId, ev, allPosts, currentTime);
 
-                // 7. Đóng sự kiện và dọn dẹp Quartz Job
-                await CloseEventAndCleanupAsync(ev);
+                // 7. Đóng sự kiện và gửi thông báo
+                await CloseEventAndCleanupAsync(ev, currentTime);
 
-                // CHỐT GIAO DỊCH AN TOÀN
+                await _unitOfWork.SaveChangesAsync();
                 await _unitOfWork.CommitAsync();
 
                 try
@@ -123,7 +139,7 @@ namespace Application.Services.EventServices
                         await scheduler.DeleteJob(jobKeyFinalize);
                     }
                 }
-                catch (Exception) {  }
+                catch (Exception) { }
             }
             catch (Exception ex)
             {
@@ -132,9 +148,8 @@ namespace Application.Services.EventServices
             }
         }
 
-        private async Task<List<Post>> CalculateAndRankPostsAsync(int eventId, Event ev)
+        private async Task<List<Post>> CalculateAndRankPostsAsync(int eventId, Event ev, List<Post> allPosts, DateTime currentTime)
         {
-            var allPosts = await _postRepo.GetPostsByEventIdAsync(eventId);
             if (!allPosts.Any()) return new List<Post>();
 
             var allRatings = await _ratingRepo.GetAllRatingsByEventIdAsync(eventId);
@@ -150,7 +165,6 @@ namespace Application.Services.EventServices
                 double currentRaw = (post.LikeCount ?? 0) * ev.PointPerLike + (post.ShareCount ?? 0) * ev.PointPerShare;
                 double normalizedCommunityScore = (currentRaw / maxRawScore) * 10;
 
-
                 var postRatings = ratingsLookup[post.PostId].ToList();
                 double avgExpertScore = postRatings.Any() ? postRatings.Average(r => r.Score) : 0;
 
@@ -159,7 +173,7 @@ namespace Application.Services.EventServices
                     : 0;
                 double finalScore = Math.Round(rawFinalScore, 3);
 
-                var sb = await _scoreboardRepo.GetByPostIdAsync(post.PostId) ?? new Scoreboard { CreatedAt = DateTime.UtcNow };
+                var sb = await _scoreboardRepo.GetByPostIdAsync(post.PostId) ?? new Scoreboard { CreatedAt = currentTime };
                 sb.PostId = post.PostId;
                 sb.ExpertScore = avgExpertScore;
                 sb.CommunityScore = normalizedCommunityScore;
@@ -174,15 +188,13 @@ namespace Application.Services.EventServices
                 post.Scoreboard = sb;
             }
 
-            await _unitOfWork.SaveChangesAsync();
-
             return allPosts
                 .OrderByDescending(p => p.Scoreboard!.FinalScore)
                 .ThenBy(p => p.CreatedAt)
                 .ToList();
         }
 
-        private async Task<decimal> DistributePrizesAsync(int eventId, Event ev, List<Post> rankedPosts)
+        private async Task<decimal> DistributePrizesAsync(int eventId, Event ev, List<Post> rankedPosts, EscrowSession prizeEscrow, int currentUserId, DateTime currentTime)
         {
             var prizes = (await _prizeRepo.GetByEventIdAsync(eventId)).OrderBy(p => p.Ranked).ToList();
             decimal totalDistributedAmount = 0;
@@ -195,6 +207,8 @@ namespace Application.Services.EventServices
                 var prize = prizes[i];
                 decimal rewardAmount = prize.RewardAmount;
 
+                if (prizeEscrow.Amount < rewardAmount) break;
+
                 // 1. Lưu EventWinner
                 await _winnerRepo.AddAsync(new EventWinner
                 {
@@ -203,49 +217,71 @@ namespace Application.Services.EventServices
                     WinningScore = post.Scoreboard!.FinalScore,
                     FinalRank = prize.Ranked,
                     Status = "Awarded",
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
+                    CreatedAt = currentTime,
+                    UpdatedAt = currentTime
                 });
 
-                // 2. Cập nhật Prize
+                // 2. Cập nhật trạng thái Giải thưởng
                 prize.Status = "Awarded";
                 _prizeRepo.Update(prize);
 
-                // 3. Cộng tiền vào ví
+                // 3. Cộng tiền vào ví Winner
                 var winnerWallet = await _walletRepo.GetByAccountIdAsync(post.AccountId);
                 if (winnerWallet == null) throw new Exception($"User {post.AccountId}'s wallet could not be found.");
 
                 decimal balanceBefore = winnerWallet.Balance;
                 winnerWallet.Balance += rewardAmount;
-                winnerWallet.UpdatedAt = DateTime.UtcNow;
+                winnerWallet.UpdatedAt = currentTime;
                 _walletRepo.Update(winnerWallet);
 
-                // 4. Lưu Transaction
+                // 4. Lưu Giao dịch (Transaction) cho Winner
                 await _transactionRepo.AddAsync(new Transaction
                 {
                     WalletId = winnerWallet.WalletId,
-                    TransactionCode = $"RW-{eventId}-{post.AccountId}-{DateTime.UtcNow.Ticks}",
+                    TransactionCode = $"RW-{eventId}-{post.AccountId}-{currentTime.Ticks}",
+                    EscrowSessionId = prizeEscrow.EscrowSessionId,
                     Amount = rewardAmount,
                     BalanceBefore = balanceBefore,
                     BalanceAfter = winnerWallet.Balance,
-                    Type = "Prize_Reward",
+                    Type = TransactionType.Credit,
                     ReferenceId = eventId,
                     ReferenceType = "Event",
                     Description = $"Prize award for {prize.Ranked} place in event '{ev.Title}'",
                     Status = "Success",
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = currentTime
                 });
+
+                // 5. Cập nhật trạng thái Escrow
+                string oldEscrowStatus = prizeEscrow.Status;
+                decimal escrowAmountBefore = prizeEscrow.Amount;
+
+                prizeEscrow.Amount -= rewardAmount;
+                prizeEscrow.Status = EscrowStatus.PartiallyReleased;
+                _escrowRepo.Update(prizeEscrow);
+
+                var escrowHistory = new EscrowStatusHistory
+                {
+                    EscrowSessionId = prizeEscrow.EscrowSessionId,
+                    FromStatus = oldEscrowStatus,
+                    ToStatus = EscrowStatus.PartiallyReleased,
+                    AmountBefore = escrowAmountBefore,
+                    AmountAfter = prizeEscrow.Amount,
+                    ChangedById = currentUserId,
+                    Reason = $"Partially released {rewardAmount:N0} VNĐ from prize pool for {prize.Ranked} place award to Winner (User ID: {post.AccountId}).",
+                    ChangedAt = currentTime
+                };
+                await _escrowHistoryRepo.AddAsync(escrowHistory);
 
                 totalDistributedAmount += rewardAmount;
             }
 
-            await _unitOfWork.SaveChangesAsync();
             return totalDistributedAmount;
         }
 
-        private async Task RefundRemainingEscrowAsync(Event ev, EscrowSession escrow, decimal totalDistributedAmount)
+        private async Task RefundRemainingEscrowAsync(Event ev, EscrowSession escrow, decimal totalDistributedAmount, int currentUserId, DateTime currentTime)
         {
-            decimal refundAmount = escrow.Amount - totalDistributedAmount;
+            decimal refundAmount = escrow.Amount;
+            decimal escrowAmountBefore = escrow.Amount;
 
             if (refundAmount > 0)
             {
@@ -254,65 +290,107 @@ namespace Application.Services.EventServices
                 {
                     decimal creatorBalanceBefore = creatorWallet.Balance;
                     creatorWallet.Balance += refundAmount;
-                    creatorWallet.UpdatedAt = DateTime.UtcNow;
+                    creatorWallet.UpdatedAt = currentTime;
                     _walletRepo.Update(creatorWallet);
 
                     await _transactionRepo.AddAsync(new Transaction
                     {
                         WalletId = creatorWallet.WalletId,
-                        TransactionCode = $"RF-{ev.EventId}-{DateTime.UtcNow.Ticks}",
+                        TransactionCode = $"RF-{ev.EventId}-{currentTime.Ticks}",
+                        EscrowSessionId = escrow.EscrowSessionId,
                         Amount = refundAmount,
                         BalanceBefore = creatorBalanceBefore,
                         BalanceAfter = creatorWallet.Balance,
-                        Type = "Event_Refund",
+                        Type = TransactionType.Credit,
                         ReferenceId = ev.EventId,
                         ReferenceType = "Event",
                         Description = $"Refund of surplus escrow from event '{ev.Title}' due to insufficient winners.",
                         Status = "Success",
-                        CreatedAt = DateTime.UtcNow
+                        CreatedAt = currentTime
                     });
                 }
             }
 
+            string oldEscrowStatus = escrow.Status;
+
+            escrow.Amount = 0;
             escrow.Status = EscrowStatus.Released;
-            escrow.ResolvedAt = DateTime.UtcNow;
-            escrow.Description = $"Disbursed {totalDistributedAmount:N0} to winners. Refunded {refundAmount:N0} to creator.";
+            escrow.ResolvedAt = currentTime;
+            escrow.Description = $"Disbursed total {totalDistributedAmount:N0} VNĐ to winners. Refunded surplus {refundAmount:N0} VNĐ to creator.";
             _escrowRepo.Update(escrow);
 
-            await _unitOfWork.SaveChangesAsync();
+            var escrowHistory = new EscrowStatusHistory
+            {
+                EscrowSessionId = escrow.EscrowSessionId,
+                FromStatus = oldEscrowStatus,
+                ToStatus = EscrowStatus.Released,
+                AmountBefore = escrowAmountBefore,
+                AmountAfter = 0,
+                ChangedById = currentUserId,
+                Reason = $"Event awards finalized. Closed prize pool. Released remaining surplus {refundAmount:N0} VNĐ back to Event Creator.",
+                ChangedAt = currentTime
+            };
+            await _escrowHistoryRepo.AddAsync(escrowHistory);
         }
 
-        private async Task CloseEventAndCleanupAsync(Event ev)
+        private async Task ReleaseEventRevenueToCreatorAsync(Event ev, List<EscrowSession> feeEscrows, int currentUserId, DateTime currentTime)
         {
-            ev.Status = "Completed";
-            ev.EndTime = DateTime.UtcNow;
-            _eventRepo.Update(ev);
+            if (ev.EntryFee <= 0 || feeEscrows == null || !feeEscrows.Any()) return;
 
-            var eventExperts = await _eventExpertRepo.GetByEventIdAsync(ev.EventId);
-            var acceptedExperts = eventExperts.Where(e => e.Status == "Accepted").ToList();
+            var creatorWallet = await _walletRepo.GetByAccountIdAsync(ev.CreatorId);
+            if (creatorWallet == null) throw new Exception("Organizer's wallet not found during revenue release.");
 
-            // 2. Gửi thông báo cho từng Expert
-            foreach (var exp in acceptedExperts)
+            foreach (var escrow in feeEscrows)
             {
-                await _notificationService.SendNotificationAsync(new Application.Request.NotificationReq.SendNotificationRequest
+                if (escrow.Amount <= 0) continue;
+
+                decimal balanceBefore = creatorWallet.Balance;
+                creatorWallet.Balance += escrow.Amount;
+                creatorWallet.UpdatedAt = currentTime;
+                _walletRepo.Update(creatorWallet);
+
+                string oldEscrowStatus = escrow.Status;
+                decimal escrowAmountBefore = escrow.Amount;
+
+                escrow.Amount = 0;
+                escrow.Status = EscrowStatus.Released;
+                escrow.ResolvedAt = currentTime;
+                _escrowRepo.Update(escrow);
+
+                var escrowHistory = new EscrowStatusHistory
                 {
-                    SenderId = ev.CreatorId,
-                    TargetUserId = exp.ExpertId,
-                    Title = "The event has ended.",
-                    Content = $"The event '{ev.Title}', where you served as a judge, has successfully concluded. Thank you for your contribution.",
-                    Type = "Event_Completed",
-                    RelatedId = ev.EventId.ToString()
+                    EscrowSessionId = escrow.EscrowSessionId,
+                    FromStatus = oldEscrowStatus,
+                    ToStatus = EscrowStatus.Released,
+                    AmountBefore = escrowAmountBefore,
+                    AmountAfter = 0,
+                    ChangedById = currentUserId,
+                    Reason = $"Event revenue released. Entry fee of {escrowAmountBefore:N0} VNĐ transferred to Event Creator wallet.",
+                    ChangedAt = currentTime
+                };
+                await _escrowHistoryRepo.AddAsync(escrowHistory);
+
+                await _transactionRepo.AddAsync(new Transaction
+                {
+                    WalletId = creatorWallet.WalletId,
+                    TransactionCode = $"REVENUE_RELEASE_{ev.EventId}_{escrow.EscrowSessionId}_{currentTime.Ticks}",
+                    Amount = escrowAmountBefore,
+                    BalanceBefore = balanceBefore,
+                    BalanceAfter = creatorWallet.Balance,
+                    Type = TransactionType.Credit,
+                    Status = "Success",
+                    EscrowSessionId = escrow.EscrowSessionId,
+                    Description = $"Received participant entry fee revenue (Escrow #{escrow.EscrowSessionId}) for event '{ev.Title}'",
+                    ReferenceId = ev.EventId,
+                    ReferenceType = "Event",
+                    CreatedAt = currentTime
                 });
             }
-
-            await _unitOfWork.SaveChangesAsync();
         }
 
-        private async Task EvaluateExpertPerformanceAsync(int eventId, Event ev)
+        private async Task EvaluateExpertPerformanceAsync(int eventId, Event ev, IEnumerable<Post> allPosts, DateTime currentTime)
         {
-            var allPosts = await _postRepo.GetPostsByEventIdAsync(eventId);
             int totalPosts = allPosts.Count();
-
             if (totalPosts == 0) return;
 
             var eventExperts = await _eventExpertRepo.GetByEventIdAsync(eventId);
@@ -323,7 +401,6 @@ namespace Application.Services.EventServices
             var allRatings = await _ratingRepo.GetAllRatingsByEventIdAsync(eventId);
             var ratingsByExpert = allRatings.ToLookup(r => r.ExpertId);
 
-            // 4. Bắt đầu đánh giá từng chuyên gia
             foreach (var eventExpert in acceptedExperts)
             {
                 var expertProfile = await _profileRepo.GetByAccountIdAsync(eventExpert.ExpertId);
@@ -337,7 +414,6 @@ namespace Application.Services.EventServices
                 string reason = "";
                 bool isUpdated = false;
 
-                // --- LOGIC CỘNG ĐIỂM (Plus Score) ---
                 if (missingCount <= 0)
                 {
                     if (currentScore < 100)
@@ -351,7 +427,6 @@ namespace Application.Services.EventServices
                         isUpdated = true;
                     }
                 }
-                // --- LOGIC TRỪ ĐIỂM (Minus Score) ---
                 else
                 {
                     double missingPercentage = (double)missingCount / totalPosts * 100;
@@ -385,9 +460,9 @@ namespace Application.Services.EventServices
                     {
                         ExpertProfileId = expertProfile.ExpertProfileId,
                         PointChange = pointChange,
-                        CurrentPoint = expertProfile.ReputationScore.Value,
+                        CurrentPoint = expertProfile.ReputationScore ?? 100,
                         Reason = reason,
-                        CreatedAt = DateTime.UtcNow
+                        CreatedAt = currentTime
                     });
 
                     try
@@ -407,52 +482,30 @@ namespace Application.Services.EventServices
                         Console.WriteLine($"Error sending notification to Expert {expertProfile.AccountId}: {ex.Message}");
                     }
                 }
-
-                await _unitOfWork.SaveChangesAsync();
             }
         }
 
-        private async Task ReleaseEventRevenueToCreatorAsync(Event ev, List<EscrowSession> feeEscrows)
+        private async Task CloseEventAndCleanupAsync(Event ev, DateTime currentTime)
         {
-            if (ev.EntryFee <= 0 || feeEscrows == null || !feeEscrows.Any()) return;
+            ev.Status = "Completed";
+            ev.EndTime = currentTime;
+            _eventRepo.Update(ev);
 
-            var creatorWallet = await _walletRepo.GetByAccountIdAsync(ev.CreatorId);
-            if (creatorWallet == null) throw new Exception("Organizer's wallet not found during revenue release.");
+            var eventExperts = await _eventExpertRepo.GetByEventIdAsync(ev.EventId);
+            var acceptedExperts = eventExperts.Where(e => e.Status == "Accepted").ToList();
 
-            decimal totalRevenue = feeEscrows.Sum(e => e.Amount);
-
-            if (totalRevenue > 0)
+            foreach (var exp in acceptedExperts)
             {
-                decimal balanceBefore = creatorWallet.Balance;
-
-                creatorWallet.Balance += totalRevenue;
-                creatorWallet.UpdatedAt = DateTime.UtcNow;
-                _walletRepo.Update(creatorWallet);
-
-                foreach (var escrow in feeEscrows)
+                await _notificationService.SendNotificationAsync(new Application.Request.NotificationReq.SendNotificationRequest
                 {
-                    escrow.Status = EscrowStatus.Released;
-                    escrow.ResolvedAt = DateTime.UtcNow;
-                    _escrowRepo.Update(escrow);
-                }
-
-                await _transactionRepo.AddAsync(new Transaction
-                {
-                    WalletId = creatorWallet.WalletId,
-                    TransactionCode = $"REVENUE_RELEASE_{ev.EventId}_{DateTime.UtcNow.Ticks}",
-                    Amount = totalRevenue,
-                    BalanceBefore = balanceBefore,
-                    BalanceAfter = creatorWallet.Balance,
-                    Type = "Event_Revenue_Released",
-                    Status = "Success",
-                    Description = $"Received total revenue from {feeEscrows.Count} participant entry fees for event '{ev.Title}'",
-                    ReferenceId = ev.EventId,
-                    ReferenceType = "Event",
-                    CreatedAt = DateTime.UtcNow
+                    SenderId = ev.CreatorId,
+                    TargetUserId = exp.ExpertId,
+                    Title = "The event has ended.",
+                    Content = $"The event '{ev.Title}', where you served as a judge, has successfully concluded. Thank you for your contribution.",
+                    Type = "Event_Completed",
+                    RelatedId = ev.EventId.ToString()
                 });
             }
-
-            await _unitOfWork.SaveChangesAsync();
         }
     }
 }

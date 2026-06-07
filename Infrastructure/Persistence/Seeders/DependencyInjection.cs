@@ -22,7 +22,7 @@ namespace Infrastructure.Persistence.Seeders
             {
                 await DbInitializer.SeedRolesAndAdminAsync(services, configuration);
 
-                await PublicProfileWardrobeSeeder.SeedAsync(context, userManager);
+                //await PublicProfileWardrobeSeeder.SeedAsync(context, userManager);
 
                 logger.LogInformation("Database seeding completed successfully.");
             }

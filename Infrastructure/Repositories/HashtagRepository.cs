@@ -87,5 +87,20 @@ namespace Infrastructure.Repositories
         {
             _db.Hashtags.Update(hashtag);
         }
+
+        public async Task<List<Hashtag>> SearchTagsAsync(string query, int limit)
+        {
+            if (string.IsNullOrWhiteSpace(query))
+                return new List<Hashtag>();
+
+            var normalized = query.Trim().ToLower();
+
+            return await _db.Hashtags
+                .AsNoTracking()
+                .Where(x => x.Name.ToLower().Contains(normalized))
+                .OrderByDescending(x => x.UsageCount) 
+                .Take(limit)
+                .ToListAsync();
+        }
     }
 }

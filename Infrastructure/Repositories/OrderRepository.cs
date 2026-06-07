@@ -45,7 +45,7 @@ namespace Infrastructure.Repositories
 
         public async Task<Order?> GetByIdAsync(int orderId)
         {
-            return await BuildOrderDetailQuery(isTracking: true)
+            return await BuildOrderDetailQuery(isTracking: true).Include(o => o.StatusHistories)
                 .FirstOrDefaultAsync(o => o.OrderId == orderId);
         }
 
@@ -154,8 +154,7 @@ namespace Infrastructure.Repositories
                 .Include(o => o.EscrowSession)
                 .Where(o =>
                     o.Status == OrderStatus.Delivered &&
-                    o.DeliveredAt != null &&
-                    o.DeliveredAt <= deadline)
+                    o.StatusHistories.Any(h => h.Status == OrderStatus.Delivered && h.ChangedAt <= deadline))
                 .ToListAsync();
         }
 
@@ -347,6 +346,18 @@ namespace Infrastructure.Repositories
                 .Include(o => o.OrderDetails)
                     .ThenInclude(od => od.Item)
                 .Where(o => o.CreatedAt >= startDate && o.CreatedAt <= endDate)
+                .ToListAsync();
+        }
+
+        public async Task<List<Order>> GetReturnDeliveredOrdersBeforeAsync(DateTime deadline)
+        {
+            return await _context.Orders
+                .Include(o => o.OrderDetails)
+                .Include(o => o.EscrowSession)
+                .Include(o => o.RefundRequest)
+                .Where(o =>
+                    o.Status == OrderStatus.ReturnDelivered &&
+                    o.StatusHistories.Any(h => h.Status == OrderStatus.ReturnDelivered && h.ChangedAt <= deadline))
                 .ToListAsync();
         }
     }

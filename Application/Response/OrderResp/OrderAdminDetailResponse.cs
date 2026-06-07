@@ -1,17 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace Application.Response.OrderResp
 {
     public class OrderAdminDetailResponse
     {
-        public string Id { get; set; } = null!; // Hiển thị OrderCode hoặc ORD-Id
+        public int OrderId { get; set; }
+        public string Id { get; set; } = null!;
         public string TransactionId { get; set; } = null!;
         public string PlacedAt { get; set; } = null!;
-        public int CurrentStatus { get; set; }
+        public string StatusKey { get; set; } = null!;
+        public int CurrentStatusStep { get; set; }
+
         public bool HasRefundRequest { get; set; }
         public string? RefundRequestStatus { get; set; }
         public string? RefundReason { get; set; }
@@ -19,13 +19,13 @@ namespace Application.Response.OrderResp
         public DateTime? RefundRequestedAt { get; set; }
         public DateTime? RefundProcessedAt { get; set; }
 
-        public BuyerDto Buyer { get; set; } = new BuyerDto();
-        public SellerDto Seller { get; set; } = new SellerDto();
-        public PaymentDto Payment { get; set; } = new PaymentDto();
-        public LedgerDto Ledger { get; set; } = new LedgerDto();
-        public FinancialAuditDto FinancialAudit { get; set; } = new FinancialAuditDto();
-        public List<ItemDto> Items { get; set; } = new List<ItemDto>();
-        public List<HistoryDto> History { get; set; } = new List<HistoryDto>();
+        public BuyerDto Buyer { get; set; } = new();
+        public SellerDto Seller { get; set; } = new();
+        public PaymentDto Payment { get; set; } = new();
+        public LedgerDto Ledger { get; set; } = new();
+        public FinancialAuditDto FinancialAudit { get; set; } = new();
+        public List<ItemDto> Items { get; set; } = new();
+        public List<HistoryDto> History { get; set; } = new();
     }
 
     public class BuyerDto
@@ -63,31 +63,19 @@ namespace Application.Response.OrderResp
 
     public class FinancialAuditDto
     {
-        public List<WalletLogDto> SettlementLogs { get; set; } = new List<WalletLogDto>();
+        public List<WalletLogDto> SettlementLogs { get; set; } = new();
     }
 
     public class WalletLogDto
     {
         public string ActorType { get; set; } = null!; // "Buyer", "Seller", "Platform"
-        public string ActorName { get; set; } = null!; // Tên hiển thị (Tên khách, tên shop, hoặc "System")
-        public string ActionType { get; set; } = null!; // "Debit" (Trừ) hoặc "Credit" (Cộng)
-        public string Description { get; set; } = null!; // "Thanh toán đơn hàng", "Hoàn tiền hủy đơn",...
-        public decimal Amount { get; set; }           // Số tiền biến động (Luôn dương, hướng đi do ActionType quyết định)
+        public string ActorName { get; set; } = null!; // Tên hiển thị
+        public string ActionType { get; set; } = null!; // "Debit" hoặc "Credit"
+        public string Description { get; set; } = null!;
+        public decimal Amount { get; set; }
         public decimal WalletBefore { get; set; }
         public decimal WalletAfter { get; set; }
-        public string Timestamp { get; set; } = null!;  // Thời gian xảy ra giao dịch cụ thể
-    }
-
-    public class UserAuditDto
-    {
-        public decimal WalletBefore { get; set; }
-        public decimal WalletAfter { get; set; }
-    }
-
-    public class PlatformAuditDto
-    {
-        public decimal WalletBefore { get; set; }
-        public decimal WalletAfter { get; set; }
+        public string Timestamp { get; set; } = null!;
     }
 
     public class ItemDto
@@ -104,7 +92,11 @@ namespace Application.Response.OrderResp
 
     public class HistoryDto
     {
-        public string Status { get; set; } = null!;
-        public string Time { get; set; } = null!;
+        public string StatusKey { get; set; } = null!;
+        public string StatusDisplay { get; set; } = null!;
+        public DateTime ChangedAt { get; set; }
+        public string DateOnly { get; set; } = null!;
+        public string TimeOnly { get; set; } = null!;
+        public string? Note { get; set; }
     }
 }

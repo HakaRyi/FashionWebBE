@@ -13,6 +13,7 @@ namespace Application.Response.TransactionResp
         public string LeaderboardAlpha { get; set; } = null!;
         public decimal AvgTicketSize { get; set; }
         public List<int> GlobalTrend { get; set; } = new();
+        public List<string> ChartLabels { get; set; } = new();
         public List<ShopRankingDto> Shops { get; set; } = new();
     }
 

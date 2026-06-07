@@ -133,6 +133,8 @@ builder.Services.AddScoped<IAdminPostDashboardRepository, AdminPostDashboardRepo
 builder.Services.AddScoped<IPostTrendRepository, PostTrendRepository>();
 builder.Services.AddScoped<ITrendingTopicRepository, TrendingTopicRepository>();
 builder.Services.AddScoped<IHashtagRepository, HashtagRepository>();
+builder.Services.AddScoped<IOrderStatusHistoryRepository, OrderStatusHistoryRepository>();
+builder.Services.AddScoped<IEscrowStatusHistoryRepository, EscrowStatusHistoryRepository>();
 
 #endregion
 
@@ -194,11 +196,13 @@ builder.Services.AddScoped<IZaloPayGatewayService, ZaloPayGatewayService>();
 builder.Services.AddScoped<IOrderAdminService, OrderAdminService>();
 builder.Services.AddScoped<IWhaleService, WhaleService>();
 builder.Services.AddScoped<IItemAnalysisService, ItemAnalysisService>();
-
+builder.Services.AddScoped<IHashtagService, HashtagService>();
 builder.Services.AddScoped<IAdminSocialDashboardService, AdminSocialDashboardService>();
 builder.Services.AddScoped<IPostTrendService, PostTrendService>();
 builder.Services.AddScoped<ITrendingTopicRepository, TrendingTopicRepository>();
 builder.Services.AddScoped<ITrendingTopicService, TrendingTopicService>();
+builder.Services.AddScoped<IEscrowStatusHistoryService, EscrowStatusHistoryService>();
+
 
 
 #endregion
@@ -322,6 +326,13 @@ builder.Services.AddQuartz(q =>
             .WithIntervalInHours(1)
             //.WithIntervalInMinutes(5)
             .RepeatForever()));
+
+    //var refundReturnKey = new JobKey(nameof(AutoRefundReturnDeliveredOrdersJob));
+    //q.AddJob<AutoRefundReturnDeliveredOrdersJob>(opts => opts.WithIdentity(refundReturnKey));
+    //q.AddTrigger(opts => opts
+    //    .ForJob(refundReturnKey)
+    //    .WithIdentity($"{nameof(AutoRefundReturnDeliveredOrdersJob)}-trigger")
+    //    .WithSimpleSchedule(s => s.WithIntervalInMinutes(30).RepeatForever()));
 });
 
 builder.Services.AddQuartzHostedService(options =>

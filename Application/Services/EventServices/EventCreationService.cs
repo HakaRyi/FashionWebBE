@@ -28,6 +28,7 @@ namespace Application.Services.EventServices
         private readonly ISystemSettingRepository _settingRepo;
         private readonly ICloudStorageService _cloudStorageService;
         private readonly INotificationService _notificationService;
+        private readonly IEscrowStatusHistoryRepository _escrowHistoryRepo;
 
 
         public EventCreationService(
@@ -42,7 +43,8 @@ namespace Application.Services.EventServices
             ISchedulerFactory schedulerFactory,
             ICurrentUserService currentUserService,
             INotificationService notificationService,
-            ICloudStorageService cloudStorageService)
+            ICloudStorageService cloudStorageService,
+            IEscrowStatusHistoryRepository escrowHistoryRepo)
         {
             _eventRepo = eventRepo;
             _walletRepo = walletRepo;
@@ -56,6 +58,7 @@ namespace Application.Services.EventServices
             _schedulerFactory = schedulerFactory;
             _cloudStorageService = cloudStorageService;
             _notificationService = notificationService;
+            _escrowHistoryRepo = escrowHistoryRepo;
         }
 
         public async Task<Event> CreateEventAsync(CreateEventRequest dto)
@@ -158,7 +161,7 @@ namespace Application.Services.EventServices
                     Amount = -totalToLock,
                     BalanceBefore = balanceBefore,
                     BalanceAfter = wallet.Balance,
-                    Type = "Event_Funds_Locked",
+                    Type = TransactionType.Debit,
                     ReferenceId = eventData.EventId,
                     ReferenceType = "Event",
                     Status = "Success",
@@ -254,7 +257,7 @@ namespace Application.Services.EventServices
                 Amount = -ev.AppliedFee,
                 BalanceBefore = creatorTotalBefore,
                 BalanceAfter = creatorTotalAfter,
-                Type = "System_Fee_Payment",
+                Type = TransactionType.Debit,
                 ReferenceId = ev.EventId,
                 ReferenceType = "Event",
                 Status = "Success",
@@ -275,7 +278,7 @@ namespace Application.Services.EventServices
                 Amount = ev.AppliedFee,
                 BalanceBefore = adminBefore,
                 BalanceAfter = adminWallet.Balance,
-                Type = "System_Fee_Revenue",
+                Type = TransactionType.Credit,
                 ReferenceId = ev.EventId,
                 ReferenceType = "Event",
                 Status = "Success",
@@ -302,7 +305,7 @@ namespace Application.Services.EventServices
             decimal mainBalanceAfter = wallet.Balance + wallet.LockedBalance;
 
             // 2. Tạo phiên ký quỹ giải thưởng (Dùng chung bảng EscrowSession)
-            await _escrowRepo.AddAsync(new EscrowSession
+            var newEscrow = new EscrowSession
             {
                 EventId = ev.EventId,
                 SenderId = creatorId,
@@ -312,17 +315,34 @@ namespace Application.Services.EventServices
                 Status = EscrowStatus.Held,
                 Description = $"PRIZE_POOL: Total prize money for event '{ev.Title}'",
                 CreatedAt = DateTime.UtcNow
-            });
+            };
+            await _escrowRepo.AddAsync(newEscrow);
+
+            int actorId = creatorId == 0 ? 1 : creatorId;
+
+            var escrowHistory = new EscrowStatusHistory
+            {
+                EscrowSession = newEscrow,
+                FromStatus = "NONE",
+                ToStatus = EscrowStatus.Held,
+                AmountBefore = 0,
+                AmountAfter = amount,
+                ChangedById = actorId,
+                Reason = $"Prize pool initialized and held for event: {ev.Title}",
+                ChangedAt = DateTime.UtcNow
+            };
+            await _escrowHistoryRepo.AddAsync(escrowHistory);
 
             // 3. Log giao dịch chuyển tiền giải thưởng vào hệ thống ký quỹ
             await _transactionRepo.AddAsync(new Transaction
             {
                 TransactionCode = $"ESCROW_PRIZE_HOLD_{ev.EventId}_{DateTime.UtcNow.Ticks}",
                 WalletId = wallet.WalletId,
-                Amount = -amount,
+                EscrowSession = newEscrow,
+                Amount = amount,
                 BalanceBefore = mainBalanceBefore,
                 BalanceAfter = mainBalanceAfter,
-                Type = "Escrow_Prize_Hold",
+                Type =  TransactionType.Debit,
                 ReferenceId = ev.EventId,
                 ReferenceType = "Event",
                 Status = "Success",
@@ -457,14 +477,14 @@ namespace Application.Services.EventServices
             int currentUserId = _currentUserService.GetRequiredUserId();
             var ev = await _eventRepo.GetByIdAsync(eventId);
 
-            if (ev == null) throw new Exception("Sự kiện không tồn tại.");
+            if (ev == null) throw new Exception("The event did not exist.");
 
             if (ev.CreatorId != currentUserId)
-                throw new Exception("Bạn không có quyền hủy sự kiện này.");
+                throw new Exception("You do not have the right to cancel this event.");
 
             var allowedStatuses = new[] { "Pending_Review", "Inviting" };
             if (!allowedStatuses.Contains(ev.Status))
-                throw new Exception($"Không thể hủy sự kiện ở trạng thái {ev.Status}.");
+                throw new Exception($"The event cannot be canceled in this state: {ev.Status}.");
 
             string oldStatus = ev.Status;
 
@@ -479,11 +499,11 @@ namespace Application.Services.EventServices
             try
             {
                 var wallet = await _walletRepo.GetByAccountIdAsync(ev.CreatorId);
-                if (wallet == null) throw new Exception("Không tìm thấy ví của nhà tổ chức.");
+                if (wallet == null) throw new Exception("The organizer's wallet was not found.");
 
                 // KIỂM TRA ĐỒNG BỘ: Phòng trường hợp hy hữu số dư khóa bị hụt
                 if (wallet.LockedBalance < totalToRefund)
-                    throw new Exception("Số dư đóng băng của ví không đủ để thực hiện hoàn tác.");
+                    throw new Exception("The frozen balance in the wallet is insufficient to perform an undo action.");
 
                 decimal beforeBalance = wallet.Balance;
 
@@ -500,10 +520,27 @@ namespace Application.Services.EventServices
                                                           && e.Description.StartsWith("PRIZE_POOL"));
                 if (prizeEscrow != null)
                 {
+                    string oldEscrowStatus = prizeEscrow.Status;
+                    decimal escrowAmountBefore = prizeEscrow.Amount;
+                    int actorId = currentUserId == 0 ? 1 : currentUserId;
+
                     prizeEscrow.Status = EscrowStatus.Refunded;
                     prizeEscrow.ResolvedAt = DateTime.UtcNow;
                     prizeEscrow.Description = $"Refunded to creator due to event cancellation.";
                     _escrowRepo.Update(prizeEscrow);
+
+                    var escrowHistory = new EscrowStatusHistory
+                    {
+                        EscrowSessionId = prizeEscrow.EscrowSessionId,
+                        FromStatus = oldEscrowStatus,
+                        ToStatus = EscrowStatus.Refunded,
+                        AmountBefore = escrowAmountBefore,
+                        AmountAfter = 0,
+                        ChangedById = actorId,
+                        Reason = $"Event '{ev.Title}' was cancelled by creator. Prize pool refunded.",
+                        ChangedAt = DateTime.UtcNow
+                    };
+                    await _escrowHistoryRepo.AddAsync(escrowHistory);
                 }
 
                 // 3. Ghi Log giao dịch hoàn tiền ví cho Creator
@@ -511,10 +548,11 @@ namespace Application.Services.EventServices
                 {
                     TransactionCode = $"REFUND_{eventId}_{Guid.NewGuid().ToString()[..8].ToUpper()}",
                     WalletId = wallet.WalletId,
+                    EscrowSessionId = prizeEscrow?.EscrowSessionId,
                     Amount = totalToRefund,
                     BalanceBefore = beforeBalance,
                     BalanceAfter = wallet.Balance,
-                    Type = "Event_Cancel_Refund",
+                    Type = TransactionType.Credit,
                     ReferenceId = eventId,
                     ReferenceType = "Event",
                     Status = "Success",
@@ -564,7 +602,7 @@ namespace Application.Services.EventServices
             catch (Exception ex)
             {
                 await _unitOfWork.RollbackAsync();
-                throw new Exception($"Lỗi khi hủy sự kiện: {ex.Message}");
+                throw new Exception($"Error when canceling the event: {ex.Message}");
             }
         }
 

@@ -35,5 +35,7 @@ namespace Domain.Contracts.Social.Post
         public DateTime CreatedAt { get; set; }
 
         public List<CommentDto> Comments { get; set; } = new();
+
+        public List<string> Hashtags { get; set; } = [];
     }
 }
