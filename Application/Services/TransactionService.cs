@@ -475,60 +475,60 @@ namespace Application.Services
 
                 // --- B. XỬ LÝ ĐỐI SOÁT VÍ ADMIN SƠ CẤP ---
                 if (t.WalletId != 1)
+                {
+                    Transaction? realSystemTx = matchedSystemTxList.FirstOrDefault(st =>
+                        st.ReferenceType == t.ReferenceType && st.ReferenceId == t.ReferenceId &&
+                        (t.Type == "System_Fee_Payment" ? st.Type == "System_Fee_Revenue" : st.Type == t.Type)
+                    );
+
+                    if (realSystemTx == null) realSystemTx = matchedSystemTxList.FirstOrDefault(st => st.ReferenceType == t.ReferenceType && st.ReferenceId == t.ReferenceId);
+
+                    if (realSystemTx != null)
                     {
-                        Transaction? realSystemTx = matchedSystemTxList.FirstOrDefault(st =>
-                            st.ReferenceType == t.ReferenceType && st.ReferenceId == t.ReferenceId &&
-                            (t.Type == "System_Fee_Payment" ? st.Type == "System_Fee_Revenue" : st.Type == t.Type)
-                        );
-
-                        if (realSystemTx == null) realSystemTx = matchedSystemTxList.FirstOrDefault(st => st.ReferenceType == t.ReferenceType && st.ReferenceId == t.ReferenceId);
-
-                        if (realSystemTx != null)
-                        {
-                            res.SystemWalletSnapshot = new SystemWalletSnapshotResponse { PlatformAmountChanged = realSystemTx.Amount, PlatformBalanceAfter = realSystemTx.BalanceAfter, DataMode = "Real" };
-                        }
-                        else if (t.Type == "Debit" || t.ReferenceType == "TryOn" || t.ReferenceType == "AIRecommendation" || t.ReferenceType == "AI_Recommendation")
-                        {
-                            res.SystemWalletSnapshot = new SystemWalletSnapshotResponse { PlatformAmountChanged = Math.Abs(t.Amount), PlatformBalanceAfter = adminWalletCurBalance?.Balance ?? 0, DataMode = "Fallback" };
-                            if (string.IsNullOrEmpty(res.Description) || !res.Description.StartsWith("[")) res.Description = $"[Interpolation Reconciliation] {res.Description}";
-                        }
-                        else res.SystemWalletSnapshot = null;
+                        res.SystemWalletSnapshot = new SystemWalletSnapshotResponse { PlatformAmountChanged = realSystemTx.Amount, PlatformBalanceAfter = realSystemTx.BalanceAfter, DataMode = "Real" };
                     }
-
-                    // --- C. XỬ LÝ ĐỐI SOÁT NGƯỜI GỬI/NHẬN CHO VÍ ADMIN (WALLET ID == 1) ---
-                    else if (t.WalletId == 1)
+                    else if (t.Type == "Debit" || t.ReferenceType == "TryOn" || t.ReferenceType == "AIRecommendation" || t.ReferenceType == "AI_Recommendation")
                     {
-                        // Quét tìm bản ghi của User có giá trị tiền nghịch đảo âm-dương (-10k vs +10k), khớp cấu trúc tham chiếu và mốc thời gian trùng khớp
-                        var userCounterpartTx = chronologicalTransactions.FirstOrDefault(ut =>
-                            ut.WalletId != 1 &&
-                            ut.ReferenceType == t.ReferenceType &&
-                            ut.ReferenceId == t.ReferenceId &&
-                            ut.Amount == -t.Amount &&
-                            Math.Abs((ut.CreatedAt - t.CreatedAt).TotalSeconds) < 2 // Sai số tạo bản ghi lệch vài phần trăm giây trong DB
-                        );
-
-                        if (userCounterpartTx != null)
-                        {
-                            // Tìm ra đích danh thông tin tài khoản người dùng tương tác với hệ thống
-                            res.CounterpartyUserId = userCounterpartTx.Wallet?.AccountId;
-                            res.CounterpartyName = userCounterpartTx.Wallet?.Account?.UserName ?? "User";
-                        }
-                        else
-                        {
-                            // Fallback dự phòng nếu không tìm thấy giao dịch dòng tiền đối ứng trực tiếp
-                            res.CounterpartyUserId = null;
-                            res.CounterpartyName = "External Source / Network";
-                        }
+                        res.SystemWalletSnapshot = new SystemWalletSnapshotResponse { PlatformAmountChanged = Math.Abs(t.Amount), PlatformBalanceAfter = adminWalletCurBalance?.Balance ?? 0, DataMode = "Fallback" };
+                        if (string.IsNullOrEmpty(res.Description) || !res.Description.StartsWith("[")) res.Description = $"[Interpolation Reconciliation] {res.Description}";
                     }
+                    else res.SystemWalletSnapshot = null;
+                }
 
-                    computedResponsesMap[t.TransactionId] = res;
+                // --- C. XỬ LÝ ĐỐI SOÁT NGƯỜI GỬI/NHẬN CHO VÍ ADMIN (WALLET ID == 1) ---
+                else if (t.WalletId == 1)
+                {
+                    // Quét tìm bản ghi của User có giá trị tiền nghịch đảo âm-dương (-10k vs +10k), khớp cấu trúc tham chiếu và mốc thời gian trùng khớp
+                    var userCounterpartTx = chronologicalTransactions.FirstOrDefault(ut =>
+                        ut.WalletId != 1 &&
+                        ut.ReferenceType == t.ReferenceType &&
+                        ut.ReferenceId == t.ReferenceId &&
+                        ut.Amount == -t.Amount &&
+                        Math.Abs((ut.CreatedAt - t.CreatedAt).TotalSeconds) < 2 // Sai số tạo bản ghi lệch vài phần trăm giây trong DB
+                    );
+
+                    if (userCounterpartTx != null)
+                    {
+                        // Tìm ra đích danh thông tin tài khoản người dùng tương tác với hệ thống
+                        res.CounterpartyUserId = userCounterpartTx.Wallet?.AccountId;
+                        res.CounterpartyName = userCounterpartTx.Wallet?.Account?.UserName ?? "User";
+                    }
+                    else
+                    {
+                        // Fallback dự phòng nếu không tìm thấy giao dịch dòng tiền đối ứng trực tiếp
+                        res.CounterpartyUserId = null;
+                        res.CounterpartyName = "External Source / Network";
+                    }
+                }
+
+                computedResponsesMap[t.TransactionId] = res;
             }
 
-                // 5. TRẢ VỀ: Trả dữ liệu map theo đúng thứ tự sắp xếp gốc của thực thể `transactions` từ Database
-                return transactions
-                    .Select(t => computedResponsesMap.ContainsKey(t.TransactionId) ? computedResponsesMap[t.TransactionId] : null!)
-                    .Where(res => res != null)
-                    .ToList();
+            // 5. TRẢ VỀ: Trả dữ liệu map theo đúng thứ tự sắp xếp gốc của thực thể `transactions` từ Database
+            return transactions
+                .Select(t => computedResponsesMap.ContainsKey(t.TransactionId) ? computedResponsesMap[t.TransactionId] : null!)
+                .Where(res => res != null)
+                .ToList();
         }
 
         public async Task<TransactionResponse?> GetById(int id)
@@ -559,20 +559,17 @@ namespace Application.Services
         {
             var response = new FeatureIntelligenceResponse();
 
-            // 1. XỬ LÝ ĐIỀU KIỆN THỜI GIAN MẶC ĐỊNH KHÔNG NHẬP
-            // Nếu không nhập, endDate mặc định là Hiện tại, startDate mặc định là 30 ngày trước
+            // 1. XỬ LÝ ĐIỀU KIỆN THỜI GIAN MẶC ĐỊNH
             var endDate = customEndDate ?? DateTime.Now;
             var startDate = customStartDate ?? endDate.AddDays(-30);
 
-            // Tính toán độ dài khoảng thời gian đã chọn (ví dụ: 30 ngày, 7 ngày, 15 ngày...)
             var totalDaysSelected = (endDate - startDate).TotalDays;
             if (totalDaysSelected <= 0)
             {
-                totalDaysSelected = 30; // Tránh lỗi chia cho 0 hoặc khoảng thời gian âm
+                totalDaysSelected = 30;
                 startDate = endDate.AddDays(-30);
             }
 
-            // Kỳ trước (Previous Period) có cùng độ dài (X ngày) và nằm ngay trước kỳ này để so sánh Trend chính xác
             var preStartDate = startDate.AddDays(-totalDaysSelected);
 
             // 2. LẤY TOÀN BỘ DANH SÁCH GIAO DỊCH TRONG CẢ 2 KỲ (Kỳ trước + Kỳ này)
@@ -584,48 +581,69 @@ namespace Application.Services
 
             // 3. LOGIC SECTION 1: NHẬT KÝ GIAO DỊCH LIVE (Top 5 giao dịch mới nhất thuộc kỳ hiện tại)
             response.LiveTransactions = currentTx
-                .Where(t => t.Wallet?.Account?.UserName != "admin")
-                .OrderByDescending(t => t.CreatedAt)
-                .Take(5)
-                .Select(t => new LiveTransactionDto
+            .Where(t =>
+                t.WalletId != 1 && t.Wallet?.Account?.UserName != "admin" &&
+                (t.Type == "Debit" || t.Type.ToString() == "Debit") &&
+                (t.ReferenceType.ToString() == "TryOn" ||
+                 t.ReferenceType.ToString() == "AIRecommendation" ||
+                 t.ReferenceType.ToString() == "OrderPayment" ||
+                 t.ReferenceType.ToString() == "Event"))
+            .OrderByDescending(t => t.CreatedAt)
+            .Take(5)
+            .Select(t =>
+            {
+                string featureFriendlyName = t.ReferenceType.ToString() switch
+                {
+                    "TryOn" => "AI Try-On Room",
+                    "AIRecommendation" => "Smart AI Assistant",
+                    "OrderPayment" => "Marketplace Purchase",
+                    "Event" => "Event Booking",
+                    _ => "Platform Service"
+                };
+
+                return new LiveTransactionDto
                 {
                     Id = t.TransactionId,
                     UserName = t.Wallet?.Account?.UserName ?? "Customer",
-                    Item = !string.IsNullOrEmpty(t.Description) ? t.Description : $"{t.ReferenceType} - {t.Type}",
-                    Amount = t.Amount,
+                    Item = !string.IsNullOrEmpty(t.Description) ? t.Description : featureFriendlyName,
+                    Amount = Math.Abs(t.Amount),
                     CreatedAt = t.CreatedAt
-                })
-                .ToList();
+                };
+            })
+            .ToList();
 
-            // Helper Hàm nhóm và tính doanh thu theo các tính năng thực tế từ DB
+            // Helper Hàm nhóm và tính doanh thu thuần của sàn dựa CHÍNH XÁC trên dòng tiền thu về của Admin (WalletId = 1)
             List<FeatureRevenueDto> CalculateRevenueByFeature(List<Transaction> txList)
             {
-                var revenueTx = txList.Where(t =>
-                    (t.ReferenceType == "TryOn" && t.Type == "Debit") ||
-                    (t.ReferenceType == "AIRecommendation" && t.Type == "Debit") ||
-                    (t.Type == "System_Fee_Revenue") ||
-                    (t.ReferenceType == "OrderPayment" && t.Type == "Credit")
+                // CHỈ LỌC CÁC GIAO DỊCH MÀ ADMIN NHẬN TIỀN (CREDIT) - ĐÂY CHÍNH LÀ DOANH THU THỰC
+                var platformRevenueTx = txList.Where(t =>
+                    (t.WalletId == 1 || t.Wallet?.Account?.UserName == "admin") &&
+                    (t.Type == "Credit" || t.Type.ToString() == "Credit")
                 ).ToList();
 
-                return revenueTx
-                    .GroupBy(t => t.ReferenceType == "Event" || t.Type == "System_Fee_Revenue" ? "System_Fee_Revenue" : t.ReferenceType)
-                    .Select(g => {
+                return platformRevenueTx
+                    .GroupBy(t => t.ReferenceType.ToString()) // Gom nhóm theo loại Enum/String của ReferenceType
+                    .Select(g =>
+                    {
                         string featureName = g.Key switch
                         {
-                            "OrderPayment" => "E-Commerce Marketplace",
-                            "System_Fee_Revenue" => "Event Hosting Fees",
+                            "OrderPayment" => "E-Commerce Marketplace (Service Fees)",
                             "TryOn" => "AI Try-On Fitting Room",
                             "AIRecommendation" => "Smart Outfit AI Assistant",
-                            _ => "Other Services"
+                            "Event" => "Event Hosting Fees",
+                            _ => "Other Platform Services"
                         };
 
                         return new FeatureRevenueDto
                         {
                             Feature = featureName,
                             Revenue = g.Sum(x => Math.Abs(x.Amount)),
-                            Cost = 0, // Hiện tại chưa có chi phí vận hành
-                            Users = g.Select(x => x.WalletId).Distinct().Count(),
-                            Growth = 0 // Sẽ cập nhật ở bước sau
+                            Cost = 0,
+                            Users = txList.Where(t => t.ReferenceType.ToString() == g.Key && t.WalletId != 1)
+                                          .Select(t => t.WalletId)
+                                          .Distinct()
+                                          .Count(),
+                            Growth = 0
                         };
                     }).ToList();
             }
@@ -651,16 +669,15 @@ namespace Application.Services
 
             // 4. LOGIC SECTION 2: TÍNH TOÁN KPI CARD TỔNG QUAN & XU HƯỚNG (TRENDS)
             var totalRevenueCur = currentFeatures.Sum(f => f.Revenue);
-            var totalCostCur = currentFeatures.Sum(f => f.Cost); // Bằng 0
-            var activeUsersCur = currentTx.Select(t => t.WalletId).Distinct().Count();
+            var totalCostCur = currentFeatures.Sum(f => f.Cost);
+            var activeUsersCur = currentTx.Where(t => t.WalletId != 1).Select(t => t.WalletId).Distinct().Count();
             decimal marginCur = totalRevenueCur > 0 ? ((totalRevenueCur - totalCostCur) / totalRevenueCur) * 100 : 0;
 
             var totalRevenuePrev = previousFeatures.Sum(f => f.Revenue);
             var totalCostPrev = previousFeatures.Sum(f => f.Cost);
-            var activeUsersPrev = previousTx.Select(t => t.WalletId).Distinct().Count();
+            var activeUsersPrev = previousTx.Where(t => t.WalletId != 1).Select(t => t.WalletId).Distinct().Count();
             decimal marginPrev = totalRevenuePrev > 0 ? ((totalRevenuePrev - totalCostPrev) / totalRevenuePrev) * 100 : 0;
 
-            // Hàm format chuỗi hiển thị trend
             string FormatTrend(decimal current, decimal previous)
             {
                 if (previous == 0) return current > 0 ? "+100%" : "0%";
@@ -683,40 +700,38 @@ namespace Application.Services
         }
             };
 
-            // 5. LOGIC SECTION 3: VẬN TỐC TIÊU THỤ THEO KHUNG GIỜ (Tính gộp cho toàn bộ khoảng thời gian được chọn)
-            // Thay vì chỉ lấy transactions của 1 ngày duy nhất (todayTransactions), ta lấy toàn bộ trong kỳ hiện tại (currentTx)
+            // 5. LOGIC SECTION 3: VẬN TỐC TIÊU THỤ THEO KHUNG GIỜ
             var hourlyBlocks = new List<(string Label, int StartHour, int EndHour)>
-{
-            ("00:00", 0, 3), ("04:00", 4, 7), ("08:00", 8, 11),
-            ("12:00", 12, 15), ("16:00", 16, 19), ("20:00", 20, 23)
-};
+            {
+                ("00:00", 0, 3), ("04:00", 4, 7), ("08:00", 8, 11),
+                ("12:00", 12, 15), ("16:00", 16, 19), ("20:00", 20, 23)
+            };
 
             response.CreditVelocity = new List<CreditVelocityDto>();
 
             foreach (var block in hourlyBlocks)
             {
-                // Lấy transactions rơi vào khung giờ này, không phân biệt ngày nào trong kỳ
+                // Lọc các giao dịch phát sinh trong khung giờ đang xét
                 var txInBlock = currentTx
                     .Where(t => t.CreatedAt.Hour >= block.StartHour && t.CreatedAt.Hour <= block.EndHour)
                     .ToList();
 
-                // Lọc các giao dịch tiêu tốn tiền dịch vụ AI/Platform (Loại trừ các giao dịch Credit nhận tiền)
-                var apiTransactions = txInBlock.Where(t =>
-                    (t.ReferenceType == "TryOn" && t.Type == "Debit") ||
-                    (t.ReferenceType == "AIRecommendation" && t.Type == "Debit") ||
-                    (t.ReferenceType == "OrderPayment" && t.Type == "Debit") ||
-                    (t.Type == "System_Fee_Revenue") // Thu phí hệ thống
-                );
+                var adminRevenueTxInBlock = txInBlock.Where(t =>
+                    (t.WalletId == 1 || t.Wallet?.Account?.UserName == "admin") &&
+                    (t.Type == "Credit" || t.Type.ToString() == "Credit") &&
+                    (t.ReferenceType.ToString() == "TryOn" ||
+                     t.ReferenceType.ToString() == "AIRecommendation" ||
+                     t.ReferenceType.ToString() == "OrderPayment" ||
+                     t.ReferenceType.ToString() == "Event")
+                ).ToList();
 
                 response.CreditVelocity.Add(new CreditVelocityDto
                 {
                     Time = block.Label,
 
-                    // Tính tổng tiền VND tiêu thụ tính năng phát sinh trong khung giờ này
-                    ApiCalls = (int)apiTransactions.Sum(t => Math.Abs(t.Amount)),
+                    ApiCalls = adminRevenueTxInBlock.Count,
 
-                    // Tính tổng tiền VND nạp mới qua dòng TopUp trong khung giờ này
-                    Spend = txInBlock.Where(t => t.ReferenceType == "TopUp").Sum(t => Math.Abs(t.Amount))
+                    Spend = adminRevenueTxInBlock.Sum(t => Math.Abs(t.Amount))
                 });
             }
 
@@ -725,109 +740,153 @@ namespace Application.Services
 
         public async Task<RankingDashboardResponse> GetRankingManagementDashboardAsync(DateTime previousFromDate, DateTime fromDate, DateTime toDate)
         {
-            // 1. Quét DB mở rộng từ ngày bắt đầu kỳ trước cho đến ngày kết thúc kỳ này
+            // 1. Quét DB lấy TOÀN BỘ giao dịch thành công của Marketplace (Cả Admin thu phí lẫn Shop nhận tiền)
             var transactions = await _transactionRepository.GetAllTransactionsAsync(previousFromDate, toDate);
 
-            // Lọc các giao dịch thành công đem lại doanh thu cho Shop (Áp dụng cho toàn bộ tập dữ liệu lấy về)
-            var allOrderPayments = transactions
-                .Where(t => t.Status == "Success"
-                         && t.ReferenceType == "OrderPayment"
-                         && t.Type == "Credit"
-                         && t.WalletId != 1)
+            var allMarketplaceTx = transactions
+                .Where(t => t.Status == "Success" && t.ReferenceType == "OrderPayment")
                 .ToList();
 
-            // Tách tập dữ liệu thuộc Kỳ Hiện Tại (Dùng để tính Revenue, Share, Chart và các chỉ số hiển thị)
-            var currentOrderPayments = allOrderPayments
-                .Where(t => t.CreatedAt >= fromDate && t.CreatedAt <= toDate)
+            // Phân tách dữ liệu thành Kỳ Hiện Tại và Kỳ Trước
+            var currentTx = allMarketplaceTx.Where(t => t.CreatedAt >= fromDate && t.CreatedAt <= toDate).ToList();
+            var previousTx = allMarketplaceTx.Where(t => t.CreatedAt >= previousFromDate && t.CreatedAt < fromDate).ToList();
+
+            // Lấy danh sách ID của tất cả các Shop có phát sinh giao dịch (nhận tiền) ở cả 2 kỳ
+            var allActiveShopWalletIds = currentTx.Concat(previousTx)
+                .Where(t => t.WalletId != 1 && (t.Type == "Credit" || t.Type.ToString() == "Credit"))
+                .Select(t => t.WalletId)
+                .Distinct()
                 .ToList();
 
-            decimal totalMarketRevenue = currentOrderPayments.Sum(t => t.Amount);
+            // TỔNG DOANH THU PHÍ DỊCH VỤ CỦA TOÀN SÀN TRONG KỲ HIỆN TẠI (Ví Admin nhận)
+            decimal totalPlatformRevenueCur = currentTx
+                .Where(t => t.WalletId == 1 && (t.Type == "Credit" || t.Type.ToString() == "Credit"))
+                .Sum(t => t.Amount);
 
-            // Group danh sách theo các Shop dựa trên data của KỲ HIỆN TẠI để hiển thị bảng xếp hạng công bằng
-            var shopGroups = currentOrderPayments.GroupBy(t => t.WalletId).ToList();
             var shopList = new List<ShopRankingDto>();
 
-            // 2. Chia khoảng thời gian kỳ hiện tại thành 6 cột mốc để vẽ biểu đồ
-            var totalDays = (toDate - fromDate).TotalDays;
-            var intervalDays = totalDays / 6;
+            // 2. Chia khoảng thời gian kỳ hiện tại thành 6 cột mốc để vẽ biểu đồ xu hướng
+            double totalDays = (toDate - fromDate).TotalDays;
+            double intervalDays = totalDays / 6;
             var timeIntervals = Enumerable.Range(0, 6)
                 .Select(i => fromDate.AddDays(i * intervalDays))
                 .ToList();
 
-            foreach (var group in shopGroups)
+            var chartLabels = timeIntervals.Select(time => time.ToString("dd/MM")).ToList();
+
+            foreach (var walletId in allActiveShopWalletIds)
             {
-                var firstTx = group.First();
-                // Lấy tên User hiển thị
-                string shopName = !string.IsNullOrEmpty(firstTx.Wallet?.Account?.UserName)
-                    ? firstTx.Wallet.Account.UserName
-                    : $"Apex {firstTx.WalletId}";
+                // Danh sách đơn hàng (ReferenceId) thành công của Shop này trong kỳ hiện tại
+                var currentShopOrderIds = currentTx
+                    .Where(t => t.WalletId == walletId && (t.Type == "Credit" || t.Type.ToString() == "Credit"))
+                    .Select(t => t.ReferenceId)
+                    .Distinct()
+                    .ToList();
 
-                // Doanh thu và số đơn hàng của kỳ HIỆN TẠI
-                decimal totalRevenue = group.Sum(t => t.Amount);
-                int totalOrders = group.Select(t => t.ReferenceId).Distinct().Count();
+                // Tìm tên hiển thị của Shop từ bất kỳ giao dịch nào có sẵn
+                var anyShopTx = currentTx.Concat(previousTx).FirstOrDefault(t => t.WalletId == walletId);
+                string shopName = !string.IsNullOrEmpty(anyShopTx?.Wallet?.Account?.UserName)
+                    ? anyShopTx.Wallet.Account.UserName
+                    : $"Shop {walletId}";
 
-                // --- LOGIC TĂNG TRƯỞNG (GROWTH) THEO CÁCH 1 ---
-                // Tìm doanh thu của chính Shop này trong KỲ TRƯỚC (từ previousFromDate đến trước fromDate)
-                decimal previousRevenue = allOrderPayments
-                    .Where(t => t.WalletId == group.Key && t.CreatedAt >= previousFromDate && t.CreatedAt < fromDate)
+                // DOANH THU THỰC TẾ SÀN THU ĐƯỢC (Ví Admin nhận phí từ các đơn hàng của Shop này)
+                decimal shopPlatformRevenueCur = currentTx
+                    .Where(t => t.WalletId == 1 && currentShopOrderIds.Contains(t.ReferenceId) && (t.Type == "Credit" || t.Type.ToString() == "Credit"))
                     .Sum(t => t.Amount);
 
+                int totalOrdersCur = currentShopOrderIds.Count;
+
+                // DOANH THU PHÍ CỦA SÀN TỪ SHOP NÀY TRONG KỲ TRƯỚC
+                var previousShopOrderIds = previousTx
+                    .Where(t => t.WalletId == walletId && (t.Type == "Credit" || t.Type.ToString() == "Credit"))
+                    .Select(t => t.ReferenceId)
+                    .Distinct()
+                    .ToList();
+
+                decimal shopPlatformRevenuePrev = previousTx
+                    .Where(t => t.WalletId == 1 && previousShopOrderIds.Contains(t.ReferenceId) && (t.Type == "Credit" || t.Type.ToString() == "Credit"))
+                    .Sum(t => t.Amount);
+
+                // --- TÍNH TOÁN % TĂNG TRƯỞNG CHUẨN KẾ TOÁN ---
                 decimal growth = 0;
-                if (previousRevenue > 0)
+                if (shopPlatformRevenuePrev > 0)
                 {
-                    growth = ((totalRevenue - previousRevenue) / previousRevenue) * 100;
+                    growth = ((shopPlatformRevenueCur - shopPlatformRevenuePrev) / shopPlatformRevenuePrev) * 100;
                 }
-                else if (previousRevenue == 0 && totalRevenue > 0)
+                else if (shopPlatformRevenuePrev == 0 && shopPlatformRevenueCur > 0)
                 {
-                    growth = 100; // Kỳ trước không có doanh thu, kỳ này phát sinh -> Đạt mốc tăng trưởng ấn tượng 100%
+                    growth = 100; // Kỳ trước không bán được gì, kỳ này phát sinh phí cho sàn
+                }
+                else if (shopPlatformRevenuePrev > 0 && shopPlatformRevenueCur == 0)
+                {
+                    growth = -100; // Shop dừng hoạt động hoặc không có đơn kỳ này -> Tụt giảm 100%
                 }
 
-                // Tính xu hướng cho từng phân đoạn thời gian kỳ hiện tại (0 -> 100)
-                var shopMonthlyData = timeIntervals.Select((time, index) => {
-                    var nextTime = index == 5 ? toDate : timeIntervals[index + 1];
-                    return group.Where(t => t.CreatedAt >= time && t.CreatedAt < nextTime).Sum(t => t.Amount);
-                }).ToList();
+                // --- TÍNH XU HƯỚNG THEO 6 MỐC THỜI GIAN ---
+                var trendIndexes = new List<int> { 0, 0, 0, 0, 0, 0 };
+                if (totalOrdersCur > 0)
+                {
+                    var shopMonthlyData = timeIntervals.Select((time, index) =>
+                    {
+                        var nextTime = index == 5 ? toDate.AddDays(1) : timeIntervals[index + 1];
 
-                decimal maxShopVal = shopMonthlyData.Max();
-                var trendIndexes = shopMonthlyData.Select(v => maxShopVal > 0 ? (int)((v / maxShopVal) * 100) : 0).ToList();
+                        return currentTx
+                            .Where(t => t.WalletId == 1 &&
+                                        currentShopOrderIds.Contains(t.ReferenceId) &&
+                                        (t.Type == "Credit" || t.Type.ToString() == "Credit") &&
+                                        t.CreatedAt >= time && t.CreatedAt < nextTime)
+                            .Sum(t => t.Amount);
+                    }).ToList();
 
-                // Phân hạng phân khúc dựa theo doanh thu trong kỳ hiện tại
+                    decimal maxShopVal = shopMonthlyData.Max();
+                    trendIndexes = shopMonthlyData.Select(v => maxShopVal > 0 ? (int)((v / maxShopVal) * 100) : 0).ToList();
+                }
+
+                // --- PHÂN HẠNG TRẠNG THÁI CỦA SHOP ---
                 string status = "Stable";
-                if (totalRevenue > 20000) status = "Elite";
+                if (shopPlatformRevenueCur > 5000) status = "Elite";
                 else if (growth > 15) status = "Rising";
-                else if (totalOrders == 0) status = "Under Review";
+                else if (growth == -100 || totalOrdersCur == 0) status = "At Risk";
 
                 shopList.Add(new ShopRankingDto
                 {
-                    Id = group.Key,
+                    Id = walletId,
                     Name = shopName,
-                    Revenue = totalRevenue,
-                    Orders = totalOrders,
-                    Share = totalMarketRevenue > 0 ? Math.Round((totalRevenue / totalMarketRevenue) * 100, 1) : 0,
+                    Revenue = shopPlatformRevenueCur,
+                    Orders = totalOrdersCur,
+                    Share = totalPlatformRevenueCur > 0 ? Math.Round((shopPlatformRevenueCur / totalPlatformRevenueCur) * 100, 1) : 0,
                     Growth = Math.Round(growth, 1),
                     Status = status,
                     MonthlyTrend = trendIndexes
                 });
             }
 
-            // Kiểm tra xem có shop nào kỳ trước có doanh thu nhưng kỳ này KHÔNG có đơn (không nằm trong shopGroups) 
-            // Nếu muốn bổ sung các shop tụt hạng về doanh thu = 0 (Growth = -100%) bạn có thể tối ưu thêm tại đây.
-
             shopList = shopList.OrderByDescending(s => s.Revenue).ToList();
 
-            // 3. Tính toán Global Trend (Chỉ số chung của toàn sàn trong các phân đoạn thuộc kỳ hiện tại)
-            var globalData = timeIntervals.Select((time, index) => {
+            var globalData = timeIntervals.Select((time, index) =>
+            {
                 var nextTime = index == 5 ? toDate : timeIntervals[index + 1];
-                return currentOrderPayments.Where(t => t.CreatedAt >= time && t.CreatedAt < nextTime).Sum(t => t.Amount);
+                return currentTx
+                    .Where(t => t.WalletId == 1 && (t.Type == "Credit" || t.Type.ToString() == "Credit") && t.CreatedAt >= time && t.CreatedAt < nextTime)
+                    .Sum(t => t.Amount);
             }).ToList();
 
             decimal maxGlobal = globalData.Max();
             var globalTrendIndexes = globalData.Select(v => maxGlobal > 0 ? (int)((v / maxGlobal) * 100) : 0).ToList();
 
-            // 4. Tính toán các Tile tổng quan (Chỉ tính dựa trên kỳ hiện tại đang chọn)
-            int activeNodes = currentOrderPayments.Select(t => t.WalletId).Distinct().Count();
-            string leaderboardAlpha = shopList.FirstOrDefault()?.Name ?? "No Sales";
-            decimal avgTicketSize = currentOrderPayments.Any() ? currentOrderPayments.Average(t => t.Amount) : 0;
+            int activeNodes = shopList.Where(s => s.Orders > 0).Count();
+            string leaderboardAlpha = shopList.FirstOrDefault(s => s.Orders > 0)?.Name ?? "No Sales";
+
+            var orderTickets = currentTx
+                .GroupBy(t => t.ReferenceId)
+                .Select(g => g.Sum(t =>
+                    // Tính tổng tiền của đơn hàng bằng cách cộng dòng tiền Credit của Shop + Admin thu phí
+                    (t.Type == "Credit" || t.Type.ToString() == "Credit") ? t.Amount : 0
+                ))
+                .Where(totalOrderAmount => totalOrderAmount > 0)
+                .ToList();
+
+            decimal avgTicketSize = orderTickets.Any() ? orderTickets.Average() : 0;
 
             return new RankingDashboardResponse
             {
@@ -836,6 +895,7 @@ namespace Application.Services
                 LeaderboardAlpha = leaderboardAlpha,
                 AvgTicketSize = Math.Round(avgTicketSize, 2),
                 GlobalTrend = globalTrendIndexes.Count > 0 ? globalTrendIndexes : new List<int> { 0, 0, 0, 0, 0, 0 },
+                ChartLabels = chartLabels,
                 Shops = shopList
             };
         }

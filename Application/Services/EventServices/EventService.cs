@@ -157,10 +157,11 @@ namespace Application.Services.EventServices
                     {
                         TransactionCode = $"JOIN_PAY_{ev.EventId}_{accountId}_{DateTime.UtcNow.Ticks}",
                         WalletId = userWallet.WalletId,
-                        Amount = -ev.EntryFee,
+                        EscrowSessionId = entryFeeEscrow.EscrowSessionId,
+                        Amount = ev.EntryFee,
                         BalanceBefore = userBalanceBefore,
                         BalanceAfter = userWallet.Balance,
-                        Type = "Event_Entry_Fee_Paid",
+                        Type = TransactionType.Debit,
                         Status = "Success",
                         Description = $"Paid entry fee for event: {ev.Title}",
                         ReferenceId = ev.EventId,

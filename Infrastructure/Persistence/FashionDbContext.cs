@@ -2378,6 +2378,7 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
             entity.Property(e => e.Description).HasColumnName("description");
             entity.Property(e => e.PaymentId).HasColumnName("payment_id");
             entity.Property(e => e.ReferenceId).HasColumnName("reference_id");
+            entity.Property(e => e.EscrowSessionId).HasColumnName("escrow_session_id");
 
             entity.Property(e => e.ReferenceType)
                 .HasMaxLength(50)
@@ -2402,6 +2403,12 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .HasForeignKey<Transaction>(d => d.PaymentId)
                 .OnDelete(DeleteBehavior.SetNull)
                 .HasConstraintName("Transaction_payment_id_fkey");
+
+            entity.HasOne(d => d.EscrowSession)
+                .WithMany(p => p.Transactions)
+                .HasForeignKey(d => d.EscrowSessionId)
+                .OnDelete(DeleteBehavior.SetNull)
+                .HasConstraintName("Transaction_escrow_session_id_fkey");
         });
 
         modelBuilder.Entity<UserPreference>(entity =>
