@@ -12,6 +12,7 @@
         public const string Refunded = "REFUNDED";
         public const string RefundApproved = "REFUND_APPROVED";
 
+        public const string ReturnApproved = "RETURN_APPROVED";
         public const string ReturnPickedUp = "RETURN_PICKED_UP";
         public const string ReturnShipping = "RETURN_SHIPPING";
         public const string ReturnDelivered = "RETURN_DELIVERED";
@@ -25,7 +26,8 @@
             Delivered,
             Completed,
             Cancelled,
-            
+
+            ReturnApproved,
             Refunding,
             Refunded,
             RefundApproved

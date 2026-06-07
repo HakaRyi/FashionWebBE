@@ -3,6 +3,7 @@ using Application.Response.OrderResp;
 using Application.Response.RefundResp;
 using Domain.Contracts.Common;
 using Domain.Entities;
+using System.Threading.Tasks;
 
 namespace Application.Services.OrderImp
 {
@@ -34,6 +35,8 @@ namespace Application.Services.OrderImp
         Task<List<RefundRequestResponse>> GetMyRefundRequestsAsync(int buyerId);
         Task<OrderResponse> RejectRefundAsync(int orderId, string adminNote);
         Task<OrderResponse> UpdateRefundStatus(int orderId);
+        Task<OrderResponse> ConfirmReturnReceivedAsync(int orderId, int sellerId);
+        Task<OrderResponse> AutoRefundReturnDeliveredAsync(int orderId);
         Task<List<OrderResponse>> GetDeliveredOrdersAsync();
         Task<OrderResponse> AutoCompleteDeliveredOrderAsync(int orderId);
 

@@ -348,5 +348,17 @@ namespace Infrastructure.Repositories
                 .Where(o => o.CreatedAt >= startDate && o.CreatedAt <= endDate)
                 .ToListAsync();
         }
+
+        public async Task<List<Order>> GetReturnDeliveredOrdersBeforeAsync(DateTime deadline)
+        {
+            return await _context.Orders
+                .Include(o => o.OrderDetails)
+                .Include(o => o.EscrowSession)
+                .Include(o => o.RefundRequest)
+                .Where(o =>
+                    o.Status == OrderStatus.ReturnDelivered &&
+                    o.StatusHistories.Any(h => h.Status == OrderStatus.ReturnDelivered && h.ChangedAt <= deadline))
+                .ToListAsync();
+        }
     }
 }
