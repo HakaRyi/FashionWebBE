@@ -26,11 +26,15 @@
             Delivered,
             Completed,
             Cancelled,
-
             ReturnApproved,
             Refunding,
             Refunded,
-            RefundApproved
+            RefundApproved,
+            ReturnApproved,
+            ReturnPickedUp,
+            ReturnShipping,
+            ReturnDelivered,
+            ReturnCompleted
         };
 
         public static bool IsValid(string status)
