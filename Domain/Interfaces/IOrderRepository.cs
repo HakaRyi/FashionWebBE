@@ -35,7 +35,6 @@ namespace Domain.Interfaces
             DateTime? toDate,
             string? sellerName,
             string? orderCode);
-
         Task<(List<Order> Orders, int TotalCount)> GetOrdersBySellerIdFilteredAsync(
             int sellerId,
             int page,
@@ -45,5 +44,6 @@ namespace Domain.Interfaces
             DateTime? toDate,
             string? buyerName,
             string? orderCode);
+        Task<string?> GetOrderCodeByIdAsync(int orderId);
     }
 }

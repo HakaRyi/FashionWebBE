@@ -23,5 +23,6 @@
         public string? SourceName { get; set; }
         public string? SourceCode { get; set; }
         public string? DisplayTitle { get; set; }
+        public string? OrderCode { get; set; }
     }
 }

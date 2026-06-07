@@ -19,5 +19,6 @@
 
         public DateTime CreatedAt { get; set; }
         public string Status { get; set; } = null!;
+        public string? OrderCode { get; set; }
     }
 }

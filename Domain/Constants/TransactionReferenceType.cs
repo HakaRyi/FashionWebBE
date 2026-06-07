@@ -8,8 +8,6 @@
         public const string TryOn = "TryOn";
         public const string AIRecommendation = "AIRecommendation";
         public const string EventReward = "EventReward";
-        public const string Withdraw = "Withdraw";
-        public const string Adjustment = "Adjustment";
 
         public static readonly List<string> All = new()
         {
@@ -19,8 +17,6 @@
             TryOn,
             AIRecommendation,
             EventReward,
-            Withdraw,
-            Adjustment
         };
 
         public static bool IsValid(string? referenceType)
