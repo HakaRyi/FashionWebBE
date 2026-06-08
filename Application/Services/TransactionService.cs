@@ -130,46 +130,79 @@ namespace Application.Services
         // HÀM 4: Get thông tin bảng Escrow cho Admin quản lý
         public async Task<List<EscrowResponse>> AdminGetEscrowManagementAsync()
         {
-            var escrows = await _escrowRepository.Query()
+            var rawEscrows = await _escrowRepository.Query()
                 .Include(e => e.Sender)
+                .Include(e => e.Receiver)
                 .Include(e => e.Event)
                 .Include(e => e.Order)
                     .ThenInclude(o => o.Seller)
+                .Include(e => e.EscrowStatusHistories)
+                    .ThenInclude(h => h.ChangedBy)
                 .OrderByDescending(e => e.CreatedAt)
-                .Select(e => new EscrowResponse
+                .ToListAsync();
+
+            var response = rawEscrows.Select(e =>
+            {
+                decimal baseAmount = e.Amount;
+                if (baseAmount <= 0 && e.EscrowStatusHistories != null && e.EscrowStatusHistories.Any())
+                {
+                    baseAmount = e.EscrowStatusHistories.Max(h => h.AmountAfter);
+                }
+
+                decimal mappedServiceFee = 0;
+                if (e.ServiceFee > 0) mappedServiceFee = e.ServiceFee;
+                else if (e.Order != null) mappedServiceFee = e.Order.ServiceFee;
+                else if (e.Event != null) mappedServiceFee = e.Event.AppliedFee;
+
+                if (mappedServiceFee >= baseAmount)
+                {
+                    mappedServiceFee = 0;
+                }
+
+                decimal finalAmount = Math.Max(0, baseAmount - mappedServiceFee);
+
+                return new EscrowResponse
                 {
                     EscrowSessionId = e.EscrowSessionId,
-
                     EventId = e.EventId,
-                    EventTitle = e.Event != null ? e.Event.Title : null,
-
+                    EventTitle = e.Event?.Title,
                     OrderId = e.OrderId,
-                    OrderCode = e.Order != null ? e.Order.OrderCode : null,
+                    OrderCode = e.Order?.OrderCode,
 
                     SenderId = e.SenderId,
-                    SenderName = e.Sender != null
-                        ? e.Sender.UserName ?? "Unknown"
-                        : "Unknown",
+                    SenderName = e.Sender?.UserName ?? "Unknown",
 
                     ReceiverId = e.ReceiverId,
-                    ReceiverName = e.Order != null && e.Order.Seller != null
-                        ? e.Order.Seller.UserName ?? "Unknown"
-                        : "System",
+                    ReceiverName = e.Receiver?.UserName
+                                 ?? e.Order?.Seller?.UserName
+                                 ?? (e.EventId != null ? "Event Intermediary Fund" : "System"),
 
-                    Amount = e.Amount,
-                    ServiceFee = e.ServiceFee,
-                    FinalAmount = e.FinalAmount > 0
-                        ? e.FinalAmount
-                        : e.Amount - e.ServiceFee,
+                    Amount = baseAmount,
+                    ServiceFee = mappedServiceFee,
+                    FinalAmount = finalAmount,
 
                     Status = e.Status,
                     Description = e.Description,
                     CreatedAt = e.CreatedAt,
-                    ResolvedAt = e.ResolvedAt
-                })
-                .ToListAsync();
+                    ResolvedAt = e.ResolvedAt,
 
-            return escrows;
+                    StatusHistories = e.EscrowStatusHistories?
+                        .OrderByDescending(h => h.ChangedAt)
+                        .Select(h => new EscrowHistoryDto
+                        {
+                            EscrowStatusHistoryId = h.EscrowStatusHistoryId,
+                            FromStatus = h.FromStatus,
+                            ToStatus = h.ToStatus,
+                            AmountBefore = h.AmountBefore,
+                            AmountAfter = h.AmountAfter,
+                            Reason = h.Reason,
+                            ChangedByName = h.ChangedBy?.UserName ?? "System",
+                            ChangedAt = h.ChangedAt
+                        }).ToList() ?? new List<EscrowHistoryDto>()
+                };
+            }).ToList();
+
+            return response;
         }
 
         public async Task<List<EscrowResponse>> ExpertGetEscrowManagementAsync()

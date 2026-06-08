@@ -18,5 +18,18 @@
         public string? Description { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? ResolvedAt { get; set; }
+        public List<EscrowHistoryDto> StatusHistories { get; set; } = new();
+    }
+
+    public class EscrowHistoryDto
+    {
+        public int EscrowStatusHistoryId { get; set; }
+        public string? FromStatus { get; set; }
+        public string? ToStatus { get; set; }
+        public decimal AmountBefore { get; set; }
+        public decimal AmountAfter { get; set; }
+        public string? Reason { get; set; }
+        public string? ChangedByName { get; set; }
+        public DateTime ChangedAt { get; set; }
     }
 }
