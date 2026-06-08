@@ -294,6 +294,8 @@ namespace Application.Services.OrderImp
                     reason: $"Order #{order.OrderId} paid successfully. System funds put on escrow hold."
                 );
 
+                await _unitOfWork.SaveChangesAsync();
+
                 await _transactionRepo.AddAsync(new Transaction
                 {
                     WalletId = buyerWallet.WalletId,
