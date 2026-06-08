@@ -187,20 +187,26 @@ namespace Application.Services.WalletImp
 
         public async Task<ExpenseSummaryResponseDto> GetMyExpenseSummaryAsync(
             int accountId,
-            ExpenseSummaryRequestDto request)
+            ExpenseSummaryRequestDto request) 
         {
-            ValidateMonthYear(request.Month, request.Year);
-
             var wallet = await _walletRepository.GetByAccountIdAsync(accountId);
             if (wallet == null)
             {
                 throw new KeyNotFoundException("Wallet not found.");
             }
 
+            var from = request.FromDate?.Date ?? new DateTime(DateTime.UtcNow.Year, DateTime.UtcNow.Month, 1);
+            var to = request.ToDate?.Date.AddDays(1).AddTicks(-1) ?? DateTime.UtcNow;
+
+            if (from > to)
+            {
+                throw new ArgumentException("FromDate cannot be greater than ToDate.");
+            }
+
             var query = _transactionRepository.Query()
                 .Where(x => x.Wallet.AccountId == accountId
-                         && x.CreatedAt.Month == request.Month
-                         && x.CreatedAt.Year == request.Year
+                         && x.CreatedAt >= from
+                         && x.CreatedAt <= to
                          && x.Status == TransactionStatus.Success);
 
             var totalIncome = await query
