@@ -304,8 +304,8 @@ builder.Services.AddQuartz(q =>
         .WithIdentity("RecomputePostTrendJob-trigger")
         .WithDescription("Runs every 1 hour to recompute post trends.")
         .WithSimpleSchedule(schedule => schedule
-            .WithIntervalInHours(1)
-            //.WithIntervalInMinutes(5)
+            //.WithIntervalInHours(1)
+            .WithIntervalInMinutes(1)
             .RepeatForever()));
 
     var recomputeTrendingTopicJobKey =
@@ -323,8 +323,8 @@ builder.Services.AddQuartz(q =>
         .WithDescription(
             "Runs every 1 hour to recompute trending hashtags/topics.")
         .WithSimpleSchedule(schedule => schedule
-            .WithIntervalInHours(1)
-            //.WithIntervalInMinutes(5)
+            //.WithIntervalInHours(1)
+            .WithIntervalInMinutes(1)
             .RepeatForever()));
 
     //var refundReturnKey = new JobKey(nameof(AutoRefundReturnDeliveredOrdersJob));

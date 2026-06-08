@@ -14,7 +14,7 @@ namespace Application.Services.OrderImp
         Task<Order?> GetOrderByIdAsync(int orderId);
         Task<OrderResponse?> GetOrderByIdAsync(int orderId, int currentUserId);
         Task<OrderResponse> GetOrderDetailByIdAsync(int orderId);
-
+        Task<OrderResponse> AutoCancelPendingPaymentOrderAsync(int orderId);
         Task<List<OrderResponse>> GetSalesOrdersAsync(int sellerId);
         Task<List<OrderResponse>> GetPurchasesOrdersAsync(int buyerId);
         Task<List<OrderResponse>> GetPaidOrdersAsync();

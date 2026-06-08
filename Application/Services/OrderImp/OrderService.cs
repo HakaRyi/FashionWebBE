@@ -1072,7 +1072,7 @@ namespace Application.Services.OrderImp
                 {
                     if (!detail.ItemVariantId.HasValue) continue;
 
-                    var variant = await _variantRepo.GetByIdForUpdateAsync(detail.ItemVariantId.Value);
+                    var variant = await _variantRepo.GetByIdAsync(detail.ItemVariantId.Value);
                     if (variant != null)
                         _variantRepo.ReleaseReservedStock(variant, detail.Quantity);
                 }
