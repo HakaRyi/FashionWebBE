@@ -38,5 +38,15 @@ namespace Infrastructure.Repositories
         {
             _context.TryOnHistories.Remove(tryOnHistory);
         }
+        public async Task<List<TryOnHistory>> GetByIdsWithAccountAsync(List<int> tryOnIds)
+        {
+            if (tryOnIds == null || !tryOnIds.Any())
+                return new List<TryOnHistory>();
+
+            return await _context.TryOnHistories
+                .Include(h => h.Account) 
+                .Where(h => tryOnIds.Contains(h.TryOnId))
+                .ToListAsync();
+        }
     }
 }

@@ -26,6 +26,7 @@ namespace Domain.Interfaces
         Task<Scoreboard?> GetUserScoreAsync(int eventId, int accountId);
         Task<List<ExpertRating>> GetExpertRatingsForPostAsync(int postId);
         Task<List<Reaction>> GetPostVotersAsync(int postId);
+        Task<List<Event>> GetByIdsAsync(List<int> eventIds);
 
     }
 }

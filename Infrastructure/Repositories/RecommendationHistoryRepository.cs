@@ -7,6 +7,7 @@ using Domain.Entities;
 using Domain.Interfaces;
 using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
+using Polly;
 
 namespace Infrastructure.Repositories
 {
@@ -48,6 +49,16 @@ namespace Infrastructure.Repositories
                 .Include(h => h.Account)
                     .ThenInclude(a => a.Avatars)
                 .FirstOrDefaultAsync(h => h.Id == id);
+        }
+        public async Task<List<RecommendationHistory>> GetByIdsWithAccountAsync(List<int> recomIds)
+        {
+            if (recomIds == null || !recomIds.Any())
+                return new List<RecommendationHistory>();
+
+            return await _db.RecommendationHistories
+                .Include(r => r.Account) 
+                .Where(r => recomIds.Contains(r.Id))
+                .ToListAsync();
         }
     }
 }

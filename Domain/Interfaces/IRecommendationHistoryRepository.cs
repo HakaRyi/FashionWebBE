@@ -12,5 +12,6 @@ namespace Domain.Interfaces
         Task AddAsync(RecommendationHistory history);
         Task<List<RecommendationHistory>> GetMyRecommendationHistories(int accountId);
         Task<RecommendationHistory> GetRecommendationHistoryByIdAsync(int id);
+        Task<List<RecommendationHistory>> GetByIdsWithAccountAsync(List<int> recomIds);
     }
 }

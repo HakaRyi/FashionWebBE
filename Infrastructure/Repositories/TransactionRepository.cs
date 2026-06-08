@@ -144,5 +144,18 @@ namespace Infrastructure.Repositories
                 .AsNoTracking()
                 .Include(t => t.Wallet);
         }
+        public async Task<List<Transaction>> GetRevenueTransactionsWithDetailsAsync(DateTime start, DateTime end)
+        {
+            return await _db.Transactions
+                .Include(t => t.Wallet)
+                    .ThenInclude(w => w.Account)
+                .Include(t => t.EscrowSession)
+                    .ThenInclude(e => e.Sender)
+                .Where(t => t.Status == "Success" && t.CreatedAt >= start && t.CreatedAt <= end)
+                .Where(t => (t.Type == "Credit" && t.WalletId == 1) ||
+                            (t.Type == "Debit" && (t.ReferenceType == "AIRecommendation" || t.ReferenceType == "TryOn")))
+                .OrderByDescending(t => t.CreatedAt)
+                .ToListAsync();
+        }
     }
 }

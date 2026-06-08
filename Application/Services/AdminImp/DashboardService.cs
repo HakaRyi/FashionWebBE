@@ -20,12 +20,18 @@ namespace Application.Services.AdminImp
         private readonly IEventRepository _eventRepository;
         private readonly IAccountRepository _accountRepository;
         private readonly ICurrentUserService _currentUserService;
+        private readonly ITransactionRepository _transactionRepository;
+        private readonly ITryOnHistoryRepository _tryOnHistoryRepository;
+        private readonly IRecommendationHistoryRepository _recommendationHistoryRepository;
         public DashboardService(IDashboardRepository dashboardRepository,
             IUnitOfWork unitOfWork,
             UserManager<Domain.Entities.Account> userManager,
             IEventRepository eventRepository,
             IAccountRepository accountRepository,
-            ICurrentUserService currentUserService
+            ICurrentUserService currentUserService,
+            ITransactionRepository transactionRepository,
+            ITryOnHistoryRepository tryOnHistoryRepository,
+            IRecommendationHistoryRepository recommendationHistoryRepository
             )
         {
             _dashboardRepository = dashboardRepository;
@@ -34,6 +40,9 @@ namespace Application.Services.AdminImp
             _eventRepository = eventRepository;
             _accountRepository = accountRepository;
             _currentUserService = currentUserService;
+            _transactionRepository = transactionRepository;
+            _tryOnHistoryRepository = tryOnHistoryRepository;
+            _recommendationHistoryRepository = recommendationHistoryRepository;
         }
 
         public async Task AdminCheckEvent(int eventId, AdminCheckRequest request)
@@ -202,26 +211,82 @@ namespace Application.Services.AdminImp
         {
             var start = request.StartDate ?? DateTime.Now.AddDays(-7);
             var end = request.EndDate?.Date.AddDays(1).AddTicks(-1) ?? DateTime.Now;
-            var transactions = await _dashboardRepository.GetRevenueTransactions()
-                .Include(t => t.Wallet)           
-                    .ThenInclude(w => w.Account)
-                .Where(a => a.CreatedAt >= start && a.CreatedAt <= end)
-                .ToListAsync();
+
+            var transactions = await _transactionRepository.GetRevenueTransactionsWithDetailsAsync(start, end);
+
             var responses = new List<TransactionResponse>();
+            if (!transactions.Any()) return responses;
+
+            var eventIds = transactions.Where(t => t.ReferenceType == "Event" && t.ReferenceId.HasValue).Select(t => t.ReferenceId!.Value).Distinct().ToList();
+            var tryOnIds = transactions.Where(t => t.ReferenceType == "TryOn" && t.ReferenceId.HasValue).Select(t => t.ReferenceId!.Value).Distinct().ToList();
+            var aiRecomIds = transactions.Where(t => t.ReferenceType == "AIRecommendation" && t.ReferenceId.HasValue).Select(t => t.ReferenceId!.Value).Distinct().ToList();
+
+            Dictionary<int, (string UserName, string Title)> eventMap = new();
+            Dictionary<int, string> tryOnMap = new();
+            Dictionary<int, string> aiRecomMap = new();
+
+            if (eventIds.Any())
+            {
+                var events = await _eventRepository.GetByIdsAsync(eventIds);
+                eventMap = events.ToDictionary(e => e.EventId, e => (e.Creator?.UserName ?? "N/A", e.Title ?? "N/A"));
+            }
+
+            if (tryOnIds.Any())
+            {
+                var tryOns = await _tryOnHistoryRepository.GetByIdsWithAccountAsync(tryOnIds);
+                tryOnMap = tryOns.ToDictionary(h => h.TryOnId, h => h.Account?.UserName ?? "Customer");
+            }
+
+            if (aiRecomIds.Any())
+            {
+                var recoms = await _recommendationHistoryRepository.GetByIdsWithAccountAsync(aiRecomIds);
+                aiRecomMap = recoms.ToDictionary(r => r.Id, r => r.Account?.UserName ?? "Customer");
+            }
 
             foreach (var tran in transactions)
             {
-                string? displayName = tran.Wallet.Account.UserName;
+                string? displayName = tran.Wallet?.Account?.UserName;
                 string? eventName = null;
-                if (tran.Type == "System_Fee_Revenue" && tran.ReferenceId.HasValue)
+
+                if (tran.WalletId == 1 || tran.Type == "Credit")
                 {
-                    var ev = await _eventRepository.GetByIdAsync(tran.ReferenceId.Value);
-                    if (ev != null && ev.Creator != null)
+                    if ((tran.ReferenceType == "Event" || tran.ReferenceType == "EventFix") && tran.ReferenceId.HasValue)
                     {
-                        displayName = ev.Creator.UserName;
-                        eventName = ev.Title;
+                        if (eventMap.TryGetValue(tran.ReferenceId.Value, out var eventInfo))
+                        {
+                            displayName = eventInfo.UserName; 
+                            eventName = eventInfo.Title;
+                        }
+                        else if (tran.EscrowSession?.Sender != null)
+                        {
+                            displayName = tran.EscrowSession.Sender.UserName;
+                            eventName = tran.EscrowSession.Event?.Title;
+                        }
+                    }
+                    else if (tran.ReferenceType == "TryOn" && tran.ReferenceId.HasValue)
+                    {
+                        if (tryOnMap.TryGetValue(tran.ReferenceId.Value, out var userClient))
+                        {
+                            displayName = userClient; 
+                        }
+                        else if (tran.Description != null && tran.Description.Contains("#"))
+                        {
+                            displayName = $"User #{tran.Description.Split('#').LastOrDefault()}";
+                        }
+                    }
+                    else if (tran.ReferenceType == "AIRecommendation" && tran.ReferenceId.HasValue)
+                    {
+                        if (aiRecomMap.TryGetValue(tran.ReferenceId.Value, out var userClient))
+                        {
+                            displayName = userClient; 
+                        }
+                    }
+                    else if (tran.ReferenceType == "OrderPayment" && tran.EscrowSession?.Sender != null)
+                    {
+                        displayName = tran.EscrowSession.Sender.UserName;
                     }
                 }
+
                 responses.Add(new TransactionResponse
                 {
                     Amount = tran.Amount,
@@ -235,13 +300,13 @@ namespace Application.Services.AdminImp
                     Status = tran.Status,
                     TransactionId = tran.TransactionId,
                     Type = tran.Type,
-                    UserName = displayName,
+                    UserName = displayName ?? "System / Anonymous",
                     WalletId = tran.WalletId,
-                    EventName = eventName,
+                    EventName = eventName
                 });
             }
-            return responses;
 
+            return responses;
         }
         public async Task<string> AdminBanUser(int accountId)
         {

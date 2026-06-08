@@ -1,7 +1,8 @@
-﻿using Microsoft.EntityFrameworkCore;
-using Infrastructure.Persistence;
-using Domain.Entities;
+﻿using Domain.Entities;
 using Domain.Interfaces;
+using Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Polly;
 
 namespace Infrastructure.Repositories
 {
@@ -131,6 +132,16 @@ namespace Infrastructure.Repositories
                 .Include(r => r.Account).ThenInclude(a => a.Avatars)
                 .Where(r => r.PostId == postId)
                 .OrderByDescending(r => r.CreatedAt)
+                .ToListAsync();
+        }
+        public async Task<List<Event>> GetByIdsAsync(List<int> eventIds)
+        {
+            if (eventIds == null || !eventIds.Any())
+                return new List<Event>();
+
+            return await _db.Events
+                .Include(e => e.Creator) 
+                .Where(e => eventIds.Contains(e.EventId))
                 .ToListAsync();
         }
     }

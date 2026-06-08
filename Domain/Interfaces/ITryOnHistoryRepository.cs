@@ -8,5 +8,6 @@ namespace Domain.Interfaces
         Task<List<TryOnHistory>> GetTryOnHistoryByAccountIdAsync(int accountId);
         Task<TryOnHistory?> GetByIdAsync(int tryOnId);
         void Remove(TryOnHistory tryOnHistory);
+        Task<List<TryOnHistory>> GetByIdsWithAccountAsync(List<int> tryOnIds);
     }
 }

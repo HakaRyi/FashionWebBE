@@ -60,7 +60,7 @@ namespace Infrastructure.Repositories
             return await _db.Transactions
                 .Include(a => a.Wallet).ThenInclude(w => w.Account)
                 .Where(t => t.Status == "Success" &&
-                  (t.Type == "System_Fee_Revenue" ||
+                  ((t.Type == "Credit" && t.WalletId == 1) ||
                   (t.Type == "Debit" && (t.ReferenceType == "AIRecommendation" || t.ReferenceType == "TryOn"))))
                 .OrderByDescending(a => a.CreatedAt)
                 .ToListAsync();

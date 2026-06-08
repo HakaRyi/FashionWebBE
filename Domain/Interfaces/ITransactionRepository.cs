@@ -19,5 +19,6 @@ namespace Domain.Interfaces
         Task<List<Transaction>> GetTransactionsByWalletIdAsync(int walletId);
         Task AddAsync(Transaction transaction);
         IQueryable<Transaction> Query();
+        Task<List<Transaction>> GetRevenueTransactionsWithDetailsAsync(DateTime start, DateTime end);
     }
 }
