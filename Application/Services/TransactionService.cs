@@ -21,6 +21,7 @@ namespace Application.Services
         private readonly ICurrentUserService _currentUserService;
         private readonly IUnitOfWork _unitOfWork;
         private readonly IEscrowStatusHistoryRepository _escrowStatusHistoryRepository;
+        private readonly IOrderRepository _orderRepository;
 
 
         public TransactionService(
@@ -30,7 +31,8 @@ namespace Application.Services
             IWalletRepository walletRepository,
             IUnitOfWork unitOfWork,
             ICurrentUserService currentUserService,
-            IEscrowStatusHistoryRepository escrowStatusHistoryRepository)
+            IEscrowStatusHistoryRepository escrowStatusHistoryRepository,
+            IOrderRepository orderRepository)
         {
             _transactionRepository = transactionRepository;
             _escrowRepository = escrowRepository;
@@ -39,6 +41,7 @@ namespace Application.Services
             _unitOfWork = unitOfWork;
             _currentUserService = currentUserService;
             _escrowStatusHistoryRepository = escrowStatusHistoryRepository;
+            _orderRepository = orderRepository;
         }
 
         public async Task AdminRequestFixLeakAsync(int escrowSessionId, string reason)
@@ -127,46 +130,79 @@ namespace Application.Services
         // HÀM 4: Get thông tin bảng Escrow cho Admin quản lý
         public async Task<List<EscrowResponse>> AdminGetEscrowManagementAsync()
         {
-            var escrows = await _escrowRepository.Query()
+            var rawEscrows = await _escrowRepository.Query()
                 .Include(e => e.Sender)
+                .Include(e => e.Receiver)
                 .Include(e => e.Event)
                 .Include(e => e.Order)
                     .ThenInclude(o => o.Seller)
+                .Include(e => e.EscrowStatusHistories)
+                    .ThenInclude(h => h.ChangedBy)
                 .OrderByDescending(e => e.CreatedAt)
-                .Select(e => new EscrowResponse
+                .ToListAsync();
+
+            var response = rawEscrows.Select(e =>
+            {
+                decimal baseAmount = e.Amount;
+                if (baseAmount <= 0 && e.EscrowStatusHistories != null && e.EscrowStatusHistories.Any())
+                {
+                    baseAmount = e.EscrowStatusHistories.Max(h => h.AmountAfter);
+                }
+
+                decimal mappedServiceFee = 0;
+                if (e.ServiceFee > 0) mappedServiceFee = e.ServiceFee;
+                else if (e.Order != null) mappedServiceFee = e.Order.ServiceFee;
+                else if (e.Event != null) mappedServiceFee = e.Event.AppliedFee;
+
+                if (mappedServiceFee >= baseAmount)
+                {
+                    mappedServiceFee = 0;
+                }
+
+                decimal finalAmount = Math.Max(0, baseAmount - mappedServiceFee);
+
+                return new EscrowResponse
                 {
                     EscrowSessionId = e.EscrowSessionId,
-
                     EventId = e.EventId,
-                    EventTitle = e.Event != null ? e.Event.Title : null,
-
+                    EventTitle = e.Event?.Title,
                     OrderId = e.OrderId,
-                    OrderCode = e.Order != null ? e.Order.OrderCode : null,
+                    OrderCode = e.Order?.OrderCode,
 
                     SenderId = e.SenderId,
-                    SenderName = e.Sender != null
-                        ? e.Sender.UserName ?? "Unknown"
-                        : "Unknown",
+                    SenderName = e.Sender?.UserName ?? "Unknown",
 
                     ReceiverId = e.ReceiverId,
-                    ReceiverName = e.Order != null && e.Order.Seller != null
-                        ? e.Order.Seller.UserName ?? "Unknown"
-                        : "System",
+                    ReceiverName = e.Receiver?.UserName
+                                 ?? e.Order?.Seller?.UserName
+                                 ?? (e.EventId != null ? "Event Intermediary Fund" : "System"),
 
-                    Amount = e.Amount,
-                    ServiceFee = e.ServiceFee,
-                    FinalAmount = e.FinalAmount > 0
-                        ? e.FinalAmount
-                        : e.Amount - e.ServiceFee,
+                    Amount = baseAmount,
+                    ServiceFee = mappedServiceFee,
+                    FinalAmount = finalAmount,
 
                     Status = e.Status,
                     Description = e.Description,
                     CreatedAt = e.CreatedAt,
-                    ResolvedAt = e.ResolvedAt
-                })
-                .ToListAsync();
+                    ResolvedAt = e.ResolvedAt,
 
-            return escrows;
+                    StatusHistories = e.EscrowStatusHistories?
+                        .OrderByDescending(h => h.ChangedAt)
+                        .Select(h => new EscrowHistoryDto
+                        {
+                            EscrowStatusHistoryId = h.EscrowStatusHistoryId,
+                            FromStatus = h.FromStatus,
+                            ToStatus = h.ToStatus,
+                            AmountBefore = h.AmountBefore,
+                            AmountAfter = h.AmountAfter,
+                            Reason = h.Reason,
+                            ChangedByName = h.ChangedBy?.UserName ?? "System",
+                            ChangedAt = h.ChangedAt
+                        }).ToList() ?? new List<EscrowHistoryDto>()
+                };
+            }).ToList();
+
+            return response;
         }
 
         public async Task<List<EscrowResponse>> ExpertGetEscrowManagementAsync()
@@ -447,30 +483,46 @@ namespace Application.Services
             // 3. LOGIC SECTION 1: NHẬT KÝ GIAO DỊCH LIVE (Top 5 giao dịch mới nhất thuộc kỳ hiện tại)
             response.LiveTransactions = currentTx
             .Where(t =>
-                t.WalletId != 1 && t.Wallet?.Account?.UserName != "admin" &&
-                (t.Type == "Debit" || t.Type.ToString() == "Debit") &&
-                (t.ReferenceType.ToString() == "TryOn" ||
-                 t.ReferenceType.ToString() == "AIRecommendation" ||
-                 t.ReferenceType.ToString() == "OrderPayment" ||
-                 t.ReferenceType.ToString() == "Event"))
+                // Condition 1: Successful external TopUp from users
+                (string.Equals(t.ReferenceType?.ToString(), "TopUp", StringComparison.OrdinalIgnoreCase) &&
+                 string.Equals(t.Type?.ToString(), "Credit", StringComparison.OrdinalIgnoreCase))
+                ||
+                // OR Condition 2: Actual platform revenue flowing into Admin wallet (WalletId = 1)
+                ((t.WalletId == 1 || string.Equals(t.Wallet?.Account?.UserName, "admin", StringComparison.OrdinalIgnoreCase)) &&
+                 string.Equals(t.Type?.ToString(), "Credit", StringComparison.OrdinalIgnoreCase) &&
+                 (string.Equals(t.ReferenceType?.ToString(), "TryOn", StringComparison.OrdinalIgnoreCase) ||
+                  string.Equals(t.ReferenceType?.ToString(), "AIRecommendation", StringComparison.OrdinalIgnoreCase) ||
+                  string.Equals(t.ReferenceType?.ToString(), "OrderPayment", StringComparison.OrdinalIgnoreCase) ||
+                  string.Equals(t.ReferenceType?.ToString(), "Event", StringComparison.OrdinalIgnoreCase)))
+            )
             .OrderByDescending(t => t.CreatedAt)
             .Take(5)
             .Select(t =>
             {
-                string featureFriendlyName = t.ReferenceType.ToString() switch
+                string actionTarget = "System Service";
+                bool isTopUp = string.Equals(t.ReferenceType?.ToString(), "TopUp", StringComparison.OrdinalIgnoreCase);
+
+                if (isTopUp)
                 {
-                    "TryOn" => "AI Try-On Room",
-                    "AIRecommendation" => "Smart AI Assistant",
-                    "OrderPayment" => "Marketplace Purchase",
-                    "Event" => "Event Booking",
-                    _ => "Platform Service"
-                };
+                    actionTarget = "External Deposit (VnPay)";
+                }
+                else
+                {
+                    actionTarget = t.ReferenceType?.ToString() switch
+                    {
+                        "OrderPayment" => "Marketplace Service Fee Revenue",
+                        "TryOn" => "AI Try-On Room Revenue",
+                        "AIRecommendation" => "Smart AI Assistant Revenue",
+                        "Event" => "Event Hosting Fee Revenue",
+                        _ => "Platform Service Revenue"
+                    };
+                }
 
                 return new LiveTransactionDto
                 {
                     Id = t.TransactionId,
-                    UserName = t.Wallet?.Account?.UserName ?? "Customer",
-                    Item = !string.IsNullOrEmpty(t.Description) ? t.Description : featureFriendlyName,
+                    UserName = isTopUp ? (t.Wallet?.Account?.UserName ?? "Customer") : "Platform Fee Collection",
+                    Item = !string.IsNullOrEmpty(t.Description) ? t.Description : actionTarget,
                     Amount = Math.Abs(t.Amount),
                     CreatedAt = t.CreatedAt
                 };
@@ -605,29 +657,17 @@ namespace Application.Services
 
         public async Task<RankingDashboardResponse> GetRankingManagementDashboardAsync(DateTime previousFromDate, DateTime fromDate, DateTime toDate)
         {
-            // 1. Quét DB lấy TOÀN BỘ giao dịch thành công của Marketplace (Cả Admin thu phí lẫn Shop nhận tiền)
-            var transactions = await _transactionRepository.GetAllTransactionsAsync(previousFromDate, toDate);
+            var allOrders = await _orderRepository.GetCompletedOrdersForDashboardAsync(previousFromDate, toDate);
 
-            var allMarketplaceTx = transactions
-                .Where(t => t.Status == "Success" && t.ReferenceType == "OrderPayment")
-                .ToList();
+            // Phân tách danh sách đơn hàng thành Kỳ Hiện Tại và Kỳ Trước
+            var currentOrders = allOrders.Where(o => o.CreatedAt >= fromDate && o.CreatedAt <= toDate).ToList();
+            var previousOrders = allOrders.Where(o => o.CreatedAt >= previousFromDate && o.CreatedAt < fromDate).ToList();
 
-            // Phân tách dữ liệu thành Kỳ Hiện Tại và Kỳ Trước
-            var currentTx = allMarketplaceTx.Where(t => t.CreatedAt >= fromDate && t.CreatedAt <= toDate).ToList();
-            var previousTx = allMarketplaceTx.Where(t => t.CreatedAt >= previousFromDate && t.CreatedAt < fromDate).ToList();
+            // TỔNG DOANH THU PHÍ TOÀN SÀN KỲ HIỆN TẠI (Tổng các khoản phí dịch vụ thu từ Order)
+            decimal totalPlatformRevenueCur = currentOrders.Sum(o => o.ServiceFee);
 
-            // Lấy danh sách ID của tất cả các Shop có phát sinh giao dịch (nhận tiền) ở cả 2 kỳ
-            var allActiveShopWalletIds = currentTx.Concat(previousTx)
-                .Where(t => t.WalletId != 1 && (t.Type == "Credit" || t.Type.ToString() == "Credit"))
-                .Select(t => t.WalletId)
-                .Distinct()
-                .ToList();
-
-            // TỔNG DOANH THU PHÍ DỊCH VỤ CỦA TOÀN SÀN TRONG KỲ HIỆN TẠI (Ví Admin nhận)
-            decimal totalPlatformRevenueCur = currentTx
-                .Where(t => t.WalletId == 1 && (t.Type == "Credit" || t.Type.ToString() == "Credit"))
-                .Sum(t => t.Amount);
-
+            // Lấy danh sách ID của các Shop thực sự có đơn hàng thành công trong kỳ hiện tại
+            var activeSellerIds = currentOrders.Select(o => o.SellerId).Distinct().ToList();
             var shopList = new List<ShopRankingDto>();
 
             // 2. Chia khoảng thời gian kỳ hiện tại thành 6 cột mốc để vẽ biểu đồ xu hướng
@@ -639,38 +679,23 @@ namespace Application.Services
 
             var chartLabels = timeIntervals.Select(time => time.ToString("dd/MM")).ToList();
 
-            foreach (var walletId in allActiveShopWalletIds)
+            // 3. DUYỆT QUA TỪNG SHOP ĐỂ PHÂN TÍCH HIỆU SUẤT
+            foreach (var sellerId in activeSellerIds)
             {
-                // Danh sách đơn hàng (ReferenceId) thành công của Shop này trong kỳ hiện tại
-                var currentShopOrderIds = currentTx
-                    .Where(t => t.WalletId == walletId && (t.Type == "Credit" || t.Type.ToString() == "Credit"))
-                    .Select(t => t.ReferenceId)
-                    .Distinct()
-                    .ToList();
+                // Lọc toàn bộ đơn hàng của Shop này trong kỳ hiện tại và kỳ trước
+                var shopOrdersCur = currentOrders.Where(o => o.SellerId == sellerId).ToList();
+                var shopOrdersPrev = previousOrders.Where(o => o.SellerId == sellerId).ToList();
 
-                // Tìm tên hiển thị của Shop từ bất kỳ giao dịch nào có sẵn
-                var anyShopTx = currentTx.Concat(previousTx).FirstOrDefault(t => t.WalletId == walletId);
-                string shopName = !string.IsNullOrEmpty(anyShopTx?.Wallet?.Account?.UserName)
-                    ? anyShopTx.Wallet.Account.UserName
-                    : $"Shop {walletId}";
+                // Lấy tên Shop hiển thị thông qua Navigation Property Seller (Account -> UserName)
+                var anyOrder = shopOrdersCur.FirstOrDefault();
+                string shopName = anyOrder?.Seller?.UserName ?? $"Shop {sellerId}";
 
-                // DOANH THU THỰC TẾ SÀN THU ĐƯỢC (Ví Admin nhận phí từ các đơn hàng của Shop này)
-                decimal shopPlatformRevenueCur = currentTx
-                    .Where(t => t.WalletId == 1 && currentShopOrderIds.Contains(t.ReferenceId) && (t.Type == "Credit" || t.Type.ToString() == "Credit"))
-                    .Sum(t => t.Amount);
+                // DOANH THU SÀN THU ĐƯỢC TỪ SHOP NÀY (Tổng ServiceFee của các đơn hàng thuộc Shop đó)
+                decimal shopPlatformRevenueCur = shopOrdersCur.Sum(o => o.ServiceFee);
+                int totalOrdersCur = shopOrdersCur.Count;
 
-                int totalOrdersCur = currentShopOrderIds.Count;
-
-                // DOANH THU PHÍ CỦA SÀN TỪ SHOP NÀY TRONG KỲ TRƯỚC
-                var previousShopOrderIds = previousTx
-                    .Where(t => t.WalletId == walletId && (t.Type == "Credit" || t.Type.ToString() == "Credit"))
-                    .Select(t => t.ReferenceId)
-                    .Distinct()
-                    .ToList();
-
-                decimal shopPlatformRevenuePrev = previousTx
-                    .Where(t => t.WalletId == 1 && previousShopOrderIds.Contains(t.ReferenceId) && (t.Type == "Credit" || t.Type.ToString() == "Credit"))
-                    .Sum(t => t.Amount);
+                // DOANH THU SÀN THU ĐƯỢC TỪ SHOP NÀY Ở KỲ TRƯỚC
+                decimal shopPlatformRevenuePrev = shopOrdersPrev.Sum(o => o.ServiceFee);
 
                 // --- TÍNH TOÁN % TĂNG TRƯỞNG CHUẨN KẾ TOÁN ---
                 decimal growth = 0;
@@ -680,42 +705,31 @@ namespace Application.Services
                 }
                 else if (shopPlatformRevenuePrev == 0 && shopPlatformRevenueCur > 0)
                 {
-                    growth = 100; // Kỳ trước không bán được gì, kỳ này phát sinh phí cho sàn
-                }
-                else if (shopPlatformRevenuePrev > 0 && shopPlatformRevenueCur == 0)
-                {
-                    growth = -100; // Shop dừng hoạt động hoặc không có đơn kỳ này -> Tụt giảm 100%
+                    growth = 100;
                 }
 
-                // --- TÍNH XU HƯỚNG THEO 6 MỐC THỜI GIAN ---
+                // --- TÍNH XU HƯỚNG 6 MỐC THỜI GIAN THEO REVENUE CỦA SHOP ---
                 var trendIndexes = new List<int> { 0, 0, 0, 0, 0, 0 };
                 if (totalOrdersCur > 0)
                 {
-                    var shopMonthlyData = timeIntervals.Select((time, index) =>
+                    var shopPeriodData = timeIntervals.Select((time, index) =>
                     {
                         var nextTime = index == 5 ? toDate.AddDays(1) : timeIntervals[index + 1];
-
-                        return currentTx
-                            .Where(t => t.WalletId == 1 &&
-                                        currentShopOrderIds.Contains(t.ReferenceId) &&
-                                        (t.Type == "Credit" || t.Type.ToString() == "Credit") &&
-                                        t.CreatedAt >= time && t.CreatedAt < nextTime)
-                            .Sum(t => t.Amount);
+                        return shopOrdersCur.Where(o => o.CreatedAt >= time && o.CreatedAt < nextTime).Sum(o => o.ServiceFee);
                     }).ToList();
 
-                    decimal maxShopVal = shopMonthlyData.Max();
-                    trendIndexes = shopMonthlyData.Select(v => maxShopVal > 0 ? (int)((v / maxShopVal) * 100) : 0).ToList();
+                    decimal maxShopVal = shopPeriodData.Max();
+                    trendIndexes = shopPeriodData.Select(v => maxShopVal > 0 ? (int)((v / maxShopVal) * 100) : 0).ToList();
                 }
 
                 // --- PHÂN HẠNG TRẠNG THÁI CỦA SHOP ---
                 string status = "Stable";
                 if (shopPlatformRevenueCur > 5000) status = "Elite";
                 else if (growth > 15) status = "Rising";
-                else if (growth == -100 || totalOrdersCur == 0) status = "At Risk";
 
                 shopList.Add(new ShopRankingDto
                 {
-                    Id = walletId,
+                    Id = sellerId,
                     Name = shopName,
                     Revenue = shopPlatformRevenueCur,
                     Orders = totalOrdersCur,
@@ -730,28 +744,17 @@ namespace Application.Services
 
             var globalData = timeIntervals.Select((time, index) =>
             {
-                var nextTime = index == 5 ? toDate : timeIntervals[index + 1];
-                return currentTx
-                    .Where(t => t.WalletId == 1 && (t.Type == "Credit" || t.Type.ToString() == "Credit") && t.CreatedAt >= time && t.CreatedAt < nextTime)
-                    .Sum(t => t.Amount);
+                var nextTime = index == 5 ? toDate.AddDays(1) : timeIntervals[index + 1];
+                return currentOrders.Where(o => o.CreatedAt >= time && o.CreatedAt < nextTime).Sum(o => o.ServiceFee);
             }).ToList();
 
             decimal maxGlobal = globalData.Max();
             var globalTrendIndexes = globalData.Select(v => maxGlobal > 0 ? (int)((v / maxGlobal) * 100) : 0).ToList();
 
-            int activeNodes = shopList.Where(s => s.Orders > 0).Count();
-            string leaderboardAlpha = shopList.FirstOrDefault(s => s.Orders > 0)?.Name ?? "No Sales";
+            decimal avgTicketSize = currentOrders.Any() ? currentOrders.Average(o => o.TotalAmount) : 0;
 
-            var orderTickets = currentTx
-                .GroupBy(t => t.ReferenceId)
-                .Select(g => g.Sum(t =>
-                    // Tính tổng tiền của đơn hàng bằng cách cộng dòng tiền Credit của Shop + Admin thu phí
-                    (t.Type == "Credit" || t.Type.ToString() == "Credit") ? t.Amount : 0
-                ))
-                .Where(totalOrderAmount => totalOrderAmount > 0)
-                .ToList();
-
-            decimal avgTicketSize = orderTickets.Any() ? orderTickets.Average() : 0;
+            int activeNodes = shopList.Count(s => s.Orders > 0);
+            string leaderboardAlpha = shopList.FirstOrDefault()?.Name ?? "No Sales";
 
             return new RankingDashboardResponse
             {
@@ -759,7 +762,7 @@ namespace Application.Services
                 MarketReach = 100,
                 LeaderboardAlpha = leaderboardAlpha,
                 AvgTicketSize = Math.Round(avgTicketSize, 2),
-                GlobalTrend = globalTrendIndexes.Count > 0 ? globalTrendIndexes : new List<int> { 0, 0, 0, 0, 0, 0 },
+                GlobalTrend = globalTrendIndexes,
                 ChartLabels = chartLabels,
                 Shops = shopList
             };
