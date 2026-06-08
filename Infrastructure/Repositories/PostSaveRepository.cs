@@ -63,21 +63,34 @@ namespace Infrastructure.Repositories
                     PostId = x.PostId,
                     AccountId = x.Post.AccountId,
                     UserName = x.Post.Account.UserName!,
+
                     AvatarUrl = x.Post.Account.Avatars
                         .OrderByDescending(a => a.CreatedAt)
                         .Select(a => a.ImageUrl)
                         .FirstOrDefault(),
+
                     Title = x.Post.Title,
                     Content = x.Post.Content,
+
                     Images = x.Post.Images
                         .OrderBy(i => i.CreatedAt)
                         .Select(i => i.ImageUrl)
                         .ToList(),
+
+                    Hashtags = x.Post.PostHashtags
+                        .Select(ph => ph.Hashtag.Name)
+                        .ToList(),
+
                     LikeCount = x.Post.LikeCount ?? 0,
                     CommentCount = x.Post.CommentCount ?? 0,
                     ShareCount = x.Post.ShareCount ?? 0,
-                    IsLiked = _db.Reactions.Any(r => r.PostId == x.PostId && r.AccountId == accountId),
+
+                    IsLiked = _db.Reactions.Any(r =>
+                        r.PostId == x.PostId &&
+                        r.AccountId == accountId),
+
                     IsSaved = true,
+
                     CreatedAt = x.Post.CreatedAt ?? DateTime.UtcNow,
                     SavedAt = x.CreatedAt
                 })

@@ -8,5 +8,6 @@ namespace Application.Request.PostReq
         public bool IsPublic { get; set; }
         public int? EventId { get; set; }
         public List<IFormFile>? Images { get; set; }
+        public List<string> Hashtags { get; set; } = [];
     }
 }

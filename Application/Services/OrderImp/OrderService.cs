@@ -17,7 +17,6 @@ namespace Application.Services.OrderImp
 {
     public class OrderService : IOrderService
     {
-
         private readonly IOrderRepository _orderRepo;
         private readonly IItemVariantRepository _variantRepo;
         private readonly IHubContext<OrderHub> _hubContext;
@@ -1733,7 +1732,7 @@ namespace Application.Services.OrderImp
                         actorId,
                         order.SellerId,
                         "Order refunded",
-                        $"Order {order.OrderCode} has been refunded to the buyer.");
+                        $"Refund request for order {order.OrderCode} has been approved. Please wait for the returned item.");
                     break;
 
                 case NotificationType.RefundRejected:
@@ -1744,6 +1743,16 @@ namespace Application.Services.OrderImp
                         order.BuyerId,
                         "Refund rejected",
                         $"Your refund request for order {order.OrderCode} has been rejected.");
+                    break;
+
+                case "OrderRefunded":
+                    await NotifyOrderUserAsync(
+                        order,
+                        type,
+                        actorId,
+                        order.BuyerId,
+                        "Order refunded",
+                        $"The seller has received the returned item. Order {order.OrderCode} has been refunded to your wallet.");
                     break;
             }
         }

@@ -47,5 +47,6 @@ namespace Application.Services.OrderImp
         Task<PagedResultDto<OrderResponse>> GetMySalesFilteredAsync(
             int sellerId,
             OrderFilterRequest request);
+        //Task<OrderResponse> ConfirmReturnedItemAsync(int orderId, int sellerId);
     }
 }

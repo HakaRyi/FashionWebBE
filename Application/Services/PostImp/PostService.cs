@@ -6,7 +6,6 @@ using Application.Utils;
 using Domain.Constants;
 using Domain.Contracts.Common;
 using Domain.Contracts.Social.Post;
-using Domain.Dto.Admin;
 using Domain.Dto.Social.Post;
 using Domain.Entities;
 using Domain.Interfaces;
@@ -14,7 +13,6 @@ using Mapster;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Hosting;
 
 namespace Application.Services.PostImp
 {
@@ -30,6 +28,7 @@ namespace Application.Services.PostImp
         private readonly ICurrentUserService _currentUserService;
         private readonly UserManager<Account> _userManager;
         private readonly ICacheService _cacheService;
+        private readonly IHashtagRepository _hashtagRepo;
 
         private const int MAX_IMAGES = 5;
 
@@ -43,7 +42,8 @@ namespace Application.Services.PostImp
             IEventRepository eventRepository,
             ICurrentUserService currentUserService,
             UserManager<Account> userManager,
-            ICacheService cacheService)
+            ICacheService cacheService,
+            IHashtagRepository hashtagRepo)
         {
             _postRepo = postRepo;
             _imageRepo = imageRepo;
@@ -55,9 +55,12 @@ namespace Application.Services.PostImp
             _currentUserService = currentUserService;
             _userManager = userManager;
             _cacheService = cacheService;
+            _hashtagRepo = hashtagRepo;
         }
 
-        public async Task<PostResponse> CreatePostAsync(int accountId, CreatePostDto dto)
+        public async Task<PostResponse> CreatePostAsync(
+            int accountId,
+            CreatePostDto dto)
         {
             ValidateCreatePost(dto?.Content, dto?.Images);
 
@@ -69,8 +72,8 @@ namespace Application.Services.PostImp
                 .FirstOrDefaultAsync(x => x.Id == accountId)
                 ?? throw new KeyNotFoundException("Account not found");
 
-            var isExpertPost = account.ExpertProfile != null &&
-                               account.ExpertProfile.Verified == true;
+            var isExpertPost =
+                account.ExpertProfile?.Verified == true;
 
             var post = new Post
             {
@@ -78,8 +81,8 @@ namespace Application.Services.PostImp
                 Title = dto.Title?.Trim(),
                 Content = dto.Content?.Trim(),
                 EventId = dto.EventId,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow,
+                CreatedAt = now,
+                UpdatedAt = now,
                 Status = PostStatus.Published,
                 Visibility = PostVisibility.Visible,
                 LikeCount = 0,
@@ -91,6 +94,10 @@ namespace Application.Services.PostImp
             await _postRepo.AddAsync(post);
             await _uow.SaveChangesAsync();
 
+            await SyncHashtagsAsync(
+                post,
+                dto.Hashtags);
+
             var images = imageUrls.Select(url => new Image
             {
                 PostId = post.PostId,
@@ -100,21 +107,33 @@ namespace Application.Services.PostImp
             }).ToList();
 
             await _imageRepo.AddRangeAsync(images);
+
+            post.Images = images;
+
+            _postRepo.Update(post);
             await _uow.SaveChangesAsync();
 
             await SendModeration(post.PostId, imageUrls);
 
-            post.Images = images;
             post.Account = account;
 
             account.CountPost += 1;
             await _userManager.UpdateAsync(account);
-            await _cacheService.RemoveDataAsync($"my_profile_{accountId}");
 
-            return MapToResponse(post);
+            await _cacheService.RemoveDataAsync(
+                $"my_profile_{accountId}");
+
+            var createdPost =
+                await _postRepo.GetByIdAsync(post.PostId)
+                ?? throw new KeyNotFoundException("Post not found.");
+
+            return MapToResponse(createdPost);
         }
 
-        public async Task<PostResponse> UpdatePostAsync(int postId, int accountId, UpdatePostDto dto)
+        public async Task<PostResponse> UpdatePostAsync(
+            int postId,
+            int accountId,
+            UpdatePostDto dto)
         {
             if (dto == null)
                 throw new ArgumentNullException(nameof(dto));
@@ -123,52 +142,75 @@ namespace Application.Services.PostImp
                 ?? throw new KeyNotFoundException("Post not found.");
 
             if (post.AccountId != accountId)
-                throw new UnauthorizedAccessException("You are not the owner of this post.");
+                throw new UnauthorizedAccessException(
+                    "You are not the owner of this post.");
 
             if (post.Status == PostStatus.Deleted)
-                throw new InvalidOperationException("Deleted post cannot be updated.");
+                throw new InvalidOperationException(
+                    "Deleted post cannot be updated.");
 
             if (post.Status == PostStatus.Banned)
-                throw new InvalidOperationException("Banned post cannot be updated.");
+                throw new InvalidOperationException(
+                    "Banned post cannot be updated.");
 
-            var hasTextChange = false;
-            var hasImageChange = dto.Images != null && dto.Images.Any();
+            bool hasTextChange = false;
+            bool hasImageChange =
+                dto.Images != null && dto.Images.Any();
+
+            bool hasHashtagChange =
+                dto.Hashtags != null;
 
             var newTitle = dto.Title?.Trim();
             var newContent = dto.Content?.Trim();
 
-            if (dto.Title != null && post.Title != newTitle)
+            if (dto.Title != null &&
+                post.Title != newTitle)
             {
                 post.Title = newTitle;
                 hasTextChange = true;
             }
 
-            if (dto.Content != null && post.Content != newContent)
+            if (dto.Content != null &&
+                post.Content != newContent)
             {
                 post.Content = newContent;
                 hasTextChange = true;
             }
 
-            if (!hasTextChange && !hasImageChange)
-                throw new InvalidOperationException("No changes detected.");
+            if (!hasTextChange &&
+                !hasImageChange &&
+                !hasHashtagChange)
+            {
+                throw new InvalidOperationException(
+                    "No changes detected.");
+            }
 
             if (hasImageChange)
             {
                 if (dto.Images!.Count > MAX_IMAGES)
-                    throw new InvalidOperationException("Maximum 5 images allowed.");
+                    throw new InvalidOperationException(
+                        "Maximum 5 images allowed.");
 
-                var oldImages = post.Images?.ToList() ?? new List<Image>();
+                var oldImages =
+                    post.Images?.ToList()
+                    ?? new List<Image>();
 
-                var uploadTasks = dto.Images.Select(image => _storage.UploadImageAsync(image));
-                var newImageUrls = (await Task.WhenAll(uploadTasks)).ToList();
+                var uploadTasks = dto.Images
+                    .Select(x => _storage.UploadImageAsync(x));
 
-                var newImages = newImageUrls.Select(url => new Image
-                {
-                    PostId = post.PostId,
-                    ImageUrl = url,
-                    OwnerType = "Post",
-                    CreatedAt = DateTime.UtcNow
-                }).ToList();
+                var newImageUrls =
+                    (await Task.WhenAll(uploadTasks))
+                    .ToList();
+
+                var newImages = newImageUrls
+                    .Select(url => new Image
+                    {
+                        PostId = post.PostId,
+                        ImageUrl = url,
+                        OwnerType = "Post",
+                        CreatedAt = DateTime.UtcNow
+                    })
+                    .ToList();
 
                 if (oldImages.Any())
                 {
@@ -181,19 +223,27 @@ namespace Application.Services.PostImp
 
                 foreach (var oldImage in oldImages)
                 {
-                    await _storage.DeleteImageAsync(oldImage.ImageUrl);
+                    await _storage.DeleteImageAsync(
+                        oldImage.ImageUrl);
                 }
             }
+
+            await SyncHashtagsAsync(
+                post,
+                dto.Hashtags);
 
             post.Status = PostStatus.Published;
             post.Visibility = PostVisibility.Visible;
             post.UpdatedAt = DateTime.UtcNow;
 
             _postRepo.Update(post);
+
             await _uow.SaveChangesAsync();
 
-            var updatedPost = await _postRepo.GetByIdAsync(postId)
-                ?? throw new KeyNotFoundException("Post not found after update.");
+            var updatedPost =
+                await _postRepo.GetByIdAsync(postId)
+                ?? throw new KeyNotFoundException(
+                    "Post not found after update.");
 
             return MapToResponse(updatedPost);
         }
@@ -307,6 +357,10 @@ namespace Application.Services.PostImp
                     .OrderBy(i => i.CreatedAt)
                     .Select(i => i.ImageUrl)
                     .ToList() ?? new List<string>(),
+
+                Hashtags = post.PostHashtags?
+                    .Select(ph => ph.Hashtag.Name)
+                    .ToList() ?? [],
 
                 IsExpertPost = post.IsExpertPost ?? false,
 
@@ -560,10 +614,6 @@ namespace Application.Services.PostImp
             return responses;
         }
 
-
-        // ==============================
-        // ADMIN MODERATION
-        // ==============================
         public async Task<List<PostResponse>> GetAllPendingAdminAsync()
         {
             List<Post> posts = await _postRepo.GetAllPendingAdminPostAsync();
@@ -593,26 +643,34 @@ namespace Application.Services.PostImp
             }
         }
 
-        public async Task<PostResponse> CreatePostAsync(int accountId, CreatePostRequest request)
+        public async Task<PostResponse> CreatePostAsync(
+            int accountId,
+            CreatePostRequest request)
         {
-            ValidatePostContent(request.Content, request.Images);
-
-            //if (request.EventId.HasValue)
-            //{
-            //    var eventExists = await _eventRepo.ExistsAsync(request.EventId.Value);
-            //    if (!eventExists) throw new KeyNotFoundException("Event not found.");
-            //}
+            ValidatePostContent(
+                request.Content,
+                request.Images);
 
             var now = DateTime.UtcNow;
 
-            List<string> imageUrls = new List<string>();
-            if (request.Images != null && request.Images.Any())
+            List<string> imageUrls = new();
+
+            if (request.Images != null &&
+                request.Images.Any())
             {
-                var uploadTasks = request.Images.Select(f => _storage.UploadImageAsync(f));
-                imageUrls = (await Task.WhenAll(uploadTasks)).ToList();
+                var uploadTasks =
+                    request.Images.Select(
+                        x => _storage.UploadImageAsync(x));
+
+                imageUrls =
+                    (await Task.WhenAll(uploadTasks))
+                    .ToList();
             }
 
-            var initialStatus = imageUrls.Any() ? PostStatus.Verifying : PostStatus.Published;
+            var initialStatus =
+                imageUrls.Any()
+                    ? PostStatus.Verifying
+                    : PostStatus.Published;
 
             var post = new Post
             {
@@ -624,7 +682,6 @@ namespace Application.Services.PostImp
                 Status = initialStatus,
                 LikeCount = 0,
                 ShareCount = 0,
-                //Score = 0,
                 IsExpertPost = false,
 
                 Images = imageUrls.Select(url => new Image
@@ -638,76 +695,107 @@ namespace Application.Services.PostImp
             await _postRepo.AddAsync(post);
             await _uow.SaveChangesAsync();
 
+            await SyncHashtagsAsync(
+                post,
+                request.Hashtags);
+
+            await _uow.SaveChangesAsync();
+
             if (imageUrls.Any())
             {
-                await _producer.SendMessage(new PostImageMessage
-                {
-                    PostId = post.PostId,
-                    ImageUrls = imageUrls
-                });
+                await _producer.SendMessage(
+                    new PostImageMessage
+                    {
+                        PostId = post.PostId,
+                        ImageUrls = imageUrls
+                    });
             }
 
-            return MapToResponse(post);
+            var createdPost =
+                await _postRepo.GetByIdAsync(post.PostId)
+                ?? throw new KeyNotFoundException(
+                    "Post not found.");
+
+            return MapToResponse(createdPost);
         }
 
-        public async Task<PostResponse> UpdatePostAsync(int postId, int accountId, UpdatePostRequest request)
+        public async Task<PostResponse> UpdatePostAsync(
+            int postId,
+            int accountId,
+            UpdatePostRequest request)
         {
-            var post = await _postRepo.GetByIdAsync(postId);
-            if (post == null) throw new KeyNotFoundException("Post not found.");
+            var post = await _postRepo.GetByIdAsync(postId)
+                ?? throw new KeyNotFoundException(
+                    "Post not found.");
 
             if (post.AccountId != accountId)
-                throw new UnauthorizedAccessException("You are not the owner of this post.");
+            {
+                throw new UnauthorizedAccessException(
+                    "You are not the owner of this post.");
+            }
 
             var account = await _userManager.Users
                 .Include(x => x.ExpertProfile)
                 .FirstOrDefaultAsync(x => x.Id == accountId)
-                ?? throw new KeyNotFoundException("Account not found");
-
-            var isExpertPost = account.ExpertProfile != null &&
-                               account.ExpertProfile.Verified == true;
+                ?? throw new KeyNotFoundException(
+                    "Account not found");
 
             post.Content = request.Content?.Trim();
-            post.IsExpertPost = isExpertPost;
+            post.IsExpertPost =
+                account.ExpertProfile?.Verified == true;
             post.UpdatedAt = DateTime.UtcNow;
 
-            if (request.Images != null && request.Images.Any())
+            if (request.Images != null &&
+                request.Images.Any())
             {
                 var oldImages = post.Images.ToList();
+
                 _imageRepo.DeleteRange(oldImages);
 
-                var uploadTasks = request.Images.Select(img => _storage.UploadImageAsync(img));
-                var newImageUrls = (await Task.WhenAll(uploadTasks)).ToList();
+                var uploadTasks = request.Images
+                    .Select(x => _storage.UploadImageAsync(x));
 
-                var newImageEntities = newImageUrls.Select(url => new Image
-                {
-                    ImageUrl = url,
-                    PostId = post.PostId,
-                    OwnerType = "Post",
-                    CreatedAt = DateTime.UtcNow
-                }).ToList();
+                var newImageUrls =
+                    (await Task.WhenAll(uploadTasks))
+                    .ToList();
 
-                await _imageRepo.AddRangeAsync(newImageEntities);
+                var newImageEntities =
+                    newImageUrls.Select(url => new Image
+                    {
+                        ImageUrl = url,
+                        PostId = post.PostId,
+                        OwnerType = "Post",
+                        CreatedAt = DateTime.UtcNow
+                    }).ToList();
 
-                post.Status = PostStatus.Verifying;
+                await _imageRepo.AddRangeAsync(
+                    newImageEntities);
+
                 post.Images = newImageEntities;
+                post.Status = PostStatus.Verifying;
 
-                await _uow.SaveChangesAsync();
-
-                await _producer.SendMessage(new PostImageMessage
-                {
-                    PostId = post.PostId,
-                    ImageUrls = newImageUrls
-                });
-            }
-            else
-            {
-                await _uow.SaveChangesAsync();
+                await _producer.SendMessage(
+                    new PostImageMessage
+                    {
+                        PostId = post.PostId,
+                        ImageUrls = newImageUrls
+                    });
             }
 
-            post.Account = account;
+            await SyncHashtagsAsync(
+                post,
+                request.Hashtags);
 
-            var updatedPost = await _postRepo.GetByIdAsync(postId);
-            return MapToResponse(updatedPost!);
+            _postRepo.Update(post);
+
+            await _uow.SaveChangesAsync();
+
+            var updatedPost =
+                await _postRepo.GetByIdAsync(postId)
+                ?? throw new KeyNotFoundException(
+                    "Post not found.");
+
+            return MapToResponse(updatedPost);
         }
 
         public async Task<int> SharePostAsync(int postId)
@@ -775,7 +863,6 @@ namespace Application.Services.PostImp
         {
             if (string.IsNullOrWhiteSpace(keyword)) return new GlobalSearchResultDto();
 
-            // Get raw data from the repository.
             var (postEntities, userEntities) = await _postRepo.SearchRawDataAsync(keyword, 5);
 
             List<int> likedPostIds = new();
@@ -785,7 +872,6 @@ namespace Application.Services.PostImp
                 likedPostIds = await _postRepo.GetLikedPostIdsAsync(viewerId.Value, postIds);
             }
 
-            // Map users.
             var userDtos = userEntities.Select(u => new UserSearchDto
             {
                 AccountId = u.Id,
@@ -796,7 +882,6 @@ namespace Application.Services.PostImp
                 FollowerCount = u.CountFollower
             }).ToList();
 
-            // Map posts and handle viewer interaction flags.
             var postDtos = postEntities.Select(p => new PostFeedDto
             {
                 PostId = p.PostId,
@@ -810,7 +895,10 @@ namespace Application.Services.PostImp
                 CommentCount = p.CommentCount ?? 0,
                 CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
 
-                // Check viewer interaction.
+                Hashtags = p.PostHashtags
+                    .Select(ph => ph.Hashtag.Name)
+                    .ToList(),
+
                 IsLiked = likedPostIds.Contains(p.PostId),
                 IsExpertPost = p.IsExpertPost ?? false
             }).ToList();
@@ -820,6 +908,84 @@ namespace Application.Services.PostImp
                 Users = userDtos,
                 Posts = postDtos
             };
+        }
+
+        public async Task<List<PostFeedDto>> GetPostsByTagAsync(string tagName, int viewerId, DateTime? cursor, int pageSize)
+        {
+            return await _postRepo.GetPostsByHashtagAsync(tagName, viewerId, cursor, pageSize);
+        }
+
+        private async Task SyncHashtagsAsync(
+            Post post,
+            IEnumerable<string>? hashtags)
+        {
+            if (hashtags == null)
+                return;
+
+            var normalizedTags = hashtags
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => x.Trim().ToLower())
+                .Distinct()
+                .ToList();
+
+            var existingTags =
+                await _hashtagRepo.GetByNamesAsync(normalizedTags);
+
+            var existingNames = existingTags
+                .Select(x => x.Name.ToLower())
+                .ToHashSet();
+
+            var newTags = normalizedTags
+                .Where(x => !existingNames.Contains(x))
+                .Select(x => new Hashtag
+                {
+                    Name = x,
+                    UsageCount = 0
+                })
+                .ToList();
+
+            if (newTags.Any())
+            {
+                await _hashtagRepo.AddRangeAsync(newTags);
+                await _uow.SaveChangesAsync();
+
+                existingTags.AddRange(newTags);
+            }
+
+            var currentLinks = post.PostHashtags?
+                .Select(x => x.HashtagId)
+                .ToHashSet()
+                ?? [];
+
+            var desiredLinks = existingTags
+                .Select(x => x.HashtagId)
+                .ToHashSet();
+
+            post.PostHashtags ??= [];
+
+            var removeItems = post.PostHashtags
+                .Where(ph => !desiredLinks.Contains(ph.HashtagId))
+                .ToList();
+
+            foreach (var item in removeItems)
+            {
+                post.PostHashtags.Remove(item);
+            }
+
+            foreach (var tag in existingTags)
+            {
+                if (!currentLinks.Contains(tag.HashtagId))
+                {
+                    post.PostHashtags.Add(new PostHashtag
+                    {
+                        PostId = post.PostId,
+                        HashtagId = tag.HashtagId
+                    });
+
+                    tag.UsageCount++;
+                    _hashtagRepo.Update(tag);
+                }
+            }
         }
     }
 }

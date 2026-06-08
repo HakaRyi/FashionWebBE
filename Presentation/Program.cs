@@ -196,7 +196,7 @@ builder.Services.AddScoped<IZaloPayGatewayService, ZaloPayGatewayService>();
 builder.Services.AddScoped<IOrderAdminService, OrderAdminService>();
 builder.Services.AddScoped<IWhaleService, WhaleService>();
 builder.Services.AddScoped<IItemAnalysisService, ItemAnalysisService>();
-
+builder.Services.AddScoped<IHashtagService, HashtagService>();
 builder.Services.AddScoped<IAdminSocialDashboardService, AdminSocialDashboardService>();
 builder.Services.AddScoped<IPostTrendService, PostTrendService>();
 builder.Services.AddScoped<ITrendingTopicRepository, TrendingTopicRepository>();
@@ -327,12 +327,12 @@ builder.Services.AddQuartz(q =>
             //.WithIntervalInMinutes(5)
             .RepeatForever()));
 
-    var refundReturnKey = new JobKey(nameof(AutoRefundReturnDeliveredOrdersJob));
-    q.AddJob<AutoRefundReturnDeliveredOrdersJob>(opts => opts.WithIdentity(refundReturnKey));
-    q.AddTrigger(opts => opts
-        .ForJob(refundReturnKey)
-        .WithIdentity($"{nameof(AutoRefundReturnDeliveredOrdersJob)}-trigger")
-        .WithSimpleSchedule(s => s.WithIntervalInMinutes(30).RepeatForever()));
+    //var refundReturnKey = new JobKey(nameof(AutoRefundReturnDeliveredOrdersJob));
+    //q.AddJob<AutoRefundReturnDeliveredOrdersJob>(opts => opts.WithIdentity(refundReturnKey));
+    //q.AddTrigger(opts => opts
+    //    .ForJob(refundReturnKey)
+    //    .WithIdentity($"{nameof(AutoRefundReturnDeliveredOrdersJob)}-trigger")
+    //    .WithSimpleSchedule(s => s.WithIntervalInMinutes(30).RepeatForever()));
 });
 
 builder.Services.AddQuartzHostedService(options =>

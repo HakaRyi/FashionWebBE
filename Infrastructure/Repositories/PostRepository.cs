@@ -25,6 +25,8 @@ namespace Infrastructure.Repositories
                 .Include(p => p.Images)
                 .Include(p => p.Account).ThenInclude(a => a.Avatars)
                 .Include(p => p.Event)
+                .Include(p => p.PostHashtags)
+                    .ThenInclude(ph => ph.Hashtag)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync();
         }
@@ -34,7 +36,14 @@ namespace Infrastructure.Repositories
             return await _db.Posts
                 .Include(p => p.Images)
                 .Include(p => p.Scoreboard)
-                .Include(p => p.Account).ThenInclude(a => a.Avatars)
+                .Include(p => p.PostHashtags)
+                    .ThenInclude(ph => ph.Hashtag)
+                .Include(p => p.Reactions)
+                    .ThenInclude(r => r.Account)
+                        .ThenInclude(a => a.ExpertProfile)
+                .Include(p => p.Saves)
+                .Include(p => p.Account)
+                    .ThenInclude(a => a.Avatars)
                 .Include(p => p.Event)
                 .FirstOrDefaultAsync(p => p.PostId == postId);
         }
@@ -44,6 +53,8 @@ namespace Infrastructure.Repositories
             return await _db.Posts
                 .Include(p => p.Images)
                 .Include(p => p.Scoreboard)
+                .Include(p => p.PostHashtags)
+                    .ThenInclude(ph => ph.Hashtag)
                 .Include(p => p.Account).ThenInclude(a => a.Avatars)
                 .Include(p => p.Event)
                 .ThenInclude(e => e.EventExperts)
@@ -86,6 +97,10 @@ namespace Infrastructure.Repositories
                     Images = p.Images
                         .OrderBy(i => i.CreatedAt)
                         .Select(i => i.ImageUrl)
+                        .ToList(),
+
+                    Hashtags = p.PostHashtags
+                        .Select(ph => ph.Hashtag.Name)
                         .ToList(),
 
                     LikeCount = p.LikeCount ?? 0,
@@ -144,6 +159,10 @@ namespace Infrastructure.Repositories
                     Images = p.Images
                         .OrderBy(i => i.CreatedAt)
                         .Select(i => i.ImageUrl)
+                        .ToList(),
+
+                    Hashtags = p.PostHashtags
+                        .Select(ph => ph.Hashtag.Name)
                         .ToList(),
 
                     LikeCount = p.LikeCount ?? 0,
@@ -206,6 +225,10 @@ namespace Infrastructure.Repositories
                     Images = p.Images
                         .OrderBy(i => i.CreatedAt)
                         .Select(i => i.ImageUrl)
+                        .ToList(),
+
+                    Hashtags = p.PostHashtags
+                        .Select(ph => ph.Hashtag.Name)
                         .ToList(),
 
                     LikeCount = p.LikeCount ?? 0,
@@ -293,6 +316,10 @@ namespace Infrastructure.Repositories
                         .Select(i => i.ImageUrl)
                         .ToList(),
 
+                    Hashtags = p.PostHashtags
+                        .Select(ph => ph.Hashtag.Name)
+                        .ToList(),
+
                     LikeCount = p.LikeCount ?? 0,
                     CommentCount = p.CommentCount ?? 0,
                     ShareCount = p.ShareCount ?? 0,
@@ -363,6 +390,10 @@ namespace Infrastructure.Repositories
                         .Select(i => i.ImageUrl)
                         .ToList(),
 
+                    Hashtags = p.PostHashtags
+                        .Select(ph => ph.Hashtag.Name)
+                        .ToList(),
+
                     LikeCount = p.LikeCount ?? 0,
                     CommentCount = p.CommentCount ?? 0,
                     ShareCount = p.ShareCount ?? 0,
@@ -411,6 +442,8 @@ namespace Infrastructure.Repositories
                 .Include(p => p.Images)
                 .Include(p => p.Account).ThenInclude(a => a.Avatars)
                 .Include(p => p.Event)
+                .Include(p => p.PostHashtags)
+                    .ThenInclude(ph => ph.Hashtag)
                 .Where(p => p.Status == PostStatus.PendingAdmin)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync();
@@ -422,6 +455,8 @@ namespace Infrastructure.Repositories
                 .Include(p => p.Images)
                 .Include(p => p.Account).ThenInclude(a => a.Avatars)
                 .Include(p => p.Event)
+                .Include(p => p.PostHashtags)
+                    .ThenInclude(ph => ph.Hashtag)
                 .Where(p => p.Status == PostStatus.Published)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync();
@@ -433,6 +468,8 @@ namespace Infrastructure.Repositories
                 .Include(p => p.Images)
                 .Include(p => p.Account).ThenInclude(a => a.Avatars)
                 .Include(p => p.Event)
+                .Include(p => p.PostHashtags)
+                    .ThenInclude(ph => ph.Hashtag)
                 .Where(p => p.AccountId == userId)
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync();
@@ -445,6 +482,8 @@ namespace Infrastructure.Repositories
                 .Include(p => p.Images)
                 .Include(p => p.ExpertRatings)
                 .Include(p => p.Event)
+                .Include(p => p.PostHashtags)
+                    .ThenInclude(ph => ph.Hashtag)
                 .Include(p => p.Scoreboard)
                 .Where(p =>
                     p.EventId == eventId &&
@@ -459,6 +498,8 @@ namespace Infrastructure.Repositories
                 .Include(p => p.Account)
                 .Include(p => p.Images)
                 .Include(p => p.Event)
+                .Include(p => p.PostHashtags)
+                    .ThenInclude(ph => ph.Hashtag)
                 .Include(p => p.ExpertRatings)
                     .ThenInclude(r => r.CriterionRatings)
                 .Where(p =>
@@ -483,6 +524,8 @@ namespace Infrastructure.Repositories
         {
             return await _db.Posts
                 .Include(p => p.Scoreboard)
+                .Include(p => p.PostHashtags)
+                        .ThenInclude(ph => ph.Hashtag)
                 .Where(p => p.EventId == eventId && p.Scoreboard != null)
                 .ToListAsync();
         }
@@ -494,6 +537,8 @@ namespace Infrastructure.Repositories
                 .Include(p => p.Account)
                     .ThenInclude(a => a.Avatars)
                 .Include(p => p.Event)
+                .Include(p => p.PostHashtags)
+                    .ThenInclude(ph => ph.Hashtag)
                 .FirstOrDefaultAsync(p => p.PostId == postId);
         }
 
@@ -567,6 +612,53 @@ namespace Infrastructure.Repositories
                     CommentCount = p.CommentCount,
                     ShareCount = p.ShareCount,
                     CreatedAt = p.CreatedAt
+                })
+                .ToListAsync();
+        }
+
+        public async Task<List<PostFeedDto>> GetPostsByHashtagAsync(string tagName, int viewerId, DateTime? cursor, int pageSize)
+        {
+            var normalizedTag = tagName.Trim().ToLower();
+
+            var query = _db.Posts
+                .AsNoTracking()
+                .Where(p => p.Status == PostStatus.Published &&
+                            p.Visibility == PostVisibility.Visible &&
+                            p.PostHashtags.Any(ph => ph.Hashtag.Name.ToLower() == normalizedTag));
+
+            if (cursor.HasValue)
+            {
+                query = query.Where(p => p.CreatedAt < cursor.Value);
+            }
+
+            return await query
+                .OrderByDescending(p => p.CreatedAt)
+                .Take(pageSize)
+                .Select(p => new PostFeedDto
+                {
+                    PostId = p.PostId,
+                    AccountId = p.AccountId,
+                    UserName = p.Account.UserName!,
+                    AvatarUrl = p.Account.Avatars
+                        .OrderByDescending(a => a.CreatedAt)
+                        .Select(a => a.ImageUrl)
+                        .FirstOrDefault(),
+                    IsEvent = p.EventId.HasValue,
+                    EventName = p.EventId.HasValue ? p.Event!.Title : null,
+                    Title = p.Title,
+                    Content = p.Content,
+                    Images = p.Images.OrderBy(i => i.CreatedAt).Select(i => i.ImageUrl).ToList(),
+                    Hashtags = p.PostHashtags.Select(ph => ph.Hashtag.Name).ToList(),
+                    LikeCount = p.LikeCount ?? 0,
+                    CommentCount = p.CommentCount ?? 0,
+                    ShareCount = p.ShareCount ?? 0,
+                    CreatedAt = p.CreatedAt ?? DateTime.UtcNow,
+                    Status = p.Status,
+                    Visibility = p.Visibility,
+                    IsLiked = _db.Reactions.Any(r => r.PostId == p.PostId && r.AccountId == viewerId),
+                    IsSaved = _db.PostSaves.Any(s => s.PostId == p.PostId && s.AccountId == viewerId),
+                    IsExpertPost = p.IsExpertPost ?? false,
+                    IsLikedByExpert = _db.Reactions.Any(r => r.PostId == p.PostId && r.Account.ExpertProfile != null && r.Account.ExpertProfile.Verified == true)
                 })
                 .ToListAsync();
         }

@@ -140,6 +140,7 @@ namespace Infrastructure.Repositories
                 .Include(o => o.Seller)
                 .Include(o => o.EscrowSession)
                 .Include(o => o.RefundRequest)
+                .Include(o => o.StatusHistories)
                 .Include(o => o.OrderDetails)
                     .ThenInclude(od => od.Item)
                         .ThenInclude(i => i.Images)
@@ -359,6 +360,15 @@ namespace Infrastructure.Repositories
                     o.Status == OrderStatus.ReturnDelivered &&
                     o.StatusHistories.Any(h => h.Status == OrderStatus.ReturnDelivered && h.ChangedAt <= deadline))
                 .ToListAsync();
+        }
+
+        public async Task<string?> GetOrderCodeByIdAsync(int orderId)
+        {
+            return await _context.Orders
+                .AsNoTracking()
+                .Where(o => o.OrderId == orderId)
+                .Select(o => o.OrderCode)
+                .FirstOrDefaultAsync();
         }
 
         public async Task<List<Order>> GetCompletedOrdersForDashboardAsync(DateTime startDate, DateTime endDate)

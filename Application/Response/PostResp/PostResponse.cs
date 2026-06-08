@@ -23,6 +23,7 @@ namespace Application.Response.PostResp
         public int? ShareCount { get; set; }
         public bool IsLiked { get; set; }
         public bool IsSaved { get; set; }
+        public List<string> Hashtags { get; set; } = [];
         public DateTime? CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public List<CriterionRatingResponse> CriterionRatings { get; set; } = new();
