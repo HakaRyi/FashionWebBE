@@ -41,7 +41,7 @@ namespace Application.Services.WalletImp
             var wallet = await _walletRepo.GetByAccountIdAsync(accountId);
 
             if (wallet == null)
-                throw new Exception("Không tìm thấy ví người dùng.");
+                throw new KeyNotFoundException("User wallet not found.");
 
             return new WalletResponse
             {
@@ -58,7 +58,7 @@ namespace Application.Services.WalletImp
             var wallet = await _walletRepo.GetByAccountIdAsync(accountId);
 
             if (wallet == null)
-                throw new Exception("Ví không tồn tại.");
+                throw new KeyNotFoundException("Wallet does not exist.");
 
             var transactions = await _transactionRepo.GetByWalletIdAsync(wallet.WalletId);
 
@@ -84,27 +84,26 @@ namespace Application.Services.WalletImp
 
         public async Task<bool> ProcessTopUpAsync(TopUpRequest request)
         {
-            int accountId = _currentUserService.GetRequiredUserId();
-
             if (request == null)
-                throw new Exception("Dữ liệu nạp tiền không hợp lệ.");
+                throw new ArgumentNullException(nameof(request), "Top-up data is invalid.");
 
             if (request.Amount <= 0)
-                throw new Exception("Số tiền nạp phải lớn hơn 0.");
+                throw new ArgumentException("Top-up amount must be greater than zero.");
 
             if (string.IsNullOrWhiteSpace(request.OrderCode))
-                throw new Exception("Mã giao dịch không hợp lệ.");
+                throw new ArgumentException("Invalid transaction order code.");
 
             if (string.IsNullOrWhiteSpace(request.Provider))
-                throw new Exception("Nhà cung cấp thanh toán không hợp lệ.");
+                throw new ArgumentException("Invalid payment provider.");
 
+            int accountId = _currentUserService.GetRequiredUserId();
             await _unitOfWork.BeginTransactionAsync();
 
             try
             {
                 var wallet = await _walletRepo.GetByAccountIdAsync(accountId);
                 if (wallet == null)
-                    throw new Exception("Ví không tồn tại.");
+                    throw new KeyNotFoundException("Wallet does not exist.");
 
                 var payment = new Payment
                 {
@@ -121,7 +120,6 @@ namespace Application.Services.WalletImp
                 await _unitOfWork.SaveChangesAsync();
 
                 decimal balanceBefore = wallet.Balance;
-
                 wallet.Balance += request.Amount;
                 wallet.UpdatedAt = DateTime.UtcNow;
                 _walletRepo.Update(wallet);
@@ -137,21 +135,20 @@ namespace Application.Services.WalletImp
                     Type = TransactionType.Credit,
                     ReferenceType = TransactionReferenceType.TopUp,
                     ReferenceId = payment.PaymentId,
-                    Description = $"Nạp tiền qua {request.Provider}",
+                    Description = $"Top-up via {request.Provider}",
                     Status = TransactionStatus.Success,
                     CreatedAt = DateTime.UtcNow
                 };
 
                 await _transactionRepo.AddAsync(transaction);
-
                 await _unitOfWork.CommitAsync();
 
                 await _notificationService.SendNotificationAsync(new SendNotificationRequest
                 {
                     SenderId = accountId,
                     TargetUserId = accountId,
-                    Title = "Nạp ví thành công",
-                    Content = $"Bạn đã nạp thành công {request.Amount:N0} VND vào ví.",
+                    Title = "Wallet Top-up Successful",
+                    Content = $"You have successfully topped up {request.Amount:N0} {wallet.Currency} into your wallet.",
                     Type = "WalletTopUp"
                 });
 
@@ -175,20 +172,18 @@ namespace Application.Services.WalletImp
         {
             int accountId = _currentUserService.GetRequiredUserId();
 
-            // 1. Gọi Repo lấy ví
             var wallet = await _walletRepo.GetByAccountIdAsync(accountId);
-            if (wallet == null) throw new KeyNotFoundException("The wallet doesn't exist.");
+            if (wallet == null)
+                throw new KeyNotFoundException("Wallet does not exist.");
 
-            // 2. Định nghĩa các loại cần lấy (Nạp/Rút)
-            var walletTypes = new List<string> {
+            var walletTypes = new List<string>
+            {
                 TransactionType.Credit,
                 TransactionType.Debit
             };
 
-            // 3. Gọi Repo lấy giao dịch
             var transactions = await _walletRepo.GetWalletTransactionsAsync(wallet.WalletId, walletTypes);
 
-            // 4. Map dữ liệu sang DTO
             return new WalletDashboardResponse
             {
                 Wallet = new WalletSummaryDto

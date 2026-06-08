@@ -128,7 +128,7 @@ namespace Application.Services.WalletImp
                 {
                     if (item.ReferenceId.HasValue && orderMap.TryGetValue(item.ReferenceId.Value, out var orderCode))
                     {
-                        item.OrderCode = orderCode; 
+                        item.OrderCode = orderCode;
                     }
                 }
             }
@@ -181,7 +181,7 @@ namespace Application.Services.WalletImp
                 SourceName = transaction.ReferenceType,
                 SourceCode = transaction.ReferenceId?.ToString(),
                 DisplayTitle = BuildDisplayTitle(transaction),
-                OrderCode = orderCode 
+                OrderCode = orderCode
             };
         }
 
@@ -323,7 +323,7 @@ namespace Application.Services.WalletImp
             if (!string.IsNullOrWhiteSpace(request.ReferenceType) &&
                 !TransactionReferenceType.IsValid(request.ReferenceType))
             {
-                throw new ArgumentException("Invalid ReferenceType.");
+                throw new ArgumentException("Invalid reference type.");
             }
 
             if (!string.IsNullOrWhiteSpace(request.Status) &&
@@ -413,12 +413,12 @@ namespace Application.Services.WalletImp
         }
 
         public async Task<SpendingLimitResponseDto> UpdateMySpendingLimitAsync(
-    int accountId,
-    UpdateSpendingLimitRequestDto request)
+            int accountId,
+            UpdateSpendingLimitRequestDto request)
         {
             if (request == null)
             {
-                throw new ArgumentException("The updated data is invalid.");
+                throw new ArgumentNullException(nameof(request), "The updated data is invalid.");
             }
 
             var wallet = await _walletRepository.GetByAccountIdAsync(accountId);
@@ -429,10 +429,6 @@ namespace Application.Services.WalletImp
 
             var now = DateTime.UtcNow;
 
-            /*
-             * If MonthlySpendingLimit is null, it means the user wants to remove
-             * the spending limit. After removing it, hard limit should be disabled.
-             */
             if (!request.MonthlySpendingLimit.HasValue)
             {
                 wallet.MonthlySpendingLimit = null;
@@ -450,17 +446,17 @@ namespace Application.Services.WalletImp
 
             if (monthlyLimit <= 0)
             {
-                throw new ArgumentException("Monthly spending limit must be greater than 0.");
+                throw new ArgumentException("Monthly spending limit must be greater than zero.");
             }
 
             if (monthlyLimit < 10000)
             {
-                throw new ArgumentException("Monthly spending limit must be at least 10,000 VND.");
+                throw new ArgumentException($"Monthly spending limit must be at least 10,000 {wallet.Currency ?? "VND"}.");
             }
 
             if (monthlyLimit > 1000000000)
             {
-                throw new ArgumentException("Monthly spending limit cannot exceed 1,000,000,000 VND.");
+                throw new ArgumentException($"Monthly spending limit cannot exceed 1,000,000,000 {wallet.Currency ?? "VND"}.");
             }
 
             if (request.SpendingWarningThresholdPercent <= 0 ||

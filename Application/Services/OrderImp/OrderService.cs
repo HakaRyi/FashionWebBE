@@ -62,7 +62,7 @@ namespace Application.Services.OrderImp
         }
 
         private async Task<decimal> GetServiceFeeAsync()
-        => await _settingRepo.GetDecimalValueAsync("ORDER_SERVICE_FEE", 15000m);
+            => await _settingRepo.GetDecimalValueAsync("ORDER_SERVICE_FEE", 15000m);
 
         private async Task SaveStatusHistoryAsync(int orderId, string status, string actorType, int? changedById, string? note = null)
         {
@@ -464,9 +464,7 @@ namespace Application.Services.OrderImp
             };
 
             if (notificationType != null)
-            {
                 await NotifyOrderEventAsync(response, notificationType, currentUserId);
-            }
 
             return response;
         }
@@ -628,9 +626,7 @@ namespace Application.Services.OrderImp
             ValidateRefundImage(request.ProofImage1);
 
             if (request.ProofImage2 != null && request.ProofImage2.Length > 0)
-            {
                 ValidateRefundImage(request.ProofImage2);
-            }
 
             var order = await _orderRepo.GetByIdAsync(orderId)
                 ?? throw new KeyNotFoundException("Order not found.");
@@ -649,9 +645,7 @@ namespace Application.Services.OrderImp
             string? proofImage2Url = null;
 
             if (request.ProofImage2 != null && request.ProofImage2.Length > 0)
-            {
                 proofImage2Url = await _cloudStorageService.UploadImageAsync(request.ProofImage2);
-            }
 
             await _unitOfWork.BeginTransactionAsync();
 
@@ -722,24 +716,22 @@ namespace Application.Services.OrderImp
         {
             var requests = await _refundRepo.GetAllAsync();
 
-            var myRequests = requests
+            return requests
                 .Where(r => r.Order.BuyerId == buyerId)
                 .OrderByDescending(r => r.CreatedAt)
-                .ToList();
-
-            return myRequests.Select(r => new RefundRequestResponse
-            {
-                RefundRequestId = r.RefundRequestId,
-                OrderId = r.OrderId,
-                Reason = r.Reason,
-                ProofImage1 = r.ProofImage1,
-                ProofImage2 = r.ProofImage2,
-                ItemImage = GetRefundItemImage(r),
-                Status = r.Status,
-                AdminNote = r.AdminNote,
-                CreatedAt = r.CreatedAt,
-                ProcessedAt = r.ProcessedAt
-            }).ToList();
+                .Select(r => new RefundRequestResponse
+                {
+                    RefundRequestId = r.RefundRequestId,
+                    OrderId = r.OrderId,
+                    Reason = r.Reason,
+                    ProofImage1 = r.ProofImage1,
+                    ProofImage2 = r.ProofImage2,
+                    ItemImage = GetRefundItemImage(r),
+                    Status = r.Status,
+                    AdminNote = r.AdminNote,
+                    CreatedAt = r.CreatedAt,
+                    ProcessedAt = r.ProcessedAt
+                }).ToList();
         }
 
         public async Task<OrderResponse> RejectRefundAsync(int orderId, string adminNote)
@@ -792,7 +784,6 @@ namespace Application.Services.OrderImp
             var response = MapToResponse(updatedOrder);
 
             await NotifyOrder(response);
-
             await NotifyOrderEventAsync(response, NotificationType.RefundRejected, response.BuyerId);
             await NotifyOrderEventAsync(response, NotificationType.RefundRejected, response.SellerId);
 
@@ -991,9 +982,7 @@ namespace Application.Services.OrderImp
 
                 var variant = await _variantRepo.GetByIdForUpdateAsync(detail.ItemVariantId.Value);
                 if (variant != null && variant.Status != ItemVariantStatus.Deleted && variant.Status != ItemVariantStatus.Archived)
-                {
                     _variantRepo.Restock(variant, detail.Quantity);
-                }
             }
 
             refundRequest.Status = "COMPLETED";
@@ -1042,10 +1031,7 @@ namespace Application.Services.OrderImp
 
             try
             {
-                await CompleteOrderAndReleaseEscrowAsync(
-                    order,
-                    order.BuyerId,
-                    isSystemAction: true);
+                await CompleteOrderAndReleaseEscrowAsync(order, order.BuyerId, isSystemAction: true);
 
                 order.UpdatedAt = DateTime.UtcNow;
                 _orderRepo.Update(order);
@@ -1083,20 +1069,16 @@ namespace Application.Services.OrderImp
             {
                 foreach (var detail in order.OrderDetails)
                 {
-                    if (!detail.ItemVariantId.HasValue)
-                        continue;
+                    if (!detail.ItemVariantId.HasValue) continue;
 
-                    var variant = await _variantRepo.GetByIdForUpdateAsync(detail.ItemVariantId.Value);
+                    var variant = await _variantRepo.GetByIdAsync(detail.ItemVariantId.Value);
                     if (variant != null)
-                    {
                         _variantRepo.ReleaseReservedStock(variant, detail.Quantity);
-                    }
                 }
 
                 order.Status = OrderStatus.Cancelled;
                 order.UpdatedAt = DateTime.UtcNow;
                 order.CancelReason = "Order was automatically cancelled because payment was not completed within 30 minutes.";
-
                 _orderRepo.Update(order);
 
                 await SaveStatusHistoryAsync(
@@ -1125,21 +1107,13 @@ namespace Application.Services.OrderImp
             return response;
         }
 
-        public async Task<PagedResultDto<OrderResponse>> GetMyPurchasesFilteredAsync(
-        int buyerId,
-        OrderFilterRequest request)
+        public async Task<PagedResultDto<OrderResponse>> GetMyPurchasesFilteredAsync(int buyerId, OrderFilterRequest request)
         {
             var (page, pageSize, status) = PreProcessAndValidateFilterRequest(request);
 
             var result = await _orderRepo.GetOrdersByBuyerIdFilteredAsync(
-                buyerId,
-                page,
-                pageSize,
-                status,
-                request.FromDate,
-                request.ToDate,
-                request.SellerName,
-                request.OrderCode);
+                buyerId, page, pageSize, status,
+                request.FromDate, request.ToDate, request.SellerName, request.OrderCode);
 
             return new PagedResultDto<OrderResponse>
             {
@@ -1151,21 +1125,13 @@ namespace Application.Services.OrderImp
             };
         }
 
-        public async Task<PagedResultDto<OrderResponse>> GetMySalesFilteredAsync(
-            int sellerId,
-            OrderFilterRequest request)
+        public async Task<PagedResultDto<OrderResponse>> GetMySalesFilteredAsync(int sellerId, OrderFilterRequest request)
         {
             var (page, pageSize, status) = PreProcessAndValidateFilterRequest(request);
 
             var result = await _orderRepo.GetOrdersBySellerIdFilteredAsync(
-                sellerId,
-                page,
-                pageSize,
-                status,
-                request.FromDate,
-                request.ToDate,
-                request.BuyerName,
-                request.OrderCode);
+                sellerId, page, pageSize, status,
+                request.FromDate, request.ToDate, request.BuyerName, request.OrderCode);
 
             return new PagedResultDto<OrderResponse>
             {
@@ -1215,10 +1181,7 @@ namespace Application.Services.OrderImp
             order.Status = OrderStatus.Shipping;
         }
 
-        private async Task CompleteOrderAndReleaseEscrowAsync(
-            Order order,
-            int actorId,
-            bool isSystemAction = false)
+        private async Task CompleteOrderAndReleaseEscrowAsync(Order order, int actorId, bool isSystemAction = false)
         {
             if (!isSystemAction && order.BuyerId != actorId)
                 throw new UnauthorizedAccessException("Only the buyer can complete this order.");
@@ -1344,7 +1307,6 @@ namespace Application.Services.OrderImp
 
         private async Task HandleCancelAsync(Order order, int currentUserId)
         {
-            // TRƯỜNG HỢP 1: Hủy khi đơn chưa thanh toán (Chỉ giữ chỗ kho hàng)
             if (order.Status == OrderStatus.PendingPayment)
             {
                 if (order.OrderDetails != null)
@@ -1355,9 +1317,7 @@ namespace Application.Services.OrderImp
 
                         var variant = await _variantRepo.GetByIdForUpdateAsync(detail.ItemVariantId.Value);
                         if (variant != null)
-                        {
                             _variantRepo.ReleaseReservedStock(variant, detail.Quantity);
-                        }
                     }
                 }
 
@@ -1365,7 +1325,7 @@ namespace Application.Services.OrderImp
                 order.UpdatedAt = DateTime.UtcNow;
                 _orderRepo.Update(order);
 
-                string actorType = (currentUserId == order.BuyerId) ? "Buyer" : (currentUserId == order.SellerId ? "Seller" : "System");
+                string actorType = currentUserId == order.BuyerId ? "Buyer" : currentUserId == order.SellerId ? "Seller" : "System";
                 await SaveStatusHistoryAsync(
                     order.OrderId,
                     OrderStatus.Cancelled,
@@ -1376,7 +1336,6 @@ namespace Application.Services.OrderImp
                 return;
             }
 
-            // TRƯỜNG HỢP 2: Hủy khi đơn đã thanh toán & đang xử lý (Processing) -> Phải giải ngân quỹ Escrow
             if (order.Status == OrderStatus.Processing)
             {
                 var buyerWallet = await _walletRepo.GetByAccountIdForUpdateAsync(order.BuyerId)
@@ -1391,7 +1350,6 @@ namespace Application.Services.OrderImp
 
                 decimal buyerBefore = buyerWallet.Balance;
 
-                // Hoàn trả tiền về lại ví Buyer
                 buyerWallet.Balance += order.TotalAmount;
                 buyerWallet.UpdatedAt = DateTime.UtcNow;
                 _walletRepo.Update(buyerWallet);
@@ -1399,13 +1357,12 @@ namespace Application.Services.OrderImp
                 string oldEscrowStatus = escrow.Status;
                 decimal escrowAmountBefore = escrow.Amount;
 
-                // Đóng trạng thái ví đóng băng Escrow kỉ trước
                 escrow.Status = EscrowStatus.Refunded;
                 escrow.ResolvedAt = DateTime.UtcNow;
                 escrow.Description = $"Order Cancelled: Money released back to buyer. ActorId: {currentUserId}";
                 _escrowRepo.Update(escrow);
 
-                string actor = (currentUserId == order.BuyerId) ? "Buyer" : (currentUserId == order.SellerId ? "Seller" : "System");
+                string actor = currentUserId == order.BuyerId ? "Buyer" : currentUserId == order.SellerId ? "Seller" : "System";
                 await SaveEscrowStatusHistoryAsync(
                     escrowSession: escrow,
                     fromStatus: oldEscrowStatus,
@@ -1415,7 +1372,6 @@ namespace Application.Services.OrderImp
                     changedById: currentUserId == 0 ? 1 : currentUserId,
                     reason: $"Order cancelled by {actor}. Money released back to Buyer wallet.");
 
-                // Hoàn trả lại số lượng tồn kho thực tế vào hệ thống bán lẻ
                 if (order.OrderDetails != null)
                 {
                     foreach (var detail in order.OrderDetails)
@@ -1424,13 +1380,10 @@ namespace Application.Services.OrderImp
 
                         var variant = await _variantRepo.GetByIdForUpdateAsync(detail.ItemVariantId.Value);
                         if (variant != null)
-                        {
                             _variantRepo.Restock(variant, detail.Quantity);
-                        }
                     }
                 }
 
-                // Tạo bản ghi biến động số dư tài chính công khai
                 await _transactionRepo.AddAsync(new Transaction
                 {
                     WalletId = buyerWallet.WalletId,
@@ -1478,9 +1431,7 @@ namespace Application.Services.OrderImp
             var now = DateTime.UtcNow;
 
             decimal spentThisMonth = await _transactionRepo.GetMonthlyDebitTotalAsync(
-                wallet.WalletId,
-                now.Month,
-                now.Year);
+                wallet.WalletId, now.Month, now.Year);
 
             decimal projectedSpent = spentThisMonth + debitAmount;
             decimal limitAmount = wallet.MonthlySpendingLimit.Value;
@@ -1516,7 +1467,6 @@ namespace Application.Services.OrderImp
                 ReceiverPhone = order.ReceiverPhone,
                 CreatedAt = order.CreatedAt,
                 UpdatedAt = order.UpdatedAt,
-
                 OrderDetails = order.OrderDetails.Select(d => new OrderDetailResponse
                 {
                     OrderDetailId = d.OrderDetailId,
@@ -1580,28 +1530,21 @@ namespace Application.Services.OrderImp
         {
             string size = string.IsNullOrWhiteSpace(variant.SizeCode) ? "N/A" : variant.SizeCode;
             string color = string.IsNullOrWhiteSpace(variant.Color) ? "N/A" : variant.Color;
-
             return $"Size: {size}, Color: {color}";
         }
 
         private static string GenerateTransactionCode(string prefix)
-        {
-            return $"{prefix}-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
-        }
+            => $"{prefix}-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
 
         private static string GenerateOrderCode()
-        {
-            return $"ORD-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
-        }
+            => $"ORD-{DateTime.UtcNow:yyyyMMddHHmmss}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
 
         private static string? GetRefundItemImage(RefundRequest refundRequest)
         {
             var firstDetail = refundRequest.Order.OrderDetails.FirstOrDefault();
 
             if (!string.IsNullOrWhiteSpace(firstDetail?.ImageUrlSnapshot))
-            {
                 return firstDetail.ImageUrlSnapshot;
-            }
 
             return firstDetail?.Item?.Images
                 .OrderBy(i => i.CreatedAt)
@@ -1628,129 +1571,73 @@ namespace Application.Services.OrderImp
             });
         }
 
-        private async Task NotifyOrderEventAsync(
-            OrderResponse order,
-            string type,
-            int actorId)
+        private async Task NotifyOrderEventAsync(OrderResponse order, string type, int actorId)
         {
             switch (type)
             {
                 case NotificationType.OrderCreated:
-                    await NotifyOrderUserAsync(
-                        order,
-                        type,
-                        actorId,
-                        order.SellerId,
+                    await NotifyOrderUserAsync(order, type, actorId, order.SellerId,
                         "New order received",
                         $"You have received a new order {order.OrderCode} from {order.BuyerName}.");
                     break;
 
                 case NotificationType.OrderPaid:
-                    await NotifyOrderUserAsync(
-                        order,
-                        type,
-                        actorId,
-                        order.SellerId,
+                    await NotifyOrderUserAsync(order, type, actorId, order.SellerId,
                         "Order paid",
                         $"Order {order.OrderCode} has been paid by {order.BuyerName}.");
                     break;
 
                 case NotificationType.OrderShipping:
-                    await NotifyOrderUserAsync(
-                        order,
-                        type,
-                        actorId,
-                        order.BuyerId,
+                    await NotifyOrderUserAsync(order, type, actorId, order.BuyerId,
                         "Order is shipping",
                         $"Your order {order.OrderCode} is now shipping.");
                     break;
 
                 case NotificationType.OrderDelivered:
-                    await NotifyOrderUserAsync(
-                        order,
-                        type,
-                        actorId,
-                        order.BuyerId,
+                    await NotifyOrderUserAsync(order, type, actorId, order.BuyerId,
                         "Order delivered",
                         $"Your order {order.OrderCode} has been delivered. Please confirm it if everything is okay.");
                     break;
 
                 case NotificationType.OrderCompleted:
-                    await NotifyOrderUserAsync(
-                        order,
-                        type,
-                        actorId,
-                        order.SellerId,
+                    await NotifyOrderUserAsync(order, type, actorId, order.SellerId,
                         "Order completed",
                         $"Order {order.OrderCode} has been completed. Payment has been released to your wallet.");
-
-                    await NotifyOrderUserAsync(
-                        order,
-                        type,
-                        actorId,
-                        order.BuyerId,
+                    await NotifyOrderUserAsync(order, type, actorId, order.BuyerId,
                         "Order completed",
                         $"Your order {order.OrderCode} has been completed.");
                     break;
 
                 case NotificationType.OrderCancelled:
-                    var targetId = actorId == order.BuyerId
-                        ? order.SellerId
-                        : order.BuyerId;
-
-                    await NotifyOrderUserAsync(
-                        order,
-                        type,
-                        actorId,
-                        targetId,
+                    var targetId = actorId == order.BuyerId ? order.SellerId : order.BuyerId;
+                    await NotifyOrderUserAsync(order, type, actorId, targetId,
                         "Order cancelled",
                         $"Order {order.OrderCode} has been cancelled.");
                     break;
 
                 case NotificationType.RefundRequested:
-                    await NotifyOrderUserAsync(
-                        order,
-                        type,
-                        actorId,
-                        order.SellerId,
+                    await NotifyOrderUserAsync(order, type, actorId, order.SellerId,
                         "Refund requested",
                         $"{order.BuyerName} requested a refund for order {order.OrderCode}.");
                     break;
 
                 case NotificationType.RefundApproved:
-                    await NotifyOrderUserAsync(
-                        order,
-                        type,
-                        actorId,
-                        order.BuyerId,
+                    await NotifyOrderUserAsync(order, type, actorId, order.BuyerId,
                         "Refund approved",
                         $"Your refund request for order {order.OrderCode} has been approved.");
-
-                    await NotifyOrderUserAsync(
-                        order,
-                        type,
-                        actorId,
-                        order.SellerId,
+                    await NotifyOrderUserAsync(order, type, actorId, order.SellerId,
                         "Order refunded",
                         $"Refund request for order {order.OrderCode} has been approved. Please wait for the returned item.");
                     break;
 
                 case NotificationType.RefundRejected:
-                    await NotifyOrderUserAsync(
-                        order,
-                        type,
-                        actorId,
-                        order.BuyerId,
+                    await NotifyOrderUserAsync(order, type, actorId, order.BuyerId,
                         "Refund rejected",
                         $"Your refund request for order {order.OrderCode} has been rejected.");
                     break;
 
                 case "OrderRefunded":
-                    await NotifyOrderUserAsync(
-                        order,
-                        type,
-                        actorId,
-                        order.BuyerId,
+                    await NotifyOrderUserAsync(order, type, actorId, order.BuyerId,
                         "Order refunded",
                         $"The seller has received the returned item. Order {order.OrderCode} has been refunded to your wallet.");
                     break;

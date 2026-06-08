@@ -3,7 +3,6 @@ using Application.Response.OrderResp;
 using Application.Response.RefundResp;
 using Domain.Contracts.Common;
 using Domain.Entities;
-using System.Threading.Tasks;
 
 namespace Application.Services.OrderImp
 {
@@ -15,7 +14,7 @@ namespace Application.Services.OrderImp
         Task<Order?> GetOrderByIdAsync(int orderId);
         Task<OrderResponse?> GetOrderByIdAsync(int orderId, int currentUserId);
         Task<OrderResponse> GetOrderDetailByIdAsync(int orderId);
-
+        Task<OrderResponse> AutoCancelPendingPaymentOrderAsync(int orderId);
         Task<List<OrderResponse>> GetSalesOrdersAsync(int sellerId);
         Task<List<OrderResponse>> GetPurchasesOrdersAsync(int buyerId);
         Task<List<OrderResponse>> GetPaidOrdersAsync();
@@ -41,8 +40,8 @@ namespace Application.Services.OrderImp
         Task<OrderResponse> AutoCompleteDeliveredOrderAsync(int orderId);
 
         Task<PagedResultDto<OrderResponse>> GetMyPurchasesFilteredAsync(
-    int buyerId,
-    OrderFilterRequest request);
+            int buyerId,
+            OrderFilterRequest request);
 
         Task<PagedResultDto<OrderResponse>> GetMySalesFilteredAsync(
             int sellerId,

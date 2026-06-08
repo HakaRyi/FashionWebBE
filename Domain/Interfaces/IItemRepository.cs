@@ -1,8 +1,8 @@
-﻿using Pgvector;
-using Domain.Dto;
-using Domain.Dto.Wardrobe;
-using Domain.Entities;
+﻿using Domain.Contracts;
 using Domain.Contracts.Wardrobe;
+using Domain.Dto;
+using Domain.Entities;
+using Pgvector;
 
 namespace Domain.Interfaces
 {
@@ -11,15 +11,12 @@ namespace Domain.Interfaces
         Task<Item?> GetByIdAsync(int id);
         Task<Item?> GetByIdForUpdateAsync(int id);
         Task<Item?> GetSellableItemByIdAsync(int itemId);
-
         Task<List<Item>> GetItemsByIds(List<int> itemIds);
         Task<List<Item>> GetItemsWithDetailsByIdsAsync(List<int> itemIds);
-
         Task<IEnumerable<Item>> GetAllAsync();
         Task<(IEnumerable<Item> Items, int TotalCount)> GetByWardrobeIdAsync2(int wardrobeId, int page, int pageSize, string? search);
         Task<IEnumerable<Item>> GetByWardrobeIdAsync(int wardrobeId);
         Task<IEnumerable<Item>> GetSellableItemsByWardrobeIdAsync(int wardrobeId);
-
         Task<int> CountPublicItemsByAccountIdAsync(int accountId);
         Task<List<PublicWardrobeItemDto>> GetPublicItemsByAccountIdAsync(int accountId, int page, int pageSize);
         Task<PublicWardrobeItemDetailDto?> GetPublicItemDetailAsync(int itemId);
@@ -30,7 +27,6 @@ namespace Domain.Interfaces
             SearchIntent intent,
             int currentAccountId,
             SmartRecommendationDto scopeRequest);
-
         Task<List<Item>> GetPublicSellableItemsAsync(int page, int pageSize);
         Task<int> CountPublicSellableItemsAsync();
         Task<List<Item>> GetAdminIntelRawDataAsync(DateTime? startDate, DateTime? endDate);
@@ -38,5 +34,9 @@ namespace Domain.Interfaces
         void Update(Item item);
         void Delete(Item item);
         Task<int> SaveChangesAsync();
+        Task<UserWardrobeIntelDto?> GetUserWardrobeIntelAsync(
+            int accountId,
+            DateTime? startDate = null,
+            DateTime? endDate = null);
     }
 }
