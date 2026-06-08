@@ -1,6 +1,7 @@
 using Application.Request.ItemReq;
 using Application.Request.ItemRequest;
 using Application.Response.ItemResp;
+using Domain.Contracts;
 using Domain.Contracts.Wardrobe;
 
 namespace Application.Services.Items
@@ -54,5 +55,7 @@ namespace Application.Services.Items
         Task SaveItemAsync(int itemId);
 
         Task UnsaveItemAsync(int itemId);
+
+        Task<UserWardrobeIntelDto?> GetMyWardrobeIntelAsync(int accountId, DateTime? startDate, DateTime? endDate);
     }
 }

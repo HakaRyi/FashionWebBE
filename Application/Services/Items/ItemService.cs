@@ -4,6 +4,7 @@ using Application.Request.ItemRequest;
 using Application.Response.ItemResp;
 using Application.Utils;
 using Domain.Constants;
+using Domain.Contracts;
 using Domain.Contracts.Wardrobe;
 using Domain.Dto;
 using Domain.Entities;
@@ -936,6 +937,22 @@ namespace Application.Services.Items
                     $"smart recommendation cost: {debitAmount:N0} VND, " +
                     $"limit: {limitAmount:N0} VND.");
             }
+        }
+
+        public async Task<UserWardrobeIntelDto?> GetMyWardrobeIntelAsync(
+            int accountId,
+            DateTime? startDate,
+            DateTime? endDate)
+        {
+            var wardrobe = await _wardrobeRepository.GetByAccountIdAsync(accountId);
+            if (wardrobe == null)
+            {
+                throw new InvalidOperationException("This account has not yet had a wardrobe created.");
+            }
+
+            var intelData = await _itemRepo.GetUserWardrobeIntelAsync(accountId, startDate, endDate);
+
+            return intelData;
         }
     }
 }

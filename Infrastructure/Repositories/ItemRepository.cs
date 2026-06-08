@@ -1,7 +1,7 @@
 ﻿using Application.Response.ItemResp;
+using Domain.Contracts;
 using Domain.Contracts.Wardrobe;
 using Domain.Dto;
-using Domain.Dto.Wardrobe;
 using Domain.Entities;
 using Domain.Interfaces;
 using Infrastructure.Persistence;
@@ -505,6 +505,68 @@ namespace Infrastructure.Repositories
         public async Task<int> SaveChangesAsync()
         {
             return await _context.SaveChangesAsync();
+        }
+
+        public async Task<UserWardrobeIntelDto?> GetUserWardrobeIntelAsync(
+            int accountId,
+            DateTime? startDate = null,
+            DateTime? endDate = null)
+        {
+            var query = _context.Items
+                .AsNoTracking()
+                .Where(i => i.Wardrobe.AccountId == accountId && i.Status != ItemStatus.Deleted);
+
+            if (startDate.HasValue)
+            {
+                query = query.Where(i => i.CreatedAt >= startDate.Value);
+            }
+            if (endDate.HasValue)
+            {
+                query = query.Where(i => i.CreatedAt <= endDate.Value);
+            }
+
+            var firstItem = await query.Select(i => new { i.WardrobeId }).FirstOrDefaultAsync();
+            if (firstItem == null)
+            {
+                return new UserWardrobeIntelDto { AccountId = accountId };
+            }
+
+            var intelRaw = await query
+                .Select(i => new
+                {
+                    i.Status,
+                    i.IsForSale,
+                    VariantCount = i.ItemVariants.Count(v => v.Status != ItemVariantStatus.Deleted),
+                    TotalStock = i.ItemVariants
+                        .Where(v => v.Status != ItemVariantStatus.Deleted)
+                        .Sum(v => (int?)v.StockQuantity) ?? 0 
+                })
+                .ToListAsync();
+
+            var dto = new UserWardrobeIntelDto
+            {
+                AccountId = accountId,
+                WardrobeId = firstItem.WardrobeId,
+                TotalItems = intelRaw.Count,
+                ItemsForSale = intelRaw.Count(i => i.IsForSale),
+                ItemsForDisplayOnly = intelRaw.Count(i => !i.IsForSale),
+                TotalVariants = intelRaw.Sum(i => i.VariantCount),
+                TotalStockQuantity = intelRaw.Sum(i => i.TotalStock),
+
+                StatusCounters = intelRaw
+                    .GroupBy(i => i.Status.ToString())
+                    .ToDictionary(g => g.Key, g => g.Count())
+            };
+
+            foreach (ItemStatus status in Enum.GetValues(typeof(ItemStatus)))
+            {
+                if (status != ItemStatus.Deleted && !dto.StatusCounters.ContainsKey(status.ToString()))
+                {
+                    dto.StatusCounters[status.ToString()] = 0;
+                }
+            }
+
+            return dto;
         }
     }
 }

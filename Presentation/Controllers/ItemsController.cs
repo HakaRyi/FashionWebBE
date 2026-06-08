@@ -772,5 +772,27 @@ namespace Presentation.Controllers
                 });
             }
         }
+
+        [Authorize]
+        [HttpGet("my-wardrobe-intel")]
+        public async Task<ActionResult> GetMyWardrobeIntel(
+            [FromQuery] DateTime? startDate = null,
+            [FromQuery] DateTime? endDate = null)
+        {
+            var accountId = _currentUserService.GetRequiredUserId();
+
+            var intelResult = await _itemService.GetMyWardrobeIntelAsync(accountId, startDate, endDate);
+
+            if (intelResult == null)
+            {
+                return NotFound(new { message = "No statistics found for this wardrobe." });
+            }
+
+            return Ok(new
+            {
+                message = "Get wardrobe statistics successfully.",
+                data = intelResult
+            });
+        }
     }
 }
