@@ -294,12 +294,10 @@ namespace Application.Services.OrderImp
                     reason: $"Order #{order.OrderId} paid successfully. System funds put on escrow hold."
                 );
 
-                await _unitOfWork.SaveChangesAsync();
-
                 await _transactionRepo.AddAsync(new Transaction
                 {
                     WalletId = buyerWallet.WalletId,
-                    EscrowSessionId = escrowSession.EscrowSessionId,
+                    EscrowSession = escrowSession,
                     TransactionCode = GenerateTransactionCode("TRX"),
                     Amount = order.TotalAmount,
                     BalanceBefore = buyerBefore,
@@ -312,6 +310,7 @@ namespace Application.Services.OrderImp
                     Status = TransactionStatus.Success
                 });
 
+                await _unitOfWork.SaveChangesAsync();
                 await _unitOfWork.CommitAsync();
 
                 var response = MapToResponse(order);
