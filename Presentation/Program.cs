@@ -292,21 +292,21 @@ builder.Services.AddQuartz(q =>
             .WithIntervalInMinutes(5)
             .RepeatForever()));
 
-    var recomputePostTrendJobKey = new JobKey("RecomputePostTrendJob");
+    //var recomputePostTrendJobKey = new JobKey("RecomputePostTrendJob");
 
-    q.AddJob<RecomputePostTrendJob>(options =>
-        options.WithIdentity(recomputePostTrendJobKey)
-            .WithDescription("Recompute trending posts every 1 hour.")
-            .StoreDurably());
+    //q.AddJob<RecomputePostTrendJob>(options =>
+    //    options.WithIdentity(recomputePostTrendJobKey)
+    //        .WithDescription("Recompute trending posts every 1 hour.")
+    //        .StoreDurably());
 
-    q.AddTrigger(options => options
-        .ForJob(recomputePostTrendJobKey)
-        .WithIdentity("RecomputePostTrendJob-trigger")
-        .WithDescription("Runs every 1 hour to recompute post trends.")
-        .WithSimpleSchedule(schedule => schedule
-            //.WithIntervalInHours(1)
-            .WithIntervalInMinutes(5)
-            .RepeatForever()));
+    //q.AddTrigger(options => options
+    //    .ForJob(recomputePostTrendJobKey)
+    //    .WithIdentity("RecomputePostTrendJob-trigger")
+    //    .WithDescription("Runs every 1 hour to recompute post trends.")
+    //    .WithSimpleSchedule(schedule => schedule
+    //        //.WithIntervalInHours(1)
+    //        .WithIntervalInMinutes(5)
+    //        .RepeatForever()));
 
     var recomputeTrendingTopicJobKey =
     new JobKey("RecomputeTrendingTopicJob");
