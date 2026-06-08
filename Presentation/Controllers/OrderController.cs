@@ -75,7 +75,9 @@ namespace API.Controllers
         [HttpGet("{orderId:int}")]
         public async Task<IActionResult> GetOrderById(int orderId)
         {
-            var result = await _orderService.GetOrderDetailByIdAsync(orderId);
+            var userId = _currentUser.GetRequiredUserId();
+            var result = await _orderService.GetOrderByIdAsync(orderId, userId); 
+            if (result == null) return NotFound();
             return Ok(result);
         }
 
@@ -222,11 +224,6 @@ namespace API.Controllers
             }
         }
 
-        /// <summary>
-        /// Lấy chi tiết dòng tiền, lịch sử trạng thái và sản phẩm của một đơn hàng cụ thể
-        /// </summary>
-        /// <param name="orderCode">Mã đối soát đơn hàng (Ví dụ: ORD-123 hoặc mã code tùy chỉnh)</param>
-        /// <returns>Dữ liệu chi tiết toàn bộ đơn hàng</returns>
         [HttpGet("/api/admin/orders/{orderCode}")]
         [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(OrderAdminDetailResponse))]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -245,7 +242,6 @@ namespace API.Controllers
             }
             catch (Exception ex)
             {
-                // Nếu Service ném ra Exception không tìm thấy dữ liệu
                 if (ex.Message.Contains("Không tìm thấy đơn hàng"))
                 {
                     return NotFound(new { message = ex.Message });

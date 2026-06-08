@@ -15,15 +15,18 @@ namespace Application.Services.WalletImp
         private readonly ITransactionRepository _transactionRepository;
         private readonly IWalletRepository _walletRepository;
         private readonly IUnitOfWork _unitOfWork;
+        private readonly IOrderRepository _orderRepository;
 
         public ExpenseService(
             ITransactionRepository transactionRepository,
             IWalletRepository walletRepository,
-            IUnitOfWork unitOfWork)
+            IUnitOfWork unitOfWork,
+            IOrderRepository orderRepository)
         {
             _transactionRepository = transactionRepository;
             _walletRepository = walletRepository;
             _unitOfWork = unitOfWork;
+            _orderRepository = orderRepository;
         }
 
         public async Task<PagedResultDto<TransactionResponseDto>> GetMyTransactionsAsync(
@@ -105,6 +108,31 @@ namespace Application.Services.WalletImp
                 })
                 .ToListAsync();
 
+            var orderIds = items
+                .Where(x => x.ReferenceId.HasValue &&
+                           (x.ReferenceType == TransactionReferenceType.OrderPayment ||
+                            x.ReferenceType == TransactionReferenceType.OrderRefund))
+                .Select(x => x.ReferenceId!.Value)
+                .Distinct()
+                .ToList();
+
+            if (orderIds.Any())
+            {
+                var orderMap = await _orderRepository.Query()
+                    .AsNoTracking()
+                    .Where(o => orderIds.Contains(o.OrderId))
+                    .Select(o => new { o.OrderId, o.OrderCode })
+                    .ToDictionaryAsync(o => o.OrderId, o => o.OrderCode);
+
+                foreach (var item in items)
+                {
+                    if (item.ReferenceId.HasValue && orderMap.TryGetValue(item.ReferenceId.Value, out var orderCode))
+                    {
+                        item.OrderCode = orderCode; 
+                    }
+                }
+            }
+
             return new PagedResultDto<TransactionResponseDto>
             {
                 Items = items,
@@ -126,6 +154,15 @@ namespace Application.Services.WalletImp
                 throw new KeyNotFoundException("No transaction found.");
             }
 
+            string? orderCode = null;
+
+            if (transaction.ReferenceId.HasValue &&
+               (transaction.ReferenceType == TransactionReferenceType.OrderPayment ||
+                transaction.ReferenceType == TransactionReferenceType.OrderRefund))
+            {
+                orderCode = await _orderRepository.GetOrderCodeByIdAsync(transaction.ReferenceId.Value);
+            }
+
             return new TransactionDetailResponseDto
             {
                 TransactionId = transaction.TransactionId,
@@ -143,7 +180,8 @@ namespace Application.Services.WalletImp
                 Status = transaction.Status,
                 SourceName = transaction.ReferenceType,
                 SourceCode = transaction.ReferenceId?.ToString(),
-                DisplayTitle = BuildDisplayTitle(transaction)
+                DisplayTitle = BuildDisplayTitle(transaction),
+                OrderCode = orderCode 
             };
         }
 
@@ -464,8 +502,6 @@ namespace Application.Services.WalletImp
                 TransactionReferenceType.OrderRefund => $"Order refund #{transaction.ReferenceId}",
                 TransactionReferenceType.TryOn => $"Try-On payment #{transaction.ReferenceId}",
                 TransactionReferenceType.EventReward => $"Event reward #{transaction.ReferenceId}",
-                TransactionReferenceType.Withdraw => $"Withdrawal #{transaction.ReferenceId}",
-                TransactionReferenceType.Adjustment => $"Balance adjustment #{transaction.ReferenceId}",
                 _ => $"Transaction #{transaction.TransactionId}"
             };
         }
