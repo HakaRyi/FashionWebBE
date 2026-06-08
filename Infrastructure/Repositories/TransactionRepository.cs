@@ -116,6 +116,7 @@ namespace Infrastructure.Repositories
                 .AsNoTracking()
                 .Include(t => t.Wallet)
                     .ThenInclude(w => w.Account)
+                .Include(t => t.EscrowSession)
                 .Where(t => t.CreatedAt >= fromDate && t.CreatedAt <= toDate)
                 .ToListAsync();
         }
@@ -126,6 +127,7 @@ namespace Infrastructure.Repositories
                 .AsNoTracking()
                 .Include(t => t.Wallet)
                     .ThenInclude(w => w.Account)
+                .Include(t => t.EscrowSession)
                 .Where(t => t.WalletId == walletId)
                 .OrderByDescending(t => t.CreatedAt)
                 .ToListAsync();

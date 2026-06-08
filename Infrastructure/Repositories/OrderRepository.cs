@@ -370,5 +370,18 @@ namespace Infrastructure.Repositories
                 .Select(o => o.OrderCode)
                 .FirstOrDefaultAsync();
         }
+
+        public async Task<List<Order>> GetCompletedOrdersForDashboardAsync(DateTime startDate, DateTime endDate)
+        {
+            return await _context.Orders
+                .AsNoTracking()
+                .Include(o => o.Seller)
+                .Where(o =>
+                    o.Status == OrderStatus.Completed &&
+                    o.CreatedAt >= startDate &&
+                    o.CreatedAt <= endDate)
+                .ToListAsync();
+
+        }
     }
 }
