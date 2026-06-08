@@ -308,10 +308,10 @@ namespace Application.Services
 
                 var matchedEscrow = t.EscrowSession;
 
-                // --- A. LẤY SỐ TIỀN TRỰC TIẾP TỪ ESCROW STATUS HISTORY ---
+                // --- A. LẤY SỐ TIỀN TRỰC TIẾP TỪ ESCROW STATUS HISTORY (ĐÃ FIX PHÂN LOẠI SONG SONG) ---
                 if (matchedEscrow != null)
                 {
-                    // Bước 1: Lọc ra toàn bộ các lịch sử thuộc Session này và gần thời gian (sai lệch < 3 giây)
+                    // Bước 1: Lọc ứng viên trùng ID phiên và trùng khớp thời gian (< 3 giây)
                     var candidateHistories = escrowHistories
                         .Where(h => h.EscrowSessionId == matchedEscrow.EscrowSessionId &&
                                     Math.Abs((h.ChangedAt - t.CreatedAt).TotalSeconds) < 3)
@@ -321,21 +321,48 @@ namespace Application.Services
 
                     if (candidateHistories.Count > 1)
                     {
-                        // NẾU BỊ TRÙNG THỜI GIAN (Như giao dịch 31 và 32): Khớp thêm logic dựa trên số tiền biến động
-                        // Transaction (Ví User) tăng tiền (+) => Quỹ Escrow phải giảm tiền (-) và ngược lại
+                        // Nhận diện ngữ cảnh giao dịch qua Description của Transaction
+                        string txDesc = t.Description?.ToLower() ?? "";
+                        bool isServiceFeeTx = txDesc.Contains("service fee") || txDesc.Contains("admin fee") || txDesc.Contains("fee");
+
+                        // Khớp chính xác lịch sử dựa trên từ khóa nghiệp vụ (Reason) và số tiền thay đổi
+                        matchedHistory = candidateHistories.FirstOrDefault(h =>
+                        {
+                            decimal diff = h.AmountAfter - h.AmountBefore;
+                            bool isAmountMatch = (diff == -t.Amount || diff == t.Amount);
+                            if (!isAmountMatch) return false;
+
+                            string reason = h.Reason?.ToLower() ?? "";
+
+                            if (isServiceFeeTx)
+                            {
+                                // Nếu giao dịch ví là THU PHÍ -> Ưu tiên chọn lịch sử có từ khóa fee/admin
+                                return reason.Contains("fee") || reason.Contains("admin");
+                            }
+                            else
+                            {
+                                // Nếu giao dịch ví là TRẢ TIỀN SELLER -> Loại trừ các lịch sử chứa chữ fee/admin
+                                return !reason.Contains("fee") && !reason.Contains("admin");
+                            }
+                        });
+                    }
+
+                    // Fallback 1: Nếu lọc nâng cao dựa trên bối cảnh không ra, quay về khớp số tiền thuần túy
+                    if (matchedHistory == null && candidateHistories.Any())
+                    {
                         matchedHistory = candidateHistories.FirstOrDefault(h =>
                             (h.AmountAfter - h.AmountBefore) == -t.Amount ||
                             (h.AmountAfter - h.AmountBefore) == t.Amount
                         );
                     }
 
-                    // Nếu lọc nâng cao không ra hoặc chỉ có 1 ứng viên, lấy dòng đầu tiên phù hợp thời gian
+                    // Fallback 2: Lấy dòng đầu tiên phù hợp thời gian
                     if (matchedHistory == null)
                     {
                         matchedHistory = candidateHistories.FirstOrDefault();
                     }
 
-                    // Fallback: Nếu vẫn không tìm thấy bản ghi trùng thời gian, lấy bản ghi cuối cùng của Session đó
+                    // Fallback 3: Lấy bản ghi cuối cùng của Session đó
                     if (matchedHistory == null)
                     {
                         matchedHistory = escrowHistories
