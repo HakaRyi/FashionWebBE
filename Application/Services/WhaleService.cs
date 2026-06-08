@@ -1,11 +1,11 @@
 ﻿using Application.Interfaces;
 using Application.Response.TransactionResp;
 using Domain.Interfaces;
+using Domain.Entities;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace Application.Services
@@ -14,120 +14,213 @@ namespace Application.Services
     {
         private readonly ITransactionRepository _transactionRepo;
 
+        private const string StatusSuccess = "Success";
+        private const string RoleAdmin = "admin";
+        private const string TypeDebit = "Debit";
+        private const string TypeCredit = "Credit";
+        private const string RefTypeTopUp = "TopUp";
+        private const string RefTypeOrderRefund = "OrderRefund";
+        private const string RefTypeEvent = "Event";
+
         public WhaleService(ITransactionRepository transactionRepo)
         {
             _transactionRepo = transactionRepo;
         }
 
+        #region Core Financial Parser Engine
+        private class FinancialFlow
+        {
+            public decimal RealDebit { get; set; }     // Dòng tiền thực tế chi ra khỏi ví
+            public decimal RealRefund { get; set; }    // Dòng tiền thực tế được hoàn lại ví
+            public bool IsValidOrder { get; set; }     // Đánh dấu giao dịch kinh doanh hợp lệ
+            public string Category { get; set; } = "Khác";
+            public string UIFormattedMethod { get; set; } = "Ví cá nhân";
+        }
+
+        private FinancialFlow ParseTransaction(Transaction t)
+        {
+            var flow = new FinancialFlow();
+            if (t == null) return flow;
+
+            var descLower = (t.Description ?? string.Empty).ToLowerInvariant();
+            var refType = t.ReferenceType ?? string.Empty;
+            decimal absAmount = Math.Abs(t.Amount);
+
+            // 1. Loại bỏ nạp tiền VnPay
+            if (string.Equals(refType, "TopUp", StringComparison.OrdinalIgnoreCase) || descLower.Contains("vnpay"))
+            {
+                flow.UIFormattedMethod = "VNPAY";
+                return flow;
+            }
+
+            // 2. Xử lý các lệnh chi tiền (Debit hoặc Amount < 0)
+            if (string.Equals(t.Type, "Debit", StringComparison.OrdinalIgnoreCase) || t.Amount < 0)
+            {
+                // QUAN TRỌNG: Loại bỏ lệnh Freeze ảo để tránh tính trùng 2 lần với lệnh Escrow/Fee kế tiếp
+                if (descLower.Contains("freeze money") || descLower.Contains("locked balance ban đầu"))
+                {
+                    flow.IsValidOrder = false; // Không tính vào chi tiêu, không tính vào TxCount
+                    return flow;
+                }
+
+                // Các lệnh chi thực tế (gồm phí tạo event và lệnh cắt tiền vào Escrow)
+                flow.RealDebit = absAmount;
+                flow.IsValidOrder = true;
+
+                if (descLower.Contains("system creation fee"))
+                {
+                    flow.Category = "System Fee";
+                    flow.UIFormattedMethod = "Phí nền tảng";
+                }
+                else if (descLower.Contains("transferred locked balance") || descLower.Contains("escrow"))
+                {
+                    flow.Category = "Event Operations";
+                    flow.UIFormattedMethod = "Quỹ Sự Kiện";
+                }
+                else
+                {
+                    flow.Category = "Shopping";
+                    flow.UIFormattedMethod = "Số dư ví";
+                }
+            }
+            // 3. Xử lý các lệnh hoàn tiền (Credit hoặc Refund)
+            else if (string.Equals(t.Type, "Credit", StringComparison.OrdinalIgnoreCase))
+            {
+                // Kiểm tra nếu là tiền hoàn từ Event
+                if (descLower.Contains("refund of surplus") || descLower.Contains("refund"))
+                {
+                    flow.RealRefund = absAmount;
+                    flow.Category = "Refund & Rewards";
+                    flow.UIFormattedMethod = "Hoàn vào ví";
+                }
+                // Lưu ý: Người nhận giải thưởng (như 'minhquan' nhận 30,000) 
+                // Đối với sàn thì đây là chi phí, nhưng đối với User thì đây là Thu nhập (Income), không phải Refund chi tiêu.
+            }
+
+            return flow;
+        }
+
+        private string GetUserNameFromTransaction(Transaction tx)
+        {
+            if (tx.Wallet?.Account != null && !string.IsNullOrEmpty(tx.Wallet.Account.UserName))
+            {
+                return tx.Wallet.Account.UserName;
+            }
+            return $"User_Wallet_{tx.WalletId}";
+        }
+
+        private string GetSlotKey(DateTime date, string intervalType)
+        {
+            return intervalType == "monthly" ? date.ToString("yyyy-MM") : date.ToString("yyyy-MM-dd");
+        }
+        #endregion
+
+        #region Public API Services
         public async Task<List<WhaleDashboardDto>> GetTopWhalesAsync(DateTime fromDate, DateTime toDate, string? viewMode, string? searchQuery)
         {
             var endOfToDate = toDate.Date.AddDays(1).AddTicks(-1);
             var allTransactions = await _transactionRepo.GetAllTransactionsAsync(fromDate, endOfToDate);
 
-            // Lấy tất cả giao dịch hợp lệ của TOÀN SÀN trước (Dùng để tính Average chuẩn không bị ảnh hưởng bởi thanh Search)
+            if (allTransactions == null || !allTransactions.Any()) return new List<WhaleDashboardDto>();
+
+            // Lọc dữ liệu thô một lần duy nhất
             var validPaymentTxs = allTransactions
-                .Where(t => t.Status == "Success" && t.Wallet?.Account?.UserName != "admin")
+                .Where(t => string.Equals(t.Status, StatusSuccess, StringComparison.OrdinalIgnoreCase))
+                .Where(t => !string.Equals(GetUserNameFromTransaction(t), RoleAdmin, StringComparison.OrdinalIgnoreCase))
                 .ToList();
 
-            // SỬ CHÍ MẠNG BUG 1 & 3: Tính toán trước Trung bình toàn sàn theo từng Slot ra một Dictionary độc lập
             string intervalType = !string.IsNullOrEmpty(viewMode)
-                ? viewMode.ToLower()
+                ? viewMode.ToLowerInvariant()
                 : ((toDate - fromDate).TotalDays > 60 ? "monthly" : "daily");
 
             var timelineSlots = GenerateTimelineSlots(fromDate, toDate, intervalType);
-            var platformAvgPerSlotDict = new Dictionary<string, decimal>();
 
-            foreach (var slot in timelineSlots)
+            // --- TỐI ƯU HÓA O(N): PARSE 1 LẦN DUY NHẤT VÀ LƯU VÀO BỘ NHỚ ĐỆM ---
+            var parsedTxs = validPaymentTxs.Select(t => new
             {
-                var platformTxInSlot = validPaymentTxs.Where(t => IsTransactionInSlot(t.CreatedAt, slot.Key, intervalType)).ToList();
-                var slotActiveWallets = platformTxInSlot.GroupBy(t => t.WalletId)
-                    .Select(g => {
-                        decimal d = 0; decimal r = 0;
-                        foreach (var t in g)
-                        {
-                            var desc = (t.Description ?? "").ToLower();
-                            if (t.Type == "Debit" || t.Type == "System_Fee_Payment" || desc.Contains("pay for") || desc.Contains("paid entry fee")) d += Math.Abs(t.Amount);
-                            else if (t.Type == "Event_Refund" || t.ReferenceType == "OrderRefund" || desc.Contains("refund")) r += Math.Abs(t.Amount);
-                        }
-                        return new { NetSpent = d - r };
-                    }).Where(x => x.NetSpent > 0).ToList();
+                Tx = t,
+                UserName = GetUserNameFromTransaction(t),
+                SlotKey = GetSlotKey(t.CreatedAt, intervalType),
+                Flow = ParseTransaction(t)
+            }).ToList();
 
-                decimal totalAvg = slotActiveWallets.Any() ? slotActiveWallets.Average(w => w.NetSpent) : 0;
-                platformAvgPerSlotDict[slot.Key] = Math.Round(totalAvg, 2);
-            }
+            // 1. TÍNH TOÁN ĐƯỜNG TRUNG BÌNH TOÀN SÀN CHI TIÊU THỰC TẾ TRONG 1 PHÉP GROUP
+            var platformAvgPerSlotDict = parsedTxs
+                .GroupBy(p => p.SlotKey)
+                .ToDictionary(
+                    slotGroup => slotGroup.Key,
+                    slotGroup =>
+                    {
+                        var walletNetSpent = slotGroup
+                            .GroupBy(p => p.Tx.WalletId)
+                            .Select(wGroup => wGroup.Sum(p => p.Flow.RealDebit - p.Flow.RealRefund))
+                            .Where(net => net > 0)
+                            .ToList();
 
-            // Bây giờ mới áp dụng searchQuery cho danh sách hiển thị Whale (Không lo lệch đường trung bình sàn nữa)
-            var filteredWhaleTxs = validPaymentTxs;
+                        return walletNetSpent.Any() ? Math.Round(walletNetSpent.Average(), 2) : 0;
+                    }
+                );
+
+            // 2. LỌC THEO SEARCH QUERY
+            var filteredParsedTxs = parsedTxs;
             if (!string.IsNullOrEmpty(searchQuery))
             {
-                filteredWhaleTxs = validPaymentTxs
-                    .Where(t => t.Wallet?.Account?.UserName != null &&
-                                t.Wallet.Account.UserName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase))
+                filteredParsedTxs = parsedTxs
+                    .Where(p => p.UserName.Contains(searchQuery, StringComparison.OrdinalIgnoreCase))
                     .ToList();
             }
 
-            // Gom nhóm khách hàng VIP
-            var whaleGroups = filteredWhaleTxs
-                .GroupBy(t => new { t.WalletId, Name = t.Wallet?.Account?.UserName ?? "Anonymous customer" })
+            // 3. GOM NHÓM TÍNH TOÁN CHỈ SỐ KHÁCH HÀNG VIP (WHALE)
+            var whaleGroups = filteredParsedTxs
+                .GroupBy(p => new { p.Tx.WalletId, Name = p.UserName })
                 .Select(g =>
                 {
-                    decimal totalDebit = 0; decimal totalRefund = 0; int totalOrders = 0;
-                    foreach (var t in g)
-                    {
-                        var desc = (t.Description ?? "").ToLower();
-                        if (t.Type == "Debit" || t.Type == "System_Fee_Payment" || desc.Contains("pay for") || desc.Contains("paid entry fee"))
-                        {
-                            totalDebit += Math.Abs(t.Amount);
-                            totalOrders++;
-                        }
-                        else if (t.Type == "Event_Refund" || t.ReferenceType == "OrderRefund" || desc.Contains("refund"))
-                        {
-                            totalRefund += Math.Abs(t.Amount);
-                        }
-                    }
+                    decimal totalDebit = g.Sum(p => p.Flow.RealDebit);
+                    decimal totalRefund = g.Sum(p => p.Flow.RealRefund);
+                    int realPaymentCount = g.Count(p => p.Flow.IsValidOrder && p.Flow.RealDebit > 0);
 
-                    var realTotalSpent = totalDebit - totalRefund;
+                    decimal finalSpent = totalDebit - totalRefund;
+
                     return new
                     {
                         g.Key.WalletId,
                         g.Key.Name,
-                        TotalSpent = realTotalSpent > 0 ? realTotalSpent : 0,
-                        AvgTicket = totalOrders > 0 ? (totalDebit / totalOrders) : 0,
-                        TxCount = totalOrders
+                        TotalSpent = finalSpent > 0 ? finalSpent : 0,
+                        AvgTicket = realPaymentCount > 0 ? ((finalSpent > 0 ? finalSpent : totalDebit) / realPaymentCount) : 0,
+                        TxCount = realPaymentCount,
+                        TxList = g.ToList() // Giữ lại danh sách con để map xu hướng thần tốc
                     };
                 })
-                .Where(w => w.TotalSpent > 0)
+                .Where(w => w.TotalSpent > 0 || w.TxCount > 0)
                 .OrderByDescending(g => g.TotalSpent)
                 .ToList();
 
             var result = new List<WhaleDashboardDto>();
 
-            // Khớp nối dữ liệu Trend (Chạy mượt mà, siêu tốc)
+            // 4. MAPPING DỮ LIỆU ĐƯỜNG XU HƯỚNG BẰNG DICTIONARY (Bỏ tư duy lặp xuyên dữ liệu)
             foreach (var whale in whaleGroups)
             {
                 int retentionScore = Math.Min(100, whale.TxCount * 5 + 45);
+
+                // Group các giao dịch cá nhân theo SlotKey trước
+                var personalSlotDict = whale.TxList
+                    .GroupBy(p => p.SlotKey)
+                    .ToDictionary(
+                        sg => sg.Key,
+                        sg => sg.Sum(p => p.Flow.RealDebit - p.Flow.RealRefund)
+                    );
+
                 var trendData = new List<WhaleTrendDto>();
-                var personalTx = filteredWhaleTxs.Where(t => t.WalletId == whale.WalletId).ToList();
 
                 foreach (var slot in timelineSlots)
                 {
-                    var slotPersonalTx = personalTx.Where(t => IsTransactionInSlot(t.CreatedAt, slot.Key, intervalType)).ToList();
-
-                    decimal pDebit = 0; decimal pRefund = 0;
-                    foreach (var t in slotPersonalTx)
-                    {
-                        var desc = (t.Description ?? "").ToLower();
-                        if (t.Type == "Debit" || t.Type == "System_Fee_Payment" || desc.Contains("pay for") || desc.Contains("paid entry fee")) pDebit += Math.Abs(t.Amount);
-                        else if (t.Type == "Event_Refund" || t.ReferenceType == "OrderRefund" || desc.Contains("refund")) pRefund += Math.Abs(t.Amount);
-                    }
-
-                    var personalSpent = pDebit - pRefund;
+                    personalSlotDict.TryGetValue(slot.Key, out decimal netSpentInSlot);
 
                     trendData.Add(new WhaleTrendDto
                     {
                         Name = slot.Value,
-                        Personal = personalSpent > 0 ? personalSpent : 0,
-                        TotalAvg = platformAvgPerSlotDict[slot.Key] // Lấy trực tiếp từ Dictionary, mất O(1) để lấy dữ liệu!
+                        Personal = netSpentInSlot > 0 ? netSpentInSlot : 0, // Tiền sạch, nếu âm/hoàn nhiều hơn chi thì hiển thị 0
+                        TotalAvg = platformAvgPerSlotDict.TryGetValue(slot.Key, out var avg) ? avg : 0
                     });
                 }
 
@@ -147,73 +240,35 @@ namespace Application.Services
 
         public async Task<WhaleHistoryDto?> GetWhaleHistoryAsync(int walletId)
         {
-            // 1. Lấy toàn bộ lịch sử không lọc từ Repo
             var txs = await _transactionRepo.GetTransactionsByWalletIdAsync(walletId);
             if (txs == null || !txs.Any()) return null;
 
             var firstTx = txs.First();
-            var successTxs = txs.Where(t => t.Status == "Success").ToList();
+            var successTxs = txs.Where(t => string.Equals(t.Status, StatusSuccess, StringComparison.OrdinalIgnoreCase)).ToList();
 
             decimal totalDebit = 0;
             decimal totalRefund = 0;
-
-            // Định nghĩa danh sách các loại danh mục cho Pie Chart
             var distributionDict = new Dictionary<string, decimal>();
 
-            // 2. Xử lý phân loại dòng tiền & Tính toán LTV (Total Spent) động
             foreach (var t in successTxs)
             {
-                var descLower = (t.Description ?? "").ToLower();
-                var type = t.Type ?? "";
-                var refType = t.ReferenceType ?? "Khác";
-                decimal absAmount = Math.Abs(t.Amount);
+                var flow = ParseTransaction(t);
 
-                // --- LUỒNG TRỪ TIỀN (USER CHI TIÊU) ---
-                if (type == "Debit" ||
-                    type == "System_Fee_Payment" ||
-                    type == "Escrow_Hold" || // Tiền cọc giải thưởng Event cũng là tiền túi user bỏ ra
-                    descLower.Contains("pay for") ||
-                    descLower.Contains("paid entry fee") ||
-                    descLower.Contains("deposit prize money"))
+                if (flow.RealDebit > 0)
                 {
-                    totalDebit += absAmount;
-
-                    // Phân loại danh mục hiển thị trên Pie Chart (Biểu đồ tròn)
-                    string category = refType;
-                    if (type == "System_Fee_Payment" || descLower.Contains("system fee"))
-                    {
-                        category = "Event Fee";
-                    }
-                    else if (type == "Escrow_Hold" || descLower.Contains("deposit prize money"))
-                    {
-                        category = "Event Prize Deposit";
-                    }
-                    else if (refType == "OrderPayment")
-                    {
-                        category = "Shopping";
-                    }
-
-                    if (!distributionDict.ContainsKey(category)) distributionDict[category] = 0;
-                    distributionDict[category] += absAmount;
+                    totalDebit += flow.RealDebit;
+                    distributionDict[flow.Category] = distributionDict.GetValueOrDefault(flow.Category) + flow.RealDebit;
                 }
-                // --- LUỒNG HOÀN TIỀN (USER ĐƯỢC CỘNG LẠI TIỀN) ---
-                else if (type == "Event_Refund" ||
-                         refType == "Refund" ||
-                         refType == "OrderRefund" ||
-                         descLower.Contains("refund"))
+                else if (flow.RealRefund > 0)
                 {
-                    totalRefund += absAmount;
-
-                    // Đưa tiền hoàn vào mục "Refund" trên Pie Chart để đối soát
-                    string category = "Refund";
-                    if (!distributionDict.ContainsKey(category)) distributionDict[category] = 0;
-                    distributionDict[category] += absAmount;
+                    totalRefund += flow.RealRefund;
+                    distributionDict[flow.Category] = distributionDict.GetValueOrDefault(flow.Category) + flow.RealRefund;
                 }
             }
 
             var netTotalSpent = totalDebit - totalRefund;
+            var finalTotalSpent = netTotalSpent > 0 ? netTotalSpent : 0;
 
-            // Chuyển đổi Dictionary thành List Dto cho Pie Chart
             var distributionData = distributionDict
                 .Select(kv => new TransactionDistributionDto
                 {
@@ -222,69 +277,43 @@ namespace Application.Services
                 })
                 .ToList();
 
-            // 3. Map danh sách hiển thị bảng lịch sử chi tiết (Ép dấu âm/dương chuẩn trực quan)
             var transactionList = txs.Select(t =>
             {
-                var displayAmount = t.Amount;
-                var descLower = (t.Description ?? "").ToLower();
-                var type = t.Type ?? "";
+                var flow = ParseTransaction(t);
+                decimal displayAmount = t.Amount;
 
-                // Logic hiển thị dấu âm (-) cho các khoản trừ tiền trên giao diện
-                if (type == "Debit" ||
-                    type == "System_Fee_Payment" ||
-                    type == "Escrow_Hold" ||
-                    descLower.Contains("pay for") ||
-                    descLower.Contains("paid entry fee"))
+                if (flow.RealDebit > 0)
                 {
-                    displayAmount = -Math.Abs(t.Amount);
+                    displayAmount = -flow.RealDebit;
                 }
-                // Logic hiển thị dấu dương (+) cho các khoản cộng/nạp tiền
-                else if (type == "Credit" ||
-                         type == "Event_Refund" ||
-                         descLower.Contains("receive") ||
-                         descLower.Contains("refund") ||
-                         descLower.Contains("top up"))
+                else if (string.Equals(t.ReferenceType, RefTypeTopUp, StringComparison.OrdinalIgnoreCase) || flow.RealRefund > 0)
                 {
                     displayAmount = Math.Abs(t.Amount);
                 }
 
-                // Xác định phương thức thanh toán hiển thị trực quan
-                string method = "Khác";
-                if (type == "Debit" || type == "System_Fee_Payment" || type == "Escrow_Hold")
-                {
-                    method = "Ví cá nhân";
-                }
-                else if (descLower.Contains("vnpay"))
-                {
-                    method = "VNPAY";
-                }
-                else if (type == "Event_Refund" || t.ReferenceType == "Refund")
-                {
-                    method = "Hoàn vào ví";
-                }
-
                 return new WhaleTransactionDto
                 {
-                    Id = t.TransactionCode ?? $"TX-{t.TransactionId}",
+                    Id = !string.IsNullOrEmpty(t.TransactionCode) ? t.TransactionCode : $"TX-{t.TransactionId}",
                     Date = t.CreatedAt.ToString("yyyy-MM-dd HH:mm"),
-                    Feature = $"{t.ReferenceType} - {t.Description}",
+                    Feature = $"[{t.ReferenceType ?? "Khác"}] - {t.Description}",
                     Amount = displayAmount,
                     Status = t.Status,
-                    Method = method
+                    Method = flow.UIFormattedMethod
                 };
             }).ToList();
 
             return new WhaleHistoryDto
             {
                 Id = $"{walletId}",
-                Name = firstTx.Wallet?.Account?.UserName ?? "Anonymous user",
-                TotalSpent = netTotalSpent > 0 ? netTotalSpent : 0,
+                Name = GetUserNameFromTransaction(firstTx),
+                TotalSpent = finalTotalSpent,
                 DistributionData = distributionData,
                 Transactions = transactionList
             };
         }
+        #endregion
 
-        #region Hàm tạo dải mốc thời gian liên tục
+        #region Timeline Slot Generator Helpers
         private Dictionary<string, string> GenerateTimelineSlots(DateTime start, DateTime end, string type)
         {
             var slots = new Dictionary<string, string>();
@@ -295,8 +324,7 @@ namespace Application.Services
                 while (current <= end.Date)
                 {
                     var key = current.ToString("yyyy-MM");
-                    if (!slots.ContainsKey(key))
-                        slots.Add(key, current.ToString("MMM yyyy", CultureInfo.InvariantCulture));
+                    slots.TryAdd(key, current.ToString("MMM yyyy", CultureInfo.InvariantCulture));
                     current = current.AddMonths(1);
                 }
             }
@@ -305,17 +333,11 @@ namespace Application.Services
                 while (current <= end.Date)
                 {
                     var key = current.ToString("yyyy-MM-dd");
-                    if (!slots.ContainsKey(key))
-                        slots.Add(key, current.ToString("dd MMM", CultureInfo.InvariantCulture));
+                    slots.TryAdd(key, current.ToString("dd MMM", CultureInfo.InvariantCulture));
                     current = current.AddDays(1);
                 }
             }
             return slots;
-        }
-
-        private bool IsTransactionInSlot(DateTime txDate, string slotKey, string type)
-        {
-            return type == "monthly" ? txDate.ToString("yyyy-MM") == slotKey : txDate.ToString("yyyy-MM-dd") == slotKey;
         }
         #endregion
     }

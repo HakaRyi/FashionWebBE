@@ -766,24 +766,19 @@ namespace Application.Services.OrderImp
                 refundRequest.ProcessedAt = DateTime.UtcNow;
                 _refundRepo.Update(refundRequest);
 
-                order.Status = OrderStatus.Delivered;
-                order.UpdatedAt = DateTime.UtcNow;
-                _orderRepo.Update(order);
-
-                await SaveStatusHistoryAsync(
-                    order.OrderId,
-                    OrderStatus.Delivered,
-                    "System",
-                    null,
-                    $"Admin rejected refund request. Note: {adminNote}. Order restored to Delivered status.");
-
                 await CompleteOrderAndReleaseEscrowAsync(
                     order,
                     order.BuyerId,
                     isSystemAction: true);
 
-                await _unitOfWork.SaveChangesAsync();
+                await SaveStatusHistoryAsync(
+                    order.OrderId,
+                    OrderStatus.Completed,
+                    "System",
+                    null,
+                    $"Admin rejected refund request. Note: {adminNote}. Dispute closed and order marked as Completed.");
 
+                await _unitOfWork.SaveChangesAsync();
                 await _unitOfWork.CommitAsync();
             }
             catch
@@ -1229,8 +1224,8 @@ namespace Application.Services.OrderImp
             if (!isSystemAction && order.BuyerId != actorId)
                 throw new UnauthorizedAccessException("Only the buyer can complete this order.");
 
-            if (order.Status != OrderStatus.Delivered)
-                throw new InvalidOperationException("Only delivered orders can be completed.");
+            if (order.Status != OrderStatus.Delivered && order.Status != OrderStatus.Refunding)
+                throw new InvalidOperationException("Only delivered or refund-rejected orders can be completed.");
 
             var sellerWallet = await _walletRepo.GetByAccountIdForUpdateAsync(order.SellerId)
                 ?? throw new KeyNotFoundException("Seller wallet not found.");
@@ -1245,60 +1240,68 @@ namespace Application.Services.OrderImp
             if (escrow.Status != EscrowStatus.Held)
                 throw new InvalidOperationException("Escrow is not in a valid held state.");
 
-            // 2. Tính toán dòng tiền công khai
-            decimal sellerBefore = sellerWallet.Balance;
-            decimal sellerReceiveAmount = order.TotalAmount - order.ServiceFee;
-
-            decimal adminBefore = adminWallet.Balance;
+            // 2. Tính toán dòng tiền từ Quỹ Escrow gốc
+            decimal escrowTotalAmount = escrow.Amount;
             decimal adminServiceFee = order.ServiceFee;
+            decimal sellerReceiveAmount = escrowTotalAmount - adminServiceFee;
 
             if (sellerReceiveAmount <= 0)
                 throw new InvalidOperationException("Invalid seller payout amount.");
 
-            // 3. Cập nhật số dư ví Seller
+
+            // Thay đổi trạng thái Escrow gốc về 0 (Đã giải phóng hoàn toàn)
+            string oldEscrowStatus = escrow.Status;
+            escrow.Status = EscrowStatus.Released;
+            escrow.Amount = 0;
+            escrow.ResolvedAt = DateTime.UtcNow;
+            escrow.Description = $"Fully dispersed: {sellerReceiveAmount:N0} VND to Seller, {adminServiceFee:N0} VND to Admin.";
+            _escrowRepo.Update(escrow);
+
+            // 3. Cập nhật số dư ví Seller & Ghi nhận lịch sử Escrow cho Seller
+            decimal sellerBefore = sellerWallet.Balance;
             sellerWallet.Balance += sellerReceiveAmount;
             sellerWallet.UpdatedAt = DateTime.UtcNow;
             _walletRepo.Update(sellerWallet);
 
-            // 4. Cập nhật số dư ví Admin (Thu phí hệ thống)
+            // Lịch sử Escrow phần 1: Trích chi cho Seller
+            await SaveEscrowStatusHistoryAsync(
+                escrowSession: escrow,
+                fromStatus: oldEscrowStatus,
+                toStatus: EscrowStatus.PartiallyReleased,
+                amountBefore: escrowTotalAmount,
+                amountAfter: adminServiceFee,
+                changedById: isSystemAction ? null : actorId,
+                reason: isSystemAction
+                    ? $"[Part 1/2 - Seller Payout] Auto release {sellerReceiveAmount:N0} VND to Seller (Wallet ID: {sellerWallet.WalletId}) due to system timeout."
+                    : $"[Part 1/2 - Seller Payout] Buyer confirmed delivery. Released {sellerReceiveAmount:N0} VND to Seller (Wallet ID: {sellerWallet.WalletId}).");
+
+            // 4. Cập nhật số dư ví Admin & Ghi nhận lịch sử Escrow cho Admin
+            decimal adminBefore = adminWallet.Balance;
             if (adminServiceFee > 0)
             {
                 adminWallet.Balance += adminServiceFee;
                 adminWallet.UpdatedAt = DateTime.UtcNow;
                 _walletRepo.Update(adminWallet);
+
+                // Lịch sử Escrow phần 2: Trích chi nốt phần phí cho Admin
+                await SaveEscrowStatusHistoryAsync(
+                    escrowSession: escrow,
+                    fromStatus: EscrowStatus.PartiallyReleased,
+                    toStatus: EscrowStatus.Released,
+                    amountBefore: adminServiceFee,
+                    amountAfter: 0,
+                    changedById: isSystemAction ? null : actorId,
+                    reason: isSystemAction
+                        ? $"[Part 2/2 - Admin Fee] Auto collect system fee {adminServiceFee:N0} VND to Admin Wallet."
+                        : $"[Part 2/2 - Admin Fee] System fee {adminServiceFee:N0} VND collected upon buyer confirmation.");
             }
 
-            string oldEscrowStatus = escrow.Status;
-            decimal escrowAmountBefore = escrow.Amount;
-
-            // 5. Cập nhật trạng thái của Escrow kì toán
-            escrow.Status = EscrowStatus.Released;
-            escrow.ResolvedAt = DateTime.UtcNow;
-            escrow.Description = $"Escrow released. Seller received: {sellerReceiveAmount:N0} VND. Admin fee: {adminServiceFee:N0} VND.";
-            _escrowRepo.Update(escrow);
-
-            await SaveEscrowStatusHistoryAsync(
-                escrowSession: escrow,
-                fromStatus: oldEscrowStatus,
-                toStatus: EscrowStatus.Released,
-                amountBefore: escrowAmountBefore,
-                amountAfter: 0,
-                changedById: isSystemAction ? null : actorId,
-                reason: isSystemAction ? "Automated release by system timeout." : "Buyer confirmed delivery. Funds dispersed to Seller and Admin.");
-
-            // 6. Cập nhật trạng thái của Đơn hàng
+            // 5. Cập nhật trạng thái của Đơn hàng (Không gọi ghi log Order History ở đây nữa để tránh trùng lặp)
             order.Status = OrderStatus.Completed;
             order.UpdatedAt = DateTime.UtcNow;
             _orderRepo.Update(order);
 
-            await SaveStatusHistoryAsync(
-                order.OrderId,
-                OrderStatus.Completed,
-                isSystemAction ? "System" : "Buyer",
-                isSystemAction ? null : actorId,
-                isSystemAction ? "Order automatically completed by system timeout." : "Buyer confirmed successful delivery. Order marked as completed.");
-
-            // 7. Lưu Transaction cho Seller
+            // 6. Lưu Transaction Seller
             await _transactionRepo.AddAsync(new Transaction
             {
                 WalletId = sellerWallet.WalletId,
@@ -1318,7 +1321,7 @@ namespace Application.Services.OrderImp
                 Status = TransactionStatus.Success
             });
 
-            // 8. Lưu Transaction thu phí dịch vụ cho Admin (Id = 1)
+            // 7. Lưu Transaction - Admin
             if (adminServiceFee > 0)
             {
                 await _transactionRepo.AddAsync(new Transaction
