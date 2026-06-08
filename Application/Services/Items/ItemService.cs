@@ -3,7 +3,6 @@ using Application.Request.ItemReq;
 using Application.Request.ItemRequest;
 using Application.Response.ItemResp;
 using Application.Utils;
-using Application.Utils.File;
 using Domain.Constants;
 using Domain.Contracts.Wardrobe;
 using Domain.Dto;
@@ -31,7 +30,6 @@ namespace Application.Services.Items
         private readonly IWalletRepository _walletRepository;
         private readonly ITransactionRepository _transactionRepository;
         private readonly IUserProfileService _userProfileService;
-
         private readonly decimal _smartRecommendPrice;
 
         public ItemService(
@@ -105,9 +103,8 @@ namespace Application.Services.Items
             if (string.IsNullOrWhiteSpace(dto.PrimaryImageUrl))
                 throw new ArgumentException("PrimaryImageUrl is required.");
 
-            var wardrobe = await _wardrobeRepository.GetByAccountIdAsync(accountId);
-            if (wardrobe == null)
-                throw new InvalidOperationException("User does not have a wardrobe.");
+            var wardrobe = await _wardrobeRepository.GetByAccountIdAsync(accountId)
+                ?? throw new InvalidOperationException("User does not have a wardrobe.");
 
             Vector vectorObject = await _aiService.GetEmbeddingFromPhotoAsync(dto, dto.PrimaryImageUrl);
 
@@ -115,24 +112,20 @@ namespace Application.Services.Items
             newItem.WardrobeId = wardrobe.WardrobeId;
             newItem.ItemEmbedding = vectorObject;
             newItem.Status = ItemStatus.Active;
-
             newItem.IsForSale = false;
             newItem.ListedPrice = null;
             newItem.Condition = null;
             newItem.PublishedAt = null;
-
             newItem.CreatedAt = DateTime.UtcNow;
             newItem.UpdateAt = DateTime.UtcNow;
 
-            var imageRecord = new Image
+            newItem.Images.Add(new Image
             {
                 ImageUrl = dto.PrimaryImageUrl,
                 OwnerType = "Item",
                 CreatedAt = DateTime.UtcNow,
                 Item = newItem
-            };
-
-            newItem.Images.Add(imageRecord);
+            });
 
             await _itemRepo.AddAsync(newItem);
             await _itemRepo.SaveChangesAsync();
@@ -231,10 +224,7 @@ namespace Application.Services.Items
             scopeRequestForRepo.IncludeSavedItems = request.IncludeSavedItems;
 
             var candidates = await _itemRepo.GetHybridRecommendationsAsync(
-                queryVector,
-                intent,
-                currentAccountId,
-                scopeRequestForRepo);
+                queryVector, intent, currentAccountId, scopeRequestForRepo);
 
             if (!candidates.Any())
                 return new List<ItemResponseDto>();
@@ -247,51 +237,21 @@ namespace Application.Services.Items
                     ?? throw new KeyNotFoundException("Wallet not found.");
 
                 var adminWallet = await _walletRepository.GetByIdAsync(1)
-                ?? throw new KeyNotFoundException("System Wallet (WalletId = 1) not found.");
+                    ?? throw new KeyNotFoundException("System Wallet (WalletId = 1) not found.");
 
                 availableBalance = wallet.Balance - wallet.LockedBalance;
                 if (availableBalance < _smartRecommendPrice)
                     throw new InvalidOperationException("Insufficient balance.");
 
-
-                //await CheckSpendingLimitAsync(wallet, _smartRecommendPrice);
-
-                //decimal balanceBefore = wallet.Balance;
-
-                //wallet.Balance -= _smartRecommendPrice;
-                //wallet.UpdatedAt = DateTime.UtcNow;
-                //_walletRepository.Update(wallet);
-
-                //var transaction = new Transaction
-                //{
-                //    WalletId = wallet.WalletId,
-                //    PaymentId = null,
-                //    TransactionCode = $"RECOM-{DateTime.UtcNow:yyyyMMddHHmmssfff}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}",
-                //    Amount = _smartRecommendPrice,
-                //    BalanceBefore = balanceBefore,
-                //    BalanceAfter = wallet.Balance,
-                //    Type = TransactionType.Debit,
-                //    ReferenceType = TransactionReferenceType.AIRecommendation,
-                //    ReferenceId = null,
-                //    Description = "Smart outfit recommendation payment",
-                //    CreatedAt = DateTime.UtcNow,
-                //    Status = TransactionStatus.Success
-                //};
-
-                //await _transactionRepository.AddAsync(transaction);
-
-                //var currentTime = DateTime.UtcNow;
-                //var commonTxCode = $"RECOM-{currentTime:yyyyMMddHHmmssfff}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
-
-
                 var currentTime = DateTime.UtcNow;
                 var commonTxCode = $"RECOM-{currentTime:yyyyMMddHHmmssfff}-{Guid.NewGuid().ToString("N")[..6].ToUpper()}";
-
 
                 var history = new RecommendationHistory
                 {
                     AccountId = currentAccountId,
-                    ReferenceItemId = (request.ReferenceItemId.HasValue && request.ReferenceItemId.Value > 0) ? request.ReferenceItemId.Value : null,
+                    ReferenceItemId = (request.ReferenceItemId.HasValue && request.ReferenceItemId.Value > 0)
+                        ? request.ReferenceItemId.Value
+                        : null,
                     Prompt = request.Prompt,
                     CreatedAt = currentTime,
                     RecommendedItems = candidates.Select(c => new RecommendationDetail
@@ -310,7 +270,7 @@ namespace Application.Services.Items
                 wallet.UpdatedAt = currentTime;
                 _walletRepository.Update(wallet);
 
-                var userTransaction = new Transaction
+                await _transactionRepository.AddAsync(new Transaction
                 {
                     WalletId = wallet.WalletId,
                     PaymentId = null,
@@ -324,15 +284,14 @@ namespace Application.Services.Items
                     Description = "Smart outfit recommendation payment.",
                     CreatedAt = currentTime,
                     Status = TransactionStatus.Success
-                };
-                await _transactionRepository.AddAsync(userTransaction);
+                });
 
                 decimal adminBalanceBefore = adminWallet.Balance;
                 adminWallet.Balance += _smartRecommendPrice;
                 adminWallet.UpdatedAt = currentTime;
                 _walletRepository.Update(adminWallet);
 
-                var adminTransaction = new Transaction
+                await _transactionRepository.AddAsync(new Transaction
                 {
                     WalletId = adminWallet.WalletId,
                     PaymentId = null,
@@ -343,12 +302,10 @@ namespace Application.Services.Items
                     Type = "Credit",
                     ReferenceType = TransactionReferenceType.AIRecommendation,
                     ReferenceId = referenceId,
-                    Description = $"The AI ​​Smart Recommendation service fee collection system uses User ID #{currentAccountId}.",
+                    Description = $"The AI Smart Recommendation service fee collection system uses User ID #{currentAccountId}.",
                     CreatedAt = currentTime,
                     Status = TransactionStatus.Success
-                };
-
-                await _transactionRepository.AddAsync(adminTransaction);
+                });
 
                 await _unitOfWork.CommitAsync();
 
@@ -381,15 +338,9 @@ namespace Application.Services.Items
             if (wardrobe == null)
                 return (new List<ItemResponseDto>(), 0);
 
-            var result = await _itemRepo.GetByWardrobeIdAsync2(
-                wardrobe.WardrobeId,
-                page,
-                pageSize,
-                search);
+            var result = await _itemRepo.GetByWardrobeIdAsync2(wardrobe.WardrobeId, page, pageSize, search);
 
-            var itemDtos = result.Items.Adapt<List<ItemResponseDto>>();
-
-            return (itemDtos, result.TotalCount);
+            return (result.Items.Adapt<List<ItemResponseDto>>(), result.TotalCount);
         }
 
         public async Task<IEnumerable<ItemResponseDto>> GetAllMyItemsAsync(int accountId)
@@ -409,9 +360,8 @@ namespace Application.Services.Items
 
             int currentUserId = _currentUserService.GetRequiredUserId();
 
-            var item = await _itemRepo.GetByIdForUpdateAsync(itemId);
-            if (item == null)
-                throw new KeyNotFoundException("Item not found.");
+            var item = await _itemRepo.GetByIdForUpdateAsync(itemId)
+                ?? throw new KeyNotFoundException("Item not found.");
 
             if (item.Wardrobe == null || item.Wardrobe.AccountId != currentUserId)
                 throw new UnauthorizedAccessException("You do not have permission to update this item.");
@@ -447,9 +397,8 @@ namespace Application.Services.Items
         {
             int currentUserId = _currentUserService.GetRequiredUserId();
 
-            var item = await _itemRepo.GetByIdForUpdateAsync(itemId);
-            if (item == null)
-                throw new KeyNotFoundException("Item not found.");
+            var item = await _itemRepo.GetByIdForUpdateAsync(itemId)
+                ?? throw new KeyNotFoundException("Item not found.");
 
             if (item.Wardrobe == null || item.Wardrobe.AccountId != currentUserId)
                 throw new UnauthorizedAccessException("You do not have permission to delete this item.");
@@ -464,18 +413,15 @@ namespace Application.Services.Items
             await _itemRepo.SaveChangesAsync();
         }
 
-        public async Task<ItemCommerceResponseDto> PublishItemForSaleAsync(
-            int itemId,
-            PublishItemForSaleRequest request)
+        public async Task<ItemCommerceResponseDto> PublishItemForSaleAsync(int itemId, PublishItemForSaleRequest request)
         {
             if (request == null)
                 throw new ArgumentNullException(nameof(request));
 
             int currentUserId = _currentUserService.GetRequiredUserId();
 
-            var item = await _itemRepo.GetByIdForUpdateAsync(itemId);
-            if (item == null)
-                throw new KeyNotFoundException("Item not found.");
+            var item = await _itemRepo.GetByIdForUpdateAsync(itemId)
+                ?? throw new KeyNotFoundException("Item not found.");
 
             if (item.Wardrobe == null || item.Wardrobe.AccountId != currentUserId)
                 throw new UnauthorizedAccessException("You do not have permission to publish this item.");
@@ -484,9 +430,7 @@ namespace Application.Services.Items
                 throw new InvalidOperationException("Only active items can be published for sale.");
 
             var existingVariants = item.ItemVariants
-                .Where(v =>
-                    v.Status != ItemVariantStatus.Deleted &&
-                    v.Status != ItemVariantStatus.Archived)
+                .Where(v => v.Status != ItemVariantStatus.Deleted && v.Status != ItemVariantStatus.Archived)
                 .ToList();
 
             await _unitOfWork.BeginTransactionAsync();
@@ -495,22 +439,15 @@ namespace Application.Services.Items
                 if (existingVariants.Any())
                 {
                     var sellableVariants = existingVariants
-                        .Where(v =>
-                            v.Status == ItemVariantStatus.Active &&
-                            v.StockQuantity > v.ReservedQuantity &&
-                            v.Price > 0)
+                        .Where(v => v.Status == ItemVariantStatus.Active &&
+                                    v.StockQuantity > v.ReservedQuantity &&
+                                    v.Price > 0)
                         .ToList();
 
                     if (!sellableVariants.Any())
                         throw new InvalidOperationException("Item must have at least one active variant with available stock.");
 
-                    item.IsForSale = true;
-                    item.IsPublic = true;
-                    item.ListedPrice = sellableVariants.Min(v => v.Price);
-                    item.Condition = request.Condition;
-                    item.PublishedAt = DateTime.UtcNow;
-                    item.UpdateAt = DateTime.UtcNow;
-
+                    ApplyPublishState(item, sellableVariants, request.Condition);
                     _itemRepo.Update(item);
                 }
                 else
@@ -540,29 +477,20 @@ namespace Application.Services.Items
                             Price = v.Price,
                             StockQuantity = v.StockQuantity,
                             ReservedQuantity = 0,
-                            Status = v.StockQuantity > 0
-                                ? ItemVariantStatus.Active
-                                : ItemVariantStatus.OutOfStock
+                            Status = v.StockQuantity > 0 ? ItemVariantStatus.Active : ItemVariantStatus.OutOfStock
                         });
                     }
 
                     var sellableVariants = variants
-                        .Where(v =>
-                            v.Status == ItemVariantStatus.Active &&
-                            v.StockQuantity > v.ReservedQuantity &&
-                            v.Price > 0)
+                        .Where(v => v.Status == ItemVariantStatus.Active &&
+                                    v.StockQuantity > v.ReservedQuantity &&
+                                    v.Price > 0)
                         .ToList();
 
                     if (!sellableVariants.Any())
                         throw new InvalidOperationException("Item must have at least one active variant with available stock.");
 
-                    item.IsForSale = true;
-                    item.IsPublic = true;
-                    item.ListedPrice = sellableVariants.Min(v => v.Price);
-                    item.Condition = request.Condition;
-                    item.PublishedAt = DateTime.UtcNow;
-                    item.UpdateAt = DateTime.UtcNow;
-
+                    ApplyPublishState(item, sellableVariants, request.Condition);
                     _itemRepo.Update(item);
                     await _itemVariantRepository.AddRangeAsync(variants);
                 }
@@ -582,9 +510,8 @@ namespace Application.Services.Items
         {
             int currentUserId = _currentUserService.GetRequiredUserId();
 
-            var item = await _itemRepo.GetByIdForUpdateAsync(itemId);
-            if (item == null)
-                throw new KeyNotFoundException("Item not found.");
+            var item = await _itemRepo.GetByIdForUpdateAsync(itemId)
+                ?? throw new KeyNotFoundException("Item not found.");
 
             if (item.Wardrobe == null || item.Wardrobe.AccountId != currentUserId)
                 throw new UnauthorizedAccessException("You do not have permission to unpublish this item.");
@@ -601,7 +528,6 @@ namespace Application.Services.Items
                 item.IsForSale = false;
                 item.PublishedAt = null;
                 item.UpdateAt = DateTime.UtcNow;
-
                 _itemRepo.Update(item);
 
                 await _unitOfWork.CommitAsync();
@@ -619,9 +545,8 @@ namespace Application.Services.Items
         {
             int currentUserId = _currentUserService.GetRequiredUserId();
 
-            var item = await _itemRepo.GetByIdAsync(itemId);
-            if (item == null)
-                throw new KeyNotFoundException("Item not found.");
+            var item = await _itemRepo.GetByIdAsync(itemId)
+                ?? throw new KeyNotFoundException("Item not found.");
 
             if (item.Wardrobe == null || item.Wardrobe.AccountId != currentUserId)
                 throw new UnauthorizedAccessException("You do not have permission to view this item's variants.");
@@ -630,18 +555,15 @@ namespace Application.Services.Items
             return variants.Select(MapVariantToResponse).ToList();
         }
 
-        public async Task<ItemVariantResponseDto> CreateItemVariantAsync(
-    int itemId,
-    CreateItemVariantRequest request)
+        public async Task<ItemVariantResponseDto> CreateItemVariantAsync(int itemId, CreateItemVariantRequest request)
         {
             if (request == null)
                 throw new ArgumentNullException(nameof(request));
 
             int currentUserId = _currentUserService.GetRequiredUserId();
 
-            var item = await _itemRepo.GetByIdForUpdateAsync(itemId);
-            if (item == null)
-                throw new KeyNotFoundException("Item not found.");
+            var item = await _itemRepo.GetByIdForUpdateAsync(itemId)
+                ?? throw new KeyNotFoundException("Item not found.");
 
             if (item.Wardrobe == null || item.Wardrobe.AccountId != currentUserId)
                 throw new UnauthorizedAccessException("You do not have permission to add variant for this item.");
@@ -661,18 +583,12 @@ namespace Application.Services.Items
             {
                 ItemId = itemId,
                 Sku = sku,
-                SizeCode = string.IsNullOrWhiteSpace(request.SizeCode)
-                    ? null
-                    : request.SizeCode.Trim(),
-                Color = string.IsNullOrWhiteSpace(request.Color)
-                    ? item.MainColor
-                    : request.Color.Trim(),
+                SizeCode = string.IsNullOrWhiteSpace(request.SizeCode) ? null : request.SizeCode.Trim(),
+                Color = string.IsNullOrWhiteSpace(request.Color) ? item.MainColor : request.Color.Trim(),
                 Price = request.Price,
                 StockQuantity = request.StockQuantity,
                 ReservedQuantity = 0,
-                Status = request.StockQuantity > 0
-                    ? ItemVariantStatus.Active
-                    : ItemVariantStatus.OutOfStock
+                Status = request.StockQuantity > 0 ? ItemVariantStatus.Active : ItemVariantStatus.OutOfStock
             };
 
             await _unitOfWork.BeginTransactionAsync();
@@ -694,25 +610,18 @@ namespace Application.Services.Items
             }
         }
 
-        public async Task<ItemVariantResponseDto> UpdateItemVariantAsync(
-    int itemVariantId,
-    UpdateItemVariantRequest request)
+        public async Task<ItemVariantResponseDto> UpdateItemVariantAsync(int itemVariantId, UpdateItemVariantRequest request)
         {
             if (request == null)
                 throw new ArgumentNullException(nameof(request));
 
             int currentUserId = _currentUserService.GetRequiredUserId();
 
-            var variant = await _itemVariantRepository.GetByIdForUpdateAsync(itemVariantId);
-            if (variant == null)
-                throw new KeyNotFoundException("Variant not found.");
+            var variant = await _itemVariantRepository.GetByIdForUpdateAsync(itemVariantId)
+                ?? throw new KeyNotFoundException("Variant not found.");
 
-            if (variant.Item == null ||
-                variant.Item.Wardrobe == null ||
-                variant.Item.Wardrobe.AccountId != currentUserId)
-            {
+            if (variant.Item == null || variant.Item.Wardrobe == null || variant.Item.Wardrobe.AccountId != currentUserId)
                 throw new UnauthorizedAccessException("You do not have permission to update this variant.");
-            }
 
             if (variant.Status == ItemVariantStatus.Deleted)
                 throw new InvalidOperationException("Cannot update deleted variant.");
@@ -720,11 +629,8 @@ namespace Application.Services.Items
             if (variant.Status == ItemVariantStatus.Archived)
                 throw new InvalidOperationException("Cannot update archived variant.");
 
-            if (request.Status == ItemVariantStatus.Deleted ||
-                request.Status == ItemVariantStatus.Archived)
-            {
+            if (request.Status == ItemVariantStatus.Deleted || request.Status == ItemVariantStatus.Archived)
                 throw new InvalidOperationException("Use delete or archive flow instead of update flow.");
-            }
 
             if (request.Price <= 0)
                 throw new InvalidOperationException("Price must be greater than 0.");
@@ -738,31 +644,18 @@ namespace Application.Services.Items
             await _unitOfWork.BeginTransactionAsync();
             try
             {
-                variant.SizeCode = string.IsNullOrWhiteSpace(request.SizeCode)
-                    ? null
-                    : request.SizeCode.Trim();
-
-                variant.Color = string.IsNullOrWhiteSpace(request.Color)
-                    ? variant.Item.MainColor
-                    : request.Color.Trim();
-
+                variant.SizeCode = string.IsNullOrWhiteSpace(request.SizeCode) ? null : request.SizeCode.Trim();
+                variant.Color = string.IsNullOrWhiteSpace(request.Color) ? variant.Item.MainColor : request.Color.Trim();
                 variant.Price = request.Price;
                 variant.StockQuantity = request.StockQuantity;
 
                 int availableStock = variant.StockQuantity - variant.ReservedQuantity;
 
-                if (request.Status == ItemVariantStatus.Inactive)
-                {
-                    variant.Status = ItemVariantStatus.Inactive;
-                }
-                else if (availableStock <= 0)
-                {
-                    variant.Status = ItemVariantStatus.OutOfStock;
-                }
-                else
-                {
-                    variant.Status = ItemVariantStatus.Active;
-                }
+                variant.Status = request.Status == ItemVariantStatus.Inactive
+                    ? ItemVariantStatus.Inactive
+                    : availableStock <= 0
+                        ? ItemVariantStatus.OutOfStock
+                        : ItemVariantStatus.Active;
 
                 _itemVariantRepository.Update(variant);
 
@@ -784,16 +677,11 @@ namespace Application.Services.Items
         {
             int currentUserId = _currentUserService.GetRequiredUserId();
 
-            var variant = await _itemVariantRepository.GetByIdForUpdateAsync(itemVariantId);
-            if (variant == null)
-                throw new KeyNotFoundException("Variant not found.");
+            var variant = await _itemVariantRepository.GetByIdForUpdateAsync(itemVariantId)
+                ?? throw new KeyNotFoundException("Variant not found.");
 
-            if (variant.Item == null ||
-                variant.Item.Wardrobe == null ||
-                variant.Item.Wardrobe.AccountId != currentUserId)
-            {
+            if (variant.Item == null || variant.Item.Wardrobe == null || variant.Item.Wardrobe.AccountId != currentUserId)
                 throw new UnauthorizedAccessException("You do not have permission to delete this variant.");
-            }
 
             if (variant.Status == ItemVariantStatus.Deleted)
                 throw new InvalidOperationException("Variant has already been deleted.");
@@ -831,9 +719,8 @@ namespace Application.Services.Items
         {
             int currentUserId = _currentUserService.GetRequiredUserId();
 
-            var item = await _itemRepo.GetByIdAsync(itemId);
-            if (item == null)
-                throw new KeyNotFoundException("Item not found.");
+            var item = await _itemRepo.GetByIdAsync(itemId)
+                ?? throw new KeyNotFoundException("Item not found.");
 
             if (item.Wardrobe != null && item.Wardrobe.AccountId == currentUserId)
                 throw new InvalidOperationException("You cannot save your own item.");
@@ -842,14 +729,13 @@ namespace Application.Services.Items
             if (existingSave != null)
                 throw new InvalidOperationException("Item already saved.");
 
-            var savedItem = new SavedItem
+            await _itemSaveRepo.SaveItem(new SavedItem
             {
                 AccountId = currentUserId,
                 ItemId = itemId,
                 SavedAt = DateTime.UtcNow
-            };
+            });
 
-            await _itemSaveRepo.SaveItem(savedItem);
             await _unitOfWork.CommitAsync();
         }
 
@@ -857,9 +743,8 @@ namespace Application.Services.Items
         {
             int currentUserId = _currentUserService.GetRequiredUserId();
 
-            var savedItem = await _itemSaveRepo.GetSaveItem(itemId, currentUserId);
-            if (savedItem == null)
-                throw new KeyNotFoundException("Saved item not found.");
+            var savedItem = await _itemSaveRepo.GetSaveItem(itemId, currentUserId)
+                ?? throw new KeyNotFoundException("Saved item not found.");
 
             await _itemSaveRepo.DeleteSaveItem(savedItem);
             await _unitOfWork.CommitAsync();
@@ -918,20 +803,13 @@ namespace Application.Services.Items
                 .Select(v => v.Trim())
                 .ToList();
 
-            return list.Any()
-                ? string.Join(", ", list)
-                : "Not specified";
+            return list.Any() ? string.Join(", ", list) : "Not specified";
         }
 
         private async Task<string> GenerateUniqueVariantSkuAsync(int itemId)
-        {
-            var usedSkus = new HashSet<string>();
-            return await GenerateUniqueVariantSkuAsync(itemId, usedSkus);
-        }
+            => await GenerateUniqueVariantSkuAsync(itemId, new HashSet<string>());
 
-        private async Task<string> GenerateUniqueVariantSkuAsync(
-            int itemId,
-            HashSet<string> usedSkus)
+        private async Task<string> GenerateUniqueVariantSkuAsync(int itemId, HashSet<string> usedSkus)
         {
             int index = 1;
 
@@ -940,10 +818,7 @@ namespace Application.Services.Items
                 string sku = $"ITEM-{itemId}-VAR-{index}";
                 string normalizedSku = sku.ToLower();
 
-                bool existsInCurrentRequest = usedSkus.Contains(normalizedSku);
-                bool existsInDatabase = await _itemVariantRepository.ExistsSkuAsync(itemId, sku);
-
-                if (!existsInCurrentRequest && !existsInDatabase)
+                if (!usedSkus.Contains(normalizedSku) && !await _itemVariantRepository.ExistsSkuAsync(itemId, sku))
                 {
                     usedSkus.Add(normalizedSku);
                     return sku;
@@ -990,15 +865,22 @@ namespace Application.Services.Items
             };
         }
 
-        private static void RefreshCommerceStateAfterVariantChange(
-            Item item,
-            ItemVariant? changedVariant = null)
+        private static void ApplyPublishState(Item item, List<ItemVariant> sellableVariants, string condition)
+        {
+            item.IsForSale = true;
+            item.IsPublic = true;
+            item.ListedPrice = sellableVariants.Min(v => v.Price);
+            item.Condition = condition;
+            item.PublishedAt = DateTime.UtcNow;
+            item.UpdateAt = DateTime.UtcNow;
+        }
+
+        private static void RefreshCommerceStateAfterVariantChange(Item item, ItemVariant? changedVariant = null)
         {
             var sellablePrices = item.ItemVariants
-                .Where(v =>
-                    v.Status == ItemVariantStatus.Active &&
-                    v.StockQuantity > v.ReservedQuantity &&
-                    v.Price > 0)
+                .Where(v => v.Status == ItemVariantStatus.Active &&
+                            v.StockQuantity > v.ReservedQuantity &&
+                            v.Price > 0)
                 .Select(v => v.Price)
                 .ToList();
 
@@ -1015,11 +897,7 @@ namespace Application.Services.Items
                 item.IsForSale = true;
                 item.IsPublic = true;
                 item.ListedPrice = sellablePrices.Min();
-
-                if (item.PublishedAt == null)
-                {
-                    item.PublishedAt = DateTime.UtcNow;
-                }
+                item.PublishedAt ??= DateTime.UtcNow;
             }
             else
             {
@@ -1045,9 +923,7 @@ namespace Application.Services.Items
             var now = DateTime.UtcNow;
 
             decimal spentThisMonth = await _transactionRepository.GetMonthlyDebitTotalAsync(
-                wallet.WalletId,
-                now.Month,
-                now.Year);
+                wallet.WalletId, now.Month, now.Year);
 
             decimal projectedSpent = spentThisMonth + debitAmount;
             decimal limitAmount = wallet.MonthlySpendingLimit.Value;
@@ -1061,7 +937,5 @@ namespace Application.Services.Items
                     $"limit: {limitAmount:N0} VND.");
             }
         }
-
-
     }
 }
