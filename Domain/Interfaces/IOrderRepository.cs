@@ -47,5 +47,6 @@ namespace Domain.Interfaces
         Task<string?> GetOrderCodeByIdAsync(int orderId);
         Task<List<Order>> GetCompletedOrdersForDashboardAsync(DateTime startDate, DateTime endDate);
 
+
     }
 }

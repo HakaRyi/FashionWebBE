@@ -381,7 +381,6 @@ namespace Infrastructure.Repositories
                     o.CreatedAt >= startDate &&
                     o.CreatedAt <= endDate)
                 .ToListAsync();
-
         }
     }
 }

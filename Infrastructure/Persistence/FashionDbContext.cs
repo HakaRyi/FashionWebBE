@@ -582,6 +582,10 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                   .WithMany()
                   .HasForeignKey(d => d.EventId)
                   .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasMany(e => e.EscrowStatusHistories)
+                  .WithOne(h => h.EscrowSession)
+                  .HasForeignKey(h => h.EscrowSessionId);
         });
 
         modelBuilder.Entity<EscrowStatusHistory>(entity =>
@@ -631,10 +635,10 @@ public partial class FashionDbContext : IdentityDbContext<Account, IdentityRole<
                 .IsRequired();
 
             entity.HasOne(d => d.EscrowSession)
-                .WithMany()
-                .HasForeignKey(d => d.EscrowSessionId)
-                .OnDelete(DeleteBehavior.Cascade)
-                .HasConstraintName("fk_escrow_status_history_session");
+                  .WithMany(p => p.EscrowStatusHistories)
+                  .HasForeignKey(d => d.EscrowSessionId)
+                  .OnDelete(DeleteBehavior.Cascade)
+                  .HasConstraintName("fk_escrow_status_history_session");
 
             entity.HasOne(d => d.ChangedBy)
                 .WithMany(p => p.EscrowStatusHistories)
