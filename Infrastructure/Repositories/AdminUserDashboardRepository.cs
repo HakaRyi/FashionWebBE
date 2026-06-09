@@ -25,7 +25,6 @@ public class AdminUserDashboardRepository : IAdminUserDashboardRepository
             .AsNoTracking()
             .AsQueryable();
 
-        // OVERVIEW
         var totalUsers = await accountsQuery.CountAsync();
 
         var newUsersToday = await accountsQuery
@@ -65,7 +64,6 @@ public class AdminUserDashboardRepository : IAdminUserDashboardRepository
 
         var otherGenderUsers = await accountsQuery
             .CountAsync(x =>
-                x.Gender != null &&
                 x.Gender != GenderType.Male &&
                 x.Gender != GenderType.Female);
 
@@ -97,6 +95,52 @@ public class AdminUserDashboardRepository : IAdminUserDashboardRepository
             .AsNoTracking()
             .CountAsync(x =>
                 x.Status == ReportStatus.Pending);
+
+        var usersWithPhysicalProfile = await _db.PhysicalProfiles
+            .AsNoTracking()
+            .Select(x => x.AccountId)
+            .Distinct()
+            .CountAsync();
+
+        var totalTryOnFeaturesUsed = await _db.TryOnHistories
+            .AsNoTracking()
+            .CountAsync();
+
+        var activeExperts = await _db.Accounts
+            .AsNoTracking()
+            .CountAsync(x => x.ExpertProfile != null);
+
+        var currentProfilesQuery = _db.PhysicalProfiles
+            .AsNoTracking()
+            .Where(x => x.IsCurrent);
+
+        var totalCurrentProfiles = await currentProfilesQuery.CountAsync();
+
+        var bodyShapeRaw = await currentProfilesQuery
+            .Where(x => x.BodyShape != null && x.BodyShape != string.Empty)
+            .GroupBy(x => x.BodyShape)
+            .Select(g => new { Label = g.Key!, Count = g.Count() })
+            .ToListAsync();
+
+        var bodyShapeDistribution = bodyShapeRaw.Select(x => new FashionInsightDto
+        {
+            Label = x.Label,
+            Count = x.Count,
+            Percentage = totalCurrentProfiles > 0 ? Math.Round((double)x.Count / totalCurrentProfiles * 100, 2) : 0
+        }).ToList();
+
+        var skinToneRaw = await currentProfilesQuery
+            .Where(x => x.SkinTone != null && x.SkinTone != string.Empty)
+            .GroupBy(x => x.SkinTone)
+            .Select(g => new { Label = g.Key!, Count = g.Count() })
+            .ToListAsync();
+
+        var skinToneDistribution = skinToneRaw.Select(x => new FashionInsightDto
+        {
+            Label = x.Label,
+            Count = x.Count,
+            Percentage = totalCurrentProfiles > 0 ? Math.Round((double)x.Count / totalCurrentProfiles * 100, 2) : 0
+        }).ToList();
 
         // RECENT USERS
         var recentUsers = await _db.Accounts
@@ -265,7 +309,6 @@ public class AdminUserDashboardRepository : IAdminUserDashboardRepository
             .Take(10)
             .ToListAsync();
 
-        // RETURN
         return new AdminUserDashboardDto
         {
             Overview = new UserOverviewDto
@@ -274,39 +317,34 @@ public class AdminUserDashboardRepository : IAdminUserDashboardRepository
                 NewUsersToday = newUsersToday,
                 NewUsersThisWeek = newUsersThisWeek,
                 NewUsersThisMonth = newUsersThisMonth,
-
                 OnlineUsers = onlineUsers,
-
                 VerifiedUsers = verifiedUsers,
                 CompletedOnboardingUsers = completedOnboardingUsers,
-
                 TotalPosts = totalPosts,
                 PostsToday = postsToday,
-
                 TotalFollows = totalFollows,
                 FollowsToday = followsToday,
-
                 TotalReports = totalReports,
                 PendingReports = pendingReports,
-
                 MaleUsers = maleUsers,
                 FemaleUsers = femaleUsers,
-                OtherGenderUsers = otherGenderUsers
+                OtherGenderUsers = otherGenderUsers,
+
+                UsersWithPhysicalProfile = usersWithPhysicalProfile,
+                TotalTryOnFeaturesUsed = totalTryOnFeaturesUsed,
+                ActiveExperts = activeExperts
             },
 
             UserGrowthChart = userGrowthChart,
-
             FollowGrowthChart = followGrowthChart,
-
             PostGrowthChart = postGrowthChart,
-
             RecentUsers = recentUsers,
-
             TopFollowedUsers = topFollowedUsers,
-
             TopPostingUsers = topPostingUsers,
+            ReportedUsers = reportedUsers,
 
-            ReportedUsers = reportedUsers
+            BodyShapeDistribution = bodyShapeDistribution,
+            SkinToneDistribution = skinToneDistribution
         };
     }
 }

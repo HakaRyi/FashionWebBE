@@ -17,6 +17,10 @@ public class AdminUserDashboardDto
     public List<RecentUserDto> RecentUsers { get; set; } = new();
 
     public List<ReportedUserDto> ReportedUsers { get; set; } = new();
+
+    public List<FashionInsightDto> BodyShapeDistribution { get; set; } = new();
+
+    public List<FashionInsightDto> SkinToneDistribution { get; set; } = new();
 }
 
 public class UserOverviewDto
@@ -52,6 +56,12 @@ public class UserOverviewDto
     public int FemaleUsers { get; set; }
 
     public int OtherGenderUsers { get; set; }
+
+    public int UsersWithPhysicalProfile { get; set; } 
+
+    public int TotalTryOnFeaturesUsed { get; set; }   
+
+    public int ActiveExperts { get; set; }            
 }
 
 public class UserGrowthChartDto
@@ -117,4 +127,11 @@ public class ReportedUserDto
     public int TotalReports { get; set; }
 
     public int PendingReports { get; set; }
+}
+
+public class FashionInsightDto
+{
+    public string Label { get; set; } = default!; 
+    public int Count { get; set; }
+    public double Percentage { get; set; }
 }
