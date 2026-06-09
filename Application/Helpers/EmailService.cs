@@ -1,19 +1,16 @@
 ﻿using Microsoft.Extensions.Configuration;
-using System.Net.Http.Headers;
-using System.Text;
-using System.Text.Json;
+using MailKit.Net.Smtp;
+using MimeKit;
 
 namespace Application.Helpers
 {
     public class EmailService
     {
         private readonly IConfiguration _config;
-        private readonly HttpClient _httpClient;
 
-        public EmailService(IConfiguration config, HttpClient httpClient)
+        public EmailService(IConfiguration config)
         {
             _config = config;
-            _httpClient = httpClient;
         }
 
         public async Task SendVerificationEmail(string toEmail, string code)
@@ -25,77 +22,84 @@ namespace Application.Helpers
 
             var emailSettings = _config.GetSection("EmailSettings");
 
-            var apiKey = emailSettings["ApiKey"];
+            var smtpServer = emailSettings["SmtpServer"];
+            var portString = emailSettings["Port"];
             var senderEmail = emailSettings["SenderEmail"];
+            var password = emailSettings["Password"];
             var senderName = emailSettings["SenderName"] ?? "Wapo Support Center";
 
-            if (string.IsNullOrWhiteSpace(apiKey))
+            if (string.IsNullOrWhiteSpace(smtpServer) ||
+                string.IsNullOrWhiteSpace(portString) ||
+                string.IsNullOrWhiteSpace(senderEmail) ||
+                string.IsNullOrWhiteSpace(password))
             {
-                throw new InvalidOperationException("EmailSettings:ApiKey was not configured.");
+                throw new InvalidOperationException("EmailSettings are not fully configured in application.");
             }
 
-            if (string.IsNullOrWhiteSpace(senderEmail))
-            {
-                throw new InvalidOperationException("EmailSettings:SenderEmail was not configured.");
-            }
+            int port = int.Parse(portString);
 
-            var from = $"{senderName} <{senderEmail}>";
+            var message = new MimeMessage();
+            message.From.Add(new MailboxAddress(senderName, senderEmail));
+            message.To.Add(new MailboxAddress("", toEmail));
+            message.Subject = "Wapo account verification code";
 
-            var body = new
+            var bodyBuilder = new BodyBuilder
             {
-                from,
-                to = new[] { toEmail },
-                subject = "Wapo account verification code",
-                html = BuildVerificationEmailBody(code)
+                HtmlBody = BuildVerificationEmailBody(code)
             };
+            message.Body = bodyBuilder.ToMessageBody();
 
-            var json = JsonSerializer.Serialize(body);
-
-            using var request = new HttpRequestMessage(HttpMethod.Post, "https://api.resend.com/emails");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-            request.Content = new StringContent(json, Encoding.UTF8, "application/json");
-
-            using var response = await _httpClient.SendAsync(request);
-            var responseContent = await response.Content.ReadAsStringAsync();
-
-            if (!response.IsSuccessStatusCode)
+            using var client = new SmtpClient();
+            try
             {
-                throw new InvalidOperationException(
-                    $"Failed to send verification email. Status: {(int)response.StatusCode}. Response: {responseContent}"
-                );
+                bool useSsl = (port == 465);
+
+                await client.ConnectAsync(smtpServer, port, useSsl);
+
+                await client.AuthenticateAsync(senderEmail, password);
+
+                await client.SendAsync(message);
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"SMTP MailKit Error: {ex.Message}", ex);
+            }
+            finally
+            {
+                await client.DisconnectAsync(true);
             }
         }
 
         private static string BuildVerificationEmailBody(string code)
         {
             return $@"
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset='UTF-8'>
-</head>
-<body style='font-family: Arial, sans-serif; background-color: #f6f6f6; padding: 24px;'>
-    <div style='max-width: 520px; margin: auto; background-color: #ffffff; padding: 24px; border-radius: 12px;'>
-        <h2 style='color: #111111;'>Welcome to Wapo</h2>
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset='UTF-8'>
+            </head>
+            <body style='font-family: Arial, sans-serif; background-color: #f6f6f6; padding: 24px;'>
+                <div style='max-width: 520px; margin: auto; background-color: #ffffff; padding: 24px; border-radius: 12px;'>
+                    <h2 style='color: #111111;'>Welcome to Wapo</h2>
 
-        <p style='font-size: 15px; color: #333333;'>
-            Please use the verification code below to complete your registration.
-        </p>
+                    <p style='font-size: 15px; color: #333333;'>
+                        Please use the verification code below to complete your registration.
+                    </p>
 
-        <div style='font-size: 28px; font-weight: bold; letter-spacing: 6px; color: #111111; margin: 24px 0;'>
-            {code}
-        </div>
+                    <div style='font-size: 28px; font-weight: bold; letter-spacing: 6px; color: #111111; margin: 24px 0;'>
+                        {code}
+                    </div>
 
-        <p style='font-size: 14px; color: #555555;'>
-            This code will expire soon. If you did not create this account, you can ignore this email.
-        </p>
+                    <p style='font-size: 14px; color: #555555;'>
+                        This code will expire soon. If you did not create this account, you can ignore this email.
+                    </p>
 
-        <p style='font-size: 14px; color: #777777; margin-top: 24px;'>
-            Wapo Support Center
-        </p>
-    </div>
-</body>
-</html>";
+                    <p style='font-size: 14px; color: #777777; margin-top: 24px;'>
+                        Wapo Support Center
+                    </p>
+                </div>
+            </body>
+            </html>";
         }
     }
 }
