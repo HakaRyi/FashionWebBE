@@ -337,8 +337,8 @@ namespace Application.Services.OrderImp
             if (order == null)
                 return null;
 
-            if (order.BuyerId != currentUserId && order.SellerId != currentUserId)
-                throw new UnauthorizedAccessException("You are not allowed to access this order.");
+            //if (order.BuyerId != currentUserId && order.SellerId != currentUserId)
+            //    throw new UnauthorizedAccessException("You are not allowed to access this order.");
 
             return MapToResponse(order, includeHistory: true);
         }
