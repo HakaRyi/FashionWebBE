@@ -218,7 +218,7 @@ builder.Services.AddHttpClient<IAIDetectionService, AIDetectionService>(client =
 
 builder.Services.AddHttpClient<ITryOnService, TryOnService>();
 
-builder.Services.AddScoped<EmailService>();
+builder.Services.AddHttpClient<EmailService>();
 
 #endregion
 
